@@ -60,6 +60,23 @@ class ApiBoardRepository implements BoardRepository {
     _checkOk(response, 'Failed to move item');
   }
 
+  @override
+  Future<void> rescheduleItem(
+    String itemId,
+    DateTime? startDate,
+    DateTime? endDate,
+  ) async {
+    final response = await _client.post(
+      _uri('/work-items/$itemId/schedule'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'startDate': startDate?.toUtc().toIso8601String(),
+        'endDate': endDate?.toUtc().toIso8601String(),
+      }),
+    );
+    _checkOk(response, 'Failed to reschedule item');
+  }
+
   Future<List<BoardStatus>> _loadStatuses() async {
     final json = await _getJsonList('/statuses');
     return [
@@ -93,7 +110,12 @@ class ApiBoardRepository implements BoardRepository {
     title: item['title'] as String,
     parentId: item['parentId'] as String,
     statusId: item['statusId'] as String,
+    startDate: _parseDate(item['startDate']),
+    endDate: _parseDate(item['endDate']),
   );
+
+  DateTime? _parseDate(dynamic value) =>
+      value == null ? null : DateTime.parse(value as String);
 
   Future<List<Map<String, dynamic>>> _getJsonList(
     String path, [

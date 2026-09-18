@@ -19,4 +19,12 @@ abstract class BoardRepository {
   /// Moves the work item identified by [itemId] to [newParentId], keeping
   /// its current status. Throws on failure.
   Future<void> reparentItem(String itemId, String newParentId);
+
+  /// Sets the work item identified by [itemId]'s scheduled start/end.
+  /// Either may be null. Throws on failure.
+  Future<void> rescheduleItem(
+    String itemId,
+    DateTime? startDate,
+    DateTime? endDate,
+  );
 }

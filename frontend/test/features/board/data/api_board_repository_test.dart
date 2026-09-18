@@ -176,4 +176,76 @@ void main() {
       throwsA(isA<ApiException>()),
     );
   });
+
+  test("loadBoard parses each card's start and end date", () async {
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/statuses') return _jsonResponse([]);
+      if (request.url.path == '/api/work-items' &&
+          request.url.queryParameters['parentId'] == 'epic-1') {
+        return _jsonResponse([
+          {
+            'id': 'lane-1',
+            'title': 'Lane One',
+            'parentId': 'epic-1',
+            'statusId': 'status-todo',
+          },
+        ]);
+      }
+      if (request.url.path == '/api/work-items' &&
+          request.url.queryParameters['parentId'] == 'lane-1') {
+        return _jsonResponse([
+          {
+            'id': 'card-1',
+            'title': 'Card One',
+            'parentId': 'lane-1',
+            'statusId': 'status-todo',
+            'startDate': '2026-01-10T00:00:00Z',
+            'endDate': null,
+          },
+        ]);
+      }
+      throw StateError('Unexpected request: ${request.url}');
+    });
+
+    final repository = ApiBoardRepository(client, baseUrl);
+    final board = await repository.loadBoard('epic-1');
+
+    final card = board.swimlanes.single.cards.single;
+    expect(card.startDate, DateTime.parse('2026-01-10T00:00:00Z'));
+    expect(card.endDate, isNull);
+  });
+
+  test('rescheduleItem posts the new dates and succeeds on 200', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return http.Response('', 200);
+    });
+    final start = DateTime.utc(2026, 2, 1);
+
+    final repository = ApiBoardRepository(client, baseUrl);
+    await repository.rescheduleItem('card-1', start, null);
+
+    expect(sentRequest, isNotNull);
+    expect(sentRequest!.url.path, '/api/work-items/card-1/schedule');
+    expect(jsonDecode(sentRequest!.body), {
+      'startDate': start.toIso8601String(),
+      'endDate': null,
+    });
+  });
+
+  test('rescheduleItem throws an ApiException on failure', () async {
+    final client = MockClient((request) async {
+      return _jsonResponse({
+        'detail': 'Start must be before end.',
+      }, statusCode: 400);
+    });
+
+    final repository = ApiBoardRepository(client, baseUrl);
+
+    await expectLater(
+      repository.rescheduleItem('card-1', DateTime.utc(2026, 2, 1), null),
+      throwsA(isA<ApiException>()),
+    );
+  });
 }

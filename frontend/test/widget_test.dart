@@ -41,6 +41,13 @@ class _StubBoardRepository implements BoardRepository {
   @override
   Future<void> reparentItem(String itemId, String newParentId) =>
       Future.value();
+
+  @override
+  Future<void> rescheduleItem(
+    String itemId,
+    DateTime? startDate,
+    DateTime? endDate,
+  ) => Future.value();
 }
 
 void main() {

@@ -22,6 +22,8 @@ class BoardViewModel extends ViewModel {
   String? _loadError;
   String? _moveError;
   Future<void> Function() _retry = _noRetry;
+  DateTime? _filterStart;
+  DateTime? _filterEnd;
 
   List<BoardStatus> get statuses => _statuses;
   List<Swimlane> get swimlanes => _swimlanes;
@@ -38,10 +40,14 @@ class BoardViewModel extends ViewModel {
   /// whichever navigation caused the failure.
   String? get loadError => _loadError;
 
-  /// Set when a [moveCard] or [reparentCard] call fails after already
-  /// having applied its optimistic UI update. Meant to be surfaced once
-  /// (e.g. as a SnackBar) and then cleared via [clearMoveError].
+  /// Set when a [moveCard], [reparentCard], or [rescheduleCard] call fails
+  /// after already having applied its optimistic UI update. Meant to be
+  /// surfaced once (e.g. as a SnackBar) and then cleared via
+  /// [clearMoveError].
   String? get moveError => _moveError;
+
+  DateTime? get filterStart => _filterStart;
+  DateTime? get filterEnd => _filterEnd;
 
   Future<void> load() => _changeScope(() async {
         final rootScopeId = await _repository.loadRootScopeItemId();
@@ -131,7 +137,64 @@ class BoardViewModel extends ViewModel {
     }
   }
 
+  /// Sets [card]'s scheduled start/end, keeping its status and swimlane —
+  /// the view-model mirror of the backend's `Reschedule`. Applies the
+  /// change optimistically, then rolls it back if the backend rejects it.
+  Future<void> rescheduleCard(
+    WorkItemCard card,
+    DateTime? startDate,
+    DateTime? endDate,
+  ) async {
+    final laneIndex = _swimlanes.indexWhere(
+      (lane) => lane.parentId == card.parentId,
+    );
+    if (laneIndex == -1) return;
+
+    final previousSwimlanes = _swimlanes;
+    _swimlanes = _rescheduledWithinLane(laneIndex, card, startDate, endDate);
+    notifyIfActive();
+
+    try {
+      await _repository.rescheduleItem(card.id, startDate, endDate);
+    } catch (_) {
+      _swimlanes = previousSwimlanes;
+      _moveError = 'Could not reschedule "${card.title}". Try again.';
+      notifyIfActive();
+    }
+  }
+
   void clearMoveError() => _moveError = null;
+
+  /// Sets the board's time-frame filter. Either bound may be null (open on
+  /// that side); passing both null is equivalent to [clearTimeFilter].
+  void setTimeFilter({DateTime? start, DateTime? end}) {
+    _filterStart = start;
+    _filterEnd = end;
+    notifyIfActive();
+  }
+
+  void clearTimeFilter() => setTimeFilter();
+
+  /// True if [card] should be visible under the current time-frame filter:
+  /// its own scheduled window overlaps the filter's, treating either
+  /// side's missing bound (the card's or the filter's) as open-ended
+  /// rather than excluding the card.
+  bool matchesTimeFilter(WorkItemCard card) {
+    final filterStart = _filterStart;
+    final filterEnd = _filterEnd;
+    if (filterStart == null && filterEnd == null) return true;
+
+    final startsInTime =
+        filterEnd == null ||
+        card.startDate == null ||
+        !card.startDate!.isAfter(filterEnd);
+    final endsInTime =
+        filterStart == null ||
+        card.endDate == null ||
+        !card.endDate!.isBefore(filterStart);
+
+    return startsInTime && endsInTime;
+  }
 
   Future<void> _changeScope(
     Future<void> Function() action, {
@@ -166,6 +229,24 @@ class BoardViewModel extends ViewModel {
     final updatedCards = [
       for (final c in lane.cards)
         if (c.id == card.id) c.copyWith(statusId: newStatusId) else c,
+    ];
+
+    return [
+      for (var i = 0; i < _swimlanes.length; i++)
+        if (i == laneIndex) lane.copyWithCards(updatedCards) else _swimlanes[i],
+    ];
+  }
+
+  List<Swimlane> _rescheduledWithinLane(
+    int laneIndex,
+    WorkItemCard card,
+    DateTime? startDate,
+    DateTime? endDate,
+  ) {
+    final lane = _swimlanes[laneIndex];
+    final updatedCards = [
+      for (final c in lane.cards)
+        if (c.id == card.id) c.rescheduled(startDate, endDate) else c,
     ];
 
     return [

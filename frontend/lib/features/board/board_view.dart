@@ -8,6 +8,7 @@ import 'package:weaver/features/board/models/scope_crumb.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/widgets/board_card.dart';
+import 'package:weaver/features/board/widgets/date_format.dart';
 
 const double _laneLabelWidth = 160;
 const double _columnWidth = 240;
@@ -70,6 +71,12 @@ class _BoardViewState extends State<BoardView> {
                     breadcrumbs: _viewModel.breadcrumbs,
                     onSelect: _viewModel.navigateToBreadcrumb,
                   ),
+                  _TimeFilterBar(
+                    start: _viewModel.filterStart,
+                    end: _viewModel.filterEnd,
+                    onChanged: _viewModel.setTimeFilter,
+                    onClear: _viewModel.clearTimeFilter,
+                  ),
                   _StatusHeaderRow(statuses: _viewModel.statuses),
                   for (final lane in _viewModel.swimlanes)
                     _SwimlaneRow(
@@ -78,6 +85,8 @@ class _BoardViewState extends State<BoardView> {
                       onCardDropped: _viewModel.moveCard,
                       onCardReparented: _viewModel.reparentCard,
                       onCardOpened: _viewModel.drillInto,
+                      onCardRescheduled: _viewModel.rescheduleCard,
+                      cardMatchesFilter: _viewModel.matchesTimeFilter,
                     ),
                 ],
               ),
@@ -158,6 +167,76 @@ class _BreadcrumbBar extends StatelessWidget {
   }
 }
 
+class _TimeFilterBar extends StatelessWidget {
+  const _TimeFilterBar({
+    required this.start,
+    required this.end,
+    required this.onChanged,
+    required this.onClear,
+  });
+
+  final DateTime? start;
+  final DateTime? end;
+  final void Function({DateTime? start, DateTime? end}) onChanged;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 8,
+        children: [
+          Text('Show items active', style: Theme.of(context).textTheme.bodySmall),
+          _DateFilterButton(
+            label: 'from',
+            value: start,
+            onPicked: (picked) => onChanged(start: picked, end: end),
+          ),
+          _DateFilterButton(
+            label: 'to',
+            value: end,
+            onPicked: (picked) => onChanged(start: start, end: picked),
+          ),
+          if (start != null || end != null)
+            TextButton(onPressed: onClear, child: const Text('Clear')),
+        ],
+      ),
+    );
+  }
+}
+
+class _DateFilterButton extends StatelessWidget {
+  const _DateFilterButton({
+    required this.label,
+    required this.value,
+    required this.onPicked,
+  });
+
+  final String label;
+  final DateTime? value;
+  final ValueChanged<DateTime?> onPicked;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: () => unawaited(_pick(context)),
+      child: Text(value == null ? label : formatDate(value!)),
+    );
+  }
+
+  Future<void> _pick(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: value ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) onPicked(picked);
+  }
+}
+
 class _StatusHeaderRow extends StatelessWidget {
   const _StatusHeaderRow({required this.statuses});
 
@@ -191,6 +270,8 @@ class _SwimlaneRow extends StatelessWidget {
     required this.onCardDropped,
     required this.onCardReparented,
     required this.onCardOpened,
+    required this.onCardRescheduled,
+    required this.cardMatchesFilter,
   });
 
   final Swimlane swimlane;
@@ -200,6 +281,13 @@ class _SwimlaneRow extends StatelessWidget {
   final Future<void> Function(WorkItemCard card, String newParentId)
   onCardReparented;
   final Future<void> Function(WorkItemCard card) onCardOpened;
+  final Future<void> Function(
+    WorkItemCard card,
+    DateTime? startDate,
+    DateTime? endDate,
+  )
+  onCardRescheduled;
+  final bool Function(WorkItemCard card) cardMatchesFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -224,6 +312,8 @@ class _SwimlaneRow extends StatelessWidget {
                   status: status,
                   onCardDropped: onCardDropped,
                   onCardOpened: onCardOpened,
+                  onCardRescheduled: onCardRescheduled,
+                  cardMatchesFilter: cardMatchesFilter,
                 ),
               ),
           ],
@@ -273,6 +363,8 @@ class _StatusColumn extends StatelessWidget {
     required this.status,
     required this.onCardDropped,
     required this.onCardOpened,
+    required this.onCardRescheduled,
+    required this.cardMatchesFilter,
   });
 
   final Swimlane swimlane;
@@ -280,10 +372,19 @@ class _StatusColumn extends StatelessWidget {
   final Future<void> Function(WorkItemCard card, String newStatusId)
   onCardDropped;
   final Future<void> Function(WorkItemCard card) onCardOpened;
+  final Future<void> Function(
+    WorkItemCard card,
+    DateTime? startDate,
+    DateTime? endDate,
+  )
+  onCardRescheduled;
+  final bool Function(WorkItemCard card) cardMatchesFilter;
 
   @override
   Widget build(BuildContext context) {
-    final cards = swimlane.cards.where((c) => c.statusId == status.id);
+    final cards = swimlane.cards.where(
+      (c) => c.statusId == status.id && cardMatchesFilter(c),
+    );
 
     return DragTarget<WorkItemCard>(
       onWillAcceptWithDetails: (details) =>
@@ -302,14 +403,23 @@ class _StatusColumn extends StatelessWidget {
                 : colorScheme.surfaceContainerLow,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Column(
-            children: [
-              for (final card in cards)
-                BoardCard(
-                  card: card,
-                  onOpen: () => unawaited(onCardOpened(card)),
-                ),
-            ],
+          // A scroll view, not a plain Column, because IntrinsicHeight
+          // (used to keep every status column in a row the same height)
+          // can compute an intrinsic height a fraction of a pixel short of
+          // what the column's own content needs — harmless when scrollable,
+          // an overflow error otherwise. It also means a lane with many
+          // cards scrolls instead of stretching the whole row.
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                for (final card in cards)
+                  BoardCard(
+                    card: card,
+                    onOpen: () => unawaited(onCardOpened(card)),
+                    onReschedule: onCardRescheduled,
+                  ),
+              ],
+            ),
           ),
         );
       },

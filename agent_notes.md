@@ -362,3 +362,56 @@ whoever (human or agent) next touches this area.
   one swimlane onto another's label to reparent it (status column
   preserved), and confirmed via both a page reload and a direct API call
   that the new `parentId` persisted.
+
+## Time-frame filter, not a sprint system (Milestone 7)
+
+- **Deliberately not a sprint/iteration entity.** The design doc originally
+  called this milestone "Sprint system," but this isn't a software
+  development project, so there's no fixed-length cycle to model. Per
+  explicit product direction, it's a plain from/to date filter over each
+  work item's own optional `StartDate`/`EndDate` — nothing about the time
+  frame itself is persisted; it's pure client-side view state
+  (`BoardViewModel._filterStart`/`_filterEnd`), reset on reload.
+- **Filter semantics are interval *overlap*, not containment**, with a
+  missing bound (the item's or the filter's) treated as open-ended rather
+  than excluding the item. An item with only a start date is presumed
+  ongoing indefinitely (matches any frame at or after that start); an item
+  with only an end date is presumed to have always been active up to it
+  (matches any frame at or before that end). `BoardViewModel
+  .matchesTimeFilter` implements this directly; see its tests for the
+  open-ended-bound cases specifically — that behavior is easy to get
+  backwards (containment vs. overlap look similar for fully-bounded items
+  and only diverge once one bound is missing).
+- **`WorkItem.StartDate`/`EndDate` are set through their own operation,
+  `Reschedule`** (`POST /work-items/{id}/schedule`), independent of
+  `ChangeStatus`/`Reparent`/`Create` — same one-operation-per-concern
+  pattern as the rest of `WorkItemsController`. The one validation rule
+  (`StartDate` must not be after `EndDate`, when both are set) lives in
+  `WorkItemService.RescheduleAsync` and is checked *before* the entity
+  lookup, so it also rejects a bad range for a nonexistent id rather than
+  a confusing 404 masking the real problem.
+- **Added a minimal "set schedule" affordance directly on `BoardCard`**
+  (a calendar icon opening a small dialog) even though a fuller work-item
+  editing UI belongs to Milestone 9. Without *some* way to set these dates
+  from the app itself, the filter would only ever be testable by calling
+  the API directly — the dialog only edits start/end, nothing else, to
+  avoid creeping into Milestone 9's scope.
+- **Fixed a real 1px `RenderFlex` overflow** in `_StatusColumn` while
+  verifying this in a browser: adding a second line (the schedule label)
+  to `BoardCard` made cards just tall enough to overflow the height
+  `IntrinsicHeight` computes for a status column (it keeps every column in
+  a swimlane row the same height, and its intrinsic-height calculation can
+  land a fraction of a pixel short of what the column's own content needs
+  at layout time). Wrapped the column's card list in a
+  `SingleChildScrollView` — invisible when content fits, and a genuine
+  usability improvement for a swimlane with many cards in one column,
+  which had no scroll affordance before this.
+- Verified end to end against the dev Docker stack: the existing seeded
+  items got real schedules via `POST .../schedule` (including one
+  migrated from before this milestone, confirming the new nullable
+  columns default to `null` on existing rows rather than requiring a
+  backfill), then in a browser confirmed cards render their schedule
+  label, the from/to filter correctly hides an item whose window ended
+  before the filter's start while leaving unscheduled and in-range items
+  visible, and the schedule dialog opens and is editable from the card
+  itself.

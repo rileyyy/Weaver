@@ -62,12 +62,18 @@ const _card1Children = BoardData(
 /// into `card-2`, which has no fixture) errors, to exercise the
 /// no-children/failure path.
 class _TestBoardRepository implements BoardRepository {
-  _TestBoardRepository({this.changeStatusError, this.reparentError});
+  _TestBoardRepository({
+    this.changeStatusError,
+    this.reparentError,
+    this.rescheduleError,
+  });
 
   final Exception? changeStatusError;
   final Exception? reparentError;
+  final Exception? rescheduleError;
   final List<String> statusChanges = [];
   final List<String> reparents = [];
+  final List<String> reschedules = [];
   final List<String?> requestedScopes = [];
 
   @override
@@ -94,6 +100,17 @@ class _TestBoardRepository implements BoardRepository {
     final error = reparentError;
     if (error != null) throw error;
   }
+
+  @override
+  Future<void> rescheduleItem(
+    String itemId,
+    DateTime? startDate,
+    DateTime? endDate,
+  ) async {
+    reschedules.add('$itemId->$startDate..$endDate');
+    final error = rescheduleError;
+    if (error != null) throw error;
+  }
 }
 
 class _FailingLoadRepository implements BoardRepository {
@@ -112,6 +129,13 @@ class _FailingLoadRepository implements BoardRepository {
   @override
   Future<void> reparentItem(String itemId, String newParentId) =>
       Future.value();
+
+  @override
+  Future<void> rescheduleItem(
+    String itemId,
+    DateTime? startDate,
+    DateTime? endDate,
+  ) => Future.value();
 }
 
 void main() {
@@ -292,4 +316,128 @@ void main() {
       expect(failingViewModel.moveError, isNotNull);
     },
   );
+
+  test('rescheduleCard sets the start and end date', () async {
+    final card = viewModel.swimlanes[0].cards.single;
+    final start = DateTime(2026, 2, 1);
+    final end = DateTime(2026, 2, 7);
+
+    await viewModel.rescheduleCard(card, start, end);
+
+    final updated = viewModel.swimlanes[0].cards.single;
+    expect(updated.startDate, start);
+    expect(updated.endDate, end);
+  });
+
+  test('rescheduleCard persists the change through the repository', () async {
+    final card = viewModel.swimlanes[0].cards.single;
+    final start = DateTime(2026, 2, 1);
+
+    await viewModel.rescheduleCard(card, start, null);
+
+    expect(repository.reschedules, ['card-1->$start..null']);
+  });
+
+  test(
+    'rescheduleCard rolls back the optimistic update when the repository call fails',
+    () async {
+      final failingRepository = _TestBoardRepository(
+        rescheduleError: Exception('boom'),
+      );
+      final failingViewModel = BoardViewModel(failingRepository);
+      await failingViewModel.load();
+      final card = failingViewModel.swimlanes[0].cards.single;
+
+      await failingViewModel.rescheduleCard(card, DateTime(2026, 3, 1), null);
+
+      expect(failingViewModel.swimlanes[0].cards.single.startDate, isNull);
+      expect(failingViewModel.moveError, isNotNull);
+    },
+  );
+
+  test('matchesTimeFilter is true for every card when no filter is set', () {
+    const card = WorkItemCard(
+      id: 'x',
+      title: 'X',
+      parentId: 'lane-a',
+      statusId: 'todo',
+    );
+
+    expect(viewModel.matchesTimeFilter(card), isTrue);
+  });
+
+  test("matchesTimeFilter is true when the card's window overlaps the filter", () {
+    viewModel.setTimeFilter(
+      start: DateTime(2026, 1, 10),
+      end: DateTime(2026, 1, 20),
+    );
+    final card = WorkItemCard(
+      id: 'x',
+      title: 'X',
+      parentId: 'lane-a',
+      statusId: 'todo',
+      startDate: DateTime(2026, 1, 15),
+      endDate: DateTime(2026, 1, 16),
+    );
+
+    expect(viewModel.matchesTimeFilter(card), isTrue);
+  });
+
+  test("matchesTimeFilter is false when the card's window is entirely before the filter", () {
+    viewModel.setTimeFilter(
+      start: DateTime(2026, 1, 10),
+      end: DateTime(2026, 1, 20),
+    );
+    final card = WorkItemCard(
+      id: 'x',
+      title: 'X',
+      parentId: 'lane-a',
+      statusId: 'todo',
+      startDate: DateTime(2026, 1, 1),
+      endDate: DateTime(2026, 1, 5),
+    );
+
+    expect(viewModel.matchesTimeFilter(card), isFalse);
+  });
+
+  test('matchesTimeFilter treats a missing start as open toward the past', () {
+    viewModel.setTimeFilter(
+      start: DateTime(2026, 1, 1),
+      end: DateTime(2026, 1, 5),
+    );
+    final card = WorkItemCard(
+      id: 'x',
+      title: 'X',
+      parentId: 'lane-a',
+      statusId: 'todo',
+      endDate: DateTime(2026, 1, 3),
+    );
+
+    expect(viewModel.matchesTimeFilter(card), isTrue);
+  });
+
+  test('matchesTimeFilter treats a missing end as open toward the future', () {
+    viewModel.setTimeFilter(
+      start: DateTime(2026, 1, 10),
+      end: DateTime(2026, 1, 20),
+    );
+    final card = WorkItemCard(
+      id: 'x',
+      title: 'X',
+      parentId: 'lane-a',
+      statusId: 'todo',
+      startDate: DateTime(2026, 1, 12),
+    );
+
+    expect(viewModel.matchesTimeFilter(card), isTrue);
+  });
+
+  test('clearTimeFilter removes both filter bounds', () {
+    viewModel
+      ..setTimeFilter(start: DateTime(2026, 1, 1), end: DateTime(2026, 1, 5))
+      ..clearTimeFilter();
+
+    expect(viewModel.filterStart, isNull);
+    expect(viewModel.filterEnd, isNull);
+  });
 }

@@ -45,6 +45,22 @@ Children may move between status columns.
 
 Children must not be moved between swimlanes by normal status drag/drop.
 
+## Time Filtering
+
+This is not software-development project management, so there is no
+fixed-length sprint/iteration concept.
+
+Work items may optionally have a start date and an end date, set
+independently of status and parent.
+
+The board filters by an arbitrary, user-chosen time frame (a from/to
+range), not a predefined cycle — the frame itself is not a saved entity.
+
+A work item matches a time-frame filter if its own start/end window
+overlaps the filter's. A work item missing either date is open-ended on
+that side, not excluded — it is never treated as "unscheduled" for
+filtering purposes.
+
 ## API
 
 Prefer operation-oriented endpoints for state changes.
@@ -94,8 +110,8 @@ https://sneekes.app/posts/building-my-own-kanban-self-hosted/
 | 3         | Done           | Flutter shell                     |
 | 4         | Done           | Standalone swimlane prototype     |
 | 5         | Done           | API-connected board               |
-| 6         | Done           | **Hierarchy**                     |
-| 7         | Not started    | Sprint system                     |
+| 6         | Done           | Hierarchy                         |
+| 7         | Done           | **Time-frame filter**             |
 | 8         | Not started    | Search/filter/sort                |
 | 9         | Not started    | Work-item details                 |
 | 10        | Not started    | Authentication                    |
