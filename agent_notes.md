@@ -573,3 +573,49 @@ whoever (human or agent) next touches this area.
   back in with the same credentials; and confirmed a full page reload
   (simulating an app restart) restores the session from the cached
   refresh token straight to the board with no re-login needed.
+
+## Work-item details (Milestone 9)
+
+- **`WorkItemLayer` is a plain lookup table** (`Id`, `Name`, `Order`),
+  seeded with Project/Goal/Task, exactly mirroring `Status`'s own
+  seeding pattern (`HasData` in the entity configuration, a unique index
+  on `Order`). `WorkItem.LayerId` is nullable and carries no parent/child
+  validation whatsoever — see the "Open decisions" note in
+  project_design.md for why (parent/child stays fluid on purpose).
+- **`Priority` is a plain enum on `WorkItem`** (`Low`/`Medium`/`High`/
+  `Urgent`), not a lookup table like layers — only layers were asked to
+  be configurable.
+- **Title/Description/Layer/Priority share one endpoint**
+  (`PUT /work-items/{id}/details`), separate from Status/Parent/Schedule/
+  Assignee, which each keep their own — these four don't carry the same
+  cross-cutting-invariant risk that justifies keeping Status and Parent
+  apart (a shared endpoint here can't accidentally reparent or restatus
+  anything), so grouping them doesn't weaken any guarantee.
+- **A migration's auto-generated column default for a new enum column is
+  the enum's first declared member (ordinal 0), not whatever default the
+  C# property itself declares.** `WorkItem.Priority`'s C# default is
+  `Medium`, but the generated migration backfilled every pre-existing
+  row with `defaultValue: 0` — which is `Low` (`Low` is declared first in
+  the enum). Caught by checking existing seeded items in a browser after
+  applying the migration and seeing "Low" where "Medium" was expected.
+  Fixed by hand-editing the migration's `defaultValue` to `1` before
+  committing it (never applied anywhere but local dev) and correcting
+  the already-backfilled rows directly. Worth checking again for any
+  future enum column.
+- **The detail screen reuses `BoardCard`'s schedule dialog** rather than
+  duplicating it — extracted into `board/widgets/schedule_dialog.dart`
+  as a public `showScheduleDialog()` function once a second caller
+  actually needed it (not preemptively).
+- **`WorkItemDetailRepository` is its own repository**, separate from
+  `BoardRepository`, even though both ultimately call `/api/work-items/*`
+  — the detail screen's concerns (full record, layers, users, per-field
+  saves) are different enough from the board's (swimlane/column
+  assembly, drag-and-drop) that folding them into one interface would
+  have blurred both.
+- Verified end to end against the dev Docker stack: opened an existing
+  card's details via its new info icon, confirmed the Layer and Priority
+  dropdowns are populated from the real `/api/work-item-layers` and enum
+  values, changed both, saved, and confirmed via the actual PUT response
+  (and a page reload) that the change persisted — this is what caught
+  the migration default bug above, since the "before" state showed every
+  existing item as Priority "Low".
