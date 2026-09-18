@@ -59,6 +59,18 @@ public class ApiExceptionMiddleware
         {
             await WriteProblemAsync(context, StatusCodes.Status400BadRequest, ex.Message);
         }
+        catch (CommentAuthorMismatchException ex)
+        {
+            await WriteProblemAsync(context, StatusCodes.Status403Forbidden, ex.Message);
+        }
+        catch (SelfWorkItemLinkException ex)
+        {
+            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, ex.Message);
+        }
+        catch (DuplicateWorkItemLinkException ex)
+        {
+            await WriteProblemAsync(context, StatusCodes.Status409Conflict, ex.Message);
+        }
         catch (DbUpdateConcurrencyException)
         {
             await WriteProblemAsync(

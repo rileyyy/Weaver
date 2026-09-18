@@ -22,6 +22,10 @@ public class WeaverDbContext : DbContext
 
     public DbSet<WorkItemLayer> WorkItemLayers => Set<WorkItemLayer>();
 
+    public DbSet<Comment> Comments => Set<Comment>();
+
+    public DbSet<WorkItemLink> WorkItemLinks => Set<WorkItemLink>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfiguration(new WorkItemConfiguration());
@@ -30,5 +34,7 @@ public class WeaverDbContext : DbContext
         modelBuilder.ApplyConfiguration(new UserConfiguration());
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemLayerConfiguration());
+        modelBuilder.ApplyConfiguration(new CommentConfiguration());
+        modelBuilder.ApplyConfiguration(new WorkItemLinkConfiguration());
     }
 }
