@@ -110,6 +110,13 @@ whoever (human or agent) next touches this area.
   proxy anything, so `API_BASE_URL` is passed via `--dart-define` instead
   (see `docker/frontend/dev-entrypoint.sh`), pointing at the
   host-mapped backend port.
+
+  Verified end to end: built both prod images (backend 185MB, frontend
+  132MB), ran db + backend + frontend together via `compose.yaml` against
+  local image tags, and confirmed `curl http://localhost/api/statuses`
+  through the nginx proxy actually reaches the backend and returns the
+  seeded statuses, and that an arbitrary client-side route still falls
+  back to `index.html` instead of 404ing.
 - **Backend prod image is Alpine + invariant globalization**
   (`DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true`) to keep it small — this
   is a JSON API with no culture-aware formatting of its own today (that's
@@ -130,8 +137,11 @@ whoever (human or agent) next touches this area.
   the standard trick: a named pipe as `flutter run`'s stdin, and an
   `inotifywait` loop that writes `r` to it whenever `lib/` or
   `pubspec.yaml` change. This is a well-known but somewhat fragile
-  pattern — I could not fully exercise it end-to-end in this environment
-  (pulling and running the Flutter dev image was impractically slow here).
+  pattern. Verified it for real: built the dev image, ran it standalone
+  with `frontend/` bind-mounted, confirmed `flutter run -d web-server`
+  came up and served on 8080, then `touch`ed `lib/main.dart` from the
+  host and watched the container logs print `Performing hot reload...`
+  with no keypress — the inotify → fifo → `flutter run` stdin path works.
   If it ever misses a change, the container still has `stdin_open`/`tty`
   set, so `docker compose attach frontend` and pressing `r`/`R` by hand is
   the guaranteed-to-work fallback.
