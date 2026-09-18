@@ -11,7 +11,9 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
-import 'package:weaver/features/home/home_view_model.dart' as _i385;
+import 'package:weaver/features/board/board_view_model.dart' as _i314;
+import 'package:weaver/features/board/data/board_repository.dart' as _i522;
+import 'package:weaver/features/board/data/fake_board_repository.dart' as _i297;
 
 extension GetItInjectableX on _i174.GetIt {
   // initializes the registration of main-scope dependencies inside of GetIt
@@ -20,7 +22,10 @@ extension GetItInjectableX on _i174.GetIt {
     _i526.EnvironmentFilter? environmentFilter,
   }) {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
-    gh.factory<_i385.HomeViewModel>(() => _i385.HomeViewModel());
+    gh.lazySingleton<_i522.BoardRepository>(() => _i297.FakeBoardRepository());
+    gh.factory<_i314.BoardViewModel>(
+      () => _i314.BoardViewModel(gh<_i522.BoardRepository>()),
+    );
     return this;
   }
 }

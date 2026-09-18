@@ -220,3 +220,38 @@ whoever (human or agent) next touches this area.
   fully-rendered page). Confirmed the shell renders — title, theme, and
   placeholder body copy all visible — via a Playwright screenshot against
   `flutter run -d web-server`.
+
+## Swimlane board prototype (Milestone 4)
+
+- **`BoardRepository` is an abstract interface with one implementation,
+  `FakeBoardRepository`, holding hardcoded in-memory fixture data.** This
+  isn't speculative — Milestone 5 ("API-connected board") is the very next
+  planned milestone and will add a second implementation backed by the
+  REST API. `BoardViewModel` depends only on the interface, so that swap
+  won't touch the view or view model, the same way `WorkItemsController`
+  on the backend depends on `IWorkItemService` rather than a concrete
+  class.
+- **`BoardViewModel.moveCard(card, newStatusId)` takes no swimlane
+  parameter — it looks up the card's own lane via `card.parentId`.** This
+  makes a cross-swimlane move structurally impossible from this method
+  alone, mirroring the backend's `ChangeStatus`/`Reparent` split (see the
+  Domain model notes above): the invariant is enforced by what the method
+  signature lets you express, not by trusting the caller. The UI adds a
+  second, independent layer of enforcement on top —
+  `DragTarget.onWillAcceptWithDetails` in `board_view.dart` rejects a drop
+  whose card's `parentId` doesn't match the target column's swimlane —
+  so even a future caller of `moveCard` that got the lookup wrong
+  couldn't move a card across lanes through the board UI.
+- **Drag-and-drop is Flutter's built-in `Draggable`/`DragTarget`, not a
+  package.** No reordering *within* a column (by rank) yet — that needs a
+  `Rank` concept on the frontend, which doesn't exist until the API
+  connects in Milestone 5 and starts returning real ranks. This
+  milestone only proves the status-column move.
+- **Verifying drag-and-drop with a headless browser needs raw
+  `mouse.move`/`down`/`up` sequences, not Playwright's element-based
+  `dragAndDrop` helper.** Flutter web has no draggable DOM elements to
+  target (see the canvas-rendering note above) — confirmed both that a
+  same-swimlane drag moves a card between status columns, and that a
+  cross-swimlane drag attempt is silently rejected, via coordinate-based
+  mouse simulation against `flutter run -d web-server` and before/after
+  screenshots.

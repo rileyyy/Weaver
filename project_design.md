@@ -92,7 +92,7 @@ https://sneekes.app/posts/building-my-own-kanban-self-hosted/
 | 1         | Done           | Database + domain model           |
 | 2         | Done           | API                               |
 | 3         | Done           | Flutter shell                     |
-| 4         | Not started    | **Standalone swimlane prototype** |
+| 4         | Done           | **Standalone swimlane prototype** |
 | 5         | Not started    | API-connected board               |
 | 6         | Not started    | Hierarchy                         |
 | 7         | Not started    | Sprint system                     |

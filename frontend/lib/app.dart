@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:weaver/core/theme/app_theme.dart';
-import 'package:weaver/features/home/home_view.dart';
+import 'package:weaver/features/board/board_view.dart';
 
 class WeaverApp extends StatelessWidget {
   const WeaverApp({super.key});
@@ -12,7 +12,7 @@ class WeaverApp extends StatelessWidget {
       title: 'Weaver',
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      home: const HomeView(),
+      home: const BoardView(),
     );
   }
 }
