@@ -10,6 +10,7 @@ import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/widgets/board_card.dart';
 import 'package:weaver/features/board/widgets/date_format.dart';
+import 'package:weaver/features/work_item_detail/work_item_detail_view.dart';
 
 const double _laneLabelWidth = 160;
 const double _columnWidth = 240;
@@ -41,6 +42,12 @@ class _BoardViewState extends State<BoardView> {
       ..dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _openDetails(WorkItemCard card) {
+    unawaited(Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => WorkItemDetailView(workItemId: card.id)),
+    ));
   }
 
   void _showMoveErrorIfAny() {
@@ -113,6 +120,7 @@ class _BoardViewState extends State<BoardView> {
                       onCardReparented: _viewModel.reparentCard,
                       onCardOpened: _viewModel.drillInto,
                       onCardRescheduled: _viewModel.rescheduleCard,
+                      onCardDetailsOpened: _openDetails,
                       cardVisible: _viewModel.cardVisible,
                       cardComparator: _viewModel.cardComparator,
                     ),
@@ -387,6 +395,7 @@ class _SwimlaneRow extends StatelessWidget {
     required this.onCardReparented,
     required this.onCardOpened,
     required this.onCardRescheduled,
+    required this.onCardDetailsOpened,
     required this.cardVisible,
     required this.cardComparator,
   });
@@ -404,6 +413,7 @@ class _SwimlaneRow extends StatelessWidget {
     DateTime? endDate,
   )
   onCardRescheduled;
+  final void Function(WorkItemCard card) onCardDetailsOpened;
   final bool Function(WorkItemCard card) cardVisible;
   final Comparator<WorkItemCard>? cardComparator;
 
@@ -431,6 +441,7 @@ class _SwimlaneRow extends StatelessWidget {
                   onCardDropped: onCardDropped,
                   onCardOpened: onCardOpened,
                   onCardRescheduled: onCardRescheduled,
+                  onCardDetailsOpened: onCardDetailsOpened,
                   cardVisible: cardVisible,
                   cardComparator: cardComparator,
                 ),
@@ -483,6 +494,7 @@ class _StatusColumn extends StatelessWidget {
     required this.onCardDropped,
     required this.onCardOpened,
     required this.onCardRescheduled,
+    required this.onCardDetailsOpened,
     required this.cardVisible,
     required this.cardComparator,
   });
@@ -498,6 +510,7 @@ class _StatusColumn extends StatelessWidget {
     DateTime? endDate,
   )
   onCardRescheduled;
+  final void Function(WorkItemCard card) onCardDetailsOpened;
   final bool Function(WorkItemCard card) cardVisible;
   final Comparator<WorkItemCard>? cardComparator;
 
@@ -540,6 +553,7 @@ class _StatusColumn extends StatelessWidget {
                     card: card,
                     onOpen: () => unawaited(onCardOpened(card)),
                     onReschedule: onCardRescheduled,
+                    onOpenDetails: () => onCardDetailsOpened(card),
                   ),
               ],
             ),
