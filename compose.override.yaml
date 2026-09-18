@@ -23,6 +23,11 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__Weaver: Host=db;Port=5432;Database=weaver;Username=weaver;Password=weaver
+      # Dev-only placeholders — never reused in compose.yaml's prod path,
+      # which requires real values via .env (see JWT_SIGNING_KEY/
+      # CORS_ALLOWED_ORIGIN in .env.example).
+      Jwt__SigningKey: insecure-development-only-signing-key-do-not-use-in-production
+      Cors__AllowedOrigins__0: http://localhost:8082
     volumes:
       - ./backend:/src
       - backend-nuget-cache:/root/.nuget/packages

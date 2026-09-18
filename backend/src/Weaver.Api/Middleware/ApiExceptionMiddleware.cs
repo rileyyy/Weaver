@@ -39,6 +39,26 @@ public class ApiExceptionMiddleware
         {
             await WriteProblemAsync(context, StatusCodes.Status400BadRequest, ex.Message);
         }
+        catch (InvalidCredentialsException ex)
+        {
+            await WriteProblemAsync(context, StatusCodes.Status401Unauthorized, ex.Message);
+        }
+        catch (InvalidRefreshTokenException ex)
+        {
+            await WriteProblemAsync(context, StatusCodes.Status401Unauthorized, ex.Message);
+        }
+        catch (UsernameTakenException ex)
+        {
+            await WriteProblemAsync(context, StatusCodes.Status409Conflict, ex.Message);
+        }
+        catch (InvalidPasswordException ex)
+        {
+            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, ex.Message);
+        }
+        catch (InvalidUsernameException ex)
+        {
+            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, ex.Message);
+        }
         catch (DbUpdateConcurrencyException)
         {
             await WriteProblemAsync(
