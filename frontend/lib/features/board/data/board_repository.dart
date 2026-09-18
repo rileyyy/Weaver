@@ -1,9 +1,11 @@
 import 'package:weaver/features/board/models/board_data.dart';
 
-/// Source of board data. [FakeBoardRepository] is the only implementation
-/// until Milestone 5 swaps in one backed by the REST API — [BoardViewModel]
-/// depends on this interface, not a concrete source, so that swap won't
-/// touch the view or view model.
+/// Source of board data and the operations [BoardViewModel] can perform on
+/// it. [BoardViewModel] depends on this interface, not a concrete source.
 abstract class BoardRepository {
   Future<BoardData> loadBoard();
+
+  /// Moves the work item identified by [cardId] to [newStatusId], within
+  /// whichever parent already owns it. Throws on failure.
+  Future<void> changeStatus(String cardId, String newStatusId);
 }

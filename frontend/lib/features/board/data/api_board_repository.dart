@@ -1,0 +1,117 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+import 'package:injectable/injectable.dart';
+import 'package:weaver/core/network/api_exception.dart';
+import 'package:weaver/features/board/data/board_repository.dart';
+import 'package:weaver/features/board/models/board_data.dart';
+import 'package:weaver/features/board/models/board_status.dart';
+import 'package:weaver/features/board/models/swimlane.dart';
+import 'package:weaver/features/board/models/work_item_card.dart';
+
+/// Board data backed by the REST API. Swimlanes are the direct children of
+/// the first board's scope item (or top-level items, if no board exists
+/// yet); each swimlane's cards are that swimlane's own direct children —
+/// mirroring `Board`'s doc comment on the backend.
+@LazySingleton(as: BoardRepository)
+class ApiBoardRepository implements BoardRepository {
+  ApiBoardRepository(this._client, @Named('apiBaseUrl') this._baseUrl);
+
+  final http.Client _client;
+  final String _baseUrl;
+
+  @override
+  Future<BoardData> loadBoard() async {
+    final statuses = await _loadStatuses();
+    final scopeItemId = await _loadBoardScopeItemId();
+    final swimlaneItems = await _loadChildren(scopeItemId);
+
+    final swimlanes = await Future.wait([
+      for (final parent in swimlaneItems) _loadSwimlane(parent),
+    ]);
+
+    return BoardData(statuses: statuses, swimlanes: swimlanes);
+  }
+
+  @override
+  Future<void> changeStatus(String cardId, String newStatusId) async {
+    final response = await _client.post(
+      _uri('/work-items/$cardId/status'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({'statusId': newStatusId}),
+    );
+    _checkOk(response, 'Failed to change status');
+  }
+
+  Future<List<BoardStatus>> _loadStatuses() async {
+    final json = await _getJsonList('/statuses');
+    return [
+      for (final item in json)
+        BoardStatus(
+          id: item['id'] as String,
+          name: item['name'] as String,
+          order: item['order'] as int,
+        ),
+    ];
+  }
+
+  Future<String?> _loadBoardScopeItemId() async {
+    final boards = await _getJsonList('/boards');
+    if (boards.isEmpty) return null;
+    return boards.first['scopeItemId'] as String?;
+  }
+
+  Future<Swimlane> _loadSwimlane(Map<String, dynamic> parent) async {
+    final parentId = parent['id'] as String;
+    final cardItems = await _loadChildren(parentId);
+    return Swimlane(
+      parentId: parentId,
+      title: parent['title'] as String,
+      cards: [for (final item in cardItems) _toCard(item)],
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _loadChildren(String? parentId) =>
+      _getJsonList(
+        '/work-items',
+        parentId == null ? null : {'parentId': parentId},
+      );
+
+  WorkItemCard _toCard(Map<String, dynamic> item) => WorkItemCard(
+    id: item['id'] as String,
+    title: item['title'] as String,
+    parentId: item['parentId'] as String,
+    statusId: item['statusId'] as String,
+  );
+
+  Future<List<Map<String, dynamic>>> _getJsonList(
+    String path, [
+    Map<String, String>? query,
+  ]) async {
+    final response = await _client.get(_uri(path, query));
+    _checkOk(response, 'Failed to load $path');
+    final decoded = jsonDecode(response.body) as List<dynamic>;
+    return decoded.cast<Map<String, dynamic>>();
+  }
+
+  Uri _uri(String path, [Map<String, String>? query]) {
+    final uri = Uri.parse('$_baseUrl$path');
+    return query == null ? uri : uri.replace(queryParameters: query);
+  }
+
+  void _checkOk(http.Response response, String fallbackMessage) {
+    if (response.statusCode >= 200 && response.statusCode < 300) return;
+    throw ApiException(
+      '${_problemDetail(response) ?? fallbackMessage} (${response.statusCode}).',
+    );
+  }
+
+  String? _problemDetail(http.Response response) {
+    try {
+      final body = jsonDecode(response.body);
+      return body is Map<String, dynamic> ? body['detail'] as String? : null;
+    } on FormatException {
+      return null;
+    }
+  }
+}

@@ -255,3 +255,55 @@ whoever (human or agent) next touches this area.
   cross-swimlane drag attempt is silently rejected, via coordinate-based
   mouse simulation against `flutter run -d web-server` and before/after
   screenshots.
+
+## API-connected board (Milestone 5)
+
+- **No CORS existed on the backend before this milestone** — added an
+  open (`AllowAnyOrigin`/`AllowAnyMethod`/`AllowAnyHeader`) policy in
+  `Program.cs` rather than a configured allowlist, since there's no auth
+  yet (Milestone 10) and therefore no credentialed request to protect.
+  Revisit and narrow this once auth exists.
+- **`ApiConfig.baseUrl` always ends in `/api`, regardless of which branch
+  produced it.** Native builds and web-dev overrides both pass just the
+  backend's origin via `--dart-define=API_BASE_URL=http://host:port` (see
+  `docker/frontend/dev-entrypoint.sh`'s existing default) — the app appends
+  `/api` itself, the same way nginx's `/api/` proxy prefix does in prod.
+  Got this backwards on the first pass (returned the raw dart-define value
+  unchanged for web), which made every request 404 against the dev
+  container silently — no console error surfaced client-side beyond
+  "Failed to load resource: 404", so this is worth checking first if the
+  connected board loads with an empty board and no obvious cause.
+- **`ApiBoardRepository` takes its base URL as a constructor parameter
+  (`@Named('apiBaseUrl')`, provided by `NetworkModule`) instead of calling
+  `ApiConfig.baseUrl` directly.** `ApiConfig.baseUrl` throws on native if
+  `API_BASE_URL` isn't set, which would make the repository un-instantiable
+  in a plain `flutter test` run (no `--dart-define`, and `kIsWeb` is false
+  under the VM test runner). Injecting the resolved string keeps the
+  repository trivially testable with `http`'s `MockClient` and no
+  dart-define ceremony.
+- **`BoardRepository.changeStatus` is a separate method from `loadBoard`**,
+  not a generic "save board" call — `BoardViewModel.moveCard` applies the
+  status change optimistically to local state first, then calls
+  `changeStatus` and rolls the local state back if it throws. This keeps
+  the same optimistic-UI shape regardless of which repository implementation
+  is behind it.
+- **`FakeBoardRepository` was deleted, not kept alongside the API-backed
+  one.** Its own doc comment said it was the only implementation "until
+  Milestone 5 swaps in one backed by the REST API" — once that swap
+  happened nothing referenced it, including tests (the widget smoke test
+  and the view-model unit tests each define their own small stub/test
+  double instead, so they don't depend on network at all).
+- **Verifying this in a browser needed one extra step beyond prior
+  milestones: `flutter run -d web-server` (this Flutter/dwds version, at
+  least) doesn't call `main()` until something completes a DWDS debug
+  handshake** (an SSE connection normally established by the Dart Debug
+  Chrome extension or an IDE). A plain headless-browser `nav` sits forever
+  on the DDC module-loading step with no console error. Confirmed this by
+  waiting 4 minutes with full console/network capture (all 546 requests
+  succeeded, nothing pending) before finding `window.$dartRunMain()`
+  defined but never invoked; calling it manually from the test script
+  unblocks rendering immediately. This is a verification-tooling quirk,
+  not applicable to a real browser tab (which most workflows point at
+  Chrome/Edge devices or the Dart Debug extension specifically to avoid
+  it) — but it's what any future headless verification of this app will
+  hit, so the workaround is worth keeping.

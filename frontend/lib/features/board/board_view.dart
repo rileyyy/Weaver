@@ -25,12 +25,22 @@ class _BoardViewState extends State<BoardView> {
   void initState() {
     super.initState();
     unawaited(_viewModel.load());
+    _viewModel.addListener(_showMoveErrorIfAny);
   }
 
   @override
   void dispose() {
-    _viewModel.dispose();
+    _viewModel
+      ..removeListener(_showMoveErrorIfAny)
+      ..dispose();
     super.dispose();
+  }
+
+  void _showMoveErrorIfAny() {
+    final message = _viewModel.moveError;
+    if (message == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    _viewModel.clearMoveError();
   }
 
   @override
@@ -42,6 +52,11 @@ class _BoardViewState extends State<BoardView> {
         builder: (context, _) {
           if (_viewModel.isLoading) {
             return const Center(child: CircularProgressIndicator());
+          }
+
+          final loadError = _viewModel.loadError;
+          if (loadError != null) {
+            return _LoadErrorView(message: loadError, onRetry: _viewModel.load);
           }
 
           return SingleChildScrollView(
@@ -62,6 +77,33 @@ class _BoardViewState extends State<BoardView> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _LoadErrorView extends StatelessWidget {
+  const _LoadErrorView({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () => unawaited(onRetry()),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -102,7 +144,8 @@ class _SwimlaneRow extends StatelessWidget {
 
   final Swimlane swimlane;
   final List<BoardStatus> statuses;
-  final void Function(WorkItemCard card, String newStatusId) onCardDropped;
+  final Future<void> Function(WorkItemCard card, String newStatusId)
+  onCardDropped;
 
   @override
   Widget build(BuildContext context) {
@@ -147,7 +190,8 @@ class _StatusColumn extends StatelessWidget {
 
   final Swimlane swimlane;
   final BoardStatus status;
-  final void Function(WorkItemCard card, String newStatusId) onCardDropped;
+  final Future<void> Function(WorkItemCard card, String newStatusId)
+  onCardDropped;
 
   @override
   Widget build(BuildContext context) {
@@ -156,7 +200,8 @@ class _StatusColumn extends StatelessWidget {
     return DragTarget<WorkItemCard>(
       onWillAcceptWithDetails: (details) =>
           details.data.parentId == swimlane.parentId,
-      onAcceptWithDetails: (details) => onCardDropped(details.data, status.id),
+      onAcceptWithDetails: (details) =>
+          unawaited(onCardDropped(details.data, status.id)),
       builder: (context, candidateData, rejectedData) {
         final colorScheme = Theme.of(context).colorScheme;
         return Container(
