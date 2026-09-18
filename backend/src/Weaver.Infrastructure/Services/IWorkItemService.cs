@@ -47,4 +47,14 @@ public interface IWorkItemService
     /// true or the delete is rejected — a subtree is never silently dropped.
     /// </summary>
     Task DeleteAsync(Guid id, bool cascade = false, CancellationToken ct = default);
+
+    /// <summary>
+    /// Sets a work item's scheduled start/end, independently of status or
+    /// parent. Either may be null. Rejects a start date after the end date.
+    /// </summary>
+    Task<WorkItem> RescheduleAsync(
+        Guid id,
+        DateTimeOffset? startDate,
+        DateTimeOffset? endDate,
+        CancellationToken ct = default);
 }

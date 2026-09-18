@@ -68,6 +68,17 @@ public class WorkItemsController : ControllerBase
         return Ok(WorkItemDto.FromEntity(item));
     }
 
+    /// <summary>
+    /// Sets a work item's scheduled start/end. Independent of status and
+    /// parent — see <see cref="ChangeStatus"/>/<see cref="Reparent"/>.
+    /// </summary>
+    [HttpPost("{id:guid}/schedule")]
+    public async Task<ActionResult<WorkItemDto>> Reschedule(Guid id, RescheduleWorkItemRequest request)
+    {
+        var item = await _workItems.RescheduleAsync(id, request.StartDate, request.EndDate);
+        return Ok(WorkItemDto.FromEntity(item));
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, [FromQuery] bool cascade = false)
     {

@@ -106,6 +106,22 @@ public class WorkItemsControllerTests
     }
 
     [Test]
+    public async Task Reschedule_DelegatesToService_AndReturnsOk()
+    {
+        var item = MakeWorkItem();
+        var start = DateTimeOffset.UtcNow;
+        var end = start.AddDays(3);
+
+        _workItems.Setup(s => s.RescheduleAsync(item.Id, start, end, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(item);
+
+        var result = await _controller.Reschedule(item.Id, new RescheduleWorkItemRequest(start, end));
+
+        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(WorkItemDto.FromEntity(item)));
+        _workItems.VerifyAll();
+    }
+
+    [Test]
     public async Task Delete_DelegatesCascadeFlagToService_AndReturnsNoContent()
     {
         var id = Guid.NewGuid();

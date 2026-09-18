@@ -151,6 +151,52 @@ public class WorkItemServiceTests
     }
 
     [Test]
+    public async Task RescheduleAsync_SetsStartAndEndDate_WithoutTouchingStatusOrParent()
+    {
+        var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId);
+        var item = await _service.CreateAsync("Item", null, parent.Id, StatusConfiguration.ToDoId);
+        var start = DateTimeOffset.UtcNow;
+        var end = start.AddDays(7);
+
+        var rescheduled = await _service.RescheduleAsync(item.Id, start, end);
+
+        Assert.That(rescheduled.StartDate, Is.EqualTo(start));
+        Assert.That(rescheduled.EndDate, Is.EqualTo(end));
+        Assert.That(rescheduled.StatusId, Is.EqualTo(StatusConfiguration.ToDoId));
+        Assert.That(rescheduled.ParentId, Is.EqualTo(parent.Id));
+    }
+
+    [Test]
+    public async Task RescheduleAsync_WithNullDates_ClearsAnExistingSchedule()
+    {
+        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
+        await _service.RescheduleAsync(item.Id, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(1));
+
+        var cleared = await _service.RescheduleAsync(item.Id, null, null);
+
+        Assert.That(cleared.StartDate, Is.Null);
+        Assert.That(cleared.EndDate, Is.Null);
+    }
+
+    [Test]
+    public void RescheduleAsync_WithStartAfterEnd_ThrowsInvalidWorkItemScheduleException()
+    {
+        var itemId = Guid.NewGuid();
+        var start = DateTimeOffset.UtcNow;
+        var end = start.AddDays(-1);
+
+        Assert.ThrowsAsync<InvalidWorkItemScheduleException>(() =>
+            _service.RescheduleAsync(itemId, start, end));
+    }
+
+    [Test]
+    public void RescheduleAsync_WhenNotFound_ThrowsEntityNotFoundException()
+    {
+        Assert.ThrowsAsync<EntityNotFoundException>(() =>
+            _service.RescheduleAsync(Guid.NewGuid(), null, null));
+    }
+
+    [Test]
     public async Task ChangeStatusAsync_WithAfterId_OrdersCardBetweenNeighborsInDestinationCell()
     {
         var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId);

@@ -110,6 +110,28 @@ public class WorkItemService : IWorkItemService
         return item;
     }
 
+    public async Task<WorkItem> RescheduleAsync(
+        Guid id,
+        DateTimeOffset? startDate,
+        DateTimeOffset? endDate,
+        CancellationToken ct = default)
+    {
+        if (startDate is not null && endDate is not null && startDate > endDate)
+        {
+            throw new InvalidWorkItemScheduleException(id);
+        }
+
+        var item = await _db.WorkItems.FindAsync([id], ct)
+            ?? throw new EntityNotFoundException(nameof(WorkItem), id);
+
+        item.StartDate = startDate;
+        item.EndDate = endDate;
+        item.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return item;
+    }
+
     public async Task DeleteAsync(Guid id, bool cascade = false, CancellationToken ct = default)
     {
         var item = await _db.WorkItems.FindAsync([id], ct)

@@ -35,6 +35,10 @@ public class ApiExceptionMiddleware
         {
             await WriteProblemAsync(context, StatusCodes.Status409Conflict, ex.Message);
         }
+        catch (InvalidWorkItemScheduleException ex)
+        {
+            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, ex.Message);
+        }
         catch (DbUpdateConcurrencyException)
         {
             await WriteProblemAsync(
