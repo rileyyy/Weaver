@@ -115,7 +115,7 @@ https://sneekes.app/posts/building-my-own-kanban-self-hosted/
 | 8         | Done           | Search/filter/sort                |
 | 9         | Done           | Work-item details                 |
 | 10        | Done           | Authentication                    |
-| 11        | In progress    | **Comments/links**                |
+| 11        | Done           | Comments/links                    |
 | 12        | Not started    | Attachments                       |
 | 13        | Not started    | MCP                               |
 | 14        | Not started    | Mobile refinement                 |
@@ -233,3 +233,10 @@ you'd rather it be admin-configurable like layers/statuses.
   structured in mind, this is the piece most likely to need rework.
 - **Comments can only be edited/deleted by their own author.** There's no
   roles/admin concept yet to allow anyone else to moderate them.
+- **Adding a link takes the target work item's raw id, not a title
+  search.** There's no general "search all work items" endpoint to back
+  a proper picker with (the board only ever fetches a specific scope's
+  direct children) — building one felt like its own scoped feature
+  rather than something to add silently as a side effect of this
+  milestone. Worth a real search endpoint if the raw-id entry proves too
+  rough in practice.

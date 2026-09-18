@@ -619,3 +619,41 @@ whoever (human or agent) next touches this area.
   (and a page reload) that the change persisted — this is what caught
   the migration default bug above, since the "before" state showed every
   existing item as Priority "Low".
+
+## Comments and links (Milestone 11)
+
+- **A `WorkItemLink` row is symmetric by construction, not by query
+  trickery**: `ListForWorkItemAsync` matches on `WorkItemId == id OR
+  LinkedWorkItemId == id`, and `WorkItemLinkDto.FromEntity` picks
+  whichever side *isn't* the requesting item as "the other side." Create
+  rejects a duplicate in either direction (`(a,b)` blocks a later
+  `(b,a)`) and a self-link outright. Verified via `curl`: creating a link
+  from item A to item B, then listing from *B*'s perspective, correctly
+  returns A as the linked item under the same link id.
+- **Both `WorkItemLink` foreign keys use `Restrict`, not `Cascade`.**
+  Two `Cascade`/`SetNull` paths from the same table to the same
+  principal is what EF Core rejects as "multiple cascade paths" — two
+  `Restrict` paths are always fine, since neither one triggers an
+  automatic delete. This does mean deleting a work item with active
+  links currently fails at the DB level rather than cleaning them up
+  first; no cleanup-on-delete was added, matching how `Board.ScopeItemId`
+  already restricts deleting a board's scope item without special
+  handling.
+- **Comment edit/delete authorization is enforced in `CommentService`,
+  not the controller** — `UpdateAsync`/`DeleteAsync` take the requesting
+  user's id (from the access token, via `User.GetUserId()` in
+  `CommentsController`) and throw `CommentAuthorMismatchException`
+  (403) if it doesn't match the comment's author. No roles/admin
+  concept exists yet to allow anyone else to moderate.
+- **No work-item search/picker exists for adding a link** — the "add
+  link" field on the detail screen takes the target's raw id, not a
+  title search. Building a proper picker needs a general work-item
+  search endpoint, which is arguably Milestone 8-shaped scope creep
+  applied to a global (not board-visible-only) item set; flagged in
+  project_design.md's decisions rather than built speculatively.
+- Verified end to end against the dev Docker stack: added a comment
+  through the actual API and confirmed it renders on the detail screen
+  with the author's username, timestamp, and edit/delete controls (since
+  it's the signed-in user's own comment); added a link between two work
+  items and confirmed it appears in "Related work items" on the source
+  item's screen with a remove-link control next to it.
