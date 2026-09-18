@@ -19,6 +19,8 @@ public interface IWorkItemService
         Guid? parentId,
         Guid statusId,
         Guid? afterId = null,
+        Guid? layerId = null,
+        WorkItemPriority priority = WorkItemPriority.Medium,
         CancellationToken ct = default);
 
     /// <summary>
@@ -57,4 +59,25 @@ public interface IWorkItemService
         DateTimeOffset? startDate,
         DateTimeOffset? endDate,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Updates a work item's descriptive fields — title, description, layer,
+    /// priority — independently of status/parent/schedule/assignee. These
+    /// fields share no cross-cutting invariant with each other or with those
+    /// other operations, so they're safe to group behind one call unlike
+    /// e.g. status and parent.
+    /// </summary>
+    Task<WorkItem> UpdateDetailsAsync(
+        Guid id,
+        string title,
+        string? description,
+        Guid? layerId,
+        WorkItemPriority priority,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Sets or clears who a work item is assigned to, independently of
+    /// every other field.
+    /// </summary>
+    Task<WorkItem> AssignAsync(Guid id, Guid? userId, CancellationToken ct = default);
 }

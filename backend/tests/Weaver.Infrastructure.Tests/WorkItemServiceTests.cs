@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Weaver.Domain;
 using Weaver.Domain.Exceptions;
 using Weaver.Infrastructure.Configurations;
 using Weaver.Infrastructure.Services;
@@ -208,5 +209,119 @@ public class WorkItemServiceTests
 
         Assert.That(moved.Rank, Is.GreaterThan(first.Rank));
         Assert.That(moved.Rank, Is.LessThan(second.Rank));
+    }
+
+    [Test]
+    public async Task CreateAsync_WithLayerId_SetsTheLayer()
+    {
+        var item = await _service.CreateAsync(
+            "Task", null, null, StatusConfiguration.ToDoId, layerId: WorkItemLayerConfiguration.TaskId);
+
+        Assert.That(item.LayerId, Is.EqualTo(WorkItemLayerConfiguration.TaskId));
+    }
+
+    [Test]
+    public void CreateAsync_WithUnknownLayerId_ThrowsEntityNotFoundException()
+    {
+        Assert.ThrowsAsync<EntityNotFoundException>(() =>
+            _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, layerId: Guid.NewGuid()));
+    }
+
+    [Test]
+    public async Task CreateAsync_DefaultsPriorityToMedium()
+    {
+        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+
+        Assert.That(item.Priority, Is.EqualTo(WorkItemPriority.Medium));
+    }
+
+    [Test]
+    public async Task UpdateDetailsAsync_UpdatesTitleDescriptionLayerAndPriority()
+    {
+        var item = await _service.CreateAsync("Old title", "Old description", null, StatusConfiguration.ToDoId);
+
+        var updated = await _service.UpdateDetailsAsync(
+            item.Id, "New title", "New description", WorkItemLayerConfiguration.GoalId, WorkItemPriority.Urgent);
+
+        Assert.That(updated.Title, Is.EqualTo("New title"));
+        Assert.That(updated.Description, Is.EqualTo("New description"));
+        Assert.That(updated.LayerId, Is.EqualTo(WorkItemLayerConfiguration.GoalId));
+        Assert.That(updated.Priority, Is.EqualTo(WorkItemPriority.Urgent));
+    }
+
+    [Test]
+    public async Task UpdateDetailsAsync_NeverChangesStatusOrParent()
+    {
+        var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId);
+        var item = await _service.CreateAsync("Child", null, parent.Id, StatusConfiguration.DoingId);
+
+        var updated = await _service.UpdateDetailsAsync(item.Id, "Renamed", null, null, WorkItemPriority.Low);
+
+        Assert.That(updated.StatusId, Is.EqualTo(StatusConfiguration.DoingId));
+        Assert.That(updated.ParentId, Is.EqualTo(parent.Id));
+    }
+
+    [Test]
+    public void UpdateDetailsAsync_WithUnknownLayerId_ThrowsEntityNotFoundException()
+    {
+        Assert.ThrowsAsync<EntityNotFoundException>(() =>
+            _service.UpdateDetailsAsync(Guid.NewGuid(), "Title", null, Guid.NewGuid(), WorkItemPriority.Medium));
+    }
+
+    [Test]
+    public void UpdateDetailsAsync_WhenNotFound_ThrowsEntityNotFoundException()
+    {
+        Assert.ThrowsAsync<EntityNotFoundException>(() =>
+            _service.UpdateDetailsAsync(Guid.NewGuid(), "Title", null, null, WorkItemPriority.Medium));
+    }
+
+    [Test]
+    public async Task AssignAsync_WithAKnownUser_SetsAssignedToUserId()
+    {
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Username = "alice",
+            NormalizedUsername = "alice",
+            PasswordHash = "hash",
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        };
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync();
+        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+
+        var assigned = await _service.AssignAsync(item.Id, user.Id);
+
+        Assert.That(assigned.AssignedToUserId, Is.EqualTo(user.Id));
+    }
+
+    [Test]
+    public async Task AssignAsync_WithNullUserId_ClearsTheAssignee()
+    {
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Username = "alice",
+            NormalizedUsername = "alice",
+            PasswordHash = "hash",
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        };
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync();
+        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+        await _service.AssignAsync(item.Id, user.Id);
+
+        var unassigned = await _service.AssignAsync(item.Id, null);
+
+        Assert.That(unassigned.AssignedToUserId, Is.Null);
+    }
+
+    [Test]
+    public void AssignAsync_WithUnknownUserId_ThrowsEntityNotFoundException()
+    {
+        Assert.ThrowsAsync<EntityNotFoundException>(() =>
+            _service.AssignAsync(Guid.NewGuid(), Guid.NewGuid()));
     }
 }

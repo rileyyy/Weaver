@@ -20,6 +20,16 @@ public class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             .HasForeignKey(w => w.StatusId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(w => w.Layer)
+            .WithMany()
+            .HasForeignKey(w => w.LayerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(w => w.AssignedToUser)
+            .WithMany()
+            .HasForeignKey(w => w.AssignedToUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         // A board cell is (ParentId, StatusId); rank only needs to sort within that cell.
         builder.HasIndex(w => new { w.ParentId, w.StatusId, w.Rank });
 

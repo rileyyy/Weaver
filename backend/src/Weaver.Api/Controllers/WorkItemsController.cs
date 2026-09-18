@@ -42,7 +42,9 @@ public class WorkItemsController : ControllerBase
             request.Description,
             request.ParentId,
             request.StatusId,
-            request.AfterId);
+            request.AfterId,
+            request.LayerId,
+            request.Priority);
 
         var dto = WorkItemDto.FromEntity(item);
         return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
@@ -76,6 +78,33 @@ public class WorkItemsController : ControllerBase
     public async Task<ActionResult<WorkItemDto>> Reschedule(Guid id, RescheduleWorkItemRequest request)
     {
         var item = await _workItems.RescheduleAsync(id, request.StartDate, request.EndDate);
+        return Ok(WorkItemDto.FromEntity(item));
+    }
+
+    /// <summary>
+    /// Updates title/description/layer/priority. Independent of status,
+    /// parent, schedule, and assignee — see their own endpoints.
+    /// </summary>
+    [HttpPut("{id:guid}/details")]
+    public async Task<ActionResult<WorkItemDto>> UpdateDetails(Guid id, UpdateWorkItemDetailsRequest request)
+    {
+        var item = await _workItems.UpdateDetailsAsync(
+            id,
+            request.Title,
+            request.Description,
+            request.LayerId,
+            request.Priority);
+        return Ok(WorkItemDto.FromEntity(item));
+    }
+
+    /// <summary>
+    /// Sets or clears who a work item is assigned to. Independent of every
+    /// other field.
+    /// </summary>
+    [HttpPost("{id:guid}/assignee")]
+    public async Task<ActionResult<WorkItemDto>> Assign(Guid id, AssignWorkItemRequest request)
+    {
+        var item = await _workItems.AssignAsync(id, request.UserId);
         return Ok(WorkItemDto.FromEntity(item));
     }
 

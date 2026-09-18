@@ -1,5 +1,13 @@
 namespace Weaver.Domain;
 
+public enum WorkItemPriority
+{
+    Low,
+    Medium,
+    High,
+    Urgent,
+}
+
 public class WorkItem
 {
     public Guid Id { get; set; }
@@ -11,6 +19,18 @@ public class WorkItem
     public string? Description { get; set; }
 
     public Guid StatusId { get; set; }
+
+    /// <summary>
+    /// What kind of item this is (e.g. Project/Goal/Task) — a label from the
+    /// configurable <see cref="WorkItemLayer"/> table, not a constraint on
+    /// the parent/child tree. Nullable: existing/ad-hoc items don't require
+    /// categorization.
+    /// </summary>
+    public Guid? LayerId { get; set; }
+
+    public WorkItemPriority Priority { get; set; } = WorkItemPriority.Medium;
+
+    public Guid? AssignedToUserId { get; set; }
 
     public double Rank { get; set; }
 
@@ -34,4 +54,8 @@ public class WorkItem
     public ICollection<WorkItem> Children { get; set; } = new List<WorkItem>();
 
     public Status? Status { get; set; }
+
+    public WorkItemLayer? Layer { get; set; }
+
+    public User? AssignedToUser { get; set; }
 }

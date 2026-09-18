@@ -28,6 +28,8 @@ public class WorkItemService : IWorkItemService
         Guid? parentId,
         Guid statusId,
         Guid? afterId = null,
+        Guid? layerId = null,
+        WorkItemPriority priority = WorkItemPriority.Medium,
         CancellationToken ct = default)
     {
         if (parentId is not null && !await _db.WorkItems.AnyAsync(w => w.Id == parentId, ct))
@@ -40,6 +42,11 @@ public class WorkItemService : IWorkItemService
             throw new EntityNotFoundException(nameof(Status), statusId);
         }
 
+        if (layerId is not null && !await _db.WorkItemLayers.AnyAsync(l => l.Id == layerId, ct))
+        {
+            throw new EntityNotFoundException(nameof(WorkItemLayer), layerId.Value);
+        }
+
         var now = DateTimeOffset.UtcNow;
         var item = new WorkItem
         {
@@ -48,6 +55,8 @@ public class WorkItemService : IWorkItemService
             Description = description,
             ParentId = parentId,
             StatusId = statusId,
+            LayerId = layerId,
+            Priority = priority,
             Rank = await ComputeRankAsync(parentId, statusId, afterId, excludeItemId: null, ct),
             CreatedAtUtc = now,
             UpdatedAtUtc = now,
@@ -126,6 +135,49 @@ public class WorkItemService : IWorkItemService
 
         item.StartDate = startDate;
         item.EndDate = endDate;
+        item.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return item;
+    }
+
+    public async Task<WorkItem> UpdateDetailsAsync(
+        Guid id,
+        string title,
+        string? description,
+        Guid? layerId,
+        WorkItemPriority priority,
+        CancellationToken ct = default)
+    {
+        if (layerId is not null && !await _db.WorkItemLayers.AnyAsync(l => l.Id == layerId, ct))
+        {
+            throw new EntityNotFoundException(nameof(WorkItemLayer), layerId.Value);
+        }
+
+        var item = await _db.WorkItems.FindAsync([id], ct)
+            ?? throw new EntityNotFoundException(nameof(WorkItem), id);
+
+        item.Title = title;
+        item.Description = description;
+        item.LayerId = layerId;
+        item.Priority = priority;
+        item.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return item;
+    }
+
+    public async Task<WorkItem> AssignAsync(Guid id, Guid? userId, CancellationToken ct = default)
+    {
+        if (userId is not null && !await _db.Users.AnyAsync(u => u.Id == userId, ct))
+        {
+            throw new EntityNotFoundException(nameof(User), userId.Value);
+        }
+
+        var item = await _db.WorkItems.FindAsync([id], ct)
+            ?? throw new EntityNotFoundException(nameof(WorkItem), id);
+
+        item.AssignedToUserId = userId;
         item.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);

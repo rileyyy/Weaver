@@ -20,6 +20,8 @@ public class WeaverDbContext : DbContext
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
+    public DbSet<WorkItemLayer> WorkItemLayers => Set<WorkItemLayer>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfiguration(new WorkItemConfiguration());
@@ -27,5 +29,6 @@ public class WeaverDbContext : DbContext
         modelBuilder.ApplyConfiguration(new BoardConfiguration());
         modelBuilder.ApplyConfiguration(new UserConfiguration());
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
+        modelBuilder.ApplyConfiguration(new WorkItemLayerConfiguration());
     }
 }

@@ -64,7 +64,8 @@ public class WorkItemsControllerTests
         var afterId = Guid.NewGuid();
         var created = MakeWorkItem(parentId, statusId);
 
-        _workItems.Setup(s => s.CreateAsync("Title", "Desc", parentId, statusId, afterId, It.IsAny<CancellationToken>()))
+        _workItems.Setup(s => s.CreateAsync(
+                "Title", "Desc", parentId, statusId, afterId, null, WorkItemPriority.Medium, It.IsAny<CancellationToken>()))
             .ReturnsAsync(created);
 
         var result = await _controller.Create(new CreateWorkItemRequest("Title", "Desc", parentId, statusId, afterId));
@@ -130,6 +131,35 @@ public class WorkItemsControllerTests
         var result = await _controller.Delete(id, cascade: true);
 
         Assert.That(result, Is.TypeOf<NoContentResult>());
+        _workItems.VerifyAll();
+    }
+
+    [Test]
+    public async Task UpdateDetails_DelegatesToService_AndReturnsOk()
+    {
+        var item = MakeWorkItem();
+        var layerId = Guid.NewGuid();
+        _workItems.Setup(s => s.UpdateDetailsAsync(
+                item.Id, "New title", "New description", layerId, WorkItemPriority.High, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(item);
+
+        var result = await _controller.UpdateDetails(
+            item.Id, new UpdateWorkItemDetailsRequest("New title", "New description", layerId, WorkItemPriority.High));
+
+        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(WorkItemDto.FromEntity(item)));
+        _workItems.VerifyAll();
+    }
+
+    [Test]
+    public async Task Assign_DelegatesToService_AndReturnsOk()
+    {
+        var item = MakeWorkItem();
+        var userId = Guid.NewGuid();
+        _workItems.Setup(s => s.AssignAsync(item.Id, userId, It.IsAny<CancellationToken>())).ReturnsAsync(item);
+
+        var result = await _controller.Assign(item.Id, new AssignWorkItemRequest(userId));
+
+        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(WorkItemDto.FromEntity(item)));
         _workItems.VerifyAll();
     }
 }
