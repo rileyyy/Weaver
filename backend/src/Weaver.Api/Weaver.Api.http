@@ -1,0 +1,6 @@
+@Weaver.Api_HostAddress = http://localhost:5016
+
+GET {{Weaver.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
