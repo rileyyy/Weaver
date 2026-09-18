@@ -179,3 +179,44 @@ whoever (human or agent) next touches this area.
   real, already-lowercase value — it was deliberately made to fail loudly
   (invalid Docker reference) if someone forgets to replace it, rather than
   silently resolving to a wrong-but-valid-looking image name.
+
+## Flutter shell (frontend)
+
+- **`injectable` is pinned to `^2.7.1+4` / `injectable_generator` to
+  `^2.9.1`, not the `3.x` line.** `injectable_generator` 3.x replaced
+  `build_runner`/`source_gen` with `lean_builder`, which pulls in
+  `source_span ^1.10.2`; the Flutter SDK's bundled `flutter_test` pins
+  `source_span 1.10.1`, so `3.x` can't resolve alongside `flutter_test` at
+  all (`flutter pub add` fails version solving outright). The `2.x` line
+  still uses `build_runner`, which coexists fine. Revisit the pin once
+  either the Flutter SDK's `flutter_test` bumps its `source_span`
+  constraint or `injectable_generator` stops requiring `lean_builder`.
+- **`ViewModel` (`lib/core/presentation/view_model.dart`) is a thin
+  `ChangeNotifier` wrapper, not a full MVVM framework.** It exists only to
+  add `notifyIfActive()` — a dispose guard, since a ViewModel's async work
+  can complete after its View is torn down and `ChangeNotifier.dispose()`
+  makes a subsequent `notifyListeners()` throw. Views resolve their
+  ViewModel via `getIt<T>()` (registered `@injectable`, i.e.
+  factory-scoped — a new instance per resolution) in `State.initState`-time
+  field init, and are responsible for calling `dispose()` on it in their
+  own `dispose()`. No `provider`/`riverpod` dependency was added for
+  this — `ListenableBuilder` (built into the Flutter SDK) is enough to
+  rebuild a View when its ViewModel calls `notifyListeners()`, and pulling
+  in a state-management package wasn't justified for a shell with one
+  screen.
+- **`analysis_options.yaml`'s `always_use_package_imports` and
+  `specify_nonobvious_property_types` rules are enforced, not
+  aspirational** — `flutter analyze` fails style review on relative
+  intra-`lib` imports and on inferred-but-non-obvious field/variable
+  types (e.g. `final x = getIt<Foo>();`). Two unrelated warnings
+  (`switch_on_type`, `unnecessary_unawaited` "not a recognized lint rule")
+  show up on a clean `flutter analyze` run — pre-existing, from a
+  `flutter_lints`/lint-rule-name version mismatch, not something this
+  work introduced.
+- Flutter web renders to a `<canvas>` (via `flt-glass-pane`), not to real
+  DOM text nodes — verifying the shell with a headless browser means
+  waiting and screenshotting, not `waitForSelector('text=...')` or
+  reading `document.body.innerText` (both come back empty even on a
+  fully-rendered page). Confirmed the shell renders — title, theme, and
+  placeholder body copy all visible — via a Playwright screenshot against
+  `flutter run -d web-server`.
