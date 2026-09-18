@@ -113,9 +113,9 @@ https://sneekes.app/posts/building-my-own-kanban-self-hosted/
 | 6         | Done           | Hierarchy                         |
 | 7         | Done           | Time-frame filter                 |
 | 8         | Done           | Search/filter/sort                |
-| 9         | In progress    | **Work-item details**             |
-| 10        | In progress    | **Authentication**                |
-| 11        | In progress    | **Comments/links**                |
+| 9         | In progress    | Work-item details                 |
+| 10        | Done           | **Authentication**                |
+| 11        | In progress    | Comments/links                    |
 | 12        | Not started    | Attachments                       |
 | 13        | Not started    | MCP                               |
 | 14        | Not started    | Mobile refinement                 |

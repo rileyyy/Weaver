@@ -464,3 +464,112 @@ whoever (human or agent) next touches this area.
   that entire column (and only that column), and switching the sort
   dropdown to "Title (A–Z)" visibly reorders the cards while "Manual"
   restores the original Rank order.
+
+## Authentication (Milestone 10)
+
+- **JWT access token (15 min) + rotating opaque refresh token (30 days).**
+  Only the refresh token's SHA-256 hash is ever stored (`RefreshToken
+  .TokenHash`) — a database read alone can never yield a usable
+  credential. Every `RefreshAsync` call revokes the token it was given and
+  issues a new one (`ReplacedByTokenHash` records the chain), so a stolen-
+  then-reused refresh token fails outright rather than just eventually
+  expiring.
+- **Passwords are hashed with `Microsoft.AspNetCore.Identity`'s
+  `PasswordHasher<User>`** (PBKDF2-HMAC-SHA256, framework-managed
+  iteration count) via the standalone `Microsoft.Extensions.Identity.Core`
+  package — deliberately not the full ASP.NET Core Identity system
+  (roles/claims/EF schema), which would have imposed far more shape than
+  a plain username+password table needs.
+- **Login failures are uniformly `InvalidCredentialsException`** — unknown
+  username, wrong password, and a locked-out account all produce the same
+  generic "Invalid username or password," specifically so a caller can't
+  use the error to enumerate valid usernames or learn an account's
+  lockout state.
+- **`[Authorize]` is the default for every endpoint**, via
+  `AddAuthorization(options => options.FallbackPolicy = ...
+  RequireAuthenticatedUser())` in `Program.cs`, rather than annotating
+  each controller — a new controller is protected automatically instead
+  of by remembering to add the attribute. `AuthController` opts individual
+  actions out with `[AllowAnonymous]` (register/login/refresh/logout).
+  **Controller-level `[AllowAnonymous]` was tried first and was a real
+  bug**: in ASP.NET Core, `[AllowAnonymous]` anywhere in the chain wins
+  unconditionally — it does *not* work like normal attribute precedence
+  where the closer one (here, action-level `[Authorize]` on `Me`) wins.
+  The compiler's own `ASP0026` warning caught this; per-action
+  `[AllowAnonymous]` on just the four anonymous endpoints is correct.
+- **`options.MapInboundClaims = false` is required on `AddJwtBearer`.**
+  Without it, the handler silently remaps standard claim types (`sub` →
+  a legacy XML-namespace URI) on the resulting `ClaimsPrincipal`, so
+  `ClaimsPrincipalExtensions.GetUserId`'s `JwtRegisteredClaimNames.Sub`
+  lookup would never match a real token — even though a unit test
+  building a `ClaimsIdentity` directly (bypassing the real handler)
+  wouldn't catch this, since it never goes through the remapping. Only
+  manual `curl` verification against the running container caught it.
+- **Enums must serialize as their string name, not the default int** —
+  `Program.cs` registers a global `JsonStringEnumConverter`. Found by
+  manually exercising registration end to end: the backend call succeeded
+  (200, valid body), but the frontend's `user['kind'] as String` cast
+  threw on the raw int, surfacing as a generic "could not create account"
+  error that gave no hint the server had actually succeeded. This was
+  latent already for `StatusDto.Category` (nothing parsed it client-side
+  yet) — worth checking again for `WorkItemPriority` once that exists.
+- **CORS narrowed from any-origin to a configured allowlist**
+  (`Cors:AllowedOrigins`, no default — same fail-loud shape as
+  `POSTGRES_PASSWORD`) now that there's something worth protecting; see
+  the `Program.cs` comment left in Milestone 5 anticipating exactly this.
+- **Frontend: the default (unnamed) `http.Client` DI binding is
+  `AuthHttpClient`**, a wrapper that attaches the current access token
+  and refreshes proactively before every call — every existing repository
+  (`ApiBoardRepository` etc.) got authenticated for free with zero changes
+  of its own, since they already depended on the *interface*
+  `http.Client`, not a concrete type. `ApiAuthRepository` is the one
+  exception, wired to a separately-`@Named('rawHttpClient')`
+  unauthenticated client — it must never go through the wrapper, since
+  refresh is what that wrapper would otherwise recurse into.
+- **Refresh token persistence goes through `flutter_secure_storage`**,
+  wrapped in try/catch at the `AuthSessionStore` level (not inside the
+  store itself) so a persistence failure can never prevent the in-memory
+  session state from updating or notifying listeners — `setSession`/
+  `clear` update state and call `notifyListeners()` *before* attempting
+  to persist, treating storage as strictly best-effort. This is exactly
+  what caught a real bug during verification (next point).
+- **A newly-added plugin needs a fresh `flutter run` process, not just a
+  hot reload/restart.** `flutter_secure_storage`'s web plugin registration
+  happens at process-start build-generation time; hot-restarting the
+  already-running dev process after `flutter pub add` left it permanently
+  throwing `MissingPluginException` on every secure-storage call. Because
+  `AuthSessionStore.clear()`'s old implementation awaited the storage
+  write *before* `notifyListeners()`, this silently broke logout (state
+  cleared internally, UI never rebuilt) — found only by capturing browser
+  console errors during interactive verification, not by pixel-diffing
+  screenshots. Fixed both the ordering (see previous point) and confirmed
+  the general lesson: `docker compose up -d --build <service>` (full
+  recreate) after adding a plugin, not just triggering the fifo's hot
+  reload.
+- **`docker/frontend/dev-entrypoint.sh`'s `mkfifo` needed `rm -f` first.**
+  `docker compose restart` (as opposed to recreate) reuses the container's
+  writable layer, so `/tmp/flutter-stdin` from the previous run is still
+  there and `mkfifo` refused to clobber it, crash-looping the container.
+  Same fix pattern as the frontend/backend "needs a real restart, not
+  reload" lessons above — this makes plain `restart` actually work instead
+  of requiring a full recreate every time.
+- **The debug banner occupies the same top-right corner Material AppBars
+  conventionally put actions in**, and its hit-test region swallowed
+  clicks meant for the new sign-out button during headless verification —
+  set `debugShowCheckedModeBanner: false` on `MaterialApp` (also just a
+  reasonable permanent choice; it's stripped from profile/release builds
+  regardless).
+- **`document.body.innerText` is useless for verifying Flutter web
+  state** — reconfirms the canvas-rendering note from Milestone 3, but
+  concretely: an automated check using it read "false" (assumed failure)
+  for a flow a same-run screenshot proved had actually succeeded. Screenshots
+  (or, for finding a specific element's real position, enabling semantics
+  via the `[aria-label="Enable accessibility"]` placeholder and reading
+  the resulting `flt-semantics` DOM) are the only reliable signal.
+- Verified end to end against the dev Docker stack: registered a new
+  account through the actual login UI (not just the API) and confirmed
+  it lands on the board with real, authenticated API calls succeeding;
+  clicked sign-out and confirmed it returns to the login screen; signed
+  back in with the same credentials; and confirmed a full page reload
+  (simulating an app restart) restores the session from the cached
+  refresh token straight to the board with no re-login needed.
