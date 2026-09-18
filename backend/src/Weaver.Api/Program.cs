@@ -16,6 +16,13 @@ builder.Services.AddDbContext<WeaverDbContext>(options =>
 
 builder.Services.AddScoped<IWorkItemService, WorkItemService>();
 
+// No auth exists yet (Milestone 10), so there are no credentials to protect;
+// once auth lands, this should narrow to configured, credentialed origins.
+const string corsPolicy = "AllowAnyOriginNoCredentials";
+builder.Services.AddCors(options =>
+    options.AddPolicy(corsPolicy, policy =>
+        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -32,6 +39,8 @@ if (app.Environment.IsDevelopment())
 app.UseMiddleware<ApiExceptionMiddleware>();
 
 app.UseHttpsRedirection();
+
+app.UseCors(corsPolicy);
 
 app.UseAuthorization();
 
