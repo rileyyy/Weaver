@@ -307,3 +307,58 @@ whoever (human or agent) next touches this area.
   Chrome/Edge devices or the Dart Debug extension specifically to avoid
   it) — but it's what any future headless verification of this app will
   hit, so the workaround is worth keeping.
+
+## Hierarchy: drill-down + reparenting (Milestone 6)
+
+- **No backend work was needed for this milestone.** `WorkItemsController`
+  already had `Reparent` (cycle detection included) since Milestone 1/2,
+  and the board's "scope item" concept (`Board.ScopeItemId`) was designed
+  from the start to support exactly this — drilling into a card just means
+  asking `GetChildrenAsync` for a different `parentId`. This milestone was
+  entirely a frontend exercise in exposing hierarchy that already existed.
+- **`BoardRepository.loadBoard` now takes an explicit `scopeItemId`
+  parameter instead of resolving "the board's scope" internally.** A
+  separate `loadRootScopeItemId()` resolves the *initial* scope (the first
+  `Board`'s `ScopeItemId`, or top-level) once; `BoardViewModel` calls it
+  only from `load()`, and reuses whatever card/breadcrumb id is already
+  known client-side for every subsequent navigation. No extra network
+  round trip is needed to know a breadcrumb's title — it's just the
+  card's own `title`, captured at drill-in time.
+- **`BoardViewModel` funnels every scope change (`load`, `drillInto`,
+  `navigateToBreadcrumb`) through one private `_changeScope` helper** that
+  sets `isLoading`, clears `loadError`, records a `_retry` closure, and
+  catches failures into `loadError` with an action-specific message. This
+  is what makes a single generic `retry()` correct regardless of which
+  navigation failed — same shape as `moveCard`/`reparentCard` sharing an
+  optimistic-apply-then-rollback pattern for the same reason (one place to
+  get the error handling right, reused by every mutating/loading action).
+- **`WorkItemCard.movedToParent` is a separate method from `copyWith`**,
+  deliberately not a `copyWith(parentId: ...)` overload. `copyWith`'s own
+  doc comment already promises it never touches `parentId` — reusing it
+  for reparenting would either break that promise or need a separate
+  method anyway, and the split mirrors the backend's `ChangeStatus`/
+  `Reparent` separation at the model level, the same way `BoardViewModel`
+  already mirrors it with two distinct optimistic-update methods.
+- **Reparenting via drag-and-drop needed a second, separate `DragTarget`**
+  (on the swimlane's label, in `_SwimlaneLabel`) rather than reusing the
+  status-column one. The status-column `DragTarget` in `_StatusColumn`
+  intentionally only accepts a card whose `parentId` already matches that
+  swimlane — that's the existing invariant (a status drag can never
+  reparent). The label's `DragTarget` does the opposite: it only accepts a
+  card whose `parentId` does *not* already match, so dropping a card back
+  onto its own lane's label is silently rejected rather than a no-op
+  network call.
+- **Any card is tappable to drill in, even ones with zero children** —
+  there's no `hasChildren` flag on `WorkItemDto`/`WorkItemCard`, and adding
+  one just to grey out childless cards would mean an extra fetch (or a
+  denormalized count) for a purely cosmetic affordance. Drilling into a
+  leaf item just shows an empty board under that breadcrumb, which is a
+  legitimate (if temporarily boring) state — the user can already tell
+  from the breadcrumb where they are and navigate back.
+- Verified end to end against the dev Docker stack: seeded a second
+  top-level swimlane and a grandchild under an existing card via the API,
+  then in a browser: drilled into a card to see its own child as a new
+  swimlane, navigated back via the "Board" breadcrumb, dragged a card from
+  one swimlane onto another's label to reparent it (status column
+  preserved), and confirmed via both a page reload and a direct API call
+  that the new `parentId` persisted.

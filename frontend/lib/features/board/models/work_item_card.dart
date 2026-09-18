@@ -21,4 +21,14 @@ class WorkItemCard {
         parentId: parentId,
         statusId: statusId ?? this.statusId,
       );
+
+  /// Moves this card to a new parent, keeping its status — the model-level
+  /// mirror of the backend's `Reparent` (never touches [statusId]), the same
+  /// way [copyWith] never touches [parentId].
+  WorkItemCard movedToParent(String newParentId) => WorkItemCard(
+        id: id,
+        title: title,
+        parentId: newParentId,
+        statusId: statusId,
+      );
 }

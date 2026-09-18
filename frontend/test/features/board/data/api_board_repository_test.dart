@@ -16,19 +16,37 @@ http.Response _jsonResponse(Object body, {int statusCode = 200}) =>
 void main() {
   const baseUrl = 'http://backend.test/api';
 
-  test('loadBoard builds swimlanes from the board scope and its children', () async {
-    final requestedPaths = <String>[];
+  test("loadRootScopeItemId returns the first board's scope item", () async {
     final client = MockClient((request) async {
-      requestedPaths.add(request.url.path);
-
-      if (request.url.path == '/api/statuses') {
-        return _jsonResponse([
-          {'id': 'status-todo', 'name': 'To Do', 'order': 0},
-        ]);
-      }
       if (request.url.path == '/api/boards') {
         return _jsonResponse([
           {'id': 'board-1', 'name': 'Main', 'scopeItemId': 'epic-1'},
+        ]);
+      }
+      throw StateError('Unexpected request: ${request.url}');
+    });
+
+    final repository = ApiBoardRepository(client, baseUrl);
+
+    expect(await repository.loadRootScopeItemId(), 'epic-1');
+  });
+
+  test('loadRootScopeItemId returns null when no boards exist', () async {
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/boards') return _jsonResponse([]);
+      throw StateError('Unexpected request: ${request.url}');
+    });
+
+    final repository = ApiBoardRepository(client, baseUrl);
+
+    expect(await repository.loadRootScopeItemId(), isNull);
+  });
+
+  test('loadBoard builds swimlanes from the given scope and its children', () async {
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/statuses') {
+        return _jsonResponse([
+          {'id': 'status-todo', 'name': 'To Do', 'order': 0},
         ]);
       }
       if (request.url.path == '/api/work-items' &&
@@ -58,19 +76,17 @@ void main() {
     });
 
     final repository = ApiBoardRepository(client, baseUrl);
-    final board = await repository.loadBoard();
+    final board = await repository.loadBoard('epic-1');
 
     expect(board.statuses.single.id, 'status-todo');
     expect(board.swimlanes.single.parentId, 'lane-1');
     expect(board.swimlanes.single.title, 'Lane One');
     expect(board.swimlanes.single.cards.single.id, 'card-1');
-    expect(requestedPaths, contains('/api/boards'));
   });
 
-  test('loadBoard treats no boards as a top-level scope', () async {
+  test('loadBoard treats a null scope as top-level', () async {
     final client = MockClient((request) async {
       if (request.url.path == '/api/statuses') return _jsonResponse([]);
-      if (request.url.path == '/api/boards') return _jsonResponse([]);
       if (request.url.path == '/api/work-items') {
         expect(request.url.queryParameters, isEmpty);
         return _jsonResponse([]);
@@ -79,7 +95,7 @@ void main() {
     });
 
     final repository = ApiBoardRepository(client, baseUrl);
-    final board = await repository.loadBoard();
+    final board = await repository.loadBoard(null);
 
     expect(board.swimlanes, isEmpty);
   });
@@ -94,7 +110,7 @@ void main() {
     final repository = ApiBoardRepository(client, baseUrl);
 
     await expectLater(
-      repository.loadBoard(),
+      repository.loadBoard(null),
       throwsA(
         isA<ApiException>().having(
           (e) => e.message,
@@ -129,6 +145,34 @@ void main() {
 
     await expectLater(
       repository.changeStatus('card-1', 'status-done'),
+      throwsA(isA<ApiException>()),
+    );
+  });
+
+  test('reparentItem posts the new parent and succeeds on 200', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return http.Response('', 200);
+    });
+
+    final repository = ApiBoardRepository(client, baseUrl);
+    await repository.reparentItem('card-1', 'lane-2');
+
+    expect(sentRequest, isNotNull);
+    expect(sentRequest!.url.path, '/api/work-items/card-1/parent');
+    expect(jsonDecode(sentRequest!.body), {'parentId': 'lane-2'});
+  });
+
+  test('reparentItem throws an ApiException on failure', () async {
+    final client = MockClient((request) async {
+      return _jsonResponse({'detail': 'Cycle detected.'}, statusCode: 409);
+    });
+
+    final repository = ApiBoardRepository(client, baseUrl);
+
+    await expectLater(
+      repository.reparentItem('card-1', 'lane-2'),
       throwsA(isA<ApiException>()),
     );
   });

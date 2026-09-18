@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/models/board_status.dart';
+import 'package:weaver/features/board/models/scope_crumb.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/widgets/board_card.dart';
@@ -56,7 +57,7 @@ class _BoardViewState extends State<BoardView> {
 
           final loadError = _viewModel.loadError;
           if (loadError != null) {
-            return _LoadErrorView(message: loadError, onRetry: _viewModel.load);
+            return _LoadErrorView(message: loadError, onRetry: _viewModel.retry);
           }
 
           return SingleChildScrollView(
@@ -65,12 +66,18 @@ class _BoardViewState extends State<BoardView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  _BreadcrumbBar(
+                    breadcrumbs: _viewModel.breadcrumbs,
+                    onSelect: _viewModel.navigateToBreadcrumb,
+                  ),
                   _StatusHeaderRow(statuses: _viewModel.statuses),
                   for (final lane in _viewModel.swimlanes)
                     _SwimlaneRow(
                       swimlane: lane,
                       statuses: _viewModel.statuses,
                       onCardDropped: _viewModel.moveCard,
+                      onCardReparented: _viewModel.reparentCard,
+                      onCardOpened: _viewModel.drillInto,
                     ),
                 ],
               ),
@@ -109,6 +116,48 @@ class _LoadErrorView extends StatelessWidget {
   }
 }
 
+class _BreadcrumbBar extends StatelessWidget {
+  const _BreadcrumbBar({required this.breadcrumbs, required this.onSelect});
+
+  final List<ScopeCrumb> breadcrumbs;
+  final Future<void> Function(int index) onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final lastIndex = breadcrumbs.length - 1;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          for (var i = 0; i < breadcrumbs.length; i++) ...[
+            if (i > 0)
+              Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            if (i == lastIndex)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  breadcrumbs[i].title,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              )
+            else
+              TextButton(
+                onPressed: () => unawaited(onSelect(i)),
+                child: Text(breadcrumbs[i].title),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _StatusHeaderRow extends StatelessWidget {
   const _StatusHeaderRow({required this.statuses});
 
@@ -140,12 +189,17 @@ class _SwimlaneRow extends StatelessWidget {
     required this.swimlane,
     required this.statuses,
     required this.onCardDropped,
+    required this.onCardReparented,
+    required this.onCardOpened,
   });
 
   final Swimlane swimlane;
   final List<BoardStatus> statuses;
   final Future<void> Function(WorkItemCard card, String newStatusId)
   onCardDropped;
+  final Future<void> Function(WorkItemCard card, String newParentId)
+  onCardReparented;
+  final Future<void> Function(WorkItemCard card) onCardOpened;
 
   @override
   Widget build(BuildContext context) {
@@ -157,12 +211,9 @@ class _SwimlaneRow extends StatelessWidget {
           children: [
             SizedBox(
               width: _laneLabelWidth,
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Text(
-                  swimlane.title,
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
+              child: _SwimlaneLabel(
+                swimlane: swimlane,
+                onCardReparented: onCardReparented,
               ),
             ),
             for (final status in statuses)
@@ -172,6 +223,7 @@ class _SwimlaneRow extends StatelessWidget {
                   swimlane: swimlane,
                   status: status,
                   onCardDropped: onCardDropped,
+                  onCardOpened: onCardOpened,
                 ),
               ),
           ],
@@ -181,17 +233,53 @@ class _SwimlaneRow extends StatelessWidget {
   }
 }
 
+class _SwimlaneLabel extends StatelessWidget {
+  const _SwimlaneLabel({required this.swimlane, required this.onCardReparented});
+
+  final Swimlane swimlane;
+  final Future<void> Function(WorkItemCard card, String newParentId)
+  onCardReparented;
+
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<WorkItemCard>(
+      onWillAcceptWithDetails: (details) =>
+          details.data.parentId != swimlane.parentId,
+      onAcceptWithDetails: (details) =>
+          unawaited(onCardReparented(details.data, swimlane.parentId)),
+      builder: (context, candidateData, rejectedData) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return Container(
+          decoration: BoxDecoration(
+            color: candidateData.isNotEmpty
+                ? colorScheme.primaryContainer.withValues(alpha: 0.4)
+                : null,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.all(8),
+          child: Text(
+            swimlane.title,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _StatusColumn extends StatelessWidget {
   const _StatusColumn({
     required this.swimlane,
     required this.status,
     required this.onCardDropped,
+    required this.onCardOpened,
   });
 
   final Swimlane swimlane;
   final BoardStatus status;
   final Future<void> Function(WorkItemCard card, String newStatusId)
   onCardDropped;
+  final Future<void> Function(WorkItemCard card) onCardOpened;
 
   @override
   Widget build(BuildContext context) {
@@ -215,7 +303,13 @@ class _StatusColumn extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
-            children: [for (final card in cards) BoardCard(card: card)],
+            children: [
+              for (final card in cards)
+                BoardCard(
+                  card: card,
+                  onOpen: () => unawaited(onCardOpened(card)),
+                ),
+            ],
           ),
         );
       },

@@ -10,9 +10,10 @@ import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 
 /// Board data backed by the REST API. Swimlanes are the direct children of
-/// the first board's scope item (or top-level items, if no board exists
-/// yet); each swimlane's cards are that swimlane's own direct children —
-/// mirroring `Board`'s doc comment on the backend.
+/// whichever scope item [loadBoard] is asked for (the first board's scope
+/// item, or top-level items, by default); each swimlane's cards are that
+/// swimlane's own direct children — mirroring `Board`'s doc comment on the
+/// backend.
 @LazySingleton(as: BoardRepository)
 class ApiBoardRepository implements BoardRepository {
   ApiBoardRepository(this._client, @Named('apiBaseUrl') this._baseUrl);
@@ -21,9 +22,15 @@ class ApiBoardRepository implements BoardRepository {
   final String _baseUrl;
 
   @override
-  Future<BoardData> loadBoard() async {
+  Future<String?> loadRootScopeItemId() async {
+    final boards = await _getJsonList('/boards');
+    if (boards.isEmpty) return null;
+    return boards.first['scopeItemId'] as String?;
+  }
+
+  @override
+  Future<BoardData> loadBoard(String? scopeItemId) async {
     final statuses = await _loadStatuses();
-    final scopeItemId = await _loadBoardScopeItemId();
     final swimlaneItems = await _loadChildren(scopeItemId);
 
     final swimlanes = await Future.wait([
@@ -43,6 +50,16 @@ class ApiBoardRepository implements BoardRepository {
     _checkOk(response, 'Failed to change status');
   }
 
+  @override
+  Future<void> reparentItem(String itemId, String newParentId) async {
+    final response = await _client.post(
+      _uri('/work-items/$itemId/parent'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({'parentId': newParentId}),
+    );
+    _checkOk(response, 'Failed to move item');
+  }
+
   Future<List<BoardStatus>> _loadStatuses() async {
     final json = await _getJsonList('/statuses');
     return [
@@ -53,12 +70,6 @@ class ApiBoardRepository implements BoardRepository {
           order: item['order'] as int,
         ),
     ];
-  }
-
-  Future<String?> _loadBoardScopeItemId() async {
-    final boards = await _getJsonList('/boards');
-    if (boards.isEmpty) return null;
-    return boards.first['scopeItemId'] as String?;
   }
 
   Future<Swimlane> _loadSwimlane(Map<String, dynamic> parent) async {

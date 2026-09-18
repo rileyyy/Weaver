@@ -93,8 +93,8 @@ https://sneekes.app/posts/building-my-own-kanban-self-hosted/
 | 2         | Done           | API                               |
 | 3         | Done           | Flutter shell                     |
 | 4         | Done           | Standalone swimlane prototype     |
-| 5         | Done           | **API-connected board**           |
-| 6         | Not started    | Hierarchy                         |
+| 5         | Done           | API-connected board               |
+| 6         | Done           | **Hierarchy**                     |
 | 7         | Not started    | Sprint system                     |
 | 8         | Not started    | Search/filter/sort                |
 | 9         | Not started    | Work-item details                 |

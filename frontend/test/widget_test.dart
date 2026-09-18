@@ -11,7 +11,10 @@ import 'package:weaver/features/board/models/work_item_card.dart';
 /// test never makes an HTTP call.
 class _StubBoardRepository implements BoardRepository {
   @override
-  Future<BoardData> loadBoard() => Future.value(
+  Future<String?> loadRootScopeItemId() => Future.value();
+
+  @override
+  Future<BoardData> loadBoard(String? scopeItemId) => Future.value(
     const BoardData(
       statuses: [BoardStatus(id: 'todo', name: 'To Do', order: 0)],
       swimlanes: [
@@ -33,6 +36,10 @@ class _StubBoardRepository implements BoardRepository {
 
   @override
   Future<void> changeStatus(String cardId, String newStatusId) =>
+      Future.value();
+
+  @override
+  Future<void> reparentItem(String itemId, String newParentId) =>
       Future.value();
 }
 
