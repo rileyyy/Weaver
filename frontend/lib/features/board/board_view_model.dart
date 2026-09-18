@@ -3,6 +3,7 @@ import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/board_status.dart';
+import 'package:weaver/features/board/models/card_sort_option.dart';
 import 'package:weaver/features/board/models/scope_crumb.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
@@ -24,6 +25,9 @@ class BoardViewModel extends ViewModel {
   Future<void> Function() _retry = _noRetry;
   DateTime? _filterStart;
   DateTime? _filterEnd;
+  String _searchQuery = '';
+  final Set<String> _hiddenStatusIds = {};
+  CardSortOption _sortOption = CardSortOption.manual;
 
   List<BoardStatus> get statuses => _statuses;
   List<Swimlane> get swimlanes => _swimlanes;
@@ -48,6 +52,19 @@ class BoardViewModel extends ViewModel {
 
   DateTime? get filterStart => _filterStart;
   DateTime? get filterEnd => _filterEnd;
+
+  String get searchQuery => _searchQuery;
+
+  /// Status ids whose column is currently hidden. Checked against every
+  /// status, not just [visibleStatuses], so a toggle control can always
+  /// show every status as a candidate to re-enable.
+  Set<String> get hiddenStatusIds => _hiddenStatusIds;
+
+  /// [statuses], excluding any hidden via [toggleStatusVisibility].
+  List<BoardStatus> get visibleStatuses =>
+      _statuses.where((s) => !_hiddenStatusIds.contains(s.id)).toList();
+
+  CardSortOption get sortOption => _sortOption;
 
   Future<void> load() => _changeScope(() async {
         final rootScopeId = await _repository.loadRootScopeItemId();
@@ -194,6 +211,65 @@ class BoardViewModel extends ViewModel {
         !card.endDate!.isBefore(filterStart);
 
     return startsInTime && endsInTime;
+  }
+
+  void setSearchQuery(String query) {
+    _searchQuery = query;
+    notifyIfActive();
+  }
+
+  void clearSearchQuery() => setSearchQuery('');
+
+  /// True if [card]'s title or description contains [searchQuery]
+  /// (case-insensitive). Always true when the query is empty.
+  bool matchesSearch(WorkItemCard card) {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return true;
+
+    return card.title.toLowerCase().contains(query) ||
+        (card.description?.toLowerCase().contains(query) ?? false);
+  }
+
+  /// Whether [card] should be shown on the board under the current
+  /// time-frame filter and search query together.
+  bool cardVisible(WorkItemCard card) =>
+      matchesTimeFilter(card) && matchesSearch(card);
+
+  /// Shows or hides [statusId]'s column. Hiding a status doesn't move or
+  /// otherwise change any work item in it — it's purely a display toggle.
+  void toggleStatusVisibility(String statusId) {
+    if (!_hiddenStatusIds.remove(statusId)) {
+      _hiddenStatusIds.add(statusId);
+    }
+    notifyIfActive();
+  }
+
+  void setSortOption(CardSortOption option) {
+    _sortOption = option;
+    notifyIfActive();
+  }
+
+  /// Null for [CardSortOption.manual]: cards stay in the order the backend
+  /// returned them (by `Rank`). Any other option returns a comparator the
+  /// view applies on top of that order — sorting is display-only and never
+  /// changes `Rank` or persists anywhere.
+  Comparator<WorkItemCard>? get cardComparator => switch (_sortOption) {
+        CardSortOption.manual => null,
+        CardSortOption.title => (a, b) =>
+            a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+        CardSortOption.startDate => (a, b) =>
+            _compareOpenEndedDates(a.startDate, b.startDate),
+        CardSortOption.dueDate => (a, b) =>
+            _compareOpenEndedDates(a.endDate, b.endDate),
+      };
+
+  /// Ascending, with a missing date sorted after every present date — an
+  /// unscheduled item has no position to sort by, so it falls to the end
+  /// rather than being treated as earliest.
+  int _compareOpenEndedDates(DateTime? a, DateTime? b) {
+    if (a == null) return b == null ? 0 : 1;
+    if (b == null) return -1;
+    return a.compareTo(b);
   }
 
   Future<void> _changeScope(

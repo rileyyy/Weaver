@@ -66,7 +66,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Weaver'), findsOneWidget);
-    expect(find.text('To Do'), findsOneWidget);
+    // Appears twice: the status column header and its filter chip.
+    expect(find.text('To Do'), findsNWidgets(2));
     expect(find.text('Swimlane board'), findsOneWidget);
     expect(find.text('Design swimlane layout'), findsOneWidget);
   });

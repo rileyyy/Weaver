@@ -8,6 +8,7 @@ class WorkItemCard {
     required this.title,
     required this.parentId,
     required this.statusId,
+    this.description,
     this.startDate,
     this.endDate,
   });
@@ -16,6 +17,7 @@ class WorkItemCard {
   final String title;
   final String parentId;
   final String statusId;
+  final String? description;
 
   /// When this item is scheduled to start/end. Either may be null — an
   /// open start or end is unbounded on that side for a time-frame filter,
@@ -28,6 +30,7 @@ class WorkItemCard {
         title: title,
         parentId: parentId,
         statusId: statusId ?? this.statusId,
+        description: description,
         startDate: startDate,
         endDate: endDate,
       );
@@ -40,6 +43,7 @@ class WorkItemCard {
         title: title,
         parentId: newParentId,
         statusId: statusId,
+        description: description,
         startDate: startDate,
         endDate: endDate,
       );
@@ -52,6 +56,7 @@ class WorkItemCard {
         title: title,
         parentId: parentId,
         statusId: statusId,
+        description: description,
         startDate: startDate,
         endDate: endDate,
       );

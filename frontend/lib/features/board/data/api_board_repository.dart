@@ -110,6 +110,7 @@ class ApiBoardRepository implements BoardRepository {
     title: item['title'] as String,
     parentId: item['parentId'] as String,
     statusId: item['statusId'] as String,
+    description: item['description'] as String?,
     startDate: _parseDate(item['startDate']),
     endDate: _parseDate(item['endDate']),
   );

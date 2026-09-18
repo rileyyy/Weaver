@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/models/board_status.dart';
+import 'package:weaver/features/board/models/card_sort_option.dart';
 import 'package:weaver/features/board/models/scope_crumb.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
@@ -22,6 +23,7 @@ class BoardView extends StatefulWidget {
 
 class _BoardViewState extends State<BoardView> {
   final BoardViewModel _viewModel = getIt<BoardViewModel>();
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -35,6 +37,7 @@ class _BoardViewState extends State<BoardView> {
     _viewModel
       ..removeListener(_showMoveErrorIfAny)
       ..dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -71,22 +74,36 @@ class _BoardViewState extends State<BoardView> {
                     breadcrumbs: _viewModel.breadcrumbs,
                     onSelect: _viewModel.navigateToBreadcrumb,
                   ),
+                  _SearchBar(
+                    controller: _searchController,
+                    onChanged: _viewModel.setSearchQuery,
+                  ),
                   _TimeFilterBar(
                     start: _viewModel.filterStart,
                     end: _viewModel.filterEnd,
                     onChanged: _viewModel.setTimeFilter,
                     onClear: _viewModel.clearTimeFilter,
                   ),
-                  _StatusHeaderRow(statuses: _viewModel.statuses),
+                  _StatusFilterBar(
+                    statuses: _viewModel.statuses,
+                    hiddenStatusIds: _viewModel.hiddenStatusIds,
+                    onToggle: _viewModel.toggleStatusVisibility,
+                  ),
+                  _SortBar(
+                    value: _viewModel.sortOption,
+                    onChanged: _viewModel.setSortOption,
+                  ),
+                  _StatusHeaderRow(statuses: _viewModel.visibleStatuses),
                   for (final lane in _viewModel.swimlanes)
                     _SwimlaneRow(
                       swimlane: lane,
-                      statuses: _viewModel.statuses,
+                      statuses: _viewModel.visibleStatuses,
                       onCardDropped: _viewModel.moveCard,
                       onCardReparented: _viewModel.reparentCard,
                       onCardOpened: _viewModel.drillInto,
                       onCardRescheduled: _viewModel.rescheduleCard,
-                      cardMatchesFilter: _viewModel.matchesTimeFilter,
+                      cardVisible: _viewModel.cardVisible,
+                      cardComparator: _viewModel.cardComparator,
                     ),
                 ],
               ),
@@ -161,6 +178,94 @@ class _BreadcrumbBar extends StatelessWidget {
                 child: Text(breadcrumbs[i].title),
               ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchBar extends StatelessWidget {
+  const _SearchBar({required this.controller, required this.onChanged});
+
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      child: SizedBox(
+        width: 320,
+        child: TextField(
+          controller: controller,
+          onChanged: onChanged,
+          decoration: const InputDecoration(
+            isDense: true,
+            prefixIcon: Icon(Icons.search),
+            hintText: 'Search title or description',
+            border: OutlineInputBorder(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusFilterBar extends StatelessWidget {
+  const _StatusFilterBar({
+    required this.statuses,
+    required this.hiddenStatusIds,
+    required this.onToggle,
+  });
+
+  final List<BoardStatus> statuses;
+  final Set<String> hiddenStatusIds;
+  final ValueChanged<String> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 8,
+        children: [
+          Text('Show columns', style: Theme.of(context).textTheme.bodySmall),
+          for (final status in statuses)
+            FilterChip(
+              label: Text(status.name),
+              selected: !hiddenStatusIds.contains(status.id),
+              onSelected: (_) => onToggle(status.id),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SortBar extends StatelessWidget {
+  const _SortBar({required this.value, required this.onChanged});
+
+  final CardSortOption value;
+  final ValueChanged<CardSortOption> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Sort by', style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(width: 8),
+          DropdownButton<CardSortOption>(
+            value: value,
+            onChanged: (option) => option == null ? null : onChanged(option),
+            items: [
+              for (final option in CardSortOption.values)
+                DropdownMenuItem(value: option, child: Text(option.label)),
+            ],
+          ),
         ],
       ),
     );
@@ -271,7 +376,8 @@ class _SwimlaneRow extends StatelessWidget {
     required this.onCardReparented,
     required this.onCardOpened,
     required this.onCardRescheduled,
-    required this.cardMatchesFilter,
+    required this.cardVisible,
+    required this.cardComparator,
   });
 
   final Swimlane swimlane;
@@ -287,7 +393,8 @@ class _SwimlaneRow extends StatelessWidget {
     DateTime? endDate,
   )
   onCardRescheduled;
-  final bool Function(WorkItemCard card) cardMatchesFilter;
+  final bool Function(WorkItemCard card) cardVisible;
+  final Comparator<WorkItemCard>? cardComparator;
 
   @override
   Widget build(BuildContext context) {
@@ -313,7 +420,8 @@ class _SwimlaneRow extends StatelessWidget {
                   onCardDropped: onCardDropped,
                   onCardOpened: onCardOpened,
                   onCardRescheduled: onCardRescheduled,
-                  cardMatchesFilter: cardMatchesFilter,
+                  cardVisible: cardVisible,
+                  cardComparator: cardComparator,
                 ),
               ),
           ],
@@ -364,7 +472,8 @@ class _StatusColumn extends StatelessWidget {
     required this.onCardDropped,
     required this.onCardOpened,
     required this.onCardRescheduled,
-    required this.cardMatchesFilter,
+    required this.cardVisible,
+    required this.cardComparator,
   });
 
   final Swimlane swimlane;
@@ -378,13 +487,16 @@ class _StatusColumn extends StatelessWidget {
     DateTime? endDate,
   )
   onCardRescheduled;
-  final bool Function(WorkItemCard card) cardMatchesFilter;
+  final bool Function(WorkItemCard card) cardVisible;
+  final Comparator<WorkItemCard>? cardComparator;
 
   @override
   Widget build(BuildContext context) {
-    final cards = swimlane.cards.where(
-      (c) => c.statusId == status.id && cardMatchesFilter(c),
-    );
+    final cards = swimlane.cards
+        .where((c) => c.statusId == status.id && cardVisible(c))
+        .toList();
+    final comparator = cardComparator;
+    if (comparator != null) cards.sort(comparator);
 
     return DragTarget<WorkItemCard>(
       onWillAcceptWithDetails: (details) =>

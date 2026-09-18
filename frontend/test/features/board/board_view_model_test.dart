@@ -3,6 +3,7 @@ import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/board_status.dart';
+import 'package:weaver/features/board/models/card_sort_option.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 
@@ -439,5 +440,161 @@ void main() {
 
     expect(viewModel.filterStart, isNull);
     expect(viewModel.filterEnd, isNull);
+  });
+
+  test('matchesSearch is true for every card when the query is empty', () {
+    const card = WorkItemCard(
+      id: 'x',
+      title: 'Anything',
+      parentId: 'lane-a',
+      statusId: 'todo',
+    );
+
+    expect(viewModel.matchesSearch(card), isTrue);
+  });
+
+  test('matchesSearch matches the title case-insensitively', () {
+    viewModel.setSearchQuery('rEd');
+    const card = WorkItemCard(
+      id: 'x',
+      title: 'Fix red button',
+      parentId: 'lane-a',
+      statusId: 'todo',
+    );
+
+    expect(viewModel.matchesSearch(card), isTrue);
+  });
+
+  test('matchesSearch matches the description when the title does not', () {
+    viewModel.setSearchQuery('migration');
+    const card = WorkItemCard(
+      id: 'x',
+      title: 'Backend work',
+      description: 'Write the database migration',
+      parentId: 'lane-a',
+      statusId: 'todo',
+    );
+
+    expect(viewModel.matchesSearch(card), isTrue);
+  });
+
+  test('matchesSearch is false when neither title nor description match', () {
+    viewModel.setSearchQuery('migration');
+    const card = WorkItemCard(
+      id: 'x',
+      title: 'Fix red button',
+      description: 'Unrelated',
+      parentId: 'lane-a',
+      statusId: 'todo',
+    );
+
+    expect(viewModel.matchesSearch(card), isFalse);
+  });
+
+  test('clearSearchQuery resets the query', () {
+    viewModel
+      ..setSearchQuery('red')
+      ..clearSearchQuery();
+
+    expect(viewModel.searchQuery, isEmpty);
+  });
+
+  test('cardVisible requires both the time filter and the search query to match', () {
+    viewModel
+      ..setTimeFilter(start: DateTime(2026, 1, 10), end: DateTime(2026, 1, 20))
+      ..setSearchQuery('red');
+    const inWindowWrongTitle = WorkItemCard(
+      id: 'a',
+      title: 'Blue button',
+      parentId: 'lane-a',
+      statusId: 'todo',
+      startDate: null,
+      endDate: null,
+    );
+    const outOfWindowRightTitle = WorkItemCard(
+      id: 'b',
+      title: 'Red button',
+      parentId: 'lane-a',
+      statusId: 'todo',
+      startDate: null,
+      endDate: null,
+    );
+
+    expect(viewModel.cardVisible(inWindowWrongTitle), isFalse);
+    expect(viewModel.cardVisible(outOfWindowRightTitle), isTrue);
+  });
+
+  test('toggleStatusVisibility hides and then re-shows a status', () {
+    viewModel.toggleStatusVisibility('done');
+    expect(viewModel.visibleStatuses.map((s) => s.id), ['todo']);
+    expect(viewModel.hiddenStatusIds, {'done'});
+
+    viewModel.toggleStatusVisibility('done');
+    expect(viewModel.visibleStatuses.map((s) => s.id), ['todo', 'done']);
+    expect(viewModel.hiddenStatusIds, isEmpty);
+  });
+
+  test('cardComparator is null for the default manual sort', () {
+    expect(viewModel.sortOption, CardSortOption.manual);
+    expect(viewModel.cardComparator, isNull);
+  });
+
+  test('cardComparator for title sorts case-insensitively', () {
+    viewModel.setSortOption(CardSortOption.title);
+    const a = WorkItemCard(
+      id: 'a',
+      title: 'banana',
+      parentId: 'lane-a',
+      statusId: 'todo',
+    );
+    const b = WorkItemCard(
+      id: 'b',
+      title: 'Apple',
+      parentId: 'lane-a',
+      statusId: 'todo',
+    );
+
+    expect(viewModel.cardComparator!(a, b), greaterThan(0));
+  });
+
+  test('cardComparator for start date sorts unscheduled cards last', () {
+    viewModel.setSortOption(CardSortOption.startDate);
+    const scheduled = WorkItemCard(
+      id: 'a',
+      title: 'A',
+      parentId: 'lane-a',
+      statusId: 'todo',
+      startDate: null,
+    );
+    final unscheduled = WorkItemCard(
+      id: 'b',
+      title: 'B',
+      parentId: 'lane-a',
+      statusId: 'todo',
+      startDate: DateTime(2026, 1, 1),
+    );
+
+    expect(viewModel.cardComparator!(scheduled, unscheduled), greaterThan(0));
+    expect(viewModel.cardComparator!(unscheduled, scheduled), lessThan(0));
+  });
+
+  test('cardComparator for due date orders earlier dates first', () {
+    viewModel.setSortOption(CardSortOption.dueDate);
+    final earlier = WorkItemCard(
+      id: 'a',
+      title: 'A',
+      parentId: 'lane-a',
+      statusId: 'todo',
+      endDate: DateTime(2026, 1, 1),
+    );
+    final later = WorkItemCard(
+      id: 'b',
+      title: 'B',
+      parentId: 'lane-a',
+      statusId: 'todo',
+      endDate: DateTime(2026, 2, 1),
+    );
+
+    expect(viewModel.cardComparator!(earlier, later), lessThan(0));
   });
 }

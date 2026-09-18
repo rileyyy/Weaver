@@ -215,6 +215,41 @@ void main() {
     expect(card.endDate, isNull);
   });
 
+  test("loadBoard parses each card's description", () async {
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/statuses') return _jsonResponse([]);
+      if (request.url.path == '/api/work-items' &&
+          request.url.queryParameters['parentId'] == 'epic-1') {
+        return _jsonResponse([
+          {
+            'id': 'lane-1',
+            'title': 'Lane One',
+            'parentId': 'epic-1',
+            'statusId': 'status-todo',
+          },
+        ]);
+      }
+      if (request.url.path == '/api/work-items' &&
+          request.url.queryParameters['parentId'] == 'lane-1') {
+        return _jsonResponse([
+          {
+            'id': 'card-1',
+            'title': 'Card One',
+            'parentId': 'lane-1',
+            'statusId': 'status-todo',
+            'description': 'Some detail',
+          },
+        ]);
+      }
+      throw StateError('Unexpected request: ${request.url}');
+    });
+
+    final repository = ApiBoardRepository(client, baseUrl);
+    final board = await repository.loadBoard('epic-1');
+
+    expect(board.swimlanes.single.cards.single.description, 'Some detail');
+  });
+
   test('rescheduleItem posts the new dates and succeeds on 200', () async {
     http.Request? sentRequest;
     final client = MockClient((request) async {

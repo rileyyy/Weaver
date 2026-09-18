@@ -111,8 +111,8 @@ https://sneekes.app/posts/building-my-own-kanban-self-hosted/
 | 4         | Done           | Standalone swimlane prototype     |
 | 5         | Done           | API-connected board               |
 | 6         | Done           | Hierarchy                         |
-| 7         | Done           | **Time-frame filter**             |
-| 8         | Not started    | Search/filter/sort                |
+| 7         | Done           | Time-frame filter                 |
+| 8         | Done           | **Search/filter/sort**            |
 | 9         | Not started    | Work-item details                 |
 | 10        | Not started    | Authentication                    |
 | 11        | Not started    | Comments/links                    |

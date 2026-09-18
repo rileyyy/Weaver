@@ -415,3 +415,52 @@ whoever (human or agent) next touches this area.
   before the filter's start while leaving unscheduled and in-range items
   visible, and the schedule dialog opens and is editable from the card
   itself.
+
+## Search, status filter, and sort (Milestone 8)
+
+- **Entirely client-side, no backend changes.** Same reasoning as the
+  time-frame filter: the board already fetches each swimlane's full child
+  list up front, so search (title/description substring), column
+  visibility, and sort are just additional view-state predicates/
+  comparators applied in `BoardViewModel`/`board_view.dart` over data
+  already in hand. Scope was confirmed with the user first, since unlike
+  Milestone 7, `project_design.md` had no dedicated section spelling out
+  what this milestone should mean (it was just a one-line milestone-table
+  entry) — search matches title *and* description, filter is a per-status
+  column show/hide (not the search bar itself), sort is display-only
+  (`Manual` = today's Rank order, plus Title/Start date/Due date) and
+  never touches the backend `Rank` drag-and-drop relies on.
+- **`WorkItemCard` gained a `description` field** purely so the frontend
+  can search it — `WorkItemDto` already carried `Description`, it just
+  wasn't mapped into the board's card model before this.
+- **Sort comparator is `null` for `CardSortOption.manual`**, not a
+  same-order comparator, and `_StatusColumn` skips sorting entirely when
+  it's null rather than calling `.sort()` with one. Dart's `List.sort` is
+  not guaranteed stable, so sorting with an always-0 comparator could
+  visibly reshuffle the Rank-derived order; leaving the already-Rank-
+  ordered list untouched is the only way to guarantee "Manual" actually
+  means manual.
+- **Hit a real hot-reload limitation verifying this in the dev container**,
+  worth knowing for future frontend milestones: renaming/adding a field on
+  a widget class with a `const` constructor (here, `_SwimlaneRow`/
+  `_StatusColumn` picking up `cardComparator` and renaming
+  `cardMatchesFilter`→`cardVisible`) is a shape change the Dart
+  incremental compiler can't hot-*reload* — `flutter run`'s auto-reload-
+  on-save (`docker/frontend/dev-entrypoint.sh`'s inotify→fifo trick) kept
+  "succeeding" per its own log line while actually leaving the served app
+  on stale code, because each reload attempt silently failed
+  (`Hot reload rejected due to unsupported changes`) with no client
+  connected to surface the error to. A same-shape-change hot *restart*
+  (capital `R`) is required instead; since the entrypoint script only ever
+  sends lowercase `r`, this needs a manual
+  `docker compose exec -T frontend sh -c 'echo "R" > /tmp/flutter-stdin'`
+  after any const-widget field change, or `docker compose attach frontend`
+  and pressing `R` by hand.
+- Verified end to end against the dev Docker stack: seeded two more cards
+  via the API (one with a description containing a word its title
+  doesn't) and reordered them so Rank order and alphabetical order
+  differ, then in a browser confirmed searching by a description-only
+  word filters down to just that card, unchecking a status chip hides
+  that entire column (and only that column), and switching the sort
+  dropdown to "Title (A–Z)" visibly reorders the cards while "Manual"
+  restores the original Rank order.
