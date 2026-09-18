@@ -4,6 +4,15 @@ namespace Weaver.Infrastructure.Services;
 
 public interface IWorkItemService
 {
+    Task<WorkItem?> GetByIdAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Direct children of <paramref name="parentId"/> (or top-level items when null),
+    /// ordered by board-cell rank. The board uses this twice: once for swimlanes
+    /// (children of the board's scope item), once per swimlane for its cards.
+    /// </summary>
+    Task<IReadOnlyList<WorkItem>> GetChildrenAsync(Guid? parentId, CancellationToken ct = default);
+
     Task<WorkItem> CreateAsync(
         string title,
         string? description,

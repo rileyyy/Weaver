@@ -1,7 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Weaver.Api.Contracts;
-using Weaver.Infrastructure;
 using Weaver.Infrastructure.Services;
 
 namespace Weaver.Api.Controllers;
@@ -10,12 +8,10 @@ namespace Weaver.Api.Controllers;
 [Route("api/work-items")]
 public class WorkItemsController : ControllerBase
 {
-    private readonly WeaverDbContext _db;
     private readonly IWorkItemService _workItems;
 
-    public WorkItemsController(WeaverDbContext db, IWorkItemService workItems)
+    public WorkItemsController(IWorkItemService workItems)
     {
-        _db = db;
         _workItems = workItems;
     }
 
@@ -27,18 +23,14 @@ public class WorkItemsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<WorkItemDto>>> GetChildren([FromQuery] Guid? parentId)
     {
-        var items = await _db.WorkItems
-            .Where(w => w.ParentId == parentId)
-            .OrderBy(w => w.Rank)
-            .ToListAsync();
-
+        var items = await _workItems.GetChildrenAsync(parentId);
         return Ok(items.Select(WorkItemDto.FromEntity));
     }
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<WorkItemDto>> GetById(Guid id)
     {
-        var item = await _db.WorkItems.FindAsync(id);
+        var item = await _workItems.GetByIdAsync(id);
         return item is null ? NotFound() : Ok(WorkItemDto.FromEntity(item));
     }
 

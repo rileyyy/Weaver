@@ -1,43 +1,43 @@
 using Weaver.Domain;
-using Xunit;
 
 namespace Weaver.Domain.Tests;
 
+[TestFixture]
 public class RankCalculatorTests
 {
-    [Fact]
+    [Test]
     public void EmptyCell_ReturnsDefaultRank()
     {
         var rank = RankCalculator.GetRankBetween(null, null);
 
-        Assert.Equal(1.0, rank);
+        Assert.That(rank, Is.EqualTo(1.0));
     }
 
-    [Fact]
+    [Test]
     public void InsertAtStart_ReturnsRankBelowNext()
     {
         var rank = RankCalculator.GetRankBetween(null, 5.0);
 
-        Assert.True(rank < 5.0);
+        Assert.That(rank, Is.LessThan(5.0));
     }
 
-    [Fact]
+    [Test]
     public void InsertAtEnd_ReturnsRankAboveLast()
     {
         var rank = RankCalculator.GetRankBetween(5.0, null);
 
-        Assert.True(rank > 5.0);
+        Assert.That(rank, Is.GreaterThan(5.0));
     }
 
-    [Fact]
+    [Test]
     public void InsertBetween_ReturnsMidpoint()
     {
         var rank = RankCalculator.GetRankBetween(2.0, 4.0);
 
-        Assert.Equal(3.0, rank);
+        Assert.That(rank, Is.EqualTo(3.0));
     }
 
-    [Fact]
+    [Test]
     public void RepeatedInsertsBetweenSameNeighbors_StayOrdered()
     {
         var previous = 0.0;
@@ -47,17 +47,17 @@ public class RankCalculatorTests
         {
             var rank = RankCalculator.GetRankBetween(previous, next);
 
-            Assert.True(rank > previous);
-            Assert.True(rank < next);
+            Assert.That(rank, Is.GreaterThan(previous));
+            Assert.That(rank, Is.LessThan(next));
 
             next = rank;
         }
     }
 
-    [Fact]
-    public void PreviousNotBeforeNext_ThrowsArgumentException()
+    [TestCase(5.0, 5.0)]
+    [TestCase(6.0, 5.0)]
+    public void PreviousNotBeforeNext_ThrowsArgumentException(double previous, double next)
     {
-        Assert.Throws<ArgumentException>(() => RankCalculator.GetRankBetween(5.0, 5.0));
-        Assert.Throws<ArgumentException>(() => RankCalculator.GetRankBetween(6.0, 5.0));
+        Assert.Throws<ArgumentException>(() => RankCalculator.GetRankBetween(previous, next));
     }
 }

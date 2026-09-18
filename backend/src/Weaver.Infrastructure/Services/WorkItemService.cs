@@ -13,6 +13,15 @@ public class WorkItemService : IWorkItemService
         _db = db;
     }
 
+    public Task<WorkItem?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
+        _db.WorkItems.FirstOrDefaultAsync(w => w.Id == id, ct);
+
+    public async Task<IReadOnlyList<WorkItem>> GetChildrenAsync(Guid? parentId, CancellationToken ct = default) =>
+        await _db.WorkItems
+            .Where(w => w.ParentId == parentId)
+            .OrderBy(w => w.Rank)
+            .ToListAsync(ct);
+
     public async Task<WorkItem> CreateAsync(
         string title,
         string? description,
