@@ -1,0 +1,15 @@
+# Dev image: no COPY of app source — compose.override.yaml bind-mounts the
+# real frontend/ directory over /app at runtime. inotify-tools is what lets
+# dev-entrypoint.sh translate host file saves into Flutter hot reloads.
+
+FROM ghcr.io/cirruslabs/flutter:stable
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends inotify-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY docker/frontend/dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
+RUN chmod +x /usr/local/bin/dev-entrypoint.sh
+
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/dev-entrypoint.sh"]

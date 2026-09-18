@@ -1,0 +1,9 @@
+**/.git
+**/.DS_Store
+**/bin
+**/obj
+**/.dart_tool
+**/build
+backend/tests
+frontend/.idea
+frontend/*.iml

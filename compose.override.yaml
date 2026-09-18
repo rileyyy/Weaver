@@ -1,0 +1,45 @@
+# Local dev overlay. Compose loads this automatically alongside compose.yaml
+# whenever you run `docker compose up` from this directory — no extra flag
+# needed. It replaces the pulled images with containers built from source
+# that bind-mount the working tree, so `dotnet watch` and Flutter's hot
+# reload both see host edits immediately. See agent_notes.md.
+#
+# Deploying to the self-hosted server should NOT pick this file up — don't
+# copy it there, or run `docker compose -f compose.yaml ...` explicitly if
+# it's present for some other reason.
+
+services:
+  db:
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: weaver
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile.dev
+    image: weaver-backend:dev
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Weaver: Host=db;Port=5432;Database=weaver;Username=weaver;Password=weaver
+    volumes:
+      - ./backend:/src
+      - backend-nuget-cache:/root/.nuget/packages
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile.dev
+    image: weaver-frontend:dev
+    ports:
+      - "8082:8080"
+    stdin_open: true
+    tty: true
+    environment:
+      API_BASE_URL: http://localhost:8080
+    volumes:
+      - ./frontend:/app
+
+volumes:
+  backend-nuget-cache:

@@ -1,0 +1,4 @@
+# Local secrets for docker compose — never commit actual credentials.
+.env
+
+.DS_Store

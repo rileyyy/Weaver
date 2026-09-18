@@ -1,0 +1,17 @@
+# Dev image: no COPY of source at all. compose.override.yaml bind-mounts the
+# real backend/ directory over /src at runtime, so edits on the host are
+# picked up by `dotnet watch` immediately — this image only needs to provide
+# the SDK and the watch command.
+
+FROM mcr.microsoft.com/dotnet/sdk:9.0
+WORKDIR /src
+
+# dotnet watch's default file-change notifications are unreliable across
+# Docker Desktop's bind-mount filesystem (macOS/Windows); polling avoids
+# silently missing edits at the cost of some CPU.
+ENV DOTNET_USE_POLLING_FILE_WATCHER=1 \
+    ASPNETCORE_URLS=http://0.0.0.0:8080 \
+    ASPNETCORE_ENVIRONMENT=Development
+
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "watch", "--project", "src/Weaver.Api/Weaver.Api.csproj", "run", "--no-launch-profile"]

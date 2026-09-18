@@ -1,0 +1,49 @@
+# Deployment definition: pulls pre-built images from GHCR (published by
+# .github/workflows/docker-publish.yml) and runs them as-is — no source,
+# no build step. This is what a self-hosted server runs:
+#
+#   docker compose pull && docker compose up -d
+#
+# For local development, `docker compose up` from this same directory picks
+# up compose.override.yaml automatically (Compose's default merge behavior)
+# and gets hot-reloading build-from-source containers instead. See
+# agent_notes.md for the reasoning.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: weaver
+      POSTGRES_USER: weaver
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (copy .env.example) before starting}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U weaver -d weaver"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: ${BACKEND_IMAGE:-ghcr.io/OWNER/weaver-backend}:${WEAVER_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Weaver: Host=db;Port=5432;Database=weaver;Username=weaver;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (copy .env.example) before starting}
+    ports:
+      - "8080:8080"
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-ghcr.io/OWNER/weaver-frontend}:${WEAVER_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:8080"
+
+volumes:
+  pgdata:
