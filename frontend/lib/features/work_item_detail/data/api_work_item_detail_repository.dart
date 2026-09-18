@@ -6,8 +6,10 @@ import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_layer.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 
 @LazySingleton(as: WorkItemDetailRepository)
@@ -101,6 +103,79 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     _checkOk(response, 'Failed to reschedule work item');
     return _toDetail(jsonDecode(response.body) as Map<String, dynamic>);
   }
+
+  @override
+  Future<List<WorkItemComment>> loadComments(String workItemId) async {
+    final json = await _getJsonList('/work-items/$workItemId/comments');
+    return [for (final item in json) _toComment(item)];
+  }
+
+  @override
+  Future<WorkItemComment> addComment(String workItemId, String body) async {
+    final response = await _client.post(
+      _uri('/work-items/$workItemId/comments'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({'body': body}),
+    );
+    _checkOk(response, 'Failed to add comment');
+    return _toComment(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  @override
+  Future<WorkItemComment> updateComment(String commentId, String body) async {
+    final response = await _client.put(
+      _uri('/comments/$commentId'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({'body': body}),
+    );
+    _checkOk(response, 'Failed to update comment');
+    return _toComment(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  @override
+  Future<void> deleteComment(String commentId) async {
+    final response = await _client.delete(_uri('/comments/$commentId'));
+    _checkOk(response, 'Failed to delete comment');
+  }
+
+  @override
+  Future<List<WorkItemLink>> loadLinks(String workItemId) async {
+    final json = await _getJsonList('/work-items/$workItemId/links');
+    return [for (final item in json) _toLink(item)];
+  }
+
+  @override
+  Future<WorkItemLink> addLink(String workItemId, String targetWorkItemId) async {
+    final response = await _client.post(
+      _uri('/work-items/$workItemId/links'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({'targetWorkItemId': targetWorkItemId}),
+    );
+    _checkOk(response, 'Failed to add link');
+    return _toLink(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  @override
+  Future<void> deleteLink(String linkId) async {
+    final response = await _client.delete(_uri('/work-item-links/$linkId'));
+    _checkOk(response, 'Failed to delete link');
+  }
+
+  WorkItemComment _toComment(Map<String, dynamic> json) => WorkItemComment(
+    id: json['id'] as String,
+    workItemId: json['workItemId'] as String,
+    authorUserId: json['authorUserId'] as String,
+    authorUsername: json['authorUsername'] as String,
+    body: json['body'] as String,
+    createdAtUtc: DateTime.parse(json['createdAtUtc'] as String),
+    updatedAtUtc: _parseDate(json['updatedAtUtc']),
+  );
+
+  WorkItemLink _toLink(Map<String, dynamic> json) => WorkItemLink(
+    id: json['id'] as String,
+    linkedWorkItemId: json['linkedWorkItemId'] as String,
+    linkedWorkItemTitle: json['linkedWorkItemTitle'] as String,
+  );
 
   WorkItemDetail _toDetail(Map<String, dynamic> json) => WorkItemDetail(
     id: json['id'] as String,

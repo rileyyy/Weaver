@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:weaver/core/di/injection.dart';
+import 'package:weaver/features/auth/data/auth_session_store.dart';
 import 'package:weaver/features/board/widgets/date_format.dart';
 import 'package:weaver/features/board/widgets/schedule_dialog.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
 
@@ -20,10 +22,14 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
   final WorkItemDetailViewModel _viewModel = getIt<WorkItemDetailViewModel>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _newCommentController = TextEditingController();
+  final _linkTargetController = TextEditingController();
   bool _fieldsInitialized = false;
   String? _selectedLayerId;
   WorkItemPriority _selectedPriority = WorkItemPriority.medium;
   String? _selectedAssigneeId;
+
+  String? get _currentUserId => getIt<AuthSessionStore>().current?.user.id;
 
   @override
   void initState() {
@@ -52,6 +58,8 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
       ..dispose();
     _titleController.dispose();
     _descriptionController.dispose();
+    _newCommentController.dispose();
+    _linkTargetController.dispose();
     super.dispose();
   }
 
@@ -151,9 +159,80 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
             const SizedBox(height: 16),
             Text('Created ${formatDate(item.createdAtUtc)} · Updated ${formatDate(item.updatedAtUtc)}',
                 style: Theme.of(context).textTheme.bodySmall),
+            const Divider(height: 32),
+            _buildLinksSection(context),
+            const Divider(height: 32),
+            _buildCommentsSection(context),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildLinksSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Related work items', style: Theme.of(context).textTheme.labelLarge),
+        for (final link in _viewModel.links)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(link.linkedWorkItemTitle),
+            trailing: IconButton(
+              icon: const Icon(Icons.link_off, size: 18),
+              tooltip: 'Remove link',
+              onPressed: () => unawaited(_viewModel.deleteLink(link.id)),
+            ),
+          ),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _linkTargetController,
+                decoration: const InputDecoration(hintText: 'Work item id to link'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: () => unawaited(_addLink()),
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCommentsSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Comments', style: Theme.of(context).textTheme.labelLarge),
+        for (final comment in _viewModel.comments) _CommentTile(
+          comment: comment,
+          isOwnComment: comment.authorUserId == _currentUserId,
+          onDelete: () => unawaited(_viewModel.deleteComment(comment.id)),
+          onEdit: (body) => unawaited(_viewModel.updateComment(comment.id, body)),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _newCommentController,
+                decoration: const InputDecoration(hintText: 'Add a comment'),
+                maxLines: 3,
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: () => unawaited(_addComment()),
+              child: const Text('Post'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -184,5 +263,103 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     final result = await showScheduleDialog(context, initialStart: start, initialEnd: end);
     if (result == null) return;
     await _viewModel.saveSchedule(result.startDate, result.endDate);
+  }
+
+  Future<void> _addComment() async {
+    final body = _newCommentController.text.trim();
+    if (body.isEmpty) return;
+    final ok = await _viewModel.addComment(body);
+    if (ok) _newCommentController.clear();
+  }
+
+  Future<void> _addLink() async {
+    final targetId = _linkTargetController.text.trim();
+    if (targetId.isEmpty) return;
+    final ok = await _viewModel.addLink(targetId);
+    if (ok) _linkTargetController.clear();
+  }
+}
+
+class _CommentTile extends StatefulWidget {
+  const _CommentTile({
+    required this.comment,
+    required this.isOwnComment,
+    required this.onDelete,
+    required this.onEdit,
+  });
+
+  final WorkItemComment comment;
+  final bool isOwnComment;
+  final VoidCallback onDelete;
+  final ValueChanged<String> onEdit;
+
+  @override
+  State<_CommentTile> createState() => _CommentTileState();
+}
+
+class _CommentTileState extends State<_CommentTile> {
+  bool _isEditing = false;
+  late final _editController = TextEditingController(text: widget.comment.body);
+
+  @override
+  void dispose() {
+    _editController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final comment = widget.comment;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${comment.authorUsername} · ${formatDate(comment.createdAtUtc)}'
+                  '${comment.updatedAtUtc != null ? ' (edited)' : ''}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              if (widget.isOwnComment && !_isEditing) ...[
+                IconButton(
+                  icon: const Icon(Icons.edit, size: 16),
+                  tooltip: 'Edit comment',
+                  onPressed: () => setState(() => _isEditing = true),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  tooltip: 'Delete comment',
+                  onPressed: widget.onDelete,
+                ),
+              ],
+            ],
+          ),
+          if (_isEditing) ...[
+            TextField(controller: _editController, maxLines: 3),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => setState(() => _isEditing = false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    widget.onEdit(_editController.text);
+                    setState(() => _isEditing = false);
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            ),
+          ] else
+            Text(comment.body),
+        ],
+      ),
+    );
   }
 }

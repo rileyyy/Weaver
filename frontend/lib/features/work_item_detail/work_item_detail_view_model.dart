@@ -3,8 +3,10 @@ import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_layer.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 
 @injectable
@@ -17,6 +19,8 @@ class WorkItemDetailViewModel extends ViewModel {
   List<BoardStatus> _statuses = const [];
   List<WorkItemLayer> _layers = const [];
   List<AuthUser> _users = const [];
+  List<WorkItemComment> _comments = const [];
+  List<WorkItemLink> _links = const [];
   bool _isLoading = true;
   String? _loadError;
   bool _isSaving = false;
@@ -26,6 +30,8 @@ class WorkItemDetailViewModel extends ViewModel {
   List<BoardStatus> get statuses => _statuses;
   List<WorkItemLayer> get layers => _layers;
   List<AuthUser> get users => _users;
+  List<WorkItemComment> get comments => _comments;
+  List<WorkItemLink> get links => _links;
   bool get isLoading => _isLoading;
   String? get loadError => _loadError;
   bool get isSaving => _isSaving;
@@ -49,11 +55,15 @@ class WorkItemDetailViewModel extends ViewModel {
         _repository.loadStatuses(),
         _repository.loadLayers(),
         _repository.loadUsers(),
+        _repository.loadComments(id),
+        _repository.loadLinks(id),
       ]);
       _item = results[0] as WorkItemDetail;
       _statuses = results[1] as List<BoardStatus>;
       _layers = results[2] as List<WorkItemLayer>;
       _users = results[3] as List<AuthUser>;
+      _comments = results[4] as List<WorkItemComment>;
+      _links = results[5] as List<WorkItemLink>;
     } catch (_) {
       _loadError = 'Could not load this work item. Check your connection and try again.';
     } finally {
@@ -80,16 +90,61 @@ class WorkItemDetailViewModel extends ViewModel {
   Future<bool> saveSchedule(DateTime? startDate, DateTime? endDate) =>
       _save(() => _repository.reschedule(_item!.id, startDate, endDate));
 
-  Future<bool> _save(Future<WorkItemDetail> Function() action) async {
+  Future<bool> addComment(String body) => _mutate(
+        () async {
+          await _repository.addComment(_item!.id, body);
+          _comments = await _repository.loadComments(_item!.id);
+        },
+        errorMessage: 'Could not add your comment. Try again.',
+      );
+
+  Future<bool> updateComment(String commentId, String body) => _mutate(
+        () async {
+          await _repository.updateComment(commentId, body);
+          _comments = await _repository.loadComments(_item!.id);
+        },
+        errorMessage: 'Could not update your comment. Try again.',
+      );
+
+  Future<bool> deleteComment(String commentId) => _mutate(
+        () async {
+          await _repository.deleteComment(commentId);
+          _comments = await _repository.loadComments(_item!.id);
+        },
+        errorMessage: 'Could not delete this comment. Try again.',
+      );
+
+  Future<bool> addLink(String targetWorkItemId) => _mutate(
+        () async {
+          await _repository.addLink(_item!.id, targetWorkItemId);
+          _links = await _repository.loadLinks(_item!.id);
+        },
+        errorMessage: 'Could not add this link. Check the work item id and try again.',
+      );
+
+  Future<bool> deleteLink(String linkId) => _mutate(
+        () async {
+          await _repository.deleteLink(linkId);
+          _links = await _repository.loadLinks(_item!.id);
+        },
+        errorMessage: 'Could not remove this link. Try again.',
+      );
+
+  Future<bool> _save(Future<WorkItemDetail> Function() action) => _mutate(
+        () async => _item = await action(),
+        errorMessage: 'Could not save your change. Try again.',
+      );
+
+  Future<bool> _mutate(Future<void> Function() action, {required String errorMessage}) async {
     _isSaving = true;
     _saveError = null;
     notifyIfActive();
 
     try {
-      _item = await action();
+      await action();
       return true;
     } catch (_) {
-      _saveError = 'Could not save your change. Try again.';
+      _saveError = errorMessage;
       return false;
     } finally {
       _isSaving = false;

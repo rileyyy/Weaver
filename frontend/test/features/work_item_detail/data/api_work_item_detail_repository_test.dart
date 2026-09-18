@@ -29,6 +29,16 @@ Map<String, dynamic> _itemJson({
   'updatedAtUtc': '2026-01-01T00:00:00Z',
 };
 
+Map<String, dynamic> _commentJson({DateTime? updatedAtUtc}) => {
+  'id': 'comment-1',
+  'workItemId': 'item-1',
+  'authorUserId': 'user-1',
+  'authorUsername': 'alice',
+  'body': 'Looks good',
+  'createdAtUtc': '2026-01-01T00:00:00Z',
+  'updatedAtUtc': updatedAtUtc?.toIso8601String(),
+};
+
 void main() {
   const baseUrl = 'http://backend.test/api';
 
@@ -123,5 +133,98 @@ void main() {
       'startDate': start.toIso8601String(),
       'endDate': null,
     });
+  });
+
+  test('loadComments parses the comment list', () async {
+    final client = MockClient((request) async => _jsonResponse([_commentJson()]));
+    final repository = ApiWorkItemDetailRepository(client, baseUrl);
+
+    final comments = await repository.loadComments('item-1');
+
+    expect(comments.single.authorUsername, 'alice');
+    expect(comments.single.body, 'Looks good');
+  });
+
+  test('addComment posts the body to the comments endpoint', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse(_commentJson());
+    });
+    final repository = ApiWorkItemDetailRepository(client, baseUrl);
+
+    await repository.addComment('item-1', 'Looks good');
+
+    expect(sentRequest!.method, 'POST');
+    expect(sentRequest!.url.path, '/api/work-items/item-1/comments');
+    expect(jsonDecode(sentRequest!.body), {'body': 'Looks good'});
+  });
+
+  test('updateComment puts the new body to the comment endpoint', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse(_commentJson(updatedAtUtc: DateTime.utc(2026, 1, 2)));
+    });
+    final repository = ApiWorkItemDetailRepository(client, baseUrl);
+
+    final comment = await repository.updateComment('comment-1', 'Edited');
+
+    expect(sentRequest!.method, 'PUT');
+    expect(sentRequest!.url.path, '/api/comments/comment-1');
+    expect(comment.updatedAtUtc, isNotNull);
+  });
+
+  test('deleteComment deletes the comment endpoint', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return http.Response('', 204);
+    });
+    final repository = ApiWorkItemDetailRepository(client, baseUrl);
+
+    await repository.deleteComment('comment-1');
+
+    expect(sentRequest!.method, 'DELETE');
+    expect(sentRequest!.url.path, '/api/comments/comment-1');
+  });
+
+  test('loadLinks parses the link list', () async {
+    final client = MockClient((request) async => _jsonResponse([
+          {'id': 'link-1', 'linkedWorkItemId': 'item-2', 'linkedWorkItemTitle': 'Other task'},
+        ]));
+    final repository = ApiWorkItemDetailRepository(client, baseUrl);
+
+    final links = await repository.loadLinks('item-1');
+
+    expect(links.single.linkedWorkItemTitle, 'Other task');
+  });
+
+  test('addLink posts the target work item id', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse({'id': 'link-1', 'linkedWorkItemId': 'item-2', 'linkedWorkItemTitle': 'Other task'});
+    });
+    final repository = ApiWorkItemDetailRepository(client, baseUrl);
+
+    await repository.addLink('item-1', 'item-2');
+
+    expect(sentRequest!.url.path, '/api/work-items/item-1/links');
+    expect(jsonDecode(sentRequest!.body), {'targetWorkItemId': 'item-2'});
+  });
+
+  test('deleteLink deletes the work-item-links endpoint', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return http.Response('', 204);
+    });
+    final repository = ApiWorkItemDetailRepository(client, baseUrl);
+
+    await repository.deleteLink('link-1');
+
+    expect(sentRequest!.method, 'DELETE');
+    expect(sentRequest!.url.path, '/api/work-item-links/link-1');
   });
 }
