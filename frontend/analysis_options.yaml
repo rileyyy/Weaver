@@ -1,0 +1,92 @@
+include: package:flutter_lints/flutter.yaml
+
+# to check for additional rules, see: https://dart.dev/tools/linter-rules
+
+linter:
+  rules:
+    # async / await
+    unawaited_futures: true # Bad: `fAsync();` Good: `await fAsync();`
+    discarded_futures: true # Bad: `_ = fAsync();` Good: `await fAsync();`
+    avoid_void_async: true # Bad: `void f() async {}` Good: `Future<void> f() async {}`
+    avoid_slow_async_io: true # Bad: `await File('file.txt').readAsString();` Good: `await File('file.txt').readAsStringSync();`
+    unnecessary_async: true # Bad: `Future<void> f() async { return g(); }` Good: `void f() => g();`
+    unnecessary_await_in_return: true # Bad: `Future<int> f() async { return await g(); }` Good: `Future<int> f() => g();`
+
+    # type safety
+    always_declare_return_types: true # Bad: `f() {}` Good: `void f() {}`
+    cancel_subscriptions: true
+    close_sinks: true
+    do_not_use_environment: true # Bad: `const bool.fromEnvironment('flag')`
+    no_adjacent_strings_in_list: true # Bad: `var x = ['Hello' 'World'];` Good: `var x = ['Hello', 'World'];`
+    only_throw_errors: true # Bad: `throw 'error';` Good: `throw ArgumentError('error');`
+    prefer_const_declarations: true # Bad: `final int x = 1;` Good: `const x = 1;`
+    prefer_null_aware_method_calls: true # Bad: `if (f != null) f!();` Good: `f?.call();`
+    prefer_void_to_null: true # Bad: `Future<Null> f() async {}` Good: `Future<void> f() async {}`
+    switch_on_type: true
+    tighten_type_of_initializing_formals: true
+    use_to_and_as_if_applicable: true
+    omit_local_variable_types: true # Bad `int i = 1;` Good: `var i = 1;`
+
+    # code style
+    prefer_final_fields: true # Bad: `int x;` Good: `final int x;`
+    prefer_single_quotes: true # Bad: `"Hello"` Good: `'Hello'`
+    prefer_const_constructors: true # Bad: `MyWidget();` Good: `const MyWidget();`
+    always_use_package_imports: true # Bad: `import '../material.dart';` Good: `import 'package:flutter/material.dart';`
+    prefer_const_literals_to_create_immutables: true # Bad: `var x = [1, 2, 3];` Good: `var x = const [1, 2, 3];`
+    avoid_empty_else: true # Bad: `if (condition) { ... } else;` Good: `if (condition) { ... }`
+    avoid_init_to_null: true # Bad: `int? x = null;` Good: `int? x;`
+    avoid_function_literals_in_foreach_calls: true # Bad: `list.forEach((item) { ... });` Good: `for (var item in list) { ... }`
+    avoid_return_types_on_setters: true # Bad: `void set x(value) {}` Good: `set x(value) {}`
+    annotate_redeclares: true # Good `@redeclare void f() {}`
+    avoid_bool_literals_in_conditional_expressions: true # Bad: `condition ? true : false` Good: `condition`
+    avoid_returning_null_for_void: true # Bad: `Future<void> f() async { return null; }` Good: `Future<void> f() async { return; }`
+    avoid_escaping_inner_quotes: true # Bad: `var x = "It's a test";` Good: `var x = 'It\'s a test';`
+    eol_at_end_of_file: true
+    join_return_with_assignment: true # Bad: `var x = 0; if (condition) { x = 1; } return x;` Good: `if (condition) { return 1; } return 0;`
+    leading_newlines_in_multiline_strings: true
+    no_literal_bool_comparisons: true # Bad: `if (condition == true) { ... }` Good: `if (condition) { ... }`
+    prefer_constructors_over_static_methods: true
+    prefer_contains: true # Bad: `list.indexOf(element) != -1` Good: `list.contains(element)`
+    specify_nonobvious_property_types: true
+    unnecessary_lambdas: true # Bad: `f.do(() => f.m());` Good: `f.do(m);`
+    unnecessary_parenthesis: true # Bad: `if ((condition)) { ... }` Good: `if (condition) { ... }`
+    use_is_even_rather_than_modulo: true # Bad: `if (x % 2 == 0) { ... }` Good: `if (x.isEven) { ... }`
+    use_named_constants: true # Bad `const Duration(seconds: 0);` Good: `const Duration.zero;`
+    use_truncating_division: true # Bad: `(x / 2).toInt()` Good: `x ~/ 2`
+
+    # UI layout
+    sized_box_for_whitespace: true
+    sized_box_shrink_expand: true
+
+    # unused code
+    avoid_unused_constructor_parameters: true # Bad: `MyWidget(int unused);` Good: `MyWidget();`
+    cascade_invocations: true # Bad: `object.method1(); object.method2();` Good: `object..method1()..method2();`
+    document_ignores: true # Bad: `// ignore: rule_name` Good: `// ignore: rule_name, reason for ignoring`
+    noop_primitive_operations: true # Bad: `anInt.toInt();`
+    unnecessary_ignore: true
+    unnecessary_null_checks: true # Bad: `int i = 1; if (i == null)...`
+    unnecessary_raw_strings: true # Bad: `var s = r'Hello';` Good: `var s = 'Hello';`
+    unnecessary_statements: true # Bad: `x;` Good: (remove the statement)
+    unnecessary_unawaited: true # Bad: `unawaited(syncM());` Good: `syncM();`
+
+    # ordering
+    sort_pub_dependencies: true # Bad: `import Z; import A;` Good: `import A; import Z;`
+    directives_ordering: true # Bad: `import 'b.dart'; import 'a.dart';` Good: `import 'a.dart'; import 'b.dart';`
+    combinators_ordering: true # Bad: `show B, A; hide D, C;` Good: `show A, B; hide C, D;`
+    matching_super_parameters: true
+
+    # testing
+    use_test_throws_matchers: true
+
+analyzer:
+  language:
+    strict-raw-types: true # Bad: `List` Good: `List<T>`
+
+  exclude:
+    - pubspec.yaml
+    - build/**
+    - android/**
+    - ios/**
+    - windows/**
+    - macos/**
+    - linux/**
