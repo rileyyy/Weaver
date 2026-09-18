@@ -13,6 +13,11 @@ import 'package:get_it/get_it.dart' as _i174;
 import 'package:http/http.dart' as _i519;
 import 'package:injectable/injectable.dart' as _i526;
 import 'package:weaver/core/di/network_module.dart' as _i561;
+import 'package:weaver/features/auth/auth_view_model.dart' as _i6;
+import 'package:weaver/features/auth/data/api_auth_repository.dart' as _i461;
+import 'package:weaver/features/auth/data/auth_repository.dart' as _i899;
+import 'package:weaver/features/auth/data/auth_session_store.dart' as _i605;
+import 'package:weaver/features/auth/data/secure_token_store.dart' as _i54;
 import 'package:weaver/features/board/board_view_model.dart' as _i314;
 import 'package:weaver/features/board/data/api_board_repository.dart' as _i436;
 import 'package:weaver/features/board/data/board_repository.dart' as _i522;
@@ -25,10 +30,40 @@ extension GetItInjectableX on _i174.GetIt {
   }) {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
     final networkModule = _$NetworkModule();
-    gh.lazySingleton<_i519.Client>(() => networkModule.httpClient);
+    gh.lazySingleton<_i54.SecureTokenStore>(
+      () => _i54.FlutterSecureTokenStore(),
+    );
+    gh.lazySingleton<_i519.Client>(
+      () => networkModule.rawHttpClient,
+      instanceName: 'rawHttpClient',
+    );
     gh.factory<String>(
       () => networkModule.apiBaseUrl,
       instanceName: 'apiBaseUrl',
+    );
+    gh.lazySingleton<_i899.AuthRepository>(
+      () => _i461.ApiAuthRepository(
+        gh<_i519.Client>(instanceName: 'rawHttpClient'),
+        gh<String>(instanceName: 'apiBaseUrl'),
+      ),
+    );
+    gh.lazySingleton<_i605.AuthSessionStore>(
+      () => _i605.AuthSessionStore(
+        gh<_i899.AuthRepository>(),
+        gh<_i54.SecureTokenStore>(),
+      ),
+    );
+    gh.lazySingleton<_i519.Client>(
+      () => networkModule.httpClient(
+        gh<_i519.Client>(instanceName: 'rawHttpClient'),
+        gh<_i605.AuthSessionStore>(),
+      ),
+    );
+    gh.factory<_i6.AuthViewModel>(
+      () => _i6.AuthViewModel(
+        gh<_i899.AuthRepository>(),
+        gh<_i605.AuthSessionStore>(),
+      ),
     );
     gh.lazySingleton<_i522.BoardRepository>(
       () => _i436.ApiBoardRepository(

@@ -10,6 +10,11 @@ flutter pub get
 # (The container still sets stdin_open/tty in compose, so `docker compose
 # attach frontend` and pressing r/R by hand works too, as a fallback if the
 # watcher ever misses something.)
+# -f: a plain `docker compose restart` reuses the container's writable
+# layer, so a fifo left over from the previous run's still-mounted /tmp
+# would otherwise make this fail outright (mkfifo refuses to clobber an
+# existing path).
+rm -f /tmp/flutter-stdin
 mkfifo /tmp/flutter-stdin
 flutter run -d web-server \
   --web-hostname 0.0.0.0 \

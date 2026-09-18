@@ -1,6 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/app.dart';
 import 'package:weaver/core/di/injection.dart';
+import 'package:weaver/features/auth/data/auth_repository.dart';
+import 'package:weaver/features/auth/data/auth_session_store.dart';
+import 'package:weaver/features/auth/data/secure_token_store.dart';
+import 'package:weaver/features/auth/models/auth_session.dart';
+import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/board_status.dart';
@@ -50,13 +55,61 @@ class _StubBoardRepository implements BoardRepository {
   ) => Future.value();
 }
 
+/// Never actually called: the test pre-populates a non-expired session
+/// before pumping the app, so [AuthSessionStore.ensureValidSession] returns
+/// without needing to refresh.
+class _UnusedAuthRepository implements AuthRepository {
+  @override
+  Future<AuthSession> login(String username, String password) =>
+      throw UnimplementedError();
+
+  @override
+  Future<AuthSession> register(String username, String password) =>
+      throw UnimplementedError();
+
+  @override
+  Future<AuthSession> refresh(String refreshToken) => throw UnimplementedError();
+
+  @override
+  Future<void> logout(String refreshToken) => throw UnimplementedError();
+}
+
+/// In-memory stand-in for the real, platform-channel-backed
+/// [SecureTokenStore] (flutter_secure_storage has no test-environment
+/// implementation).
+class _InMemoryTokenStore implements SecureTokenStore {
+  String? _token;
+
+  @override
+  Future<String?> readRefreshToken() async => _token;
+
+  @override
+  Future<void> writeRefreshToken(String token) async => _token = token;
+
+  @override
+  Future<void> clear() async => _token = null;
+}
+
 void main() {
   setUp(() async {
     await getIt.reset();
     configureDependencies();
     getIt
       ..unregister<BoardRepository>()
-      ..registerLazySingleton<BoardRepository>(_StubBoardRepository.new);
+      ..registerLazySingleton<BoardRepository>(_StubBoardRepository.new)
+      ..unregister<AuthRepository>()
+      ..registerLazySingleton<AuthRepository>(_UnusedAuthRepository.new)
+      ..unregister<SecureTokenStore>()
+      ..registerLazySingleton<SecureTokenStore>(_InMemoryTokenStore.new);
+
+    await getIt<AuthSessionStore>().setSession(
+      AuthSession(
+        accessToken: 'test-access-token',
+        accessTokenExpiresAtUtc: DateTime.now().toUtc().add(const Duration(hours: 1)),
+        refreshToken: 'test-refresh-token',
+        user: const AuthUser(id: 'user-1', username: 'tester', kind: UserKind.human),
+      ),
+    );
   });
 
   testWidgets('renders the board with its swimlanes and columns', (

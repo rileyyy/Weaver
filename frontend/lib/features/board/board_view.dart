@@ -15,7 +15,9 @@ const double _laneLabelWidth = 160;
 const double _columnWidth = 240;
 
 class BoardView extends StatefulWidget {
-  const BoardView({super.key});
+  const BoardView({required this.onLogout, super.key});
+
+  final Future<void> Function() onLogout;
 
   @override
   State<BoardView> createState() => _BoardViewState();
@@ -51,7 +53,16 @@ class _BoardViewState extends State<BoardView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Weaver')),
+      appBar: AppBar(
+        title: const Text('Weaver'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Sign out',
+            onPressed: () => unawaited(widget.onLogout()),
+          ),
+        ],
+      ),
       body: ListenableBuilder(
         listenable: _viewModel,
         builder: (context, _) {
