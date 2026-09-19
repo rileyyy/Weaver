@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Weaver.Api.Contracts;
-using Weaver.Infrastructure;
+using Weaver.Infrastructure.Services;
 
 namespace Weaver.Api.Controllers;
 
@@ -9,17 +8,17 @@ namespace Weaver.Api.Controllers;
 [Route("api/work-item-layers")]
 public class WorkItemLayersController : ControllerBase
 {
-    private readonly WeaverDbContext _db;
+    private readonly IWorkItemLayerService _layers;
 
-    public WorkItemLayersController(WeaverDbContext db)
+    public WorkItemLayersController(IWorkItemLayerService layers)
     {
-        _db = db;
+        _layers = layers;
     }
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<WorkItemLayerDto>>> GetAll()
     {
-        var layers = await _db.WorkItemLayers.OrderBy(l => l.Order).ToListAsync();
+        var layers = await _layers.GetAllAsync();
         return Ok(layers.Select(WorkItemLayerDto.FromEntity));
     }
 }

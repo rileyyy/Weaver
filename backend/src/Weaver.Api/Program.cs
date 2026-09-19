@@ -31,6 +31,9 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddScoped<IWorkItemLinkService, WorkItemLinkService>();
+builder.Services.AddScoped<IBoardService, BoardService>();
+builder.Services.AddScoped<IStatusService, StatusService>();
+builder.Services.AddScoped<IWorkItemLayerService, WorkItemLayerService>();
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 
