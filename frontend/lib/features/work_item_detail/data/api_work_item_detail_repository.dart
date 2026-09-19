@@ -37,7 +37,12 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     final json = await _getJsonList('/statuses');
     return [
       for (final item in json)
-        BoardStatus(id: item['id'] as String, name: item['name'] as String, order: item['order'] as int),
+        BoardStatus(
+          id: item['id'] as String,
+          name: item['name'] as String,
+          order: item['order'] as int,
+          color: parseStatusColor(item['color'] as String),
+        ),
     ];
   }
 

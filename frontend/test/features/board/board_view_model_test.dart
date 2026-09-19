@@ -1,3 +1,5 @@
+import 'dart:ui' show Color;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
@@ -8,10 +10,12 @@ import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 
+const _todoColor = Color(0xFF1E88E5);
+
 const _rootBoard = BoardData(
   statuses: [
     BoardStatus(id: 'done', name: 'Done', order: 1),
-    BoardStatus(id: 'todo', name: 'To Do', order: 0),
+    BoardStatus(id: 'todo', name: 'To Do', order: 0, color: _todoColor),
   ],
   swimlanes: [
     Swimlane(
@@ -591,6 +595,14 @@ void main() {
 
     expect(viewModel.cardVisible(inWindowWrongTitle), isFalse);
     expect(viewModel.cardVisible(outOfWindowRightTitle), isTrue);
+  });
+
+  test('statusColorFor returns the matching status color', () {
+    expect(viewModel.statusColorFor('todo'), _todoColor);
+  });
+
+  test('statusColorFor returns null for an unknown status', () {
+    expect(viewModel.statusColorFor('unknown'), isNull);
   });
 
   test('toggleStatusVisibility hides and then re-shows a status', () {

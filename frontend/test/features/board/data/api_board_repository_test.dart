@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' show Color;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -46,7 +47,7 @@ void main() {
     final client = MockClient((request) async {
       if (request.url.path == '/api/statuses') {
         return _jsonResponse([
-          {'id': 'status-todo', 'name': 'To Do', 'order': 0},
+          {'id': 'status-todo', 'name': 'To Do', 'order': 0, 'color': '#1E88E5'},
         ]);
       }
       if (request.url.path == '/api/work-items' &&
@@ -79,6 +80,7 @@ void main() {
     final board = await repository.loadBoard('epic-1');
 
     expect(board.statuses.single.id, 'status-todo');
+    expect(board.statuses.single.color, const Color(0xFF1E88E5));
     expect(board.swimlanes.single.parentId, 'lane-1');
     expect(board.swimlanes.single.title, 'Lane One');
     expect(board.swimlanes.single.cards.single.id, 'card-1');

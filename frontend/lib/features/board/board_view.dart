@@ -406,6 +406,10 @@ enum HierarchyColumn {
   String label(BoardViewModel viewModel, HierarchyItem item) => switch (this) {
         HierarchyColumn.status => viewModel.statusNameFor(item.statusId) ?? '',
       };
+
+  Color? color(BoardViewModel viewModel, HierarchyItem item) => switch (this) {
+        HierarchyColumn.status => viewModel.statusColorFor(item.statusId),
+      };
 }
 
 const List<HierarchyColumn> _hierarchyColumns = [HierarchyColumn.status];
@@ -519,29 +523,45 @@ class _HierarchyItemTile extends StatelessWidget {
         ),
         child: Row(
           children: [
+            // Fixed height/width regardless of whether this row has a
+            // caret — IconButton's default 48x48 minimum tap target would
+            // otherwise make rows with children taller than leaf rows.
             SizedBox(
               width: 24,
+              height: 24,
               child: hasChildren
                   ? IconButton(
                       padding: EdgeInsets.zero,
                       iconSize: 18,
+                      constraints: const BoxConstraints(),
+                      visualDensity: VisualDensity.compact,
                       icon: Icon(isCollapsed ? Icons.chevron_right : Icons.expand_more),
                       tooltip: isCollapsed ? 'Expand' : 'Collapse',
                       onPressed: onToggleCollapsed,
                     )
                   : null,
             ),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(node.item.title, overflow: TextOverflow.ellipsis),
             ),
             for (final column in _hierarchyColumns)
               SizedBox(
                 width: _hierarchyColumnWidth,
-                child: Text(
-                  column.label(viewModel, node.item),
-                  textAlign: TextAlign.right,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    _StatusDot(color: column.color(viewModel, node.item)),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        column.label(viewModel, node.item),
+                        textAlign: TextAlign.right,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  ],
                 ),
               ),
           ],
@@ -686,11 +706,35 @@ class _StatusFilterBar extends StatelessWidget {
         Text('Show columns', style: Theme.of(context).textTheme.bodySmall),
         for (final status in statuses)
           FilterChip(
+            avatar: _StatusDot(color: status.color),
             label: Text(status.name),
             selected: !hiddenStatusIds.contains(status.id),
             onSelected: (_) => onToggle(status.id),
           ),
       ],
+    );
+  }
+}
+
+/// A small colored circle indicating a status's configured color — falls
+/// back to a neutral outline color if a status has none (e.g. a test
+/// fixture that doesn't care about color).
+class _StatusDot extends StatelessWidget {
+  const _StatusDot({required this.color});
+
+  final Color? color;
+
+  static const double _size = 10;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: _size,
+      height: _size,
+      decoration: BoxDecoration(
+        color: color ?? Theme.of(context).colorScheme.outlineVariant,
+        shape: BoxShape.circle,
+      ),
     );
   }
 }
@@ -859,9 +903,15 @@ class _SwimlaneBoard extends StatelessWidget {
               flex: useFlexColumns,
               child: Padding(
                 padding: const EdgeInsets.all(8),
-                child: Text(
-                  status.name,
-                  style: Theme.of(context).textTheme.titleMedium,
+                child: Row(
+                  children: [
+                    _StatusDot(color: status.color),
+                    const SizedBox(width: 6),
+                    Text(
+                      status.name,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
                 ),
               ),
             ),

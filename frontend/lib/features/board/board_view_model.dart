@@ -1,3 +1,5 @@
+import 'dart:ui' show Color;
+
 import 'package:injectable/injectable.dart';
 import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
@@ -140,6 +142,13 @@ class BoardViewModel extends ViewModel {
   String? statusNameFor(String statusId) {
     for (final status in _statuses) {
       if (status.id == statusId) return status.name;
+    }
+    return null;
+  }
+
+  Color? statusColorFor(String statusId) {
+    for (final status in _statuses) {
+      if (status.id == statusId) return status.color;
     }
     return null;
   }

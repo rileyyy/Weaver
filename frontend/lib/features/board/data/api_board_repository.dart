@@ -112,6 +112,7 @@ class ApiBoardRepository implements BoardRepository {
           id: item['id'] as String,
           name: item['name'] as String,
           order: item['order'] as int,
+          color: parseStatusColor(item['color'] as String),
         ),
     ];
   }
