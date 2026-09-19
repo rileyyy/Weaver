@@ -119,7 +119,7 @@ https://sneekes.app/posts/building-my-own-kanban-self-hosted/
 | 10        | Done        | Authentication                |
 | 11        | Done        | Comments/links                |
 | 12        | Skip        | Attachments                   |
-| 13        | Not started | MCP                           |
+| 13        | Done        | MCP                           |
 | 14        | Not started | Mobile refinement             |
 | 15        | Not started | Production deployment         |
 
@@ -198,3 +198,60 @@ you'd rather it be admin-configurable like layers/statuses.
   rather than something to add silently as a side effect of this
   milestone. Worth a real search endpoint if the raw-id entry proves too
   rough in practice.
+
+## Open decisions — Milestone 13 (MCP)
+
+- **No new auth mechanism was built.** An MCP client authenticates exactly
+  like any other API client: log in via `POST /api/auth/login` and send the
+  resulting access token as `Authorization: Bearer <token>` when connecting.
+  The MCP endpoint is mapped into the same ASP.NET Core pipeline as every
+  controller (`app.MapMcp("/mcp")`, alongside `app.MapControllers()`), so it
+  inherits the existing `[Authorize]` fallback policy for free. This means
+  the `User.Kind` (`Human`/`Agent`) gap flagged back in Milestones 9-11 (no
+  way to self-register as an `Agent`) is still unresolved — an MCP client
+  today authenticates as whatever human account's credentials it's given.
+  Fine for a personal AI assistant working on someone's own boards; worth a
+  real look before any automated, non-human-operated agent needs its own
+  identity.
+- **`BoardsController`/`StatusesController`/`WorkItemLayersController`
+  gained real service interfaces** (`IBoardService`/`IStatusService`/
+  `IWorkItemLayerService`) as a prerequisite, not scope creep — they were
+  the only controllers still querying `WeaverDbContext` directly, which made
+  it impossible for MCP tools to expose those three resources without
+  either duplicating that EF Core code or violating "MCP must never
+  directly access EF Core." No REST behavior changed other than
+  `BoardsController`'s invalid-`ScopeItemId` case, which now goes through
+  the same `EntityNotFoundException` → `ApiExceptionMiddleware` path every
+  other 404 in the API uses, instead of a bespoke plain-string body.
+- **No `Weaver.Application` project was introduced**, even though the
+  architecture section above describes a four-layer Domain/Application/
+  Infrastructure/API split. The "Application" services already live in
+  `Weaver.Infrastructure/Services` for every prior milestone, and MCP tools
+  call those same interfaces the same way controllers do — moving them to a
+  new project would be an unrelated, larger refactor than this milestone
+  asked for.
+- **MCP tools mirror the REST surface for work items, boards, statuses,
+  work item layers, users, comments, and links — not auth.** Register/
+  login/refresh/logout aren't exposed as tools; they're how a client gets
+  the bearer token in the first place, not something an agent should be
+  doing to itself mid-conversation. Attachments aren't covered either,
+  since Milestone 12 was skipped.
+- **Tool parameter/result enums (e.g. `WorkItemPriority`) serialize as
+  their string name**, matching the REST API's own `JsonStringEnumConverter`
+  convention (Milestone 10), via an explicit `JsonSerializerOptions` passed
+  to `WithToolsFromAssembly` rather than the SDK's bare default (which
+  otherwise renders `1` instead of `"Medium"`).
+- **Domain exceptions are translated to `McpException` with the same
+  message**, so an MCP client sees the same "Work item {id} was not
+  found." text a REST caller gets in a 404 body, rather than the SDK's
+  generic detail-free fallback for an unrecognized exception type. This is
+  presentation-layer translation duplicated per-transport on purpose (REST
+  has `ApiExceptionMiddleware`, MCP has its own equivalent), not a second
+  copy of any business rule.
+- **Hosted as a Streamable HTTP endpoint on the existing backend
+  process/port (`/mcp`), stateless mode** — not a separate stdio process or
+  standalone binary. Every MCP call is just an ordinary ASP.NET Core
+  request: same DI scope per call, same JWT bearer auth, same Docker port
+  already in place. No compose/Dockerfile changes were needed. A stdio-based
+  MCP server (spawned as a subprocess by a desktop MCP client) would need
+  its own distributable and was out of scope here.

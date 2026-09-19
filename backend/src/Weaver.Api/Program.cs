@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Weaver.Api.Mcp;
 using Weaver.Api.Middleware;
 using Weaver.Domain;
 using Weaver.Infrastructure;
@@ -34,6 +35,20 @@ builder.Services.AddScoped<IWorkItemLinkService, WorkItemLinkService>();
 builder.Services.AddScoped<IBoardService, BoardService>();
 builder.Services.AddScoped<IStatusService, StatusService>();
 builder.Services.AddScoped<IWorkItemLayerService, WorkItemLayerService>();
+
+// CommentTools reads the calling user's id off the current request the same way
+// CommentsController does (User.GetUserId()) — MCP tools don't get a ControllerBase's
+// User property for free, so they resolve it via the accessor instead.
+builder.Services.AddHttpContextAccessor();
+
+// MCP tool classes are discovered via [McpServerToolType] from this assembly (Weaver.Api,
+// the calling assembly) — see the Mcp/ folder. Stateless mode means each MCP call is just a
+// normal request in the existing ASP.NET Core pipeline: same DI scope (so Weaver.DbContext-backed
+// services resolve exactly as they do for a controller), same JWT bearer auth (below), same
+// port. No separate transport/process/auth story to maintain.
+builder.Services.AddMcpServer()
+    .WithHttpTransport(options => options.Stateless = true)
+    .WithToolsFromAssembly(serializerOptions: McpJsonSerializerOptions.Default);
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 
@@ -109,5 +124,10 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Inherits the same [Authorize] fallback policy as every controller above (no
+// [AllowAnonymous]-equivalent opt-out here) — an MCP client authenticates with a bearer
+// access token the same way any other API client does (POST /api/auth/login).
+app.MapMcp("/mcp");
 
 app.Run();
