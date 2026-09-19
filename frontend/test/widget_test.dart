@@ -9,6 +9,7 @@ import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/board_status.dart';
+import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 
@@ -38,6 +39,9 @@ class _StubBoardRepository implements BoardRepository {
       ],
     ),
   );
+
+  @override
+  Future<List<HierarchyItem>> loadAllItems() => Future.value(const []);
 
   @override
   Future<void> changeStatus(String cardId, String newStatusId) =>

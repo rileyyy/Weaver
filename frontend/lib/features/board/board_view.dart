@@ -6,6 +6,7 @@ import 'package:weaver/core/theme/app_theme.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/board/models/card_sort_option.dart';
+import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/scope_crumb.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
@@ -44,13 +45,14 @@ class _BoardViewState extends State<BoardView> with SingleTickerProviderStateMix
   late final TabController _tabController = TabController(
     length: _BoardTab.values.length,
     vsync: this,
-  )..addListener(() => setState(() {}));
+  );
 
   @override
   void initState() {
     super.initState();
     unawaited(_viewModel.load());
     _viewModel.addListener(_showMoveErrorIfAny);
+    _tabController.addListener(_onTabChanged);
   }
 
   @override
@@ -59,8 +61,22 @@ class _BoardViewState extends State<BoardView> with SingleTickerProviderStateMix
       ..removeListener(_showMoveErrorIfAny)
       ..dispose();
     _searchController.dispose();
-    _tabController.dispose();
+    _tabController
+      ..removeListener(_onTabChanged)
+      ..dispose();
     super.dispose();
+  }
+
+  void _onTabChanged() {
+    setState(() {});
+    if (_tabController.index == _BoardTab.hierarchy.index && !_viewModel.hierarchyLoaded) {
+      unawaited(_viewModel.loadHierarchy());
+    }
+  }
+
+  void _onWorkItemDeleted() {
+    unawaited(_viewModel.retry());
+    unawaited(_viewModel.refreshHierarchyIfLoaded());
   }
 
   void _openDetails(WorkItemCard card) {
@@ -68,6 +84,18 @@ class _BoardViewState extends State<BoardView> with SingleTickerProviderStateMix
       context,
       workItemId: card.id,
       onDrillInto: () => unawaited(_viewModel.drillInto(card)),
+      onDeleted: _onWorkItemDeleted,
+    ));
+  }
+
+  /// Opens a work item's details given just its id — used where there's no
+  /// [WorkItemCard] in hand, e.g. tapping a swimlane's own label or a
+  /// Hierarchy row.
+  void _openDetailsById(String workItemId) {
+    unawaited(showWorkItemDetailDialog(
+      context,
+      workItemId: workItemId,
+      onDeleted: _onWorkItemDeleted,
     ));
   }
 
@@ -178,7 +206,10 @@ class _BoardViewState extends State<BoardView> with SingleTickerProviderStateMix
                       children: [
                         _buildBoardArea(context),
                         const _CalendarViewStub(),
-                        const _HierarchyViewStub(),
+                        _HierarchyView(
+                          viewModel: _viewModel,
+                          onItemOpened: _openDetailsById,
+                        ),
                       ],
                     ),
                   ),
@@ -230,6 +261,7 @@ class _BoardViewState extends State<BoardView> with SingleTickerProviderStateMix
                 onCardReparented: _viewModel.reparentCard,
                 onCardRescheduled: _viewModel.rescheduleCard,
                 onCardDetailsOpened: _openDetails,
+                onSwimlaneLabelTapped: _openDetailsById,
                 cardVisible: _viewModel.cardVisible,
                 cardComparator: _viewModel.cardComparator,
               ),
@@ -363,12 +395,159 @@ class _CalendarViewStub extends StatelessWidget {
   }
 }
 
-class _HierarchyViewStub extends StatelessWidget {
-  const _HierarchyViewStub();
+/// Columns the Hierarchy view shows to the right of each row's title, in
+/// order. Currently fixed to just [status]; a future milestone can make
+/// this user-configurable (e.g. persisted per-user) — that's why this is a
+/// small enum of builder specs rather than a single hard-coded status
+/// column baked into the row widget itself.
+enum HierarchyColumn {
+  status;
+
+  String label(BoardViewModel viewModel, HierarchyItem item) => switch (this) {
+        HierarchyColumn.status => viewModel.statusNameFor(item.statusId) ?? '',
+      };
+}
+
+const List<HierarchyColumn> _hierarchyColumns = [HierarchyColumn.status];
+const double _hierarchyColumnWidth = 140;
+const double _hierarchyIndentPerLevel = 24;
+
+/// Every work item nested under its parent, respecting the same time/search/
+/// status filters and sort order as the swim-lane board (see
+/// [BoardViewModel.hierarchyRoots]). Loaded lazily by [_BoardViewState] the
+/// first time this tab is opened.
+class _HierarchyView extends StatefulWidget {
+  const _HierarchyView({required this.viewModel, required this.onItemOpened});
+
+  final BoardViewModel viewModel;
+  final void Function(String workItemId) onItemOpened;
+
+  @override
+  State<_HierarchyView> createState() => _HierarchyViewState();
+}
+
+class _HierarchyViewState extends State<_HierarchyView> {
+  final Set<String> _collapsedIds = {};
 
   @override
   Widget build(BuildContext context) {
-    return const Center(child: Text('Hierarchy view — coming soon'));
+    final viewModel = widget.viewModel;
+
+    if (viewModel.isHierarchyLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final error = viewModel.hierarchyLoadError;
+    if (error != null) {
+      return _LoadErrorView(message: error, onRetry: viewModel.loadHierarchy);
+    }
+
+    final rows = <_HierarchyRow>[];
+    void flatten(List<HierarchyNode> nodes, int depth) {
+      for (final node in nodes) {
+        rows.add(_HierarchyRow(node: node, depth: depth));
+        if (node.children.isNotEmpty && !_collapsedIds.contains(node.item.id)) {
+          flatten(node.children, depth + 1);
+        }
+      }
+    }
+
+    flatten(viewModel.hierarchyRoots, 0);
+
+    if (rows.isEmpty) {
+      return const Center(child: Text('No work items match the current filters.'));
+    }
+
+    return ListView.builder(
+      itemCount: rows.length,
+      itemBuilder: (context, index) {
+        final row = rows[index];
+        final node = row.node;
+        return _HierarchyItemTile(
+          node: node,
+          depth: row.depth,
+          isCollapsed: _collapsedIds.contains(node.item.id),
+          onToggleCollapsed: () => setState(() {
+            if (!_collapsedIds.remove(node.item.id)) _collapsedIds.add(node.item.id);
+          }),
+          onTap: () => widget.onItemOpened(node.item.id),
+          viewModel: viewModel,
+        );
+      },
+    );
+  }
+}
+
+/// One flattened row: a [HierarchyNode] paired with how deep it sits in the
+/// (currently expanded) tree, for [ListView.builder] to render linearly.
+class _HierarchyRow {
+  const _HierarchyRow({required this.node, required this.depth});
+
+  final HierarchyNode node;
+  final int depth;
+}
+
+class _HierarchyItemTile extends StatelessWidget {
+  const _HierarchyItemTile({
+    required this.node,
+    required this.depth,
+    required this.isCollapsed,
+    required this.onToggleCollapsed,
+    required this.onTap,
+    required this.viewModel,
+  });
+
+  final HierarchyNode node;
+  final int depth;
+  final bool isCollapsed;
+  final VoidCallback onToggleCollapsed;
+  final VoidCallback onTap;
+  final BoardViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasChildren = node.children.isNotEmpty;
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: depth * _hierarchyIndentPerLevel,
+          top: 6,
+          bottom: 6,
+          right: 12,
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              child: hasChildren
+                  ? IconButton(
+                      padding: EdgeInsets.zero,
+                      iconSize: 18,
+                      icon: Icon(isCollapsed ? Icons.chevron_right : Icons.expand_more),
+                      tooltip: isCollapsed ? 'Expand' : 'Collapse',
+                      onPressed: onToggleCollapsed,
+                    )
+                  : null,
+            ),
+            Expanded(
+              child: Text(node.item.title, overflow: TextOverflow.ellipsis),
+            ),
+            for (final column in _hierarchyColumns)
+              SizedBox(
+                width: _hierarchyColumnWidth,
+                child: Text(
+                  column.label(viewModel, node.item),
+                  textAlign: TextAlign.right,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -625,6 +804,7 @@ class _SwimlaneBoard extends StatelessWidget {
     required this.onCardReparented,
     required this.onCardRescheduled,
     required this.onCardDetailsOpened,
+    required this.onSwimlaneLabelTapped,
     required this.cardVisible,
     required this.cardComparator,
   });
@@ -643,6 +823,7 @@ class _SwimlaneBoard extends StatelessWidget {
   )
   onCardRescheduled;
   final void Function(WorkItemCard card) onCardDetailsOpened;
+  final void Function(String workItemId) onSwimlaneLabelTapped;
   final bool Function(WorkItemCard card) cardVisible;
   final Comparator<WorkItemCard>? cardComparator;
 
@@ -662,6 +843,7 @@ class _SwimlaneBoard extends StatelessWidget {
             child: _SwimlaneLabel(
               swimlane: lane,
               onCardReparented: onCardReparented,
+              onTapped: onSwimlaneLabelTapped,
             ),
           ),
       ],
@@ -740,11 +922,16 @@ class _SwimlaneBoard extends StatelessWidget {
 }
 
 class _SwimlaneLabel extends StatelessWidget {
-  const _SwimlaneLabel({required this.swimlane, required this.onCardReparented});
+  const _SwimlaneLabel({
+    required this.swimlane,
+    required this.onCardReparented,
+    required this.onTapped,
+  });
 
   final Swimlane swimlane;
   final Future<void> Function(WorkItemCard card, String newParentId)
   onCardReparented;
+  final void Function(String workItemId) onTapped;
 
   @override
   Widget build(BuildContext context) {
@@ -755,17 +942,22 @@ class _SwimlaneLabel extends StatelessWidget {
           unawaited(onCardReparented(details.data, swimlane.parentId)),
       builder: (context, candidateData, rejectedData) {
         final colorScheme = Theme.of(context).colorScheme;
-        return Container(
-          decoration: BoxDecoration(
-            color: candidateData.isNotEmpty
-                ? colorScheme.primaryContainer.withValues(alpha: 0.4)
-                : null,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          padding: const EdgeInsets.all(8),
-          child: Text(
-            swimlane.title,
-            style: Theme.of(context).textTheme.titleSmall,
+        final borderRadius = BorderRadius.circular(8);
+        return Material(
+          color: candidateData.isNotEmpty
+              ? colorScheme.primaryContainer.withValues(alpha: 0.4)
+              : Colors.transparent,
+          borderRadius: borderRadius,
+          child: InkWell(
+            borderRadius: borderRadius,
+            onTap: () => onTapped(swimlane.parentId),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text(
+                swimlane.title,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
           ),
         );
       },

@@ -4,6 +4,7 @@ import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/board/models/card_sort_option.dart';
+import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 
@@ -68,17 +69,22 @@ class _TestBoardRepository implements BoardRepository {
     this.reparentError,
     this.rescheduleError,
     this.createError,
+    this.hierarchyItems = const [],
+    this.hierarchyError,
   });
 
   final Exception? changeStatusError;
   final Exception? reparentError;
   final Exception? rescheduleError;
   final Exception? createError;
+  final List<HierarchyItem> hierarchyItems;
+  final Exception? hierarchyError;
   final List<String> statusChanges = [];
   final List<String> reparents = [];
   final List<String> reschedules = [];
   final List<String?> requestedScopes = [];
   final List<String> creates = [];
+  int loadAllItemsCallCount = 0;
 
   @override
   Future<String?> loadRootScopeItemId() => Future.value();
@@ -89,6 +95,14 @@ class _TestBoardRepository implements BoardRepository {
     if (scopeItemId == null) return Future.value(_rootBoard);
     if (scopeItemId == 'card-1') return Future.value(_card1Children);
     return Future.error(StateError('No fixture for scope $scopeItemId'));
+  }
+
+  @override
+  Future<List<HierarchyItem>> loadAllItems() async {
+    loadAllItemsCallCount++;
+    final error = hierarchyError;
+    if (error != null) throw error;
+    return hierarchyItems;
   }
 
   @override
@@ -136,6 +150,10 @@ class _FailingLoadRepository implements BoardRepository {
 
   @override
   Future<BoardData> loadBoard(String? scopeItemId) =>
+      Future.error(Exception('network down'));
+
+  @override
+  Future<List<HierarchyItem>> loadAllItems() =>
       Future.error(Exception('network down'));
 
   @override
@@ -647,5 +665,118 @@ void main() {
     );
 
     expect(viewModel.cardComparator!(earlier, later), lessThan(0));
+  });
+
+  test('loadHierarchy populates hierarchyRoots and hierarchyLoaded', () async {
+    final repository = _TestBoardRepository(
+      hierarchyItems: const [
+        HierarchyItem(id: 'root-1', parentId: null, title: 'Root', statusId: 'todo'),
+        HierarchyItem(id: 'child-1', parentId: 'root-1', title: 'Child', statusId: 'todo'),
+      ],
+    );
+    final hierarchyViewModel = BoardViewModel(repository);
+    await hierarchyViewModel.load();
+    expect(hierarchyViewModel.hierarchyLoaded, isFalse);
+
+    await hierarchyViewModel.loadHierarchy();
+
+    expect(hierarchyViewModel.hierarchyLoaded, isTrue);
+    expect(hierarchyViewModel.hierarchyLoadError, isNull);
+    final root = hierarchyViewModel.hierarchyRoots.single;
+    expect(root.item.id, 'root-1');
+    expect(root.children.single.item.id, 'child-1');
+  });
+
+  test('loadHierarchy sets hierarchyLoadError when the repository throws', () async {
+    final repository = _TestBoardRepository(hierarchyError: Exception('network down'));
+    final hierarchyViewModel = BoardViewModel(repository);
+    await hierarchyViewModel.load();
+
+    await hierarchyViewModel.loadHierarchy();
+
+    expect(hierarchyViewModel.hierarchyLoadError, isNotNull);
+    expect(hierarchyViewModel.hierarchyLoaded, isTrue);
+  });
+
+  test(
+    'hierarchyRoots keeps an ancestor visible when only a descendant matches the search',
+    () async {
+      final repository = _TestBoardRepository(
+        hierarchyItems: const [
+          HierarchyItem(id: 'root-1', parentId: null, title: 'Unrelated root', statusId: 'todo'),
+          HierarchyItem(id: 'child-1', parentId: 'root-1', title: 'Fix red button', statusId: 'todo'),
+        ],
+      );
+      final hierarchyViewModel = BoardViewModel(repository);
+      await hierarchyViewModel.load();
+      await hierarchyViewModel.loadHierarchy();
+      hierarchyViewModel.setSearchQuery('red');
+
+      final root = hierarchyViewModel.hierarchyRoots.single;
+      expect(root.item.id, 'root-1');
+      expect(root.children.single.item.id, 'child-1');
+    },
+  );
+
+  test('hierarchyRoots excludes a subtree with no matching item', () async {
+    final repository = _TestBoardRepository(
+      hierarchyItems: const [
+        HierarchyItem(id: 'root-1', parentId: null, title: 'Matches', statusId: 'todo'),
+        HierarchyItem(id: 'root-2', parentId: null, title: 'Does not', statusId: 'todo'),
+      ],
+    );
+    final hierarchyViewModel = BoardViewModel(repository);
+    await hierarchyViewModel.load();
+    await hierarchyViewModel.loadHierarchy();
+    hierarchyViewModel.setSearchQuery('matches');
+
+    expect(hierarchyViewModel.hierarchyRoots.map((n) => n.item.id), ['root-1']);
+  });
+
+  test('hierarchyRoots excludes items in a hidden status column', () async {
+    final repository = _TestBoardRepository(
+      hierarchyItems: const [
+        HierarchyItem(id: 'root-1', parentId: null, title: 'Todo item', statusId: 'todo'),
+        HierarchyItem(id: 'root-2', parentId: null, title: 'Done item', statusId: 'done'),
+      ],
+    );
+    final hierarchyViewModel = BoardViewModel(repository);
+    await hierarchyViewModel.load();
+    await hierarchyViewModel.loadHierarchy();
+    hierarchyViewModel.toggleStatusVisibility('done');
+
+    expect(hierarchyViewModel.hierarchyRoots.map((n) => n.item.id), ['root-1']);
+  });
+
+  test('hierarchyComparator for title sorts siblings case-insensitively', () async {
+    final repository = _TestBoardRepository(
+      hierarchyItems: const [
+        HierarchyItem(id: 'a', parentId: null, title: 'banana', statusId: 'todo'),
+        HierarchyItem(id: 'b', parentId: null, title: 'Apple', statusId: 'todo'),
+      ],
+    );
+    final hierarchyViewModel = BoardViewModel(repository);
+    await hierarchyViewModel.load();
+    await hierarchyViewModel.loadHierarchy();
+    hierarchyViewModel.setSortOption(CardSortOption.title);
+
+    expect(hierarchyViewModel.hierarchyRoots.map((n) => n.item.id), ['b', 'a']);
+  });
+
+  test('refreshHierarchyIfLoaded is a no-op before the first loadHierarchy call', () async {
+    expect(repository.loadAllItemsCallCount, 0);
+
+    await viewModel.refreshHierarchyIfLoaded();
+
+    expect(repository.loadAllItemsCallCount, 0);
+  });
+
+  test('refreshHierarchyIfLoaded reloads once hierarchy has already been loaded', () async {
+    await viewModel.loadHierarchy();
+    expect(repository.loadAllItemsCallCount, 1);
+
+    await viewModel.refreshHierarchyIfLoaded();
+
+    expect(repository.loadAllItemsCallCount, 2);
   });
 }

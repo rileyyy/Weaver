@@ -250,6 +250,45 @@ void main() {
     expect(board.swimlanes.single.cards.single.description, 'Some detail');
   });
 
+  test('loadAllItems parses the flat item list, including top-level items', () async {
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/work-items/all') {
+        return _jsonResponse([
+          {
+            'id': 'root-1',
+            'title': 'Root',
+            'parentId': null,
+            'statusId': 'status-todo',
+          },
+          {
+            'id': 'child-1',
+            'title': 'Child',
+            'parentId': 'root-1',
+            'statusId': 'status-todo',
+          },
+        ]);
+      }
+      throw StateError('Unexpected request: ${request.url}');
+    });
+
+    final repository = ApiBoardRepository(client, baseUrl);
+    final items = await repository.loadAllItems();
+
+    expect(items.map((i) => i.id), ['root-1', 'child-1']);
+    expect(items.first.parentId, isNull);
+    expect(items.last.parentId, 'root-1');
+  });
+
+  test('loadAllItems throws an ApiException on failure', () async {
+    final client = MockClient((request) async {
+      return _jsonResponse({'detail': 'Something went wrong.'}, statusCode: 500);
+    });
+
+    final repository = ApiBoardRepository(client, baseUrl);
+
+    await expectLater(repository.loadAllItems(), throwsA(isA<ApiException>()));
+  });
+
   test('rescheduleItem posts the new dates and succeeds on 200', () async {
     http.Request? sentRequest;
     final client = MockClient((request) async {
