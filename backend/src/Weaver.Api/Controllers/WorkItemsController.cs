@@ -27,6 +27,18 @@ public class WorkItemsController : ControllerBase
         return Ok(items.Select(WorkItemDto.FromEntity));
     }
 
+    /// <summary>
+    /// Every work item, flat and unscoped. Used by the Hierarchy view to
+    /// build a full parent/child tree client-side — see
+    /// <see cref="IWorkItemService.GetAllAsync"/>.
+    /// </summary>
+    [HttpGet("all")]
+    public async Task<ActionResult<IReadOnlyList<WorkItemDto>>> GetAll()
+    {
+        var items = await _workItems.GetAllAsync();
+        return Ok(items.Select(WorkItemDto.FromEntity));
+    }
+
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<WorkItemDto>> GetById(Guid id)
     {

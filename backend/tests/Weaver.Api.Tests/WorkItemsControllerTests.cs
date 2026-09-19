@@ -57,6 +57,21 @@ public class WorkItemsControllerTests
     }
 
     [Test]
+    public async Task GetAll_ReturnsOkWithEveryItem()
+    {
+        var items = new[] { MakeWorkItem(), MakeWorkItem() };
+        _workItems.Setup(s => s.GetAllAsync(It.IsAny<CancellationToken>())).ReturnsAsync(items);
+
+        var result = await _controller.GetAll();
+
+        var ok = result.Result as OkObjectResult;
+        Assert.That(ok, Is.Not.Null);
+        var dtos = (ok!.Value as IEnumerable<WorkItemDto>)!.ToList();
+        Assert.That(dtos.Select(d => d.Id), Is.EquivalentTo(items.Select(i => i.Id)));
+        _workItems.VerifyAll();
+    }
+
+    [Test]
     public async Task Create_DelegatesToServiceAndReturnsCreatedAtAction()
     {
         var parentId = Guid.NewGuid();

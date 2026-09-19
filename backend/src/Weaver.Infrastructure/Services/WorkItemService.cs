@@ -22,6 +22,11 @@ public class WorkItemService : IWorkItemService
             .OrderBy(w => w.Rank)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<WorkItem>> GetAllAsync(CancellationToken ct = default) =>
+        await _db.WorkItems
+            .OrderBy(w => w.Rank)
+            .ToListAsync(ct);
+
     public async Task<WorkItem> CreateAsync(
         string title,
         string? description,
