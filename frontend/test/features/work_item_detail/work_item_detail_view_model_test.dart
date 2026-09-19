@@ -36,6 +36,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   final Exception? getItemError;
   final Exception? saveError;
   WorkItemDetail item = _item();
+  bool deleted = false;
   final List<String> updateDetailsCalls = [];
   final List<String?> assignCalls = [];
   final List<String> rescheduleCalls = [];
@@ -47,6 +48,13 @@ class _FakeRepository implements WorkItemDetailRepository {
     final error = getItemError;
     if (error != null) throw error;
     return item;
+  }
+
+  @override
+  Future<void> deleteItem(String id, {bool cascade = false}) async {
+    final error = saveError;
+    if (error != null) throw error;
+    deleted = true;
   }
 
   @override
@@ -320,6 +328,28 @@ void main() {
     await viewModel.load('item-1');
 
     final ok = await viewModel.addLink('item-2');
+
+    expect(ok, isFalse);
+    expect(viewModel.saveError, isNotNull);
+  });
+
+  test('deleteItem calls the repository and returns true on success', () async {
+    final repository = _FakeRepository();
+    final viewModel = WorkItemDetailViewModel(repository);
+    await viewModel.load('item-1');
+
+    final ok = await viewModel.deleteItem();
+
+    expect(ok, isTrue);
+    expect(repository.deleted, isTrue);
+  });
+
+  test('deleteItem returns false and sets saveError on failure', () async {
+    final repository = _FakeRepository(saveError: Exception('has children'));
+    final viewModel = WorkItemDetailViewModel(repository);
+    await viewModel.load('item-1');
+
+    final ok = await viewModel.deleteItem();
 
     expect(ok, isFalse);
     expect(viewModel.saveError, isNotNull);

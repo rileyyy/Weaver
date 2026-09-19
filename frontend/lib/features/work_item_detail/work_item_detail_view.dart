@@ -13,11 +13,15 @@ import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dar
 /// Opens [WorkItemDetailView] in a [Dialog] sized to fit comfortably on
 /// both desktop and mobile viewports. If [onDrillInto] is given, an app-bar
 /// action lets the user close the dialog and re-scope the board to this
-/// item's children instead.
+/// item's children instead. If [onDeleted] is given, it's called after the
+/// user confirms and successfully deletes this work item, once the dialog
+/// has already closed — the caller's chance to refresh whatever list was
+/// showing it.
 Future<void> showWorkItemDetailDialog(
   BuildContext context, {
   required String workItemId,
   VoidCallback? onDrillInto,
+  VoidCallback? onDeleted,
 }) {
   return showDialog<void>(
     context: context,
@@ -30,6 +34,7 @@ Future<void> showWorkItemDetailDialog(
           child: WorkItemDetailView(
             workItemId: workItemId,
             onDrillInto: onDrillInto,
+            onDeleted: onDeleted,
           ),
         ),
       );
@@ -38,7 +43,7 @@ Future<void> showWorkItemDetailDialog(
 }
 
 class WorkItemDetailView extends StatefulWidget {
-  const WorkItemDetailView({required this.workItemId, this.onDrillInto, super.key});
+  const WorkItemDetailView({required this.workItemId, this.onDrillInto, this.onDeleted, super.key});
 
   final String workItemId;
 
@@ -47,6 +52,10 @@ class WorkItemDetailView extends StatefulWidget {
   /// children — the same navigation [BoardView.drillInto] performs, just
   /// reachable from the detail dialog instead of a tap on the card itself.
   final VoidCallback? onDrillInto;
+
+  /// Called once this item has actually been deleted (after confirmation),
+  /// after this view's own dialog has closed itself.
+  final VoidCallback? onDeleted;
 
   @override
   State<WorkItemDetailView> createState() => _WorkItemDetailViewState();
@@ -201,22 +210,29 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
             const SizedBox(height: 16),
             Text('Created ${formatDate(item.createdAtUtc)} · Updated ${formatDate(item.updatedAtUtc)}',
                 style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 16),
-            if (_viewModel.saveError != null) ...[
-              Text(_viewModel.saveError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-              const SizedBox(height: 8),
-            ],
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton(
-                onPressed: _viewModel.isSaving ? null : () => unawaited(_saveDetails()),
-                child: Text(_viewModel.isSaving ? 'Saving…' : 'Save'),
-              ),
-            ),
             const Divider(height: 32),
             _buildLinksSection(context),
             const Divider(height: 32),
             _buildCommentsSection(context),
+            const Divider(height: 32),
+            if (_viewModel.saveError != null) ...[
+              Text(_viewModel.saveError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              const SizedBox(height: 8),
+            ],
+            Row(
+              children: [
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+                  onPressed: _viewModel.isSaving ? null : () => unawaited(_confirmAndDelete()),
+                  child: const Text('Delete'),
+                ),
+                const Spacer(),
+                FilledButton(
+                  onPressed: _viewModel.isSaving ? null : () => unawaited(_saveDetails()),
+                  child: Text(_viewModel.isSaving ? 'Saving…' : 'Save'),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -340,6 +356,36 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     if (targetId.isEmpty) return;
     final ok = await _viewModel.addLink(targetId);
     if (ok) _linkTargetController.clear();
+  }
+
+  Future<void> _confirmAndDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete work item?'),
+        content: const Text(
+          'This will permanently delete this work item and any sub-items. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(dialogContext).colorScheme.error),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final ok = await _viewModel.deleteItem();
+    if (ok && mounted) {
+      Navigator.of(context).pop();
+      widget.onDeleted?.call();
+    }
   }
 }
 

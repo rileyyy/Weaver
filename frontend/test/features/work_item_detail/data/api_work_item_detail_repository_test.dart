@@ -189,6 +189,21 @@ void main() {
     expect(sentRequest!.url.path, '/api/comments/comment-1');
   });
 
+  test('deleteItem deletes the work item with the cascade flag', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return http.Response('', 204);
+    });
+    final repository = ApiWorkItemDetailRepository(client, baseUrl);
+
+    await repository.deleteItem('item-1', cascade: true);
+
+    expect(sentRequest!.method, 'DELETE');
+    expect(sentRequest!.url.path, '/api/work-items/item-1');
+    expect(sentRequest!.url.queryParameters['cascade'], 'true');
+  });
+
   test('loadLinks parses the link list', () async {
     final client = MockClient((request) async => _jsonResponse([
           {'id': 'link-1', 'linkedWorkItemId': 'item-2', 'linkedWorkItemTitle': 'Other task'},

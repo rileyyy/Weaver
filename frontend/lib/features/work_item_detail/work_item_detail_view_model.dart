@@ -87,6 +87,14 @@ class WorkItemDetailViewModel extends ViewModel {
 
   Future<bool> saveAssignee(String? userId) => _save(() => _repository.assign(_item!.id, userId));
 
+  /// Deletes this work item and any sub-items — the confirmation dialog
+  /// already warns the user about the subtree, so this always cascades
+  /// rather than asking a second time.
+  Future<bool> deleteItem() => _mutate(
+        () => _repository.deleteItem(_item!.id, cascade: true),
+        errorMessage: 'Could not delete this work item. Try again.',
+      );
+
   Future<bool> saveSchedule(DateTime? startDate, DateTime? endDate) =>
       _save(() => _repository.reschedule(_item!.id, startDate, endDate));
 
