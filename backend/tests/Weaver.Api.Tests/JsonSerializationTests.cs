@@ -42,7 +42,7 @@ public class JsonSerializationTests
     [Test]
     public void StatusDto_SerializesCategoryAsAString()
     {
-        var dto = new StatusDto(Guid.NewGuid(), "Doing", 1, StatusCategory.Doing);
+        var dto = new StatusDto(Guid.NewGuid(), "Doing", 1, StatusCategory.Doing, "#FB8C00");
 
         var json = JsonSerializer.Serialize(dto, Options);
 
