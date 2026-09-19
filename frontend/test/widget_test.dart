@@ -119,8 +119,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Weaver'), findsOneWidget);
-    // Appears twice: the status column header and its filter chip.
-    expect(find.text('To Do'), findsNWidgets(2));
+    // The matching filter chip lives inside the Filters dialog now, not on
+    // the main screen, so only the status column header renders by default.
+    expect(find.text('To Do'), findsOneWidget);
     expect(find.text('Swimlane board'), findsOneWidget);
     expect(find.text('Design swimlane layout'), findsOneWidget);
   });

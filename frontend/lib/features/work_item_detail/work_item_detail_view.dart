@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:weaver/core/di/injection.dart';
@@ -9,10 +10,43 @@ import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
 
+/// Opens [WorkItemDetailView] in a [Dialog] sized to fit comfortably on
+/// both desktop and mobile viewports. If [onDrillInto] is given, an app-bar
+/// action lets the user close the dialog and re-scope the board to this
+/// item's children instead.
+Future<void> showWorkItemDetailDialog(
+  BuildContext context, {
+  required String workItemId,
+  VoidCallback? onDrillInto,
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) {
+      final screenSize = MediaQuery.sizeOf(context);
+      return Dialog(
+        child: SizedBox(
+          width: math.min(560, screenSize.width * 0.95),
+          height: math.min(720, screenSize.height * 0.9),
+          child: WorkItemDetailView(
+            workItemId: workItemId,
+            onDrillInto: onDrillInto,
+          ),
+        ),
+      );
+    },
+  );
+}
+
 class WorkItemDetailView extends StatefulWidget {
-  const WorkItemDetailView({required this.workItemId, super.key});
+  const WorkItemDetailView({required this.workItemId, this.onDrillInto, super.key});
 
   final String workItemId;
+
+  /// When set, shown as an app-bar action that closes this view and hands
+  /// control back to the caller to re-scope the board to this item's
+  /// children — the same navigation [BoardView.drillInto] performs, just
+  /// reachable from the detail dialog instead of a tap on the card itself.
+  final VoidCallback? onDrillInto;
 
   @override
   State<WorkItemDetailView> createState() => _WorkItemDetailViewState();
@@ -65,8 +99,22 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
 
   @override
   Widget build(BuildContext context) {
+    final onDrillInto = widget.onDrillInto;
     return Scaffold(
-      appBar: AppBar(title: const Text('Work Item Details')),
+      appBar: AppBar(
+        title: const Text('Work Item Details'),
+        actions: [
+          if (onDrillInto != null)
+            IconButton(
+              icon: const Icon(Icons.account_tree_outlined),
+              tooltip: 'View sub-items',
+              onPressed: () {
+                Navigator.of(context).pop();
+                onDrillInto();
+              },
+            ),
+        ],
+      ),
       body: Builder(
         builder: (context) {
           if (_viewModel.isLoading) {

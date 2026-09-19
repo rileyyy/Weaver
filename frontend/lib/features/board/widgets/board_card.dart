@@ -11,15 +11,11 @@ class BoardCard extends StatelessWidget {
   const BoardCard({
     super.key,
     required this.card,
-    this.onOpen,
     required this.onReschedule,
     required this.onOpenDetails,
   });
 
   final WorkItemCard card;
-
-  /// Called when the card is tapped, to drill into its own children.
-  final VoidCallback? onOpen;
 
   /// Called with the new start/end after the schedule dialog is saved.
   final Future<void> Function(
@@ -29,9 +25,11 @@ class BoardCard extends StatelessWidget {
   )
   onReschedule;
 
-  /// Called when the details icon is pressed, to open the full work-item
-  /// detail screen (title/description/layer/priority/assignee) — separate
-  /// from [onOpen], which drills into the card's children instead.
+  /// Called when the card is tapped, to open a dialog showing every
+  /// attribute of this work item (title/description/layer/priority/
+  /// assignee/comments/links). Drilling into the item's own children is
+  /// reached from inside that dialog instead of from a separate tap target
+  /// here.
   final VoidCallback onOpenDetails;
 
   @override
@@ -39,7 +37,7 @@ class BoardCard extends StatelessWidget {
     final content = Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: InkWell(
-        onTap: onOpen,
+        onTap: onOpenDetails,
         child: Padding(
           padding: const EdgeInsets.all(8),
           child: Row(
@@ -57,11 +55,6 @@ class BoardCard extends StatelessWidget {
                       ),
                   ],
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.info_outline, size: 16),
-                tooltip: 'View details',
-                onPressed: onOpenDetails,
               ),
               IconButton(
                 icon: const Icon(Icons.calendar_today, size: 16),
