@@ -67,15 +67,18 @@ class _TestBoardRepository implements BoardRepository {
     this.changeStatusError,
     this.reparentError,
     this.rescheduleError,
+    this.createError,
   });
 
   final Exception? changeStatusError;
   final Exception? reparentError;
   final Exception? rescheduleError;
+  final Exception? createError;
   final List<String> statusChanges = [];
   final List<String> reparents = [];
   final List<String> reschedules = [];
   final List<String?> requestedScopes = [];
+  final List<String> creates = [];
 
   @override
   Future<String?> loadRootScopeItemId() => Future.value();
@@ -112,6 +115,18 @@ class _TestBoardRepository implements BoardRepository {
     final error = rescheduleError;
     if (error != null) throw error;
   }
+
+  @override
+  Future<void> createWorkItem({
+    required String title,
+    String? description,
+    required String? parentId,
+    required String statusId,
+  }) async {
+    creates.add('$title->$parentId/$statusId');
+    final error = createError;
+    if (error != null) throw error;
+  }
 }
 
 class _FailingLoadRepository implements BoardRepository {
@@ -137,6 +152,14 @@ class _FailingLoadRepository implements BoardRepository {
     DateTime? startDate,
     DateTime? endDate,
   ) => Future.value();
+
+  @override
+  Future<void> createWorkItem({
+    required String title,
+    String? description,
+    required String? parentId,
+    required String statusId,
+  }) => Future.value();
 }
 
 void main() {
@@ -355,6 +378,34 @@ void main() {
       expect(failingViewModel.moveError, isNotNull);
     },
   );
+
+  test('createWorkItem persists the new item and reloads the current scope', () async {
+    await viewModel.createWorkItem(
+      title: 'New card',
+      parentId: 'lane-a',
+      statusId: 'todo',
+    );
+
+    expect(repository.creates, ['New card->lane-a/todo']);
+    expect(repository.requestedScopes, [null, null]);
+    expect(viewModel.loadError, isNull);
+  });
+
+  test('createWorkItem sets loadError when the repository call fails', () async {
+    final failingRepository = _TestBoardRepository(
+      createError: Exception('boom'),
+    );
+    final failingViewModel = BoardViewModel(failingRepository);
+    await failingViewModel.load();
+
+    await failingViewModel.createWorkItem(
+      title: 'New card',
+      parentId: 'lane-a',
+      statusId: 'todo',
+    );
+
+    expect(failingViewModel.loadError, isNotNull);
+  });
 
   test('matchesTimeFilter is true for every card when no filter is set', () {
     const card = WorkItemCard(

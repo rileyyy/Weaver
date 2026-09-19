@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/features/auth/data/auth_session_store.dart';
 import 'package:weaver/features/board/widgets/date_format.dart';
-import 'package:weaver/features/board/widgets/schedule_dialog.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
 
@@ -171,15 +171,6 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
               onChanged: (value) => setState(() => _selectedPriority = value ?? WorkItemPriority.medium),
             ),
             const SizedBox(height: 16),
-            if (_viewModel.saveError != null) ...[
-              Text(_viewModel.saveError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-              const SizedBox(height: 8),
-            ],
-            FilledButton(
-              onPressed: _viewModel.isSaving ? null : () => unawaited(_saveDetails()),
-              child: Text(_viewModel.isSaving ? 'Saving…' : 'Save'),
-            ),
-            const Divider(height: 32),
             Text('Status', style: Theme.of(context).textTheme.labelLarge),
             Text(_viewModel.statusName ?? item.statusId),
             const SizedBox(height: 16),
@@ -194,19 +185,34 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
               onChanged: (value) => unawaited(_saveAssignee(value)),
             ),
             const SizedBox(height: 16),
-            Text('Schedule', style: Theme.of(context).textTheme.labelLarge),
-            Row(
-              children: [
-                Expanded(child: Text(_scheduleLabel(item.startDate, item.endDate))),
-                TextButton(
-                  onPressed: () => unawaited(_editSchedule(item.startDate, item.endDate)),
-                  child: const Text('Edit'),
-                ),
-              ],
+            _DateField(
+              label: 'Start Date',
+              value: item.startDate,
+              onPick: () => unawaited(_pickStartDate(item)),
+              onClear: item.startDate == null ? null : () => unawaited(_viewModel.saveSchedule(null, item.endDate)),
+            ),
+            const SizedBox(height: 16),
+            _DateField(
+              label: 'End Date',
+              value: item.endDate,
+              onPick: () => unawaited(_pickEndDate(item)),
+              onClear: item.endDate == null ? null : () => unawaited(_viewModel.saveSchedule(item.startDate, null)),
             ),
             const SizedBox(height: 16),
             Text('Created ${formatDate(item.createdAtUtc)} · Updated ${formatDate(item.updatedAtUtc)}',
                 style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 16),
+            if (_viewModel.saveError != null) ...[
+              Text(_viewModel.saveError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              const SizedBox(height: 8),
+            ],
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton(
+                onPressed: _viewModel.isSaving ? null : () => unawaited(_saveDetails()),
+                child: Text(_viewModel.isSaving ? 'Saving…' : 'Save'),
+              ),
+            ),
             const Divider(height: 32),
             _buildLinksSection(context),
             const Divider(height: 32),
@@ -284,13 +290,6 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     );
   }
 
-  String _scheduleLabel(DateTime? start, DateTime? end) {
-    if (start != null && end != null) return '${formatDate(start)} → ${formatDate(end)}';
-    if (start != null) return 'From ${formatDate(start)}';
-    if (end != null) return 'Until ${formatDate(end)}';
-    return 'Not scheduled';
-  }
-
   Future<void> _saveDetails() async {
     await _viewModel.saveDetails(
       title: _titleController.text,
@@ -307,10 +306,26 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     if (!ok && mounted) setState(() => _selectedAssigneeId = previous);
   }
 
-  Future<void> _editSchedule(DateTime? start, DateTime? end) async {
-    final result = await showScheduleDialog(context, initialStart: start, initialEnd: end);
-    if (result == null) return;
-    await _viewModel.saveSchedule(result.startDate, result.endDate);
+  Future<void> _pickStartDate(WorkItemDetail item) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: item.startDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null) return;
+    await _viewModel.saveSchedule(picked, item.endDate);
+  }
+
+  Future<void> _pickEndDate(WorkItemDetail item) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: item.endDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null) return;
+    await _viewModel.saveSchedule(item.startDate, picked);
   }
 
   Future<void> _addComment() async {
@@ -408,6 +423,41 @@ class _CommentTileState extends State<_CommentTile> {
             Text(comment.body),
         ],
       ),
+    );
+  }
+}
+
+/// One labeled date row (used for Start Date / End Date): shows the current
+/// value or "Not set", an Edit button to pick a new one, and — only once a
+/// value exists — a button to clear it back to unset.
+class _DateField extends StatelessWidget {
+  const _DateField({
+    required this.label,
+    required this.value,
+    required this.onPick,
+    required this.onClear,
+  });
+
+  final String label;
+  final DateTime? value;
+  final VoidCallback onPick;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.labelLarge),
+        Row(
+          children: [
+            Expanded(child: Text(value == null ? 'Not set' : formatDate(value!))),
+            if (onClear != null)
+              TextButton(onPressed: onClear, child: const Text('Clear')),
+            TextButton(onPressed: onPick, child: const Text('Edit')),
+          ],
+        ),
+      ],
     );
   }
 }

@@ -27,4 +27,15 @@ abstract class BoardRepository {
     DateTime? startDate,
     DateTime? endDate,
   );
+
+  /// Creates a new work item under [parentId] ("null" makes it a top-level
+  /// item, with no parent at all) with [statusId]. Throws on failure. Does
+  /// not return the created item — callers re-load the current scope to
+  /// pick it up.
+  Future<void> createWorkItem({
+    required String title,
+    String? description,
+    required String? parentId,
+    required String statusId,
+  });
 }

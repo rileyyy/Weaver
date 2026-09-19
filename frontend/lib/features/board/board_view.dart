@@ -10,6 +10,7 @@ import 'package:weaver/features/board/models/scope_crumb.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/widgets/board_card.dart';
+import 'package:weaver/features/board/widgets/create_work_item_dialog.dart';
 import 'package:weaver/features/board/widgets/date_format.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view.dart';
 
@@ -33,9 +34,17 @@ class BoardView extends StatefulWidget {
   State<BoardView> createState() => _BoardViewState();
 }
 
-class _BoardViewState extends State<BoardView> {
+/// The board's alternate views, selected via the tabs in the top bar.
+/// Calendar and Hierarchy are stubs for now — only Swim Lanes is wired up.
+enum _BoardTab { swimLanes, calendar, hierarchy }
+
+class _BoardViewState extends State<BoardView> with SingleTickerProviderStateMixin {
   final BoardViewModel _viewModel = getIt<BoardViewModel>();
   final TextEditingController _searchController = TextEditingController();
+  late final TabController _tabController = TabController(
+    length: _BoardTab.values.length,
+    vsync: this,
+  )..addListener(() => setState(() {}));
 
   @override
   void initState() {
@@ -50,6 +59,7 @@ class _BoardViewState extends State<BoardView> {
       ..removeListener(_showMoveErrorIfAny)
       ..dispose();
     _searchController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -59,6 +69,30 @@ class _BoardViewState extends State<BoardView> {
       workItemId: card.id,
       onDrillInto: () => unawaited(_viewModel.drillInto(card)),
     ));
+  }
+
+  Future<void> _openCreateWorkItemDialog() async {
+    final statuses = _viewModel.statuses;
+    if (statuses.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No statuses are configured yet.')),
+      );
+      return;
+    }
+
+    final result = await showCreateWorkItemDialog(
+      context,
+      scopeParentId: _viewModel.breadcrumbs.last.id,
+      swimlanes: _viewModel.swimlanes,
+    );
+    if (result == null) return;
+
+    await _viewModel.createWorkItem(
+      title: result.title,
+      description: result.description,
+      parentId: result.parentId,
+      statusId: statuses.first.id,
+    );
   }
 
   Future<void> _openFiltersDialog() {
@@ -107,7 +141,15 @@ class _BoardViewState extends State<BoardView> {
 
   @override
   Widget build(BuildContext context) {
+    final showAddButton = _tabController.index == _BoardTab.swimLanes.index;
     return Scaffold(
+      floatingActionButton: showAddButton
+          ? FloatingActionButton(
+              onPressed: () => unawaited(_openCreateWorkItemDialog()),
+              tooltip: 'Add work item',
+              child: const Icon(Icons.add),
+            )
+          : null,
       body: ListenableBuilder(
         listenable: _viewModel,
         builder: (context, _) {
@@ -128,8 +170,18 @@ class _BoardViewState extends State<BoardView> {
                     onTimeFilterCleared: _viewModel.clearTimeFilter,
                     onOpenFilters: _openFiltersDialog,
                     onLogout: () => unawaited(widget.onLogout()),
+                    tabController: _tabController,
                   ),
-                  Expanded(child: _buildBoardArea(context)),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildBoardArea(context),
+                        const _CalendarViewStub(),
+                        const _HierarchyViewStub(),
+                      ],
+                    ),
+                  ),
                 ],
               );
             },
@@ -200,6 +252,7 @@ class _HeaderBar extends StatelessWidget {
     required this.onTimeFilterCleared,
     required this.onOpenFilters,
     required this.onLogout,
+    required this.tabController,
   });
 
   final bool isNarrow;
@@ -213,6 +266,7 @@ class _HeaderBar extends StatelessWidget {
   final VoidCallback onTimeFilterCleared;
   final VoidCallback onOpenFilters;
   final VoidCallback onLogout;
+  final TabController tabController;
 
   @override
   Widget build(BuildContext context) {
@@ -253,34 +307,68 @@ class _HeaderBar extends StatelessWidget {
           bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
         ),
       ),
-      child: isNarrow
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(child: title),
-                const SizedBox(height: 8),
-                navigationStack,
-                const SizedBox(height: 8),
-                actionsRow,
-              ],
-            )
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: navigationStack),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: title,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          isNarrow
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(child: title),
+                    const SizedBox(height: 8),
+                    navigationStack,
+                    const SizedBox(height: 8),
+                    actionsRow,
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: navigationStack),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: title,
+                    ),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: actionsRow,
+                      ),
+                    ),
+                  ],
                 ),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.topRight,
-                    child: actionsRow,
-                  ),
-                ),
-              ],
-            ),
+          const SizedBox(height: 4),
+          TabBar(
+            controller: tabController,
+            isScrollable: isNarrow,
+            tabAlignment: isNarrow ? TabAlignment.start : TabAlignment.fill,
+            tabs: const [
+              Tab(text: 'Swim Lanes'),
+              Tab(text: 'Calendar'),
+              Tab(text: 'Hierarchy'),
+            ],
+          ),
+        ],
+      ),
     );
+  }
+}
+
+class _CalendarViewStub extends StatelessWidget {
+  const _CalendarViewStub();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: Text('Calendar view — coming soon'));
+  }
+}
+
+class _HierarchyViewStub extends StatelessWidget {
+  const _HierarchyViewStub();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: Text('Hierarchy view — coming soon'));
   }
 }
 

@@ -53,6 +53,14 @@ class _StubBoardRepository implements BoardRepository {
     DateTime? startDate,
     DateTime? endDate,
   ) => Future.value();
+
+  @override
+  Future<void> createWorkItem({
+    required String title,
+    String? description,
+    required String? parentId,
+    required String statusId,
+  }) => Future.value();
 }
 
 /// Never actually called: the test pre-populates a non-expired session

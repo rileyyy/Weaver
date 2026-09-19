@@ -77,6 +77,26 @@ class ApiBoardRepository implements BoardRepository {
     _checkOk(response, 'Failed to reschedule item');
   }
 
+  @override
+  Future<void> createWorkItem({
+    required String title,
+    String? description,
+    required String? parentId,
+    required String statusId,
+  }) async {
+    final response = await _client.post(
+      _uri('/work-items'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'title': title,
+        'description': description,
+        'parentId': parentId,
+        'statusId': statusId,
+      }),
+    );
+    _checkOk(response, 'Failed to create work item');
+  }
+
   Future<List<BoardStatus>> _loadStatuses() async {
     final json = await _getJsonList('/statuses');
     return [

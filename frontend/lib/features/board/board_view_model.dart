@@ -182,6 +182,26 @@ class BoardViewModel extends ViewModel {
 
   void clearMoveError() => _moveError = null;
 
+  /// Creates a new work item under [parentId] (null for a new top-level
+  /// item) with [statusId], then reloads the current scope to pick it up —
+  /// there's no optimistic add, since the created item's id isn't known
+  /// until the repository call returns.
+  Future<void> createWorkItem({
+    required String title,
+    String? description,
+    required String? parentId,
+    required String statusId,
+  }) => _changeScope(() async {
+        await _repository.createWorkItem(
+          title: title,
+          description: description,
+          parentId: parentId,
+          statusId: statusId,
+        );
+        final data = await _repository.loadBoard(_breadcrumbs.last.id);
+        _applyScope(data);
+      }, errorMessage: 'Could not create "$title". Try again.');
+
   /// Sets the board's time-frame filter. Either bound may be null (open on
   /// that side); passing both null is equivalent to [clearTimeFilter].
   void setTimeFilter({DateTime? start, DateTime? end}) {
