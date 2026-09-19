@@ -98,28 +98,30 @@ Every state-changing application operation requires tests for:
 
 ## Inspiration
 
+Azure DevOps projet management (specifically sprint boards and heirarchy views)
+and
 https://sneekes.app/posts/building-my-own-kanban-self-hosted/
 
 ## Milestones
 
-| Milestone | Status         | Result                            |
-| --------- | -------------- | --------------------------------- |
-| 0         | Done           | Architecture + repo + Docker      |
-| 1         | Done           | Database + domain model           |
-| 2         | Done           | API                               |
-| 3         | Done           | Flutter shell                     |
-| 4         | Done           | Standalone swimlane prototype     |
-| 5         | Done           | API-connected board               |
-| 6         | Done           | Hierarchy                         |
-| 7         | Done           | Time-frame filter                 |
-| 8         | Done           | Search/filter/sort                |
-| 9         | Done           | Work-item details                 |
-| 10        | Done           | Authentication                    |
-| 11        | Done           | Comments/links                    |
-| 12        | Not started    | Attachments                       |
-| 13        | Not started    | MCP                               |
-| 14        | Not started    | Mobile refinement                 |
-| 15        | Not started    | Production deployment             |
+| Milestone | Status      | Result                        |
+| --------- | ----------- | ----------------------------- |
+| 0         | Done        | Architecture + repo + Docker  |
+| 1         | Done        | Database + domain model       |
+| 2         | Done        | API                           |
+| 3         | Done        | Flutter shell                 |
+| 4         | Done        | Standalone swimlane prototype |
+| 5         | Done        | API-connected board           |
+| 6         | Done        | Hierarchy                     |
+| 7         | Done        | Time-frame filter             |
+| 8         | Done        | Search/filter/sort            |
+| 9         | Done        | Work-item details             |
+| 10        | Done        | Authentication                |
+| 11        | Done        | Comments/links                |
+| 12        | Skip        | Attachments                   |
+| 13        | Not started | MCP                           |
+| 14        | Not started | Mobile refinement             |
+| 15        | Not started | Production deployment         |
 
 Implemented in dependency order (10, then 9, then 11) rather than numeric
 order: Milestone 9's "assigned to" field requires Milestone 10's user
@@ -128,22 +130,6 @@ had to decide unattended while implementing these three — please review
 before relying on this work.
 
 ## Open decisions — Milestones 9-11 (please review)
-
-These were implemented overnight without the ability to ask; each is a
-judgment call an agent made instead of you. Nothing here is final —
-flag anything you'd rather have done differently and it can be changed.
-
-**Conflicts with an existing decision, please look at this one first:**
-
-- **`SprintId` was *not* added**, even though it was in the suggested
-  field list. The "Time Filtering" section above records an explicit,
-  previously-confirmed decision that this app has no fixed-length
-  sprint/iteration concept — Milestone 7 deliberately replaced a
-  "Sprint system" milestone with the arbitrary time-frame filter for
-  exactly this reason. Adding `SprintId` now would directly contradict
-  that recorded decision, so it was left out rather than guessed at. If
-  you do want a sprint/iteration concept after all, that's a real design
-  reversal worth deciding deliberately, not inferring from a field list.
 
 **Fields from the suggested list that map onto something that already exists:**
 
@@ -179,29 +165,6 @@ you'd rather it be admin-configurable like layers/statuses.
 
 **Authentication design:**
 
-- **Session strategy**: short-lived JWT access token (15 min) +
-  longer-lived rotating refresh token (30 days). "Cache login so users
-  don't have to keep signing in" is implemented as: the refresh token is
-  stored in the Flutter app via `flutter_secure_storage` (OS keychain/
-  keystore on native, encrypted storage on web); the access token is
-  kept in memory only and silently re-issued from the refresh token on
-  app start and on expiry. Logging out revokes the refresh token
-  server-side, so a stolen/cached token stops working immediately rather
-  than just expiring naturally later.
-- **Password policy**: 12-character minimum, no forced
-  uppercase/digit/symbol composition rules. This follows current NIST
-  800-63B guidance (length matters far more than composition; forced
-  composition rules push people toward predictable patterns). If you
-  wanted the older-style composition requirements specifically, that's a
-  quick change.
-- **Passwords are hashed with `Microsoft.AspNetCore.Identity`'s
-  `PasswordHasher<T>`** (PBKDF2-HMAC-SHA256, random salt per user,
-  framework-managed iteration count) rather than a hand-rolled scheme or
-  an extra third-party crypto dependency.
-- **Basic brute-force lockout was added**: 5 consecutive failed logins
-  locks the account for 15 minutes. This wasn't explicitly requested but
-  falls under "typical best practices"; it's simple enough that leaving
-  it out felt like the bigger judgment call.
 - **Registration is open** (anyone can create an account with a
   username/password) — there's no admin/invite system yet to gate it
   with. Worth revisiting once this is anything other than a
@@ -217,11 +180,6 @@ you'd rather it be admin-configurable like layers/statuses.
   it means a forgotten password currently has no self-service recovery
   path. Flagging this as a known gap rather than silently deciding it
   doesn't matter.
-- **CORS was narrowed** from the previous any-origin policy (which was
-  explicitly left open only *until* auth existed — see `Program.cs`'s
-  comment from Milestone 5) to a configured origin allowlist. Every
-  board/work-item/user/comment/link endpoint now requires a valid access
-  token (`[Authorize]`); only `/api/auth/*` stays anonymous.
 
 **Comments and links (Milestone 11):**
 
