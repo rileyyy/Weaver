@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:weaver/core/theme/app_theme.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/widgets/assignee_avatar.dart';
 import 'package:weaver/features/board/widgets/date_format.dart';
@@ -31,6 +32,9 @@ class BoardCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final content = Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
+      // Lighter than the status column it sits on (surfaceContainerLow), so
+      // a card actually stands out from its cell instead of blending in.
+      color: Theme.of(context).colorScheme.surfaceContainerLow.lightenedBy(0.2),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: InkWell(
@@ -42,9 +46,9 @@ class BoardCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             // Two groups only (title block, then the assignee avatar) so
-            // spaceBetween puts all of the card's extra vertical room (a
-            // square-ish card is usually taller than its title needs) as one
-            // gap between them, pinning the avatar to the bottom.
+            // spaceBetween puts all of the card's extra vertical room (when
+            // its minimum height leaves more room than the title needs) as
+            // one gap between them, pinning the avatar to the bottom.
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Column(

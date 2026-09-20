@@ -45,6 +45,11 @@ const double _cardGridSpacing = 8;
 /// for cards.
 const double _statusColumnChrome = 16;
 
+/// Horizontal space [_SwimlaneLabel] gives to its collapse chevron and
+/// padding before its title even starts wrapping: left+right padding
+/// (4+8), the chevron's own width (24), and the gap after it (4).
+const double _swimlaneLabelChrome = 40;
+
 class BoardView extends StatefulWidget {
   const BoardView({required this.onLogout, super.key});
 
@@ -918,6 +923,10 @@ class _SwimlaneBoard extends StatelessWidget {
         useFlexColumns ? availableForColumns / statuses.length : _minColumnWidth;
     final cardWidth =
         (columnOuterWidth - _statusColumnChrome - _cardGridSpacing) / 2;
+    // Half of cardWidth, not cardWidth itself — cards no longer need to be
+    // square; fitting more information per card matters more than the
+    // shape, so they're shorter and squatter instead.
+    final cardHeight = cardWidth * 0.5;
 
     final baseHeaderStyle = Theme.of(context).textTheme.titleMedium;
     final headerTextStyle = baseHeaderStyle?.copyWith(
@@ -932,7 +941,7 @@ class _SwimlaneBoard extends StatelessWidget {
         const _GridRowBox(height: _headerRowHeight, showBottomBorder: true),
         for (final lane in swimlanes)
           _GridRowBox(
-            height: _rowHeightFor(lane, cardWidth),
+            height: _rowHeightFor(context, lane, cardHeight),
             showBottomBorder: true,
             child: _SwimlaneLabel(
               swimlane: lane,
@@ -971,7 +980,7 @@ class _SwimlaneBoard extends StatelessWidget {
     final laneRows = [
       for (final lane in swimlanes)
         _GridRowBox(
-          height: _rowHeightFor(lane, cardWidth),
+          height: _rowHeightFor(context, lane, cardHeight),
           showBottomBorder: true,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -984,6 +993,7 @@ class _SwimlaneBoard extends StatelessWidget {
                     swimlane: lane,
                     status: status,
                     cardWidth: cardWidth,
+                    cardHeight: cardHeight,
                     isCollapsed: collapsedSwimlaneIds.contains(lane.parentId),
                     onCardDropped: onCardDropped,
                     onCardDetailsOpened: onCardDetailsOpened,
@@ -1018,12 +1028,14 @@ class _SwimlaneBoard extends StatelessWidget {
   }
 
   /// A collapsed lane always gets [_collapsedSwimlaneRowHeight]. Otherwise,
-  /// enough rows of square [cardWidth] cards for the busiest status column
-  /// in this lane, plus always at least one trailing empty slot (so a full
-  /// grid never looks completely "closed" — dropping one more card always
-  /// has visible room to land in), with an overall floor of two rows (four
-  /// slots) even when the lane is empty.
-  double _rowHeightFor(Swimlane lane, double cardWidth) {
+  /// the taller of: enough rows of [cardHeight] cards for the busiest status
+  /// column in this lane (plus always at least one trailing empty slot, so a
+  /// full grid never looks completely "closed" — dropping one more card
+  /// always has visible room to land in; defaulting to a single row of two
+  /// slots when the lane is empty, rather than reserving a taller 2x2 grid
+  /// up front), or whatever the lane's own label needs to fit its
+  /// (possibly wrapped) title and assignee avatar without clipping.
+  double _rowHeightFor(BuildContext context, Swimlane lane, double cardHeight) {
     if (collapsedSwimlaneIds.contains(lane.parentId)) {
       return _collapsedSwimlaneRowHeight;
     }
@@ -1036,9 +1048,43 @@ class _SwimlaneBoard extends StatelessWidget {
       if (count > maxCount) maxCount = count;
     }
 
-    final rowsForTrailingSlot = ((maxCount + 1) / 2).ceil();
-    final rows = rowsForTrailingSlot < 2 ? 2 : rowsForTrailingSlot;
-    return rows * cardWidth + (rows - 1) * _cardGridSpacing + _statusColumnChrome;
+    final rows = ((maxCount + 1) / 2).ceil();
+    final cardBasedHeight =
+        rows * cardHeight + (rows - 1) * _cardGridSpacing + _statusColumnChrome;
+    final labelHeight = _swimlaneLabelMinHeight(context, lane);
+    return cardBasedHeight > labelHeight ? cardBasedHeight : labelHeight;
+  }
+
+  /// The [_SwimlaneLabel]'s own minimum height when expanded: its top/bottom
+  /// padding, plus its (possibly multi-line, wrapped) title, plus the fixed
+  /// gap and avatar below it — measured directly rather than guessed, since
+  /// the label and the status-columns row it sits beside must always end up
+  /// exactly the same height (see [_GridRowBox]).
+  double _swimlaneLabelMinHeight(BuildContext context, Swimlane lane) {
+    final baseLabelStyle = Theme.of(context).textTheme.titleSmall;
+    final labelStyle = baseLabelStyle?.copyWith(
+      fontSize: (baseLabelStyle.fontSize ?? 14) * _gridHeaderFontScale,
+    );
+    final textPainter = TextPainter(
+      text: TextSpan(text: lane.title, style: labelStyle),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout(maxWidth: _laneLabelWidth - _swimlaneLabelChrome);
+
+    const topPadding = 16;
+    const bottomPadding = 8;
+    const gapBeforeAvatar = 24;
+    // A small cushion on top of the measured text height — TextPainter's
+    // layout outside the widget tree can land a pixel or so short of what
+    // the actual Text widget renders (rounding, font metrics), and this is
+    // a floor other content must never clip against.
+    const measurementSafetyMargin = 4;
+    return topPadding +
+        textPainter.height +
+        measurementSafetyMargin +
+        gapBeforeAvatar +
+        AssigneeAvatar.size +
+        bottomPadding;
   }
 
   Widget _columnWrapper({
@@ -1202,6 +1248,7 @@ class _StatusColumn extends StatelessWidget {
     required this.swimlane,
     required this.status,
     required this.cardWidth,
+    required this.cardHeight,
     required this.isCollapsed,
     required this.onCardDropped,
     required this.onCardDetailsOpened,
@@ -1217,6 +1264,7 @@ class _StatusColumn extends StatelessWidget {
   /// swimlane's row height, also computed there, matches what actually
   /// renders here).
   final double cardWidth;
+  final double cardHeight;
 
   final bool isCollapsed;
 
@@ -1271,13 +1319,12 @@ class _StatusColumn extends StatelessWidget {
             children: [
               for (final card in cards)
                 ConstrainedBox(
-                  // minHeight (not a fixed height) so a card is
-                  // square-ish by default but can still grow for a
-                  // long, wrapped title instead of clipping it.
+                  // minHeight (not a fixed height) so a card can still grow
+                  // for a long, wrapped title instead of clipping it.
                   constraints: BoxConstraints(
                     minWidth: cardWidth,
                     maxWidth: cardWidth,
-                    minHeight: cardWidth,
+                    minHeight: cardHeight,
                   ),
                   child: BoardCard(
                     card: card,
