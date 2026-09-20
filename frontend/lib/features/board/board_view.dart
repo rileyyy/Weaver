@@ -964,7 +964,8 @@ class _SwimlaneBoard extends StatelessWidget {
         _GridRowBox(
           height: _headerRowHeight,
           showBottomBorder: true,
-          child: Center(
+          child: Align(
+            alignment: Alignment.centerLeft,
             child: IconButton(
               iconSize: 20,
               visualDensity: VisualDensity.compact,

@@ -6,6 +6,11 @@ import 'package:weaver/features/board/widgets/date_format.dart';
 
 const double _feedbackWidth = 208;
 
+/// Placeholder for a future status/priority-driven color — static for now,
+/// per explicit direction, rather than derived from the card's own data.
+const Color _handleColor = Colors.green;
+const double _handleWidth = 2;
+
 class BoardCard extends StatelessWidget {
   const BoardCard({
     super.key,
@@ -46,44 +51,67 @@ class BoardCard extends StatelessWidget {
       // Square corners, not rounded — no shape override needed since
       // RoundedRectangleBorder defaults to zero radius.
       shape: const RoundedRectangleBorder(),
-      child: InkWell(
-        onTap: onOpenDetails,
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            // Two groups only (title block, then the assignee avatar) so
-            // spaceBetween puts all of the card's extra vertical room (when
-            // its minimum height leaves more room than the title needs) as
-            // one gap between them, pinning the avatar to the bottom.
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Underlined to signal the title is an editable field,
-                  // opened via onOpenDetails — not just a label. Soft-wraps
-                  // rather than truncating: cards are narrow (two per column
-                  // row), so a longer title needs the extra lines.
-                  Text(card.title, softWrap: true, style: titleStyle),
-                  if (card.startDate != null || card.endDate != null)
-                    Text(
-                      _scheduleLabel(),
-                      softWrap: true,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                ],
+      // IntrinsicHeight, not just Row's own CrossAxisAlignment.stretch: the
+      // card's own height constraint is a bare minHeight with an unbounded
+      // max (see the ConstrainedBox in _StatusColumn, which lets a card grow
+      // for a long title) — stretch alone needs a bounded cross axis to
+      // stretch into, which an unbounded max doesn't give it. IntrinsicHeight
+      // measures the row's natural height first and feeds that back in as a
+      // tight constraint, which stretch can then use safely.
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // A full-height color handle flush with the card's own left
+            // edge — stretch (above) is what makes it span the card's
+            // actual height rather than needing one of its own.
+            Container(width: _handleWidth, color: _handleColor),
+            Expanded(
+              child: InkWell(
+                onTap: onOpenDetails,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    // Two groups only (title block, then the assignee
+                    // avatar) so spaceBetween puts all of the card's extra
+                    // vertical room (when its minimum height leaves more
+                    // room than the title needs) as one gap between them,
+                    // pinning the avatar to the bottom.
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Underlined to signal the title is an editable
+                          // field, opened via onOpenDetails — not just a
+                          // label. Soft-wraps rather than truncating: cards
+                          // are narrow (two per column row), so a longer
+                          // title needs the extra lines.
+                          Text(card.title, softWrap: true, style: titleStyle),
+                          if (card.startDate != null || card.endDate != null)
+                            Text(
+                              _scheduleLabel(),
+                              softWrap: true,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                        ],
+                      ),
+                      // 1.34x the default size (roughly the doubled size
+                      // from before, reduced by a third per follow-up
+                      // feedback that the doubled avatar was too big).
+                      AssigneeAvatar(
+                        initial: assigneeInitial,
+                        size: AssigneeAvatar.defaultSize * 4 / 3,
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              // Twice the default size — big enough to actually stand out
-              // at a glance, per explicit feedback on the original 24px one.
-              AssigneeAvatar(
-                initial: assigneeInitial,
-                size: AssigneeAvatar.defaultSize * 2,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
