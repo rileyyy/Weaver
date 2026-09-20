@@ -83,6 +83,23 @@ class _BoardViewState extends State<BoardView> with SingleTickerProviderStateMix
     });
   }
 
+  /// Collapses every swimlane if any are currently expanded, otherwise
+  /// expands them all — the header row's "collapse/expand all" toggle.
+  void _toggleAllSwimlanesCollapsed() {
+    setState(() {
+      final swimlanes = _viewModel.swimlanes;
+      final allCollapsed = swimlanes.isNotEmpty &&
+          swimlanes.every((lane) => _collapsedSwimlaneIds.contains(lane.parentId));
+      if (allCollapsed) {
+        _collapsedSwimlaneIds.clear();
+      } else {
+        _collapsedSwimlaneIds
+          ..clear()
+          ..addAll(swimlanes.map((lane) => lane.parentId));
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -301,6 +318,7 @@ class _BoardViewState extends State<BoardView> with SingleTickerProviderStateMix
                 assigneeInitialFor: _viewModel.assigneeInitialFor,
                 collapsedSwimlaneIds: _collapsedSwimlaneIds,
                 onToggleSwimlaneCollapsed: _toggleSwimlaneCollapsed,
+                onToggleAllSwimlanesCollapsed: _toggleAllSwimlanesCollapsed,
               ),
         ),
       ),
@@ -897,6 +915,7 @@ class _SwimlaneBoard extends StatelessWidget {
     required this.assigneeInitialFor,
     required this.collapsedSwimlaneIds,
     required this.onToggleSwimlaneCollapsed,
+    required this.onToggleAllSwimlanesCollapsed,
   });
 
   final double width;
@@ -913,6 +932,7 @@ class _SwimlaneBoard extends StatelessWidget {
   final String? Function(String? userId) assigneeInitialFor;
   final Set<String> collapsedSwimlaneIds;
   final void Function(String parentId) onToggleSwimlaneCollapsed;
+  final VoidCallback onToggleAllSwimlanesCollapsed;
 
   @override
   Widget build(BuildContext context) {
@@ -935,10 +955,26 @@ class _SwimlaneBoard extends StatelessWidget {
       fontWeight: FontWeight.w600,
     );
 
+    final allSwimlanesCollapsed = swimlanes.isNotEmpty &&
+        swimlanes.every((lane) => collapsedSwimlaneIds.contains(lane.parentId));
+
     final labelColumn = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _GridRowBox(height: _headerRowHeight, showBottomBorder: true),
+        _GridRowBox(
+          height: _headerRowHeight,
+          showBottomBorder: true,
+          child: Center(
+            child: IconButton(
+              iconSize: 20,
+              visualDensity: VisualDensity.compact,
+              color: _onGridBackground,
+              icon: Icon(allSwimlanesCollapsed ? Icons.unfold_more : Icons.unfold_less),
+              tooltip: allSwimlanesCollapsed ? 'Expand all' : 'Collapse all',
+              onPressed: onToggleAllSwimlanesCollapsed,
+            ),
+          ),
+        ),
         for (final lane in swimlanes)
           _GridRowBox(
             height: _rowHeightFor(context, lane, cardHeight),
@@ -1027,17 +1063,25 @@ class _SwimlaneBoard extends StatelessWidget {
     );
   }
 
-  /// A collapsed lane always gets [_collapsedSwimlaneRowHeight]. Otherwise,
-  /// the taller of: enough rows of [cardHeight] cards for the busiest status
-  /// column in this lane (plus always at least one trailing empty slot, so a
-  /// full grid never looks completely "closed" — dropping one more card
-  /// always has visible room to land in; defaulting to a single row of two
-  /// slots when the lane is empty, rather than reserving a taller 2x2 grid
-  /// up front), or whatever the lane's own label needs to fit its
-  /// (possibly wrapped) title and assignee avatar without clipping.
+  /// A collapsed lane gets the taller of [_collapsedSwimlaneRowHeight] (room
+  /// enough for a collapsed status cell's card-count text) or its label's
+  /// own wrapped-title height (see [_swimlaneLabelMinHeight]) — a collapsed
+  /// label still soft-wraps rather than eliding, so a long title can still
+  /// need more than one line even while collapsed.
+  ///
+  /// An expanded lane gets the taller of: enough rows of [cardHeight] cards
+  /// for the busiest status column in this lane (plus always at least one
+  /// trailing empty slot, so a full grid never looks completely "closed" —
+  /// dropping one more card always has visible room to land in; defaulting
+  /// to a single row of two slots when the lane is empty, rather than
+  /// reserving a taller 2x2 grid up front), or whatever the lane's own label
+  /// needs to fit its (possibly wrapped) title and assignee avatar.
   double _rowHeightFor(BuildContext context, Swimlane lane, double cardHeight) {
     if (collapsedSwimlaneIds.contains(lane.parentId)) {
-      return _collapsedSwimlaneRowHeight;
+      final labelHeight = _swimlaneLabelMinHeight(context, lane, showsAvatar: false);
+      return labelHeight > _collapsedSwimlaneRowHeight
+          ? labelHeight
+          : _collapsedSwimlaneRowHeight;
     }
 
     var maxCount = 0;
@@ -1051,16 +1095,20 @@ class _SwimlaneBoard extends StatelessWidget {
     final rows = ((maxCount + 1) / 2).ceil();
     final cardBasedHeight =
         rows * cardHeight + (rows - 1) * _cardGridSpacing + _statusColumnChrome;
-    final labelHeight = _swimlaneLabelMinHeight(context, lane);
+    final labelHeight = _swimlaneLabelMinHeight(context, lane, showsAvatar: true);
     return cardBasedHeight > labelHeight ? cardBasedHeight : labelHeight;
   }
 
-  /// The [_SwimlaneLabel]'s own minimum height when expanded: its top/bottom
-  /// padding, plus its (possibly multi-line, wrapped) title, plus the fixed
-  /// gap and avatar below it — measured directly rather than guessed, since
-  /// the label and the status-columns row it sits beside must always end up
-  /// exactly the same height (see [_GridRowBox]).
-  double _swimlaneLabelMinHeight(BuildContext context, Swimlane lane) {
+  /// The [_SwimlaneLabel]'s own minimum height: its top/bottom padding, plus
+  /// its (possibly multi-line, wrapped) title, plus — when [showsAvatar] —
+  /// the fixed gap and assignee avatar below it. Measured directly rather
+  /// than guessed, since the label and the status-columns row it sits
+  /// beside must always end up exactly the same height (see [_GridRowBox]).
+  double _swimlaneLabelMinHeight(
+    BuildContext context,
+    Swimlane lane, {
+    required bool showsAvatar,
+  }) {
     final baseLabelStyle = Theme.of(context).textTheme.titleSmall;
     final labelStyle = baseLabelStyle?.copyWith(
       fontSize: (baseLabelStyle.fontSize ?? 14) * _gridHeaderFontScale,
@@ -1079,12 +1127,9 @@ class _SwimlaneBoard extends StatelessWidget {
     // the actual Text widget renders (rounding, font metrics), and this is
     // a floor other content must never clip against.
     const measurementSafetyMargin = 4;
-    return topPadding +
-        textPainter.height +
-        measurementSafetyMargin +
-        gapBeforeAvatar +
-        AssigneeAvatar.size +
-        bottomPadding;
+    var height = topPadding + textPainter.height + measurementSafetyMargin + bottomPadding;
+    if (showsAvatar) height += gapBeforeAvatar + AssigneeAvatar.defaultSize;
+    return height;
   }
 
   Widget _columnWrapper({
@@ -1214,12 +1259,7 @@ class _SwimlaneLabel extends StatelessWidget {
                   const SizedBox(width: 4),
                   Expanded(
                     child: isCollapsed
-                        ? Text(
-                            swimlane.title,
-                            style: labelStyle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          )
+                        ? Text(swimlane.title, style: labelStyle, softWrap: true)
                         : Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
@@ -1278,12 +1318,22 @@ class _StatusColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isCollapsed) {
+      final count = swimlane.cards
+          .where((c) => c.statusId == status.id && cardVisible(c))
+          .length;
       return Container(
         margin: const EdgeInsets.all(4),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(8),
         ),
+        child: count == 0
+            ? null
+            : Text(
+                count == 1 ? '1 card' : '$count cards',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
       );
     }
 

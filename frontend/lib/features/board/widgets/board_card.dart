@@ -30,15 +30,23 @@ class BoardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final baseTitleStyle = Theme.of(context).textTheme.bodyMedium;
+    final titleStyle = baseTitleStyle?.copyWith(
+      fontSize: (baseTitleStyle.fontSize ?? 14) + 2,
+      decoration: TextDecoration.underline,
+    );
+
     final content = Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
-      // Lighter than the status column it sits on (surfaceContainerLow), so
-      // a card actually stands out from its cell instead of blending in.
-      color: Theme.of(context).colorScheme.surfaceContainerLow.lightenedBy(0.2),
+      // Lighter than the status column it sits on (surfaceContainerLow) so a
+      // card still stands out from its cell, but not as starkly as a full
+      // 20% lightening — a little darker/closer to the column's own tone.
+      color: Theme.of(context).colorScheme.surfaceContainerLow.lightenedBy(0.1),
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      // Square corners, not rounded — no shape override needed since
+      // RoundedRectangleBorder defaults to zero radius.
+      shape: const RoundedRectangleBorder(),
       child: InkWell(
-        borderRadius: BorderRadius.circular(10),
         onTap: onOpenDetails,
         child: Padding(
           padding: const EdgeInsets.all(8),
@@ -59,11 +67,7 @@ class BoardCard extends StatelessWidget {
                   // opened via onOpenDetails — not just a label. Soft-wraps
                   // rather than truncating: cards are narrow (two per column
                   // row), so a longer title needs the extra lines.
-                  Text(
-                    card.title,
-                    softWrap: true,
-                    style: const TextStyle(decoration: TextDecoration.underline),
-                  ),
+                  Text(card.title, softWrap: true, style: titleStyle),
                   if (card.startDate != null || card.endDate != null)
                     Text(
                       _scheduleLabel(),
@@ -72,7 +76,12 @@ class BoardCard extends StatelessWidget {
                     ),
                 ],
               ),
-              AssigneeAvatar(initial: assigneeInitial),
+              // Twice the default size — big enough to actually stand out
+              // at a glance, per explicit feedback on the original 24px one.
+              AssigneeAvatar(
+                initial: assigneeInitial,
+                size: AssigneeAvatar.defaultSize * 2,
+              ),
             ],
           ),
         ),
@@ -83,7 +92,6 @@ class BoardCard extends StatelessWidget {
       data: card,
       feedback: Material(
         elevation: 4,
-        borderRadius: BorderRadius.circular(8),
         child: SizedBox(width: _feedbackWidth, child: content),
       ),
       childWhenDragging: Opacity(opacity: 0.4, child: content),

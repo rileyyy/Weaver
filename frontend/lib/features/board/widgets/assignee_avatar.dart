@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 
-/// A small 24x24 circle showing the assigned user's initial. Renders nothing
-/// if there's no assignee (or the assignee's username hasn't resolved yet),
-/// so a card/lane with no assignee doesn't reserve empty space for one.
+/// A small circle showing the assigned user's initial, [defaultSize] (24px)
+/// unless [size] overrides it. Renders nothing if there's no assignee (or
+/// the assignee's username hasn't resolved yet), so a card/lane with no
+/// assignee doesn't reserve empty space for one.
 class AssigneeAvatar extends StatelessWidget {
-  const AssigneeAvatar({super.key, required this.initial});
+  const AssigneeAvatar({super.key, required this.initial, this.size = defaultSize});
 
-  static const double size = 24;
+  static const double defaultSize = 24;
 
   final String? initial;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +22,10 @@ class AssigneeAvatar extends StatelessWidget {
       radius: size / 2,
       backgroundColor: colorScheme.primaryContainer,
       foregroundColor: colorScheme.onPrimaryContainer,
-      child: Text(initial, style: Theme.of(context).textTheme.labelSmall),
+      child: Text(
+        initial,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(fontSize: size * 0.5),
+      ),
     );
   }
 }
