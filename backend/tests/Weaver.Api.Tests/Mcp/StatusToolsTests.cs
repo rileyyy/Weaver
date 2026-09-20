@@ -12,7 +12,7 @@ public class StatusToolsTests
     public async Task ListStatuses_DelegatesToServiceAndMapsResults()
     {
         var statuses = new Mock<IStatusService>(MockBehavior.Strict);
-        var status = new Status { Id = Guid.NewGuid(), Name = "To Do", Order = 0, Category = StatusCategory.ToDo };
+        var status = new Status { Id = Guid.NewGuid(), Name = "To Do", Order = 0, Category = StatusCategory.ToDo, Color = "#1E88E5" };
         statuses.Setup(s => s.GetAllAsync(It.IsAny<CancellationToken>())).ReturnsAsync([status]);
         var tools = new StatusTools(statuses.Object);
 
