@@ -9,6 +9,11 @@ import 'package:weaver/features/work_item_detail/models/work_item_priority.dart'
 abstract class WorkItemDetailRepository {
   Future<WorkItemDetail> getItem(String id);
 
+  /// Deletes the work item identified by [id]. If it has children,
+  /// [cascade] must be true or the backend rejects the delete — a subtree
+  /// is never silently dropped.
+  Future<void> deleteItem(String id, {bool cascade = false});
+
   Future<List<BoardStatus>> loadStatuses();
 
   Future<List<WorkItemLayer>> loadLayers();

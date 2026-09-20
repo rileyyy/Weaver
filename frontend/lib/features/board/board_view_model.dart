@@ -1,9 +1,12 @@
+import 'dart:ui' show Color;
+
 import 'package:injectable/injectable.dart';
 import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/board/models/card_sort_option.dart';
+import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/scope_crumb.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
@@ -28,6 +31,10 @@ class BoardViewModel extends ViewModel {
   String _searchQuery = '';
   final Set<String> _hiddenStatusIds = {};
   CardSortOption _sortOption = CardSortOption.manual;
+  List<HierarchyItem> _hierarchyItems = const [];
+  bool _isHierarchyLoading = false;
+  String? _hierarchyLoadError;
+  bool _hierarchyLoaded = false;
 
   List<BoardStatus> get statuses => _statuses;
   List<Swimlane> get swimlanes => _swimlanes;
@@ -65,6 +72,86 @@ class BoardViewModel extends ViewModel {
       _statuses.where((s) => !_hiddenStatusIds.contains(s.id)).toList();
 
   CardSortOption get sortOption => _sortOption;
+
+  bool get isHierarchyLoading => _isHierarchyLoading;
+
+  /// Set when the last [loadHierarchy] call failed; the Hierarchy view
+  /// replaces its list with a retry prompt while this is non-null.
+  String? get hierarchyLoadError => _hierarchyLoadError;
+
+  /// True once [loadHierarchy] has been attempted at least once —
+  /// regardless of success — so callers (e.g. after a delete elsewhere on
+  /// the board) know whether refreshing the Hierarchy view is worthwhile.
+  bool get hierarchyLoaded => _hierarchyLoaded;
+
+  /// The Hierarchy view's root nodes: every top-level work item, each with
+  /// its descendants nested underneath. Built fresh from [_hierarchyItems]
+  /// on every access — grouped by parent, filtered by the same time/search/
+  /// status-visibility predicates the swim-lane board applies (see
+  /// [hierarchyItemVisible]), and each sibling group ordered by
+  /// [hierarchyComparator]. A node whose own fields don't match the current
+  /// filters is still included if any descendant does, so a matching item's
+  /// ancestors stay visible to show where it sits in the tree.
+  List<HierarchyNode> get hierarchyRoots {
+    final byParent = <String?, List<HierarchyItem>>{};
+    for (final item in _hierarchyItems) {
+      (byParent[item.parentId] ??= []).add(item);
+    }
+
+    List<HierarchyNode> buildLevel(String? parentId) {
+      final children = byParent[parentId] ?? const [];
+      final comparator = hierarchyComparator;
+      final ordered = comparator == null ? children : ([...children]..sort(comparator));
+
+      final nodes = <HierarchyNode>[];
+      for (final item in ordered) {
+        final childNodes = buildLevel(item.id);
+        if (!hierarchyItemVisible(item) && childNodes.isEmpty) continue;
+        nodes.add(HierarchyNode(item: item, children: childNodes));
+      }
+      return nodes;
+    }
+
+    return buildLevel(null);
+  }
+
+  /// Loads every work item for the Hierarchy view. Independent of the
+  /// swim-lane board's current drill-down scope — the Hierarchy view always
+  /// shows the whole tree.
+  Future<void> loadHierarchy() async {
+    _isHierarchyLoading = true;
+    _hierarchyLoadError = null;
+    notifyIfActive();
+
+    try {
+      _hierarchyItems = await _repository.loadAllItems();
+    } catch (_) {
+      _hierarchyLoadError = 'Could not load the hierarchy view. Check your connection and try again.';
+    } finally {
+      _hierarchyLoaded = true;
+      _isHierarchyLoading = false;
+      notifyIfActive();
+    }
+  }
+
+  /// Re-fetches the Hierarchy view's data only if it's already been loaded
+  /// once — e.g. after a delete elsewhere on the board, so a still-unopened
+  /// Hierarchy tab doesn't trigger a needless network call.
+  Future<void> refreshHierarchyIfLoaded() => _hierarchyLoaded ? loadHierarchy() : Future.value();
+
+  String? statusNameFor(String statusId) {
+    for (final status in _statuses) {
+      if (status.id == statusId) return status.name;
+    }
+    return null;
+  }
+
+  Color? statusColorFor(String statusId) {
+    for (final status in _statuses) {
+      if (status.id == statusId) return status.color;
+    }
+    return null;
+  }
 
   Future<void> load() => _changeScope(() async {
         final rootScopeId = await _repository.loadRootScopeItemId();
@@ -182,6 +269,26 @@ class BoardViewModel extends ViewModel {
 
   void clearMoveError() => _moveError = null;
 
+  /// Creates a new work item under [parentId] (null for a new top-level
+  /// item) with [statusId], then reloads the current scope to pick it up —
+  /// there's no optimistic add, since the created item's id isn't known
+  /// until the repository call returns.
+  Future<void> createWorkItem({
+    required String title,
+    String? description,
+    required String? parentId,
+    required String statusId,
+  }) => _changeScope(() async {
+        await _repository.createWorkItem(
+          title: title,
+          description: description,
+          parentId: parentId,
+          statusId: statusId,
+        );
+        final data = await _repository.loadBoard(_breadcrumbs.last.id);
+        _applyScope(data);
+      }, errorMessage: 'Could not create "$title". Try again.');
+
   /// Sets the board's time-frame filter. Either bound may be null (open on
   /// that side); passing both null is equivalent to [clearTimeFilter].
   void setTimeFilter({DateTime? start, DateTime? end}) {
@@ -196,19 +303,24 @@ class BoardViewModel extends ViewModel {
   /// its own scheduled window overlaps the filter's, treating either
   /// side's missing bound (the card's or the filter's) as open-ended
   /// rather than excluding the card.
-  bool matchesTimeFilter(WorkItemCard card) {
+  bool matchesTimeFilter(WorkItemCard card) =>
+      _matchesTimeWindow(card.startDate, card.endDate);
+
+  /// Core of [matchesTimeFilter], generalized to a bare start/end pair so
+  /// [hierarchyItemVisible] can share it without needing a [WorkItemCard].
+  bool _matchesTimeWindow(DateTime? itemStart, DateTime? itemEnd) {
     final filterStart = _filterStart;
     final filterEnd = _filterEnd;
     if (filterStart == null && filterEnd == null) return true;
 
     final startsInTime =
         filterEnd == null ||
-        card.startDate == null ||
-        !card.startDate!.isAfter(filterEnd);
+        itemStart == null ||
+        !itemStart.isAfter(filterEnd);
     final endsInTime =
         filterStart == null ||
-        card.endDate == null ||
-        !card.endDate!.isBefore(filterStart);
+        itemEnd == null ||
+        !itemEnd.isBefore(filterStart);
 
     return startsInTime && endsInTime;
   }
@@ -222,18 +334,33 @@ class BoardViewModel extends ViewModel {
 
   /// True if [card]'s title or description contains [searchQuery]
   /// (case-insensitive). Always true when the query is empty.
-  bool matchesSearch(WorkItemCard card) {
+  bool matchesSearch(WorkItemCard card) =>
+      _matchesSearchText(card.title, card.description);
+
+  /// Core of [matchesSearch], generalized to bare title/description so
+  /// [hierarchyItemVisible] can share it without needing a [WorkItemCard].
+  bool _matchesSearchText(String title, String? description) {
     final query = _searchQuery.trim().toLowerCase();
     if (query.isEmpty) return true;
 
-    return card.title.toLowerCase().contains(query) ||
-        (card.description?.toLowerCase().contains(query) ?? false);
+    return title.toLowerCase().contains(query) ||
+        (description?.toLowerCase().contains(query) ?? false);
   }
 
   /// Whether [card] should be shown on the board under the current
   /// time-frame filter and search query together.
   bool cardVisible(WorkItemCard card) =>
       matchesTimeFilter(card) && matchesSearch(card);
+
+  /// Whether [item] should be shown in the Hierarchy view under the current
+  /// time-frame filter, search query, and hidden-status columns together.
+  /// Unlike [cardVisible], this also checks [hiddenStatusIds] directly —
+  /// the swim-lane board gets that for free by only ever iterating
+  /// [visibleStatuses], but the Hierarchy view isn't organized by column.
+  bool hierarchyItemVisible(HierarchyItem item) =>
+      !_hiddenStatusIds.contains(item.statusId) &&
+      _matchesTimeWindow(item.startDate, item.endDate) &&
+      _matchesSearchText(item.title, item.description);
 
   /// Shows or hides [statusId]'s column. Hiding a status doesn't move or
   /// otherwise change any work item in it — it's purely a display toggle.
@@ -254,6 +381,21 @@ class BoardViewModel extends ViewModel {
   /// view applies on top of that order — sorting is display-only and never
   /// changes `Rank` or persists anywhere.
   Comparator<WorkItemCard>? get cardComparator => switch (_sortOption) {
+        CardSortOption.manual => null,
+        CardSortOption.title => (a, b) =>
+            a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+        CardSortOption.startDate => (a, b) =>
+            _compareOpenEndedDates(a.startDate, b.startDate),
+        CardSortOption.dueDate => (a, b) =>
+            _compareOpenEndedDates(a.endDate, b.endDate),
+      };
+
+  /// The Hierarchy view's mirror of [cardComparator]: null for
+  /// [CardSortOption.manual] (each sibling group keeps the backend's
+  /// order), otherwise a comparator applied within each sibling group by
+  /// [hierarchyRoots] — sorting the whole flat list at once would destroy
+  /// the nesting a tree view depends on.
+  Comparator<HierarchyItem>? get hierarchyComparator => switch (_sortOption) {
         CardSortOption.manual => null,
         CardSortOption.title => (a, b) =>
             a.title.toLowerCase().compareTo(b.title.toLowerCase()),

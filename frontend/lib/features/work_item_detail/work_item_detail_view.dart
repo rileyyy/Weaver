@@ -1,18 +1,61 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/features/auth/data/auth_session_store.dart';
 import 'package:weaver/features/board/widgets/date_format.dart';
-import 'package:weaver/features/board/widgets/schedule_dialog.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
 
+/// Opens [WorkItemDetailView] in a [Dialog] sized to fit comfortably on
+/// both desktop and mobile viewports. If [onDrillInto] is given, an app-bar
+/// action lets the user close the dialog and re-scope the board to this
+/// item's children instead. If [onDeleted] is given, it's called after the
+/// user confirms and successfully deletes this work item, once the dialog
+/// has already closed — the caller's chance to refresh whatever list was
+/// showing it.
+Future<void> showWorkItemDetailDialog(
+  BuildContext context, {
+  required String workItemId,
+  VoidCallback? onDrillInto,
+  VoidCallback? onDeleted,
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) {
+      final screenSize = MediaQuery.sizeOf(context);
+      return Dialog(
+        child: SizedBox(
+          width: math.min(560, screenSize.width * 0.95),
+          height: math.min(720, screenSize.height * 0.9),
+          child: WorkItemDetailView(
+            workItemId: workItemId,
+            onDrillInto: onDrillInto,
+            onDeleted: onDeleted,
+          ),
+        ),
+      );
+    },
+  );
+}
+
 class WorkItemDetailView extends StatefulWidget {
-  const WorkItemDetailView({required this.workItemId, super.key});
+  const WorkItemDetailView({required this.workItemId, this.onDrillInto, this.onDeleted, super.key});
 
   final String workItemId;
+
+  /// When set, shown as an app-bar action that closes this view and hands
+  /// control back to the caller to re-scope the board to this item's
+  /// children — the same navigation [BoardView.drillInto] performs, just
+  /// reachable from the detail dialog instead of a tap on the card itself.
+  final VoidCallback? onDrillInto;
+
+  /// Called once this item has actually been deleted (after confirmation),
+  /// after this view's own dialog has closed itself.
+  final VoidCallback? onDeleted;
 
   @override
   State<WorkItemDetailView> createState() => _WorkItemDetailViewState();
@@ -65,8 +108,22 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
 
   @override
   Widget build(BuildContext context) {
+    final onDrillInto = widget.onDrillInto;
     return Scaffold(
-      appBar: AppBar(title: const Text('Work Item Details')),
+      appBar: AppBar(
+        title: const Text('Work Item Details'),
+        actions: [
+          if (onDrillInto != null)
+            IconButton(
+              icon: const Icon(Icons.account_tree_outlined),
+              tooltip: 'View sub-items',
+              onPressed: () {
+                Navigator.of(context).pop();
+                onDrillInto();
+              },
+            ),
+        ],
+      ),
       body: Builder(
         builder: (context) {
           if (_viewModel.isLoading) {
@@ -123,15 +180,6 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
               onChanged: (value) => setState(() => _selectedPriority = value ?? WorkItemPriority.medium),
             ),
             const SizedBox(height: 16),
-            if (_viewModel.saveError != null) ...[
-              Text(_viewModel.saveError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-              const SizedBox(height: 8),
-            ],
-            FilledButton(
-              onPressed: _viewModel.isSaving ? null : () => unawaited(_saveDetails()),
-              child: Text(_viewModel.isSaving ? 'Saving…' : 'Save'),
-            ),
-            const Divider(height: 32),
             Text('Status', style: Theme.of(context).textTheme.labelLarge),
             Text(_viewModel.statusName ?? item.statusId),
             const SizedBox(height: 16),
@@ -146,15 +194,18 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
               onChanged: (value) => unawaited(_saveAssignee(value)),
             ),
             const SizedBox(height: 16),
-            Text('Schedule', style: Theme.of(context).textTheme.labelLarge),
-            Row(
-              children: [
-                Expanded(child: Text(_scheduleLabel(item.startDate, item.endDate))),
-                TextButton(
-                  onPressed: () => unawaited(_editSchedule(item.startDate, item.endDate)),
-                  child: const Text('Edit'),
-                ),
-              ],
+            _DateField(
+              label: 'Start Date',
+              value: item.startDate,
+              onPick: () => unawaited(_pickStartDate(item)),
+              onClear: item.startDate == null ? null : () => unawaited(_viewModel.saveSchedule(null, item.endDate)),
+            ),
+            const SizedBox(height: 16),
+            _DateField(
+              label: 'End Date',
+              value: item.endDate,
+              onPick: () => unawaited(_pickEndDate(item)),
+              onClear: item.endDate == null ? null : () => unawaited(_viewModel.saveSchedule(item.startDate, null)),
             ),
             const SizedBox(height: 16),
             Text('Created ${formatDate(item.createdAtUtc)} · Updated ${formatDate(item.updatedAtUtc)}',
@@ -163,6 +214,25 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
             _buildLinksSection(context),
             const Divider(height: 32),
             _buildCommentsSection(context),
+            const Divider(height: 32),
+            if (_viewModel.saveError != null) ...[
+              Text(_viewModel.saveError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              const SizedBox(height: 8),
+            ],
+            Row(
+              children: [
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+                  onPressed: _viewModel.isSaving ? null : () => unawaited(_confirmAndDelete()),
+                  child: const Text('Delete'),
+                ),
+                const Spacer(),
+                FilledButton(
+                  onPressed: _viewModel.isSaving ? null : () => unawaited(_saveDetails()),
+                  child: Text(_viewModel.isSaving ? 'Saving…' : 'Save'),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -236,13 +306,6 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     );
   }
 
-  String _scheduleLabel(DateTime? start, DateTime? end) {
-    if (start != null && end != null) return '${formatDate(start)} → ${formatDate(end)}';
-    if (start != null) return 'From ${formatDate(start)}';
-    if (end != null) return 'Until ${formatDate(end)}';
-    return 'Not scheduled';
-  }
-
   Future<void> _saveDetails() async {
     await _viewModel.saveDetails(
       title: _titleController.text,
@@ -259,10 +322,26 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     if (!ok && mounted) setState(() => _selectedAssigneeId = previous);
   }
 
-  Future<void> _editSchedule(DateTime? start, DateTime? end) async {
-    final result = await showScheduleDialog(context, initialStart: start, initialEnd: end);
-    if (result == null) return;
-    await _viewModel.saveSchedule(result.startDate, result.endDate);
+  Future<void> _pickStartDate(WorkItemDetail item) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: item.startDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null) return;
+    await _viewModel.saveSchedule(picked, item.endDate);
+  }
+
+  Future<void> _pickEndDate(WorkItemDetail item) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: item.endDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null) return;
+    await _viewModel.saveSchedule(item.startDate, picked);
   }
 
   Future<void> _addComment() async {
@@ -277,6 +356,36 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     if (targetId.isEmpty) return;
     final ok = await _viewModel.addLink(targetId);
     if (ok) _linkTargetController.clear();
+  }
+
+  Future<void> _confirmAndDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete work item?'),
+        content: const Text(
+          'This will permanently delete this work item and any sub-items. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(dialogContext).colorScheme.error),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final ok = await _viewModel.deleteItem();
+    if (ok && mounted) {
+      Navigator.of(context).pop();
+      widget.onDeleted?.call();
+    }
   }
 }
 
@@ -360,6 +469,41 @@ class _CommentTileState extends State<_CommentTile> {
             Text(comment.body),
         ],
       ),
+    );
+  }
+}
+
+/// One labeled date row (used for Start Date / End Date): shows the current
+/// value or "Not set", an Edit button to pick a new one, and — only once a
+/// value exists — a button to clear it back to unset.
+class _DateField extends StatelessWidget {
+  const _DateField({
+    required this.label,
+    required this.value,
+    required this.onPick,
+    required this.onClear,
+  });
+
+  final String label;
+  final DateTime? value;
+  final VoidCallback onPick;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.labelLarge),
+        Row(
+          children: [
+            Expanded(child: Text(value == null ? 'Not set' : formatDate(value!))),
+            if (onClear != null)
+              TextButton(onPressed: onClear, child: const Text('Clear')),
+            TextButton(onPressed: onPick, child: const Text('Edit')),
+          ],
+        ),
+      ],
     );
   }
 }

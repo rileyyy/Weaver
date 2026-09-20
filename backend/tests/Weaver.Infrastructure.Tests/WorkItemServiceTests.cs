@@ -152,6 +152,21 @@ public class WorkItemServiceTests
     }
 
     [Test]
+    public async Task GetAllAsync_ReturnsEveryItem_RegardlessOfParent()
+    {
+        var root = await _service.CreateAsync("Root", null, null, StatusConfiguration.ToDoId);
+        var child = await _service.CreateAsync("Child", null, root.Id, StatusConfiguration.ToDoId);
+        var grandchild = await _service.CreateAsync("Grandchild", null, child.Id, StatusConfiguration.ToDoId);
+        var unrelated = await _service.CreateAsync("Unrelated", null, null, StatusConfiguration.ToDoId);
+
+        var all = await _service.GetAllAsync();
+
+        Assert.That(
+            all.Select(w => w.Id),
+            Is.EquivalentTo(new[] { root.Id, child.Id, grandchild.Id, unrelated.Id }));
+    }
+
+    [Test]
     public async Task RescheduleAsync_SetsStartAndEndDate_WithoutTouchingStatusOrParent()
     {
         var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId);

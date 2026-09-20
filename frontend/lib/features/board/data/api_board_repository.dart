@@ -6,6 +6,7 @@ import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/board_status.dart';
+import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 
@@ -38,6 +39,12 @@ class ApiBoardRepository implements BoardRepository {
     ]);
 
     return BoardData(statuses: statuses, swimlanes: swimlanes);
+  }
+
+  @override
+  Future<List<HierarchyItem>> loadAllItems() async {
+    final json = await _getJsonList('/work-items/all');
+    return [for (final item in json) _toHierarchyItem(item)];
   }
 
   @override
@@ -77,6 +84,26 @@ class ApiBoardRepository implements BoardRepository {
     _checkOk(response, 'Failed to reschedule item');
   }
 
+  @override
+  Future<void> createWorkItem({
+    required String title,
+    String? description,
+    required String? parentId,
+    required String statusId,
+  }) async {
+    final response = await _client.post(
+      _uri('/work-items'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'title': title,
+        'description': description,
+        'parentId': parentId,
+        'statusId': statusId,
+      }),
+    );
+    _checkOk(response, 'Failed to create work item');
+  }
+
   Future<List<BoardStatus>> _loadStatuses() async {
     final json = await _getJsonList('/statuses');
     return [
@@ -85,6 +112,7 @@ class ApiBoardRepository implements BoardRepository {
           id: item['id'] as String,
           name: item['name'] as String,
           order: item['order'] as int,
+          color: parseStatusColor(item['color'] as String),
         ),
     ];
   }
@@ -109,6 +137,16 @@ class ApiBoardRepository implements BoardRepository {
     id: item['id'] as String,
     title: item['title'] as String,
     parentId: item['parentId'] as String,
+    statusId: item['statusId'] as String,
+    description: item['description'] as String?,
+    startDate: _parseDate(item['startDate']),
+    endDate: _parseDate(item['endDate']),
+  );
+
+  HierarchyItem _toHierarchyItem(Map<String, dynamic> item) => HierarchyItem(
+    id: item['id'] as String,
+    parentId: item['parentId'] as String?,
+    title: item['title'] as String,
     statusId: item['statusId'] as String,
     description: item['description'] as String?,
     startDate: _parseDate(item['startDate']),

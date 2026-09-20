@@ -27,11 +27,22 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   }
 
   @override
+  Future<void> deleteItem(String id, {bool cascade = false}) async {
+    final response = await _client.delete(_uri('/work-items/$id?cascade=$cascade'));
+    _checkOk(response, 'Failed to delete work item');
+  }
+
+  @override
   Future<List<BoardStatus>> loadStatuses() async {
     final json = await _getJsonList('/statuses');
     return [
       for (final item in json)
-        BoardStatus(id: item['id'] as String, name: item['name'] as String, order: item['order'] as int),
+        BoardStatus(
+          id: item['id'] as String,
+          name: item['name'] as String,
+          order: item['order'] as int,
+          color: parseStatusColor(item['color'] as String),
+        ),
     ];
   }
 

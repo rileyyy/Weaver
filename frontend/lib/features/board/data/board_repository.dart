@@ -1,4 +1,5 @@
 import 'package:weaver/features/board/models/board_data.dart';
+import 'package:weaver/features/board/models/hierarchy_item.dart';
 
 /// Source of board data and the operations [BoardViewModel] can perform on
 /// it. [BoardViewModel] depends on this interface, not a concrete source.
@@ -11,6 +12,10 @@ abstract class BoardRepository {
   /// Swimlanes are the direct children of [scopeItemId] (or top-level items
   /// when null); each swimlane's cards are its own direct children.
   Future<BoardData> loadBoard(String? scopeItemId);
+
+  /// Every work item in the system, flat and unscoped — used by the
+  /// Hierarchy view to build a full parent/child tree client-side.
+  Future<List<HierarchyItem>> loadAllItems();
 
   /// Moves the work item identified by [cardId] to [newStatusId], within
   /// whichever parent already owns it. Throws on failure.
@@ -27,4 +32,15 @@ abstract class BoardRepository {
     DateTime? startDate,
     DateTime? endDate,
   );
+
+  /// Creates a new work item under [parentId] ("null" makes it a top-level
+  /// item, with no parent at all) with [statusId]. Throws on failure. Does
+  /// not return the created item — callers re-load the current scope to
+  /// pick it up.
+  Future<void> createWorkItem({
+    required String title,
+    String? description,
+    required String? parentId,
+    required String statusId,
+  });
 }

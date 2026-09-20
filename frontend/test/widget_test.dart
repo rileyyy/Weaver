@@ -9,6 +9,7 @@ import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/board_status.dart';
+import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 
@@ -40,6 +41,9 @@ class _StubBoardRepository implements BoardRepository {
   );
 
   @override
+  Future<List<HierarchyItem>> loadAllItems() => Future.value(const []);
+
+  @override
   Future<void> changeStatus(String cardId, String newStatusId) =>
       Future.value();
 
@@ -53,6 +57,14 @@ class _StubBoardRepository implements BoardRepository {
     DateTime? startDate,
     DateTime? endDate,
   ) => Future.value();
+
+  @override
+  Future<void> createWorkItem({
+    required String title,
+    String? description,
+    required String? parentId,
+    required String statusId,
+  }) => Future.value();
 }
 
 /// Never actually called: the test pre-populates a non-expired session
@@ -119,8 +131,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Weaver'), findsOneWidget);
-    // Appears twice: the status column header and its filter chip.
-    expect(find.text('To Do'), findsNWidgets(2));
+    // The matching filter chip lives inside the Filters dialog now, not on
+    // the main screen, so only the status column header renders by default.
+    expect(find.text('To Do'), findsOneWidget);
     expect(find.text('Swimlane board'), findsOneWidget);
     expect(find.text('Design swimlane layout'), findsOneWidget);
   });

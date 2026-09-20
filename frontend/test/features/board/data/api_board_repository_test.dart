@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' show Color;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -46,7 +47,7 @@ void main() {
     final client = MockClient((request) async {
       if (request.url.path == '/api/statuses') {
         return _jsonResponse([
-          {'id': 'status-todo', 'name': 'To Do', 'order': 0},
+          {'id': 'status-todo', 'name': 'To Do', 'order': 0, 'color': '#1E88E5'},
         ]);
       }
       if (request.url.path == '/api/work-items' &&
@@ -79,6 +80,7 @@ void main() {
     final board = await repository.loadBoard('epic-1');
 
     expect(board.statuses.single.id, 'status-todo');
+    expect(board.statuses.single.color, const Color(0xFF1E88E5));
     expect(board.swimlanes.single.parentId, 'lane-1');
     expect(board.swimlanes.single.title, 'Lane One');
     expect(board.swimlanes.single.cards.single.id, 'card-1');
@@ -248,6 +250,45 @@ void main() {
     final board = await repository.loadBoard('epic-1');
 
     expect(board.swimlanes.single.cards.single.description, 'Some detail');
+  });
+
+  test('loadAllItems parses the flat item list, including top-level items', () async {
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/work-items/all') {
+        return _jsonResponse([
+          {
+            'id': 'root-1',
+            'title': 'Root',
+            'parentId': null,
+            'statusId': 'status-todo',
+          },
+          {
+            'id': 'child-1',
+            'title': 'Child',
+            'parentId': 'root-1',
+            'statusId': 'status-todo',
+          },
+        ]);
+      }
+      throw StateError('Unexpected request: ${request.url}');
+    });
+
+    final repository = ApiBoardRepository(client, baseUrl);
+    final items = await repository.loadAllItems();
+
+    expect(items.map((i) => i.id), ['root-1', 'child-1']);
+    expect(items.first.parentId, isNull);
+    expect(items.last.parentId, 'root-1');
+  });
+
+  test('loadAllItems throws an ApiException on failure', () async {
+    final client = MockClient((request) async {
+      return _jsonResponse({'detail': 'Something went wrong.'}, statusCode: 500);
+    });
+
+    final repository = ApiBoardRepository(client, baseUrl);
+
+    await expectLater(repository.loadAllItems(), throwsA(isA<ApiException>()));
   });
 
   test('rescheduleItem posts the new dates and succeeds on 200', () async {

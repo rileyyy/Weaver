@@ -13,6 +13,15 @@ public interface IWorkItemService
     /// </summary>
     Task<IReadOnlyList<WorkItem>> GetChildrenAsync(Guid? parentId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Every work item in the system, flat and unscoped, ordered by rank.
+    /// Used by the Hierarchy view to build a full parent/child tree
+    /// client-side from each item's <see cref="WorkItem.ParentId"/> — unlike
+    /// <see cref="GetChildrenAsync"/>, this walks no single parent's subtree.
+    /// Not paginated; revisit if item counts grow large enough to need it.
+    /// </summary>
+    Task<IReadOnlyList<WorkItem>> GetAllAsync(CancellationToken ct = default);
+
     Task<WorkItem> CreateAsync(
         string title,
         string? description,
