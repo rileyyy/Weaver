@@ -25,6 +25,7 @@ const _rootBoard = BoardData(
       cards: [
         WorkItemCard(
           id: 'card-1',
+          number: 1,
           title: 'Card 1',
           parentId: 'lane-a',
           statusId: 'todo',
@@ -37,6 +38,7 @@ const _rootBoard = BoardData(
       cards: [
         WorkItemCard(
           id: 'card-2',
+          number: 2,
           title: 'Card 2',
           parentId: 'lane-b',
           statusId: 'todo',
@@ -55,6 +57,7 @@ const _card1Children = BoardData(
       cards: [
         WorkItemCard(
           id: 'grandchild-1',
+          number: 3,
           title: 'Grandchild',
           parentId: 'card-1',
           statusId: 'todo',
@@ -441,6 +444,7 @@ void main() {
   test('matchesTimeFilter is true for every card when no filter is set', () {
     const card = WorkItemCard(
       id: 'x',
+      number: 4,
       title: 'X',
       parentId: 'lane-a',
       statusId: 'todo',
@@ -456,6 +460,7 @@ void main() {
     );
     final card = WorkItemCard(
       id: 'x',
+      number: 5,
       title: 'X',
       parentId: 'lane-a',
       statusId: 'todo',
@@ -473,6 +478,7 @@ void main() {
     );
     final card = WorkItemCard(
       id: 'x',
+      number: 6,
       title: 'X',
       parentId: 'lane-a',
       statusId: 'todo',
@@ -490,6 +496,7 @@ void main() {
     );
     final card = WorkItemCard(
       id: 'x',
+      number: 7,
       title: 'X',
       parentId: 'lane-a',
       statusId: 'todo',
@@ -506,6 +513,7 @@ void main() {
     );
     final card = WorkItemCard(
       id: 'x',
+      number: 8,
       title: 'X',
       parentId: 'lane-a',
       statusId: 'todo',
@@ -527,6 +535,7 @@ void main() {
   test('matchesSearch is true for every card when the query is empty', () {
     const card = WorkItemCard(
       id: 'x',
+      number: 9,
       title: 'Anything',
       parentId: 'lane-a',
       statusId: 'todo',
@@ -539,6 +548,7 @@ void main() {
     viewModel.setSearchQuery('rEd');
     const card = WorkItemCard(
       id: 'x',
+      number: 10,
       title: 'Fix red button',
       parentId: 'lane-a',
       statusId: 'todo',
@@ -551,6 +561,7 @@ void main() {
     viewModel.setSearchQuery('migration');
     const card = WorkItemCard(
       id: 'x',
+      number: 11,
       title: 'Backend work',
       description: 'Write the database migration',
       parentId: 'lane-a',
@@ -564,6 +575,7 @@ void main() {
     viewModel.setSearchQuery('migration');
     const card = WorkItemCard(
       id: 'x',
+      number: 12,
       title: 'Fix red button',
       description: 'Unrelated',
       parentId: 'lane-a',
@@ -587,6 +599,7 @@ void main() {
       ..setSearchQuery('red');
     const inWindowWrongTitle = WorkItemCard(
       id: 'a',
+      number: 13,
       title: 'Blue button',
       parentId: 'lane-a',
       statusId: 'todo',
@@ -595,6 +608,7 @@ void main() {
     );
     const outOfWindowRightTitle = WorkItemCard(
       id: 'b',
+      number: 14,
       title: 'Red button',
       parentId: 'lane-a',
       statusId: 'todo',
@@ -652,12 +666,14 @@ void main() {
     viewModel.setSortOption(CardSortOption.title);
     const a = WorkItemCard(
       id: 'a',
+      number: 15,
       title: 'banana',
       parentId: 'lane-a',
       statusId: 'todo',
     );
     const b = WorkItemCard(
       id: 'b',
+      number: 16,
       title: 'Apple',
       parentId: 'lane-a',
       statusId: 'todo',
@@ -670,6 +686,7 @@ void main() {
     viewModel.setSortOption(CardSortOption.startDate);
     const scheduled = WorkItemCard(
       id: 'a',
+      number: 17,
       title: 'A',
       parentId: 'lane-a',
       statusId: 'todo',
@@ -677,6 +694,7 @@ void main() {
     );
     final unscheduled = WorkItemCard(
       id: 'b',
+      number: 18,
       title: 'B',
       parentId: 'lane-a',
       statusId: 'todo',
@@ -691,6 +709,7 @@ void main() {
     viewModel.setSortOption(CardSortOption.dueDate);
     final earlier = WorkItemCard(
       id: 'a',
+      number: 19,
       title: 'A',
       parentId: 'lane-a',
       statusId: 'todo',
@@ -698,6 +717,7 @@ void main() {
     );
     final later = WorkItemCard(
       id: 'b',
+      number: 20,
       title: 'B',
       parentId: 'lane-a',
       statusId: 'todo',

@@ -66,6 +66,7 @@ void main() {
         return _jsonResponse([
           {
             'id': 'card-1',
+            'number': 1,
             'title': 'Card One',
             'parentId': 'lane-1',
             'statusId': 'status-todo',
@@ -84,6 +85,7 @@ void main() {
     expect(board.swimlanes.single.parentId, 'lane-1');
     expect(board.swimlanes.single.title, 'Lane One');
     expect(board.swimlanes.single.cards.single.id, 'card-1');
+    expect(board.swimlanes.single.cards.single.number, 1);
   });
 
   test('loadBoard treats a null scope as top-level', () async {
@@ -198,6 +200,7 @@ void main() {
         return _jsonResponse([
           {
             'id': 'card-1',
+            'number': 1,
             'title': 'Card One',
             'parentId': 'lane-1',
             'statusId': 'status-todo',
@@ -236,6 +239,7 @@ void main() {
         return _jsonResponse([
           {
             'id': 'card-1',
+            'number': 1,
             'title': 'Card One',
             'parentId': 'lane-1',
             'statusId': 'status-todo',
@@ -272,6 +276,7 @@ void main() {
         return _jsonResponse([
           {
             'id': 'card-1',
+            'number': 1,
             'title': 'Card One',
             'parentId': 'lane-1',
             'statusId': 'status-todo',

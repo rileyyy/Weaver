@@ -12,6 +12,15 @@ public class WorkItem
 {
     public Guid Id { get; set; }
 
+    /// <summary>
+    /// A short, sequential, human-facing identifier (e.g. Azure DevOps'
+    /// "#1234") — database-generated (see <c>WorkItemConfiguration</c>),
+    /// never set by application code. <see cref="Id"/> remains the real
+    /// primary key everywhere else (foreign keys, API routes); this exists
+    /// purely for display.
+    /// </summary>
+    public int Number { get; set; }
+
     public Guid? ParentId { get; set; }
 
     public required string Title { get; set; }

@@ -36,9 +36,16 @@ class BoardCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseTitleStyle = Theme.of(context).textTheme.bodyMedium;
+    final titleFontSize = (baseTitleStyle?.fontSize ?? 14) + 2;
     final titleStyle = baseTitleStyle?.copyWith(
-      fontSize: (baseTitleStyle.fontSize ?? 14) + 2,
+      fontSize: titleFontSize,
       decoration: TextDecoration.underline,
+    );
+    // Same size as the title, but bold and not underlined — the id is a
+    // label, not an editable field like the title next to it.
+    final idStyle = baseTitleStyle?.copyWith(
+      fontSize: titleFontSize,
+      fontWeight: FontWeight.bold,
     );
 
     final content = Card(
@@ -85,12 +92,25 @@ class BoardCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Underlined to signal the title is an editable
-                          // field, opened via onOpenDetails — not just a
-                          // label. Soft-wraps rather than truncating: cards
-                          // are narrow (two per column row), so a longer
-                          // title needs the extra lines.
-                          Text(card.title, softWrap: true, style: titleStyle),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Sized to match the id/title text next to it.
+                              Icon(Icons.emoji_events, size: titleFontSize),
+                              const SizedBox(width: 4),
+                              Text('#${card.number}', style: idStyle),
+                              const SizedBox(width: 6),
+                              // Underlined to signal the title is an
+                              // editable field, opened via onOpenDetails —
+                              // not just a label. Soft-wraps rather than
+                              // truncating: cards are narrow (two per
+                              // column row), so a longer title needs the
+                              // extra lines.
+                              Expanded(
+                                child: Text(card.title, softWrap: true, style: titleStyle),
+                              ),
+                            ],
+                          ),
                           if (card.startDate != null || card.endDate != null)
                             Text(
                               _scheduleLabel(),
