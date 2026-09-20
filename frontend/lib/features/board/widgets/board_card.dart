@@ -50,33 +50,42 @@ class BoardCard extends StatelessWidget {
         onTap: onOpenDetails,
         child: Padding(
           padding: const EdgeInsets.all(8),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Underlined to signal the title is an editable field,
-                    // opened via onOpenDetails — not just a label.
-                    Text(
-                      card.title,
-                      style: const TextStyle(decoration: TextDecoration.underline),
-                    ),
-                    if (card.startDate != null || card.endDate != null)
-                      Text(
-                        _scheduleLabel(),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                  ],
-                ),
+              // Underlined to signal the title is an editable field, opened
+              // via onOpenDetails — not just a label. Soft-wraps rather than
+              // truncating: cards are narrow (two per column row), so a
+              // longer title needs the extra lines.
+              Text(
+                card.title,
+                softWrap: true,
+                style: const TextStyle(decoration: TextDecoration.underline),
               ),
-              AssigneeAvatar(initial: assigneeInitial),
-              const SizedBox(width: 4),
-              IconButton(
-                icon: const Icon(Icons.calendar_today, size: 16),
-                tooltip: 'Set schedule',
-                onPressed: () => unawaited(_editSchedule(context)),
+              if (card.startDate != null || card.endDate != null)
+                Text(
+                  _scheduleLabel(),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              const SizedBox(height: 4),
+              // Assignee avatar and the schedule button live on their own
+              // row, below the title — kept off the title's row so a
+              // wrapped title doesn't fight them for horizontal space in a
+              // narrow card.
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  AssigneeAvatar(initial: assigneeInitial),
+                  IconButton(
+                    icon: const Icon(Icons.calendar_today, size: 16),
+                    tooltip: 'Set schedule',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => unawaited(_editSchedule(context)),
+                  ),
+                ],
               ),
             ],
           ),

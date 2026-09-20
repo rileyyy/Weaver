@@ -33,6 +33,10 @@ const double _swimlaneRowHeight = 220;
 /// background.
 const double _gridHeaderFontScale = 1.2;
 
+/// Gap between cards in a status column's two-per-row grid, both between
+/// columns and between rows of cards.
+const double _cardGridSpacing = 8;
+
 class BoardView extends StatefulWidget {
   const BoardView({required this.onLogout, super.key});
 
@@ -1081,14 +1085,21 @@ class _SwimlaneLabel extends StatelessWidget {
             borderRadius: borderRadius,
             onTap: () => onTapped(swimlane.parentId),
             child: Padding(
-              padding: const EdgeInsets.all(8),
+              // Top-aligned rather than centered in the row (see
+              // crossAxisAlignment below), with extra top margin so the
+              // title doesn't sit flush against the row's own top edge —
+              // and left free to wrap to multiple lines instead of
+              // eliding, now that it's not vertically centered to make
+              // room for a taller label.
+              padding: const EdgeInsets.only(left: 8, right: 8, top: 16, bottom: 8),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Text(
                       swimlane.title,
                       style: labelStyle,
-                      overflow: TextOverflow.ellipsis,
+                      softWrap: true,
                     ),
                   ),
                   AssigneeAvatar(initial: assigneeInitial),
@@ -1157,16 +1168,36 @@ class _StatusColumn extends StatelessWidget {
           // with more cards than fit scrolls within its own cell instead
           // of growing the row.
           child: SingleChildScrollView(
-            child: Column(
-              children: [
-                for (final card in cards)
-                  BoardCard(
-                    card: card,
-                    assigneeInitial: assigneeInitialFor(card.assignedToUserId),
-                    onReschedule: onCardRescheduled,
-                    onOpenDetails: () => onCardDetailsOpened(card),
-                  ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Two cards per row, Azure DevOps sprint-board style — each
+                // one closer to square than the old full-width row.
+                final cardWidth =
+                    (constraints.maxWidth - _cardGridSpacing) / 2;
+                return Wrap(
+                  spacing: _cardGridSpacing,
+                  runSpacing: _cardGridSpacing,
+                  children: [
+                    for (final card in cards)
+                      ConstrainedBox(
+                        // minHeight (not a fixed height) so a card is
+                        // square-ish by default but can still grow for a
+                        // long, wrapped title instead of clipping it.
+                        constraints: BoxConstraints(
+                          minWidth: cardWidth,
+                          maxWidth: cardWidth,
+                          minHeight: cardWidth,
+                        ),
+                        child: BoardCard(
+                          card: card,
+                          assigneeInitial: assigneeInitialFor(card.assignedToUserId),
+                          onReschedule: onCardRescheduled,
+                          onOpenDetails: () => onCardDetailsOpened(card),
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
           ),
         );
