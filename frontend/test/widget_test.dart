@@ -44,6 +44,9 @@ class _StubBoardRepository implements BoardRepository {
   Future<List<HierarchyItem>> loadAllItems() => Future.value(const []);
 
   @override
+  Future<List<AuthUser>> loadUsers() => Future.value(const []);
+
+  @override
   Future<void> changeStatus(String cardId, String newStatusId) =>
       Future.value();
 

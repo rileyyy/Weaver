@@ -11,6 +11,7 @@ class WorkItemCard {
     this.description,
     this.startDate,
     this.endDate,
+    this.assignedToUserId,
   });
 
   final String id;
@@ -25,6 +26,8 @@ class WorkItemCard {
   final DateTime? startDate;
   final DateTime? endDate;
 
+  final String? assignedToUserId;
+
   WorkItemCard copyWith({String? statusId}) => WorkItemCard(
         id: id,
         title: title,
@@ -33,6 +36,7 @@ class WorkItemCard {
         description: description,
         startDate: startDate,
         endDate: endDate,
+        assignedToUserId: assignedToUserId,
       );
 
   /// Moves this card to a new parent, keeping its status — the model-level
@@ -46,6 +50,7 @@ class WorkItemCard {
         description: description,
         startDate: startDate,
         endDate: endDate,
+        assignedToUserId: assignedToUserId,
       );
 
   /// Sets this card's schedule, keeping its status and parent — the
@@ -59,5 +64,6 @@ class WorkItemCard {
         description: description,
         startDate: startDate,
         endDate: endDate,
+        assignedToUserId: assignedToUserId,
       );
 }

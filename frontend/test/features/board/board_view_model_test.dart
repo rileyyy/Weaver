@@ -1,6 +1,7 @@
 import 'dart:ui' show Color;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
@@ -75,6 +76,7 @@ class _TestBoardRepository implements BoardRepository {
     this.createError,
     this.hierarchyItems = const [],
     this.hierarchyError,
+    this.users = const [],
   });
 
   final Exception? changeStatusError;
@@ -83,6 +85,7 @@ class _TestBoardRepository implements BoardRepository {
   final Exception? createError;
   final List<HierarchyItem> hierarchyItems;
   final Exception? hierarchyError;
+  final List<AuthUser> users;
   final List<String> statusChanges = [];
   final List<String> reparents = [];
   final List<String> reschedules = [];
@@ -108,6 +111,9 @@ class _TestBoardRepository implements BoardRepository {
     if (error != null) throw error;
     return hierarchyItems;
   }
+
+  @override
+  Future<List<AuthUser>> loadUsers() => Future.value(users);
 
   @override
   Future<void> changeStatus(String cardId, String newStatusId) async {
@@ -159,6 +165,9 @@ class _FailingLoadRepository implements BoardRepository {
   @override
   Future<List<HierarchyItem>> loadAllItems() =>
       Future.error(Exception('network down'));
+
+  @override
+  Future<List<AuthUser>> loadUsers() => Future.value(const []);
 
   @override
   Future<void> changeStatus(String cardId, String newStatusId) =>
@@ -603,6 +612,25 @@ void main() {
 
   test('statusColorFor returns null for an unknown status', () {
     expect(viewModel.statusColorFor('unknown'), isNull);
+  });
+
+  test('assigneeInitialFor returns the uppercased first letter of the matching username', () async {
+    final withUsers = BoardViewModel(
+      _TestBoardRepository(
+        users: const [AuthUser(id: 'user-1', username: 'riley', kind: UserKind.human)],
+      ),
+    );
+    await withUsers.load();
+
+    expect(withUsers.assigneeInitialFor('user-1'), 'R');
+  });
+
+  test('assigneeInitialFor returns null for a null user id', () {
+    expect(viewModel.assigneeInitialFor(null), isNull);
+  });
+
+  test('assigneeInitialFor returns null when no user matches the id', () {
+    expect(viewModel.assigneeInitialFor('unknown-user'), isNull);
   });
 
   test('toggleStatusVisibility hides and then re-shows a status', () {

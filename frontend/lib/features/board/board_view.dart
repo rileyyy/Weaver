@@ -10,6 +10,7 @@ import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/scope_crumb.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
+import 'package:weaver/features/board/widgets/assignee_avatar.dart';
 import 'package:weaver/features/board/widgets/board_card.dart';
 import 'package:weaver/features/board/widgets/create_work_item_dialog.dart';
 import 'package:weaver/features/board/widgets/date_format.dart';
@@ -23,8 +24,14 @@ const double _narrowLayoutBreakpoint = 760;
 
 const double _laneLabelWidth = 160;
 const double _minColumnWidth = 240;
-const double _headerRowHeight = 40;
+const double _headerRowHeight = 48;
 const double _swimlaneRowHeight = 220;
+
+/// How much larger the status column headers and swimlane ("project")
+/// labels render than the theme's base title styles — the swim-lane grid's
+/// row/column headers, so they read clearly against the grid's darker
+/// background.
+const double _gridHeaderFontScale = 1.2;
 
 class BoardView extends StatefulWidget {
   const BoardView({required this.onLogout, super.key});
@@ -223,14 +230,13 @@ class _BoardViewState extends State<BoardView> with SingleTickerProviderStateMix
   }
 
   Widget _buildBoardArea(BuildContext context) {
-    // Anchored to surfaceContainerHighest (the same tone _HeaderBar uses),
-    // not the theme's plain surface — a seed-generated light-theme surface
-    // is already so close to white that lightening it further by 20% is
-    // imperceptible. surfaceContainerHighest has real headroom to lighten
-    // in both light and dark theme, so the header/board contrast this is
-    // meant to create actually shows up.
+    // Anchored to surfaceContainerHighest (the same tone _HeaderBar uses)
+    // rather than the theme's plain surface, then darkened rather than
+    // lightened — the grid reads as a table/spreadsheet against a canvas as
+    // dark as one of the status color swatches, with each status column and
+    // card sitting on its own lighter surface on top of it.
     final swimlaneBackground =
-        Theme.of(context).colorScheme.surfaceContainerHighest.lightenedBy(0.2);
+        Theme.of(context).colorScheme.surfaceContainerHighest.darkenedBy(0.55);
 
     if (_viewModel.isLoading) {
       return Container(
@@ -264,6 +270,7 @@ class _BoardViewState extends State<BoardView> with SingleTickerProviderStateMix
                 onSwimlaneLabelTapped: _openDetailsById,
                 cardVisible: _viewModel.cardVisible,
                 cardComparator: _viewModel.cardComparator,
+                assigneeInitialFor: _viewModel.assigneeInitialFor,
               ),
         ),
       ),
@@ -832,6 +839,13 @@ class _DateFilterButton extends StatelessWidget {
   }
 }
 
+/// Grid lines for the swim-lane board's table/grid styling — a fixed, mid
+/// contrast white rather than a theme-derived color, since the board's
+/// background ([_BoardViewState._buildBoardArea]) is always dark regardless
+/// of light/dark theme.
+const Color _gridLineColor = Colors.white24;
+const Color _onGridBackground = Colors.white;
+
 /// The swimlane board itself: a pinned lane-label column on the left plus
 /// a columns area on the right. When [width] is wide enough to give every
 /// status column at least [_minColumnWidth] alongside the label column,
@@ -851,6 +865,7 @@ class _SwimlaneBoard extends StatelessWidget {
     required this.onSwimlaneLabelTapped,
     required this.cardVisible,
     required this.cardComparator,
+    required this.assigneeInitialFor,
   });
 
   final double width;
@@ -870,6 +885,7 @@ class _SwimlaneBoard extends StatelessWidget {
   final void Function(String workItemId) onSwimlaneLabelTapped;
   final bool Function(WorkItemCard card) cardVisible;
   final Comparator<WorkItemCard>? cardComparator;
+  final String? Function(String? userId) assigneeInitialFor;
 
   @override
   Widget build(BuildContext context) {
@@ -877,15 +893,24 @@ class _SwimlaneBoard extends StatelessWidget {
     final useFlexColumns = statuses.isNotEmpty &&
         availableForColumns >= statuses.length * _minColumnWidth;
 
+    final baseHeaderStyle = Theme.of(context).textTheme.titleMedium;
+    final headerTextStyle = baseHeaderStyle?.copyWith(
+      fontSize: (baseHeaderStyle.fontSize ?? 16) * _gridHeaderFontScale,
+      color: _onGridBackground,
+      fontWeight: FontWeight.w600,
+    );
+
     final labelColumn = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: _headerRowHeight),
+        const _GridRowBox(height: _headerRowHeight, showBottomBorder: true),
         for (final lane in swimlanes)
-          SizedBox(
+          _GridRowBox(
             height: _swimlaneRowHeight,
+            showBottomBorder: true,
             child: _SwimlaneLabel(
               swimlane: lane,
+              assigneeInitial: assigneeInitialFor(lane.assignedToUserId),
               onCardReparented: onCardReparented,
               onTapped: onSwimlaneLabelTapped,
             ),
@@ -893,25 +918,21 @@ class _SwimlaneBoard extends StatelessWidget {
       ],
     );
 
-    final headerRow = SizedBox(
+    final headerRow = _GridRowBox(
       height: _headerRowHeight,
+      showBottomBorder: true,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (final status in statuses)
             _columnWrapper(
               flex: useFlexColumns,
+              showRightBorder: status != statuses.last,
               child: Padding(
                 padding: const EdgeInsets.all(8),
-                child: Row(
-                  children: [
-                    _StatusDot(color: status.color),
-                    const SizedBox(width: 6),
-                    Text(
-                      status.name,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ],
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(status.name, style: headerTextStyle),
                 ),
               ),
             ),
@@ -921,14 +942,16 @@ class _SwimlaneBoard extends StatelessWidget {
 
     final laneRows = [
       for (final lane in swimlanes)
-        SizedBox(
+        _GridRowBox(
           height: _swimlaneRowHeight,
+          showBottomBorder: true,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (final status in statuses)
                 _columnWrapper(
                   flex: useFlexColumns,
+                  showRightBorder: status != statuses.last,
                   child: _StatusColumn(
                     swimlane: lane,
                     status: status,
@@ -937,6 +960,7 @@ class _SwimlaneBoard extends StatelessWidget {
                     onCardDetailsOpened: onCardDetailsOpened,
                     cardVisible: cardVisible,
                     cardComparator: cardComparator,
+                    assigneeInitialFor: assigneeInitialFor,
                   ),
                 ),
             ],
@@ -964,21 +988,69 @@ class _SwimlaneBoard extends StatelessWidget {
     );
   }
 
-  Widget _columnWrapper({required bool flex, required Widget child}) {
+  Widget _columnWrapper({
+    required bool flex,
+    required bool showRightBorder,
+    required Widget child,
+  }) {
+    final content = showRightBorder
+        ? DecoratedBox(
+            decoration: const BoxDecoration(
+              border: Border(right: BorderSide(color: _gridLineColor)),
+            ),
+            child: child,
+          )
+        : child;
     return flex
-        ? Expanded(child: child)
-        : SizedBox(width: _minColumnWidth, child: child);
+        ? Expanded(child: content)
+        : SizedBox(width: _minColumnWidth, child: content);
+  }
+}
+
+/// One row of the swim-lane grid (a status header row or a swimlane row),
+/// giving it the fixed [height] every row shares and, when [showBottomBorder]
+/// is set, the horizontal grid line that separates it from the row below —
+/// shared by both the pinned label column and the scrollable columns area so
+/// the lines stay aligned across both.
+class _GridRowBox extends StatelessWidget {
+  const _GridRowBox({
+    required this.height,
+    required this.showBottomBorder,
+    this.child,
+  });
+
+  final double height;
+  final bool showBottomBorder;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      decoration: showBottomBorder
+          ? const BoxDecoration(
+              border: Border(bottom: BorderSide(color: _gridLineColor)),
+            )
+          : null,
+      child: child,
+    );
   }
 }
 
 class _SwimlaneLabel extends StatelessWidget {
   const _SwimlaneLabel({
     required this.swimlane,
+    required this.assigneeInitial,
     required this.onCardReparented,
     required this.onTapped,
   });
 
   final Swimlane swimlane;
+
+  /// The swimlane's own ("project") work item's assignee, resolved by the
+  /// view model — see [BoardCard.assigneeInitial].
+  final String? assigneeInitial;
+
   final Future<void> Function(WorkItemCard card, String newParentId)
   onCardReparented;
   final void Function(String workItemId) onTapped;
@@ -993,6 +1065,13 @@ class _SwimlaneLabel extends StatelessWidget {
       builder: (context, candidateData, rejectedData) {
         final colorScheme = Theme.of(context).colorScheme;
         final borderRadius = BorderRadius.circular(8);
+        final baseLabelStyle = Theme.of(context).textTheme.titleSmall;
+        final labelStyle = baseLabelStyle?.copyWith(
+          fontSize: (baseLabelStyle.fontSize ?? 14) * _gridHeaderFontScale,
+          color: _onGridBackground,
+          fontWeight: FontWeight.w600,
+          decoration: TextDecoration.underline,
+        );
         return Material(
           color: candidateData.isNotEmpty
               ? colorScheme.primaryContainer.withValues(alpha: 0.4)
@@ -1003,9 +1082,17 @@ class _SwimlaneLabel extends StatelessWidget {
             onTap: () => onTapped(swimlane.parentId),
             child: Padding(
               padding: const EdgeInsets.all(8),
-              child: Text(
-                swimlane.title,
-                style: Theme.of(context).textTheme.titleSmall,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      swimlane.title,
+                      style: labelStyle,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  AssigneeAvatar(initial: assigneeInitial),
+                ],
               ),
             ),
           ),
@@ -1024,6 +1111,7 @@ class _StatusColumn extends StatelessWidget {
     required this.onCardDetailsOpened,
     required this.cardVisible,
     required this.cardComparator,
+    required this.assigneeInitialFor,
   });
 
   final Swimlane swimlane;
@@ -1039,6 +1127,7 @@ class _StatusColumn extends StatelessWidget {
   final void Function(WorkItemCard card) onCardDetailsOpened;
   final bool Function(WorkItemCard card) cardVisible;
   final Comparator<WorkItemCard>? cardComparator;
+  final String? Function(String? userId) assigneeInitialFor;
 
   @override
   Widget build(BuildContext context) {
@@ -1073,6 +1162,7 @@ class _StatusColumn extends StatelessWidget {
                 for (final card in cards)
                   BoardCard(
                     card: card,
+                    assigneeInitial: assigneeInitialFor(card.assignedToUserId),
                     onReschedule: onCardRescheduled,
                     onOpenDetails: () => onCardDetailsOpened(card),
                   ),

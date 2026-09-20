@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
 import 'package:weaver/core/network/api_exception.dart';
+import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/board_status.dart';
@@ -45,6 +46,19 @@ class ApiBoardRepository implements BoardRepository {
   Future<List<HierarchyItem>> loadAllItems() async {
     final json = await _getJsonList('/work-items/all');
     return [for (final item in json) _toHierarchyItem(item)];
+  }
+
+  @override
+  Future<List<AuthUser>> loadUsers() async {
+    final json = await _getJsonList('/users');
+    return [
+      for (final item in json)
+        AuthUser(
+          id: item['id'] as String,
+          username: item['username'] as String,
+          kind: userKindFromWire(item['kind'] as String),
+        ),
+    ];
   }
 
   @override
@@ -124,6 +138,7 @@ class ApiBoardRepository implements BoardRepository {
       parentId: parentId,
       title: parent['title'] as String,
       cards: [for (final item in cardItems) _toCard(item)],
+      assignedToUserId: parent['assignedToUserId'] as String?,
     );
   }
 
@@ -141,6 +156,7 @@ class ApiBoardRepository implements BoardRepository {
     description: item['description'] as String?,
     startDate: _parseDate(item['startDate']),
     endDate: _parseDate(item['endDate']),
+    assignedToUserId: item['assignedToUserId'] as String?,
   );
 
   HierarchyItem _toHierarchyItem(Map<String, dynamic> item) => HierarchyItem(
