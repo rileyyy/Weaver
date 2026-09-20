@@ -1,68 +1,117 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:weaver/core/theme/app_theme.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
+import 'package:weaver/features/board/widgets/assignee_avatar.dart';
 import 'package:weaver/features/board/widgets/date_format.dart';
-import 'package:weaver/features/board/widgets/schedule_dialog.dart';
 
 const double _feedbackWidth = 208;
+
+/// Placeholder for a future status/priority-driven color — static for now,
+/// per explicit direction, rather than derived from the card's own data.
+const Color _handleColor = Colors.green;
+const double _handleWidth = 2;
 
 class BoardCard extends StatelessWidget {
   const BoardCard({
     super.key,
     required this.card,
-    required this.onReschedule,
+    required this.assigneeInitial,
     required this.onOpenDetails,
   });
 
   final WorkItemCard card;
 
-  /// Called with the new start/end after the schedule dialog is saved.
-  final Future<void> Function(
-    WorkItemCard card,
-    DateTime? startDate,
-    DateTime? endDate,
-  )
-  onReschedule;
+  /// The assigned user's initial, resolved by the view model — null shows
+  /// no avatar at all, whether because there's no assignee or the user
+  /// directory hasn't loaded yet.
+  final String? assigneeInitial;
 
   /// Called when the card is tapped, to open a dialog showing every
   /// attribute of this work item (title/description/layer/priority/
-  /// assignee/comments/links). Drilling into the item's own children is
-  /// reached from inside that dialog instead of from a separate tap target
-  /// here.
+  /// assignee/comments/links/schedule). Drilling into the item's own
+  /// children is reached from inside that dialog instead of from a separate
+  /// tap target here.
   final VoidCallback onOpenDetails;
 
   @override
   Widget build(BuildContext context) {
+    final baseTitleStyle = Theme.of(context).textTheme.bodyMedium;
+    final titleStyle = baseTitleStyle?.copyWith(
+      fontSize: (baseTitleStyle.fontSize ?? 14) + 2,
+      decoration: TextDecoration.underline,
+    );
+
     final content = Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
-      child: InkWell(
-        onTap: onOpenDetails,
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(card.title),
-                    if (card.startDate != null || card.endDate != null)
-                      Text(
-                        _scheduleLabel(),
-                        style: Theme.of(context).textTheme.bodySmall,
+      // Lighter than the status column it sits on (surfaceContainerLow) so a
+      // card still stands out from its cell, but not as starkly as a full
+      // 20% lightening — a little darker/closer to the column's own tone.
+      color: Theme.of(context).colorScheme.surfaceContainerLow.lightenedBy(0.1),
+      elevation: 2,
+      // Square corners, not rounded — no shape override needed since
+      // RoundedRectangleBorder defaults to zero radius.
+      shape: const RoundedRectangleBorder(),
+      // IntrinsicHeight, not just Row's own CrossAxisAlignment.stretch: the
+      // card's own height constraint is a bare minHeight with an unbounded
+      // max (see the ConstrainedBox in _StatusColumn, which lets a card grow
+      // for a long title) — stretch alone needs a bounded cross axis to
+      // stretch into, which an unbounded max doesn't give it. IntrinsicHeight
+      // measures the row's natural height first and feeds that back in as a
+      // tight constraint, which stretch can then use safely.
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // A full-height color handle flush with the card's own left
+            // edge — stretch (above) is what makes it span the card's
+            // actual height rather than needing one of its own.
+            Container(width: _handleWidth, color: _handleColor),
+            Expanded(
+              child: InkWell(
+                onTap: onOpenDetails,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    // Two groups only (title block, then the assignee
+                    // avatar) so spaceBetween puts all of the card's extra
+                    // vertical room (when its minimum height leaves more
+                    // room than the title needs) as one gap between them,
+                    // pinning the avatar to the bottom.
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Underlined to signal the title is an editable
+                          // field, opened via onOpenDetails — not just a
+                          // label. Soft-wraps rather than truncating: cards
+                          // are narrow (two per column row), so a longer
+                          // title needs the extra lines.
+                          Text(card.title, softWrap: true, style: titleStyle),
+                          if (card.startDate != null || card.endDate != null)
+                            Text(
+                              _scheduleLabel(),
+                              softWrap: true,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                        ],
                       ),
-                  ],
+                      // 1.34x the default size (roughly the doubled size
+                      // from before, reduced by a third per follow-up
+                      // feedback that the doubled avatar was too big).
+                      AssigneeAvatar(
+                        initial: assigneeInitial,
+                        size: AssigneeAvatar.defaultSize * 4 / 3,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.calendar_today, size: 16),
-                tooltip: 'Set schedule',
-                onPressed: () => unawaited(_editSchedule(context)),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -71,7 +120,6 @@ class BoardCard extends StatelessWidget {
       data: card,
       feedback: Material(
         elevation: 4,
-        borderRadius: BorderRadius.circular(8),
         child: SizedBox(width: _feedbackWidth, child: content),
       ),
       childWhenDragging: Opacity(opacity: 0.4, child: content),
@@ -87,15 +135,5 @@ class BoardCard extends StatelessWidget {
     }
     if (start != null) return 'From ${formatDate(start)}';
     return 'Until ${formatDate(end!)}';
-  }
-
-  Future<void> _editSchedule(BuildContext context) async {
-    final result = await showScheduleDialog(
-      context,
-      initialStart: card.startDate,
-      initialEnd: card.endDate,
-    );
-    if (result == null) return;
-    await onReschedule(card, result.startDate, result.endDate);
   }
 }

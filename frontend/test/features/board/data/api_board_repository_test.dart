@@ -252,6 +252,60 @@ void main() {
     expect(board.swimlanes.single.cards.single.description, 'Some detail');
   });
 
+  test("loadBoard parses the assignee of both a lane's own item and its cards", () async {
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/statuses') return _jsonResponse([]);
+      if (request.url.path == '/api/work-items' &&
+          request.url.queryParameters['parentId'] == 'epic-1') {
+        return _jsonResponse([
+          {
+            'id': 'lane-1',
+            'title': 'Lane One',
+            'parentId': 'epic-1',
+            'statusId': 'status-todo',
+            'assignedToUserId': 'user-lane',
+          },
+        ]);
+      }
+      if (request.url.path == '/api/work-items' &&
+          request.url.queryParameters['parentId'] == 'lane-1') {
+        return _jsonResponse([
+          {
+            'id': 'card-1',
+            'title': 'Card One',
+            'parentId': 'lane-1',
+            'statusId': 'status-todo',
+            'assignedToUserId': 'user-card',
+          },
+        ]);
+      }
+      throw StateError('Unexpected request: ${request.url}');
+    });
+
+    final repository = ApiBoardRepository(client, baseUrl);
+    final board = await repository.loadBoard('epic-1');
+
+    expect(board.swimlanes.single.assignedToUserId, 'user-lane');
+    expect(board.swimlanes.single.cards.single.assignedToUserId, 'user-card');
+  });
+
+  test('loadUsers parses the user directory', () async {
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/users') {
+        return _jsonResponse([
+          {'id': 'user-1', 'username': 'riley', 'kind': 'Human'},
+        ]);
+      }
+      throw StateError('Unexpected request: ${request.url}');
+    });
+
+    final repository = ApiBoardRepository(client, baseUrl);
+    final users = await repository.loadUsers();
+
+    expect(users.single.id, 'user-1');
+    expect(users.single.username, 'riley');
+  });
+
   test('loadAllItems parses the flat item list, including top-level items', () async {
     final client = MockClient((request) async {
       if (request.url.path == '/api/work-items/all') {

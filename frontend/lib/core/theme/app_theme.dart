@@ -5,6 +5,12 @@ import 'package:flutter/material.dart';
 /// filter/header section above it, in both light and dark theme.
 extension ColorShade on Color {
   Color lightenedBy(double amount) => Color.lerp(this, Colors.white, amount)!;
+
+  /// Blends a color toward black by a given amount — the swim-lane grid's
+  /// background is deliberately dark (as dark as a status color swatch),
+  /// distinct from the lighter tone the rest of the header/filter chrome
+  /// uses.
+  Color darkenedBy(double amount) => Color.lerp(this, Colors.black, amount)!;
 }
 
 abstract final class AppTheme {

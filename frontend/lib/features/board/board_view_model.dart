@@ -2,6 +2,7 @@ import 'dart:ui' show Color;
 
 import 'package:injectable/injectable.dart';
 import 'package:weaver/core/presentation/view_model.dart';
+import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/board_status.dart';
@@ -35,6 +36,7 @@ class BoardViewModel extends ViewModel {
   bool _isHierarchyLoading = false;
   String? _hierarchyLoadError;
   bool _hierarchyLoaded = false;
+  List<AuthUser> _users = const [];
 
   List<BoardStatus> get statuses => _statuses;
   List<Swimlane> get swimlanes => _swimlanes;
@@ -153,11 +155,31 @@ class BoardViewModel extends ViewModel {
     return null;
   }
 
+  /// The uppercased first letter of the assigned user's username, for a
+  /// small avatar — null if [userId] is null or unresolved (e.g. the user
+  /// directory hasn't loaded yet).
+  String? assigneeInitialFor(String? userId) {
+    if (userId == null) return null;
+    for (final user in _users) {
+      if (user.id == userId) {
+        return user.username.isEmpty ? null : user.username[0].toUpperCase();
+      }
+    }
+    return null;
+  }
+
   Future<void> load() => _changeScope(() async {
         final rootScopeId = await _repository.loadRootScopeItemId();
         final data = await _repository.loadBoard(rootScopeId);
         _applyScope(data);
         _breadcrumbs = [ScopeCrumb(id: rootScopeId, title: 'Board')];
+        // Best-effort: a user directory failure shouldn't block the board
+        // itself from loading — assignee initials just won't show.
+        try {
+          _users = await _repository.loadUsers();
+        } catch (_) {
+          _users = const [];
+        }
       }, errorMessage: 'Could not load the board. Check your connection and try again.');
 
   Future<void> retry() => _retry();

@@ -1,3 +1,4 @@
+import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
 
@@ -16,6 +17,10 @@ abstract class BoardRepository {
   /// Every work item in the system, flat and unscoped — used by the
   /// Hierarchy view to build a full parent/child tree client-side.
   Future<List<HierarchyItem>> loadAllItems();
+
+  /// Every registered user, for resolving a work item's assignee to a
+  /// display name/initial on the board.
+  Future<List<AuthUser>> loadUsers();
 
   /// Moves the work item identified by [cardId] to [newStatusId], within
   /// whichever parent already owns it. Throws on failure.

@@ -6,15 +6,22 @@ class Swimlane {
     required this.parentId,
     required this.title,
     required this.cards,
+    this.assignedToUserId,
   });
 
   final String parentId;
   final String title;
   final List<WorkItemCard> cards;
 
+  /// The swimlane's own work item (e.g. a Project-layer item) may itself
+  /// have an assignee, shown on its lane label the same way a card shows
+  /// its own.
+  final String? assignedToUserId;
+
   Swimlane copyWithCards(List<WorkItemCard> cards) => Swimlane(
         parentId: parentId,
         title: title,
         cards: cards,
+        assignedToUserId: assignedToUserId,
       );
 }
