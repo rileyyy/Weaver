@@ -25,7 +25,10 @@ const double _narrowLayoutBreakpoint = 760;
 const double _laneLabelWidth = 160;
 const double _minColumnWidth = 240;
 const double _headerRowHeight = 48;
-const double _swimlaneRowHeight = 220;
+
+/// A collapsed swimlane's row height — just enough for its label's single
+/// line and the collapse toggle, matching the status header row's height.
+const double _collapsedSwimlaneRowHeight = _headerRowHeight;
 
 /// How much larger the status column headers and swimlane ("project")
 /// labels render than the theme's base title styles — the swim-lane grid's
@@ -36,6 +39,11 @@ const double _gridHeaderFontScale = 1.2;
 /// Gap between cards in a status column's two-per-row grid, both between
 /// columns and between rows of cards.
 const double _cardGridSpacing = 8;
+
+/// A status column cell's own margin + padding (each `EdgeInsets.all(4)`),
+/// subtracted from its outer width/height to get the space actually left
+/// for cards.
+const double _statusColumnChrome = 16;
 
 class BoardView extends StatefulWidget {
   const BoardView({required this.onLogout, super.key});
@@ -57,6 +65,18 @@ class _BoardViewState extends State<BoardView> with SingleTickerProviderStateMix
     length: _BoardTab.values.length,
     vsync: this,
   );
+
+  /// Swimlanes (keyed by their parent work item id) currently collapsed to a
+  /// single-line label — purely view state, not persisted.
+  final Set<String> _collapsedSwimlaneIds = {};
+
+  void _toggleSwimlaneCollapsed(String parentId) {
+    setState(() {
+      if (!_collapsedSwimlaneIds.remove(parentId)) {
+        _collapsedSwimlaneIds.add(parentId);
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -269,12 +289,13 @@ class _BoardViewState extends State<BoardView> with SingleTickerProviderStateMix
                 swimlanes: _viewModel.swimlanes,
                 onCardDropped: _viewModel.moveCard,
                 onCardReparented: _viewModel.reparentCard,
-                onCardRescheduled: _viewModel.rescheduleCard,
                 onCardDetailsOpened: _openDetails,
                 onSwimlaneLabelTapped: _openDetailsById,
                 cardVisible: _viewModel.cardVisible,
                 cardComparator: _viewModel.cardComparator,
                 assigneeInitialFor: _viewModel.assigneeInitialFor,
+                collapsedSwimlaneIds: _collapsedSwimlaneIds,
+                onToggleSwimlaneCollapsed: _toggleSwimlaneCollapsed,
               ),
         ),
       ),
@@ -864,12 +885,13 @@ class _SwimlaneBoard extends StatelessWidget {
     required this.swimlanes,
     required this.onCardDropped,
     required this.onCardReparented,
-    required this.onCardRescheduled,
     required this.onCardDetailsOpened,
     required this.onSwimlaneLabelTapped,
     required this.cardVisible,
     required this.cardComparator,
     required this.assigneeInitialFor,
+    required this.collapsedSwimlaneIds,
+    required this.onToggleSwimlaneCollapsed,
   });
 
   final double width;
@@ -879,23 +901,23 @@ class _SwimlaneBoard extends StatelessWidget {
   onCardDropped;
   final Future<void> Function(WorkItemCard card, String newParentId)
   onCardReparented;
-  final Future<void> Function(
-    WorkItemCard card,
-    DateTime? startDate,
-    DateTime? endDate,
-  )
-  onCardRescheduled;
   final void Function(WorkItemCard card) onCardDetailsOpened;
   final void Function(String workItemId) onSwimlaneLabelTapped;
   final bool Function(WorkItemCard card) cardVisible;
   final Comparator<WorkItemCard>? cardComparator;
   final String? Function(String? userId) assigneeInitialFor;
+  final Set<String> collapsedSwimlaneIds;
+  final void Function(String parentId) onToggleSwimlaneCollapsed;
 
   @override
   Widget build(BuildContext context) {
     final availableForColumns = width - _laneLabelWidth;
     final useFlexColumns = statuses.isNotEmpty &&
         availableForColumns >= statuses.length * _minColumnWidth;
+    final columnOuterWidth =
+        useFlexColumns ? availableForColumns / statuses.length : _minColumnWidth;
+    final cardWidth =
+        (columnOuterWidth - _statusColumnChrome - _cardGridSpacing) / 2;
 
     final baseHeaderStyle = Theme.of(context).textTheme.titleMedium;
     final headerTextStyle = baseHeaderStyle?.copyWith(
@@ -910,13 +932,15 @@ class _SwimlaneBoard extends StatelessWidget {
         const _GridRowBox(height: _headerRowHeight, showBottomBorder: true),
         for (final lane in swimlanes)
           _GridRowBox(
-            height: _swimlaneRowHeight,
+            height: _rowHeightFor(lane, cardWidth),
             showBottomBorder: true,
             child: _SwimlaneLabel(
               swimlane: lane,
               assigneeInitial: assigneeInitialFor(lane.assignedToUserId),
+              isCollapsed: collapsedSwimlaneIds.contains(lane.parentId),
               onCardReparented: onCardReparented,
               onTapped: onSwimlaneLabelTapped,
+              onToggleCollapsed: () => onToggleSwimlaneCollapsed(lane.parentId),
             ),
           ),
       ],
@@ -947,7 +971,7 @@ class _SwimlaneBoard extends StatelessWidget {
     final laneRows = [
       for (final lane in swimlanes)
         _GridRowBox(
-          height: _swimlaneRowHeight,
+          height: _rowHeightFor(lane, cardWidth),
           showBottomBorder: true,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -959,8 +983,9 @@ class _SwimlaneBoard extends StatelessWidget {
                   child: _StatusColumn(
                     swimlane: lane,
                     status: status,
+                    cardWidth: cardWidth,
+                    isCollapsed: collapsedSwimlaneIds.contains(lane.parentId),
                     onCardDropped: onCardDropped,
-                    onCardRescheduled: onCardRescheduled,
                     onCardDetailsOpened: onCardDetailsOpened,
                     cardVisible: cardVisible,
                     cardComparator: cardComparator,
@@ -990,6 +1015,30 @@ class _SwimlaneBoard extends StatelessWidget {
         Expanded(child: columnsArea),
       ],
     );
+  }
+
+  /// A collapsed lane always gets [_collapsedSwimlaneRowHeight]. Otherwise,
+  /// enough rows of square [cardWidth] cards for the busiest status column
+  /// in this lane, plus always at least one trailing empty slot (so a full
+  /// grid never looks completely "closed" — dropping one more card always
+  /// has visible room to land in), with an overall floor of two rows (four
+  /// slots) even when the lane is empty.
+  double _rowHeightFor(Swimlane lane, double cardWidth) {
+    if (collapsedSwimlaneIds.contains(lane.parentId)) {
+      return _collapsedSwimlaneRowHeight;
+    }
+
+    var maxCount = 0;
+    for (final status in statuses) {
+      final count = lane.cards
+          .where((c) => c.statusId == status.id && cardVisible(c))
+          .length;
+      if (count > maxCount) maxCount = count;
+    }
+
+    final rowsForTrailingSlot = ((maxCount + 1) / 2).ceil();
+    final rows = rowsForTrailingSlot < 2 ? 2 : rowsForTrailingSlot;
+    return rows * cardWidth + (rows - 1) * _cardGridSpacing + _statusColumnChrome;
   }
 
   Widget _columnWrapper({
@@ -1045,8 +1094,10 @@ class _SwimlaneLabel extends StatelessWidget {
   const _SwimlaneLabel({
     required this.swimlane,
     required this.assigneeInitial,
+    required this.isCollapsed,
     required this.onCardReparented,
     required this.onTapped,
+    required this.onToggleCollapsed,
   });
 
   final Swimlane swimlane;
@@ -1055,9 +1106,12 @@ class _SwimlaneLabel extends StatelessWidget {
   /// view model — see [BoardCard.assigneeInitial].
   final String? assigneeInitial;
 
+  final bool isCollapsed;
+
   final Future<void> Function(WorkItemCard card, String newParentId)
   onCardReparented;
   final void Function(String workItemId) onTapped;
+  final VoidCallback onToggleCollapsed;
 
   @override
   Widget build(BuildContext context) {
@@ -1091,18 +1145,48 @@ class _SwimlaneLabel extends StatelessWidget {
               // and left free to wrap to multiple lines instead of
               // eliding, now that it's not vertically centered to make
               // room for a taller label.
-              padding: const EdgeInsets.only(left: 8, right: 8, top: 16, bottom: 8),
+              padding: const EdgeInsets.only(left: 4, right: 8, top: 16, bottom: 8),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      swimlane.title,
-                      style: labelStyle,
-                      softWrap: true,
+                  // Fixed size regardless of collapse state — matches the
+                  // Hierarchy view's own expand/collapse caret treatment.
+                  SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      iconSize: 18,
+                      constraints: const BoxConstraints(),
+                      visualDensity: VisualDensity.compact,
+                      color: _onGridBackground,
+                      icon: Icon(isCollapsed ? Icons.chevron_right : Icons.expand_more),
+                      tooltip: isCollapsed ? 'Expand' : 'Collapse',
+                      onPressed: onToggleCollapsed,
                     ),
                   ),
-                  AssigneeAvatar(initial: assigneeInitial),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: isCollapsed
+                        ? Text(
+                            swimlane.title,
+                            style: labelStyle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(swimlane.title, style: labelStyle, softWrap: true),
+                              // ~24px between the title and its own
+                              // assignee avatar below it, so they don't
+                              // sit too close together.
+                              const SizedBox(height: 24),
+                              AssigneeAvatar(initial: assigneeInitial),
+                            ],
+                          ),
+                  ),
                 ],
               ),
             ),
@@ -1117,8 +1201,9 @@ class _StatusColumn extends StatelessWidget {
   const _StatusColumn({
     required this.swimlane,
     required this.status,
+    required this.cardWidth,
+    required this.isCollapsed,
     required this.onCardDropped,
-    required this.onCardRescheduled,
     required this.onCardDetailsOpened,
     required this.cardVisible,
     required this.cardComparator,
@@ -1127,14 +1212,16 @@ class _StatusColumn extends StatelessWidget {
 
   final Swimlane swimlane;
   final BoardStatus status;
+
+  /// Precomputed by [_SwimlaneBoard] (shared across every column so a
+  /// swimlane's row height, also computed there, matches what actually
+  /// renders here).
+  final double cardWidth;
+
+  final bool isCollapsed;
+
   final Future<void> Function(WorkItemCard card, String newStatusId)
   onCardDropped;
-  final Future<void> Function(
-    WorkItemCard card,
-    DateTime? startDate,
-    DateTime? endDate,
-  )
-  onCardRescheduled;
   final void Function(WorkItemCard card) onCardDetailsOpened;
   final bool Function(WorkItemCard card) cardVisible;
   final Comparator<WorkItemCard>? cardComparator;
@@ -1142,6 +1229,16 @@ class _StatusColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (isCollapsed) {
+      return Container(
+        margin: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(8),
+        ),
+      );
+    }
+
     final cards = swimlane.cards
         .where((c) => c.statusId == status.id && cardVisible(c))
         .toList();
@@ -1164,41 +1261,31 @@ class _StatusColumn extends StatelessWidget {
                 : colorScheme.surfaceContainerLow,
             borderRadius: BorderRadius.circular(8),
           ),
-          // The row's height is fixed (see _swimlaneRowHeight), so a lane
-          // with more cards than fit scrolls within its own cell instead
-          // of growing the row.
-          child: SingleChildScrollView(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // Two cards per row, Azure DevOps sprint-board style — each
-                // one closer to square than the old full-width row.
-                final cardWidth =
-                    (constraints.maxWidth - _cardGridSpacing) / 2;
-                return Wrap(
-                  spacing: _cardGridSpacing,
-                  runSpacing: _cardGridSpacing,
-                  children: [
-                    for (final card in cards)
-                      ConstrainedBox(
-                        // minHeight (not a fixed height) so a card is
-                        // square-ish by default but can still grow for a
-                        // long, wrapped title instead of clipping it.
-                        constraints: BoxConstraints(
-                          minWidth: cardWidth,
-                          maxWidth: cardWidth,
-                          minHeight: cardWidth,
-                        ),
-                        child: BoardCard(
-                          card: card,
-                          assigneeInitial: assigneeInitialFor(card.assignedToUserId),
-                          onReschedule: onCardRescheduled,
-                          onOpenDetails: () => onCardDetailsOpened(card),
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
+          // The row's own height (computed by _SwimlaneBoard) already
+          // reserves at least a 2x2 grid, growing for however many rows
+          // this cell's card count actually needs — so this Wrap never
+          // needs to scroll internally, it just fills the space given.
+          child: Wrap(
+            spacing: _cardGridSpacing,
+            runSpacing: _cardGridSpacing,
+            children: [
+              for (final card in cards)
+                ConstrainedBox(
+                  // minHeight (not a fixed height) so a card is
+                  // square-ish by default but can still grow for a
+                  // long, wrapped title instead of clipping it.
+                  constraints: BoxConstraints(
+                    minWidth: cardWidth,
+                    maxWidth: cardWidth,
+                    minHeight: cardWidth,
+                  ),
+                  child: BoardCard(
+                    card: card,
+                    assigneeInitial: assigneeInitialFor(card.assignedToUserId),
+                    onOpenDetails: () => onCardDetailsOpened(card),
+                  ),
+                ),
+            ],
           ),
         );
       },
