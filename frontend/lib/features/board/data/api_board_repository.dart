@@ -150,6 +150,7 @@ class ApiBoardRepository implements BoardRepository {
 
   WorkItemCard _toCard(Map<String, dynamic> item) => WorkItemCard(
     id: item['id'] as String,
+    number: item['number'] as int,
     title: item['title'] as String,
     parentId: item['parentId'] as String,
     statusId: item['statusId'] as String,

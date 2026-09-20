@@ -5,6 +5,7 @@
 class WorkItemCard {
   const WorkItemCard({
     required this.id,
+    required this.number,
     required this.title,
     required this.parentId,
     required this.statusId,
@@ -15,6 +16,12 @@ class WorkItemCard {
   });
 
   final String id;
+
+  /// The short, sequential, human-facing id (e.g. "#42") shown on the card
+  /// — see the backend's `WorkItem.Number` for why this exists alongside
+  /// [id].
+  final int number;
+
   final String title;
   final String parentId;
   final String statusId;
@@ -30,6 +37,7 @@ class WorkItemCard {
 
   WorkItemCard copyWith({String? statusId}) => WorkItemCard(
         id: id,
+        number: number,
         title: title,
         parentId: parentId,
         statusId: statusId ?? this.statusId,
@@ -44,6 +52,7 @@ class WorkItemCard {
   /// way [copyWith] never touches [parentId].
   WorkItemCard movedToParent(String newParentId) => WorkItemCard(
         id: id,
+        number: number,
         title: title,
         parentId: newParentId,
         statusId: statusId,
@@ -58,6 +67,7 @@ class WorkItemCard {
   WorkItemCard rescheduled(DateTime? startDate, DateTime? endDate) =>
       WorkItemCard(
         id: id,
+        number: number,
         title: title,
         parentId: parentId,
         statusId: statusId,

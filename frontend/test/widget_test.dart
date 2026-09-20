@@ -30,6 +30,7 @@ class _StubBoardRepository implements BoardRepository {
           cards: [
             WorkItemCard(
               id: 'wi-1',
+              number: 1,
               title: 'Design swimlane layout',
               parentId: 'epic-board',
               statusId: 'todo',
