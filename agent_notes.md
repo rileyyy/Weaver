@@ -657,3 +657,95 @@ whoever (human or agent) next touches this area.
   it's the signed-in user's own comment); added a link between two work
   items and confirmed it appears in "Related work items" on the source
   item's screen with a remove-link control next to it.
+
+## MCP (Milestone 13)
+
+- **`BoardsController`/`StatusesController`/`WorkItemLayersController`
+  were the only controllers left querying `WeaverDbContext` directly** —
+  every other resource already had an `IXxxService`. This milestone's own
+  rule ("MCP tools must call the same Application services used by the
+  REST API," "MCP must never directly access EF Core") can't be satisfied
+  for those three resources without a service to call, so
+  `IBoardService`/`IStatusService`/`IWorkItemLayerService` were extracted
+  first, mirroring `IWorkItemService`'s shape, and the controllers were
+  switched over to them with no behavior change (see project_design.md's
+  Milestone 13 decisions for the one exception: `BoardsController`'s
+  invalid-`ScopeItemId` 404 now goes through `ApiExceptionMiddleware` like
+  every other 404, instead of a bespoke plain-string body).
+- **MCP tools live inside `Weaver.Api` itself** (`Mcp/` folder), not a
+  separate project — they need the same `Weaver.Api.Contracts` DTOs
+  controllers already use (`WorkItemDto`, `CommentDto`, etc.), and there's
+  no `Weaver.Application` project for a "shared by both transports" layer
+  to live in instead (see project_design.md's decision not to introduce
+  one for this milestone). Each tool class mirrors one controller 1:1
+  (`WorkItemTools` ↔ `WorkItemsController`, etc.) and takes the same
+  service interface via constructor injection — the MCP C# SDK
+  (`ModelContextProtocol.AspNetCore`) resolves a fresh tool instance per
+  call from the same per-request DI scope a controller gets, so a
+  `WeaverDbContext`-backed service behaves identically either way.
+- **`list_all_work_items` was deliberately not added as an MCP tool.**
+  `IWorkItemService` has no `GetAllAsync` on this branch (that's a
+  `feature/board-ui-improvements`-only addition for the Hierarchy view,
+  not yet on `master`) — adding one just for MCP would mean MCP tools
+  calling business logic REST doesn't have, which is exactly what "the
+  same Application services used by the REST API" rules out.
+  `list_work_item_children` (with `parentId` omitted for top-level) is
+  what MCP exposes instead, same as REST.
+- **Tool-level auth is entirely "reuse the REST API's."**
+  `app.MapMcp("/mcp")` is mapped in the same `Program.cs` pipeline as
+  `app.MapControllers()`, after `UseAuthentication()`/`UseAuthorization()`,
+  so it inherits the existing `[Authorize]` fallback policy with zero
+  extra code — an MCP client sends `Authorization: Bearer <token>` from a
+  normal `/api/auth/login` call, exactly like any REST client. No
+  `[AllowAnonymous]`-equivalent exists for it. Confirmed via `curl`: a
+  `tools/list` call with no bearer token gets a plain 401 before ever
+  reaching MCP's own request handling.
+- **Enum serialization needed an explicit fix, and it wasn't optional.**
+  The MCP SDK's `WithToolsFromAssembly` takes a `JsonSerializerOptions`
+  specifically to control tool parameter/result marshalling; without
+  passing one, `WorkItemDto.Priority` etc. would serialize as a raw int
+  (`1`) instead of the app's established `"Medium"` string convention
+  (`JsonStringEnumConverter`, registered for MVC in Program.cs since
+  Milestone 10). `Mcp/McpJsonSerializerOptions.cs` builds this by
+  copy-constructing from `JsonSerializerOptions.Default`, not
+  `new JsonSerializerOptions(...)` — the latter has no `TypeInfoResolver`,
+  and the SDK calls `MakeReadOnly()` on whatever options it's given before
+  first use, which throws `InvalidOperationException` at that point. This
+  wasn't caught by any unit test (nothing exercises the DI container's
+  actual object graph); it only surfaced as the entire API crashing on
+  startup during end-to-end verification against the dev Docker stack,
+  with the real exception buried at the bottom of a long `IServiceProvider`
+  call-site-resolution stack trace pointing at `MapMcp`. Worth remembering
+  for any future `JsonSerializerOptions` built for a DI-resolved SDK
+  feature like this.
+- **Domain exceptions are translated to `McpException`, not left to the
+  SDK's default.** Without translation, any exception thrown from a
+  service call (e.g. `EntityNotFoundException`) becomes a generic,
+  message-free error `CallToolResult` — the SDK deliberately strips
+  exception messages it doesn't recognize, to avoid leaking internal
+  details by default. `Mcp/McpExceptionTranslation.cs` catches the same
+  domain exception types `ApiExceptionMiddleware` already maps to HTTP
+  statuses and rethrows them as `McpException(ex.Message, ex)`, whose
+  message *is* propagated to the client by design (`McpException`'s own
+  doc comment: "might be propagated to the remote endpoint; sensitive
+  information should not be included" — safe here, since these are the
+  exact same messages already sent in REST 404/409/400 bodies). Confirmed
+  via a live `tools/call` against a nonexistent work item id: the client
+  gets `"An error occurred invoking 'delete_work_item': WorkItem {id} was
+  not found."` with `isError: true`, not a blank generic failure.
+- **Stateless HTTP transport (`options.Stateless = true`), mapped at
+  `/mcp` on the existing backend port.** No new Docker/compose config was
+  needed — `compose.yaml`/`compose.override.yaml` already forward port
+  8080 for the backend, and stateless mode means each MCP call is handled
+  as an ordinary request with no server-side session state to persist
+  between calls, matching how the REST API itself is already stateless
+  (JWT-based auth, no server sessions).
+- Verified end to end against the dev Docker stack (not just unit tests):
+  registered a real user through `/api/auth/register`, used its access
+  token to complete an MCP `initialize` handshake and `tools/list` call
+  over the Streamable HTTP transport, confirmed `create_work_item`'s
+  response showed `"Priority":"High"` (not `1`), confirmed
+  `delete_work_item` against a nonexistent id came back as a
+  client-visible `McpException` message rather than a crash or a silent
+  generic failure, and confirmed a request with no bearer token was
+  rejected with a plain 401 before reaching MCP's own handling at all.

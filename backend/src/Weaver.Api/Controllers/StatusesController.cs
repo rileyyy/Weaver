@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Weaver.Api.Contracts;
-using Weaver.Infrastructure;
+using Weaver.Infrastructure.Services;
 
 namespace Weaver.Api.Controllers;
 
@@ -9,17 +8,17 @@ namespace Weaver.Api.Controllers;
 [Route("api/statuses")]
 public class StatusesController : ControllerBase
 {
-    private readonly WeaverDbContext _db;
+    private readonly IStatusService _statuses;
 
-    public StatusesController(WeaverDbContext db)
+    public StatusesController(IStatusService statuses)
     {
-        _db = db;
+        _statuses = statuses;
     }
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<StatusDto>>> GetAll()
     {
-        var statuses = await _db.Statuses.OrderBy(s => s.Order).ToListAsync();
+        var statuses = await _statuses.GetAllAsync();
         return Ok(statuses.Select(StatusDto.FromEntity));
     }
 }
