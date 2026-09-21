@@ -16,6 +16,7 @@ class WorkItemDetail {
     required this.endDate,
     required this.createdAtUtc,
     required this.updatedAtUtc,
+    this.tags = const [],
   });
 
   final String id;
@@ -30,4 +31,5 @@ class WorkItemDetail {
   final DateTime? endDate;
   final DateTime createdAtUtc;
   final DateTime updatedAtUtc;
+  final List<String> tags;
 }

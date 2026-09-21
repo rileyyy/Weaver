@@ -39,6 +39,10 @@ public class ApiExceptionMiddleware
         {
             await WriteProblemAsync(context, StatusCodes.Status400BadRequest, ex.Message);
         }
+        catch (InvalidWorkItemTagException ex)
+        {
+            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, ex.Message);
+        }
         catch (InvalidCredentialsException ex)
         {
             await WriteProblemAsync(context, StatusCodes.Status401Unauthorized, ex.Message);

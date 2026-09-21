@@ -13,6 +13,7 @@ Map<String, dynamic> _itemJson({
   String? layerId,
   String priority = 'Medium',
   String? assignedToUserId,
+  List<String> tags = const [],
 }) => {
   'id': 'item-1',
   'parentId': null,
@@ -22,6 +23,7 @@ Map<String, dynamic> _itemJson({
   'layerId': layerId,
   'priority': priority,
   'assignedToUserId': assignedToUserId,
+  'tags': tags,
   'rank': 0,
   'startDate': null,
   'endDate': null,
@@ -53,6 +55,17 @@ void main() {
     expect(item.layerId, 'layer-1');
     expect(item.priority, WorkItemPriority.urgent);
     expect(item.assignedToUserId, 'user-1');
+  });
+
+  test('getItem parses tags', () async {
+    final client = MockClient((request) async => _jsonResponse(
+          _itemJson(tags: ['urgent', 'needs review']),
+        ));
+    final repository = ApiWorkItemDetailRepository(client, baseUrl);
+
+    final item = await repository.getItem('item-1');
+
+    expect(item.tags, ['urgent', 'needs review']);
   });
 
   test('loadLayers parses the layer list', () async {
@@ -115,6 +128,24 @@ void main() {
 
     expect(sentRequest!.url.path, '/api/work-items/item-1/assignee');
     expect(jsonDecode(sentRequest!.body), {'userId': 'user-1'});
+  });
+
+  test('updateTags posts the new tag list to the tags endpoint', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse(_itemJson(tags: ['urgent']));
+    });
+    final repository = ApiWorkItemDetailRepository(client, baseUrl);
+
+    final item = await repository.updateTags('item-1', ['urgent']);
+
+    expect(sentRequest!.method, 'POST');
+    expect(sentRequest!.url.path, '/api/work-items/item-1/tags');
+    expect(jsonDecode(sentRequest!.body), {
+      'tags': ['urgent'],
+    });
+    expect(item.tags, ['urgent']);
   });
 
   test('reschedule posts the new dates', () async {

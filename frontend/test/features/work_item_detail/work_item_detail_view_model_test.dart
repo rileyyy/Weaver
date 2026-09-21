@@ -15,6 +15,7 @@ WorkItemDetail _item({
   String? layerId,
   WorkItemPriority priority = WorkItemPriority.medium,
   String? assignedToUserId,
+  List<String> tags = const [],
 }) => WorkItemDetail(
   id: id,
   parentId: null,
@@ -28,6 +29,7 @@ WorkItemDetail _item({
   endDate: null,
   createdAtUtc: DateTime.utc(2026, 1, 1),
   updatedAtUtc: DateTime.utc(2026, 1, 1),
+  tags: tags,
 );
 
 class _FakeRepository implements WorkItemDetailRepository {
@@ -40,6 +42,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   final List<String> updateDetailsCalls = [];
   final List<String?> assignCalls = [];
   final List<String> rescheduleCalls = [];
+  final List<List<String>> updateTagsCalls = [];
   final List<WorkItemComment> commentsList = [];
   final List<WorkItemLink> linksList = [];
 
@@ -99,6 +102,14 @@ class _FakeRepository implements WorkItemDetailRepository {
     final error = saveError;
     if (error != null) throw error;
     return item;
+  }
+
+  @override
+  Future<WorkItemDetail> updateTags(String id, List<String> tags) async {
+    updateTagsCalls.add(tags);
+    final error = saveError;
+    if (error != null) throw error;
+    return item = _item(id: id, statusId: item.statusId, tags: tags);
   }
 
   @override
@@ -247,6 +258,31 @@ void main() {
     expect(ok, isTrue);
     expect(viewModel.item!.assignedToUserId, 'user-1');
     expect(repository.assignCalls, ['user-1']);
+  });
+
+  test('saveTags updates the tag list on success', () async {
+    final repository = _FakeRepository();
+    final viewModel = WorkItemDetailViewModel(repository);
+    await viewModel.load('item-1');
+
+    final ok = await viewModel.saveTags(['urgent', 'needs review']);
+
+    expect(ok, isTrue);
+    expect(viewModel.item!.tags, ['urgent', 'needs review']);
+    expect(repository.updateTagsCalls, [
+      ['urgent', 'needs review'],
+    ]);
+  });
+
+  test('saveTags returns false and sets saveError on failure', () async {
+    final repository = _FakeRepository(saveError: Exception('invalid tag'));
+    final viewModel = WorkItemDetailViewModel(repository);
+    await viewModel.load('item-1');
+
+    final ok = await viewModel.saveTags(['urgent']);
+
+    expect(ok, isFalse);
+    expect(viewModel.saveError, isNotNull);
   });
 
   test('saveSchedule delegates to the repository and returns success', () async {

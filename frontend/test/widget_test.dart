@@ -69,6 +69,12 @@ class _StubBoardRepository implements BoardRepository {
     required String? parentId,
     required String statusId,
   }) => Future.value();
+
+  @override
+  Future<void> assign(String workItemId, String? userId) => Future.value();
+
+  @override
+  Future<void> setTags(String workItemId, List<String> tags) => Future.value();
 }
 
 /// Never actually called: the test pre-populates a non-expired session

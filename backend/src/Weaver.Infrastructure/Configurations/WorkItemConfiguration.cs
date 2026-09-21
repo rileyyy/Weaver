@@ -38,6 +38,12 @@ public class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             .HasForeignKey(w => w.AssignedToUserId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        // Native Postgres array column (Npgsql maps List<string> to text[]
+        // directly) — no join table, since nothing queries by tag
+        // server-side today (tag search/filter is client-side, matching
+        // every other board filter).
+        builder.Property(w => w.Tags).HasColumnType("text[]").IsRequired();
+
         // A board cell is (ParentId, StatusId); rank only needs to sort within that cell.
         builder.HasIndex(w => new { w.ParentId, w.StatusId, w.Rank });
 

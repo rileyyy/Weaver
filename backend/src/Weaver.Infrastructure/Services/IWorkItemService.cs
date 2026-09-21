@@ -89,4 +89,11 @@ public interface IWorkItemService
     /// every other field.
     /// </summary>
     Task<WorkItem> AssignAsync(Guid id, Guid? userId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Replaces a work item's full tag list, independently of every other
+    /// field. Tags are trimmed and de-duplicated case-insensitively; an
+    /// empty/blank tag is rejected.
+    /// </summary>
+    Task<WorkItem> SetTagsAsync(Guid id, IReadOnlyList<string> tags, CancellationToken ct = default);
 }

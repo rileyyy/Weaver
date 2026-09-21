@@ -255,3 +255,113 @@ you'd rather it be admin-configurable like layers/statuses.
   already in place. No compose/Dockerfile changes were needed. A stdio-based
   MCP server (spawned as a subprocess by a desktop MCP client) would need
   its own distributable and was out of scope here.
+
+## Open decisions — Frontend view improvements (pre-Milestone 14)
+
+A round of frontend polish requested directly (not a numbered milestone):
+swimlane assignee sizing/silhouette, click-an-avatar-to-assign everywhere,
+Hierarchy view columns/headers/resizing, and a new Roadmap (formerly
+"Calendar") timeline view. No backend changes were needed — `GET /users`
+and `POST /work-items/{id}/assignee` already existed (Milestone 9) and
+`WorkItemDto` already carried `Number`/`AssignedToUserId`/`StartDate`/
+`EndDate`. Judgment calls made along the way:
+
+- **The unassigned silhouette was added to the swimlane label (as asked)
+  and to the Hierarchy view's new Assigned To column, but not to board
+  cards.** A card's avatar still collapses to nothing when unassigned,
+  matching its existing compact design (`AssigneeAvatar` gained a
+  `showPlaceholderWhenUnassigned` flag rather than making this the new
+  default everywhere). The Hierarchy column needed _some_ visible, tappable
+  target in every row regardless of assignment state, or an unassigned
+  item's row would have had nothing to click to assign it.
+- **Hierarchy view: the expand/collapse caret and the new work-item-number
+  column stay at a fixed horizontal position regardless of nesting depth —
+  only the title's own text indents.** The previous single-status-column
+  layout could get away with indenting the whole row (an `Expanded` title
+  absorbed the padding, so the status column stayed flush against the
+  right edge either way); once Status and Assigned To both became
+  fixed-width, independently resizable columns after a fixed-width title,
+  indenting the whole row would have shifted every column out of alignment
+  with its own header as depth increased. Say the word if the caret itself
+  was expected to indent alongside the title (the common file-tree
+  convention) — that would need a different column-alignment approach.
+- **Column widths (Hierarchy view's Number/Title/Status/Assigned To) are
+  adjustable via draggable header dividers, but are pure view state** —
+  like the existing swimlane/Hierarchy collapse sets, they reset on reload
+  and aren't persisted per-user. Nothing in the request asked for
+  persistence; worth a real look if users want their column layout to
+  stick between sessions.
+- **Roadmap is a hand-rolled Gantt-style widget, no new package
+  dependency** — consistent with this codebase's existing preference for
+  plain Flutter widgets over a package for a single screen's worth of UI
+  (see the Flutter shell's `ViewModel` notes in `agent_notes.md`). It
+  reuses `BoardViewModel.hierarchyRoots` directly, so it automatically
+  gets the same sort/filter/search/status-visibility the Hierarchy view
+  gets from the shared header, and the same collapse-tree/indentation
+  behavior — its own timeframe (week/fortnight/month/quarter/year) and
+  visible date window are separate, view-only state, deliberately not
+  wired to the header's time-frame _filter_ (that filters which items
+  show up at all; the roadmap's timeframe only changes the timeline's
+  zoom level).
+- **Quarter and Year timeframes use approximate 7-day/30-day units, not
+  true calendar week/month boundaries.** Good enough for a zoomed-out
+  overview; a work item's bar can be off by a day or two at that zoom
+  level. Worth revisiting with real calendar-aware bucketing if that
+  precision ever matters.
+- **An item with neither a start nor an end date renders no bar at all in
+  the Roadmap** — there's no natural place to put it on a timeline, the
+  same reasoning the existing swimlane board already applies (no schedule
+  label shown for an unscheduled card).
+- **This machine's local Flutter SDK (3.32.6 / Dart 3.8.1) is out of date
+  relative to what this project's `pubspec.yaml` and two pre-existing
+  files need** — `flutter pub get` fails outright as committed
+  (`flutter_secure_storage` ^11.2.0's `win32` dependency needs Dart
+  ≥3.10), and even after a local-only `pubspec_overrides.yaml` workaround
+  (never committed), `flutter analyze` surfaces real errors in
+  `create_work_item_dialog.dart` and `work_item_detail_view.dart` from
+  newer Material APIs (`RadioGroup`, `DropdownButtonFormField
+.initialValue`) that don't exist in this older SDK — both pre-existing
+  and unrelated to this round of changes. Every file touched by this round
+  analyzes with zero errors, and the full board/repository test suite (77
+  tests, including new coverage for `assign` and the Hierarchy item's
+  `number`/`assignedToUserId` parsing) passes once pub resolution is
+  unblocked — but the app couldn't be exercised end-to-end in a real
+  browser this session as a result. Recommend `flutter upgrade` before the
+  next round of frontend work.
+
+## Open decisions — Tags (pre-Milestone 14 frontend round, continued)
+
+Free-text tags were added to work items (small badges on the swimlane card,
+Hierarchy, and Roadmap views; a text-based filter and search term), plus
+the swimlane board card now shows the unassigned silhouette. This needed a
+real backend field (a client-only tag would vanish on reload and never be
+seen by a second user) — see `agent_notes.md`'s new "Tags" section for the
+schema/validation decisions. Judgment calls specific to this round:
+
+- **Tags are only ever edited from the work item detail dialog** — no
+  inline "add a tag" affordance on a board card, Hierarchy row, or Roadmap
+  row itself, unlike the assignee avatar (which is directly tappable
+  everywhere it's shown). A tag list needed a small add/remove UI of its
+  own (a text field + removable chips), which didn't have an obvious
+  compact home on a card already showing a title, schedule, and avatar.
+  Worth revisiting if quick inline tagging turns out to matter in practice.
+- **The tag filter (in the existing Filters dialog) is "any selected tag
+  matches"** (OR), not "all selected tags must be present" (AND) — the
+  more common tag-filter convention, and simpler to reason about
+  alongside the existing status-column filter. An empty selection applies
+  no tag filter at all, rather than needing a separate "show all" toggle.
+- **The Roadmap view's title/tags split within its fixed 260px left column
+  is a fixed 3:2 flex ratio, not true "however much space the title
+  doesn't need."** True packing would need two-pass intrinsic-width
+  measurement (Flutter's `Flex` doesn't redistribute unused space from a
+  shrunk sibling in one layout pass); a fixed ratio is simpler, still
+  ellipsizes a long title and still overflow-badges tags that don't fit
+  their share, and behaves predictably as titles/tag counts vary. Revisit
+  if that column ever becomes independently resizable like Hierarchy's
+  columns already are.
+- **Tag matching (search, filter, and de-duplication) is
+  case-insensitive**, but a tag's *displayed* casing is whatever was typed
+  first — "Urgent" and "urgent" collapse to one badge, keeping the first
+  spelling. No tag rename/merge UI exists if someone wants to fix a
+  casing/spelling inconsistency after the fact beyond deleting and
+  re-adding it.

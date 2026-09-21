@@ -189,6 +189,34 @@ public class WorkItemService : IWorkItemService
         return item;
     }
 
+    public async Task<WorkItem> SetTagsAsync(Guid id, IReadOnlyList<string> tags, CancellationToken ct = default)
+    {
+        var normalized = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var tag in tags)
+        {
+            var trimmed = tag.Trim();
+            if (trimmed.Length == 0)
+            {
+                throw new InvalidWorkItemTagException(id);
+            }
+
+            if (seen.Add(trimmed))
+            {
+                normalized.Add(trimmed);
+            }
+        }
+
+        var item = await _db.WorkItems.FindAsync([id], ct)
+            ?? throw new EntityNotFoundException(nameof(WorkItem), id);
+
+        item.Tags = normalized;
+        item.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return item;
+    }
+
     public async Task DeleteAsync(Guid id, bool cascade = false, CancellationToken ct = default)
     {
         var item = await _db.WorkItems.FindAsync([id], ct)

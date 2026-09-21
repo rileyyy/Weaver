@@ -116,6 +116,17 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   }
 
   @override
+  Future<WorkItemDetail> updateTags(String id, List<String> tags) async {
+    final response = await _client.post(
+      _uri('/work-items/$id/tags'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({'tags': tags}),
+    );
+    _checkOk(response, 'Failed to set tags');
+    return _toDetail(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  @override
   Future<List<WorkItemComment>> loadComments(String workItemId) async {
     final json = await _getJsonList('/work-items/$workItemId/comments');
     return [for (final item in json) _toComment(item)];
@@ -201,6 +212,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     endDate: _parseDate(json['endDate']),
     createdAtUtc: DateTime.parse(json['createdAtUtc'] as String),
     updatedAtUtc: DateTime.parse(json['updatedAtUtc'] as String),
+    tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? const [],
   );
 
   DateTime? _parseDate(dynamic value) => value == null ? null : DateTime.parse(value as String);

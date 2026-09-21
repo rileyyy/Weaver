@@ -125,6 +125,19 @@ public class WorkItemTools
             return WorkItemDto.FromEntity(item);
         });
 
+    [McpServerTool(Name = "set_work_item_tags", Destructive = false, Idempotent = true)]
+    [Description("Replaces a work item's full tag list, independently of every other field. Tags are " +
+        "trimmed and de-duplicated case-insensitively; an empty/blank tag is rejected.")]
+    public Task<WorkItemDto> SetWorkItemTags(
+        [Description("The work item's id.")] Guid id,
+        [Description("The complete new list of tags — replaces the existing list entirely.")] IReadOnlyList<string> tags,
+        CancellationToken ct = default) =>
+        McpExceptionTranslation.TranslateAsync(async () =>
+        {
+            var item = await _workItems.SetTagsAsync(id, tags, ct);
+            return WorkItemDto.FromEntity(item);
+        });
+
     [McpServerTool(Name = "delete_work_item", Destructive = true)]
     [Description("Deletes a work item. If it has children, cascade must be true or the delete is " +
         "rejected — a subtree is never silently dropped.")]

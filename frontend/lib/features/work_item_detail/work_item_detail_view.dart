@@ -67,10 +67,12 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
   final _descriptionController = TextEditingController();
   final _newCommentController = TextEditingController();
   final _linkTargetController = TextEditingController();
+  final _tagInputController = TextEditingController();
   bool _fieldsInitialized = false;
   String? _selectedLayerId;
   WorkItemPriority _selectedPriority = WorkItemPriority.medium;
   String? _selectedAssigneeId;
+  List<String> _tags = [];
 
   String? get _currentUserId => getIt<AuthSessionStore>().current?.user.id;
 
@@ -89,6 +91,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
       _selectedLayerId = item.layerId;
       _selectedPriority = item.priority;
       _selectedAssigneeId = item.assignedToUserId;
+      _tags = [...item.tags];
       _fieldsInitialized = true;
     }
     setState(() {});
@@ -103,6 +106,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     _descriptionController.dispose();
     _newCommentController.dispose();
     _linkTargetController.dispose();
+    _tagInputController.dispose();
     super.dispose();
   }
 
@@ -194,6 +198,8 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
               onChanged: (value) => unawaited(_saveAssignee(value)),
             ),
             const SizedBox(height: 16),
+            _buildTagsSection(context),
+            const SizedBox(height: 16),
             _DateField(
               label: 'Start Date',
               value: item.startDate,
@@ -273,6 +279,50 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     );
   }
 
+  Widget _buildTagsSection(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Tags', style: Theme.of(context).textTheme.labelLarge),
+        if (_tags.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final tag in _tags)
+                InputChip(
+                  label: Text(tag),
+                  labelStyle: TextStyle(color: colorScheme.onSecondaryContainer, fontSize: 12),
+                  backgroundColor: colorScheme.secondaryContainer,
+                  visualDensity: VisualDensity.compact,
+                  onDeleted: () => unawaited(_removeTag(tag)),
+                ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _tagInputController,
+                decoration: const InputDecoration(hintText: 'Add a tag'),
+                onSubmitted: (_) => unawaited(_addTag()),
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: () => unawaited(_addTag()),
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildCommentsSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,6 +370,29 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     setState(() => _selectedAssigneeId = userId);
     final ok = await _viewModel.saveAssignee(userId);
     if (!ok && mounted) setState(() => _selectedAssigneeId = previous);
+  }
+
+  Future<void> _addTag() async {
+    final tag = _tagInputController.text.trim();
+    if (tag.isEmpty) return;
+    if (_tags.any((existing) => existing.toLowerCase() == tag.toLowerCase())) {
+      _tagInputController.clear();
+      return;
+    }
+    await _saveTags([..._tags, tag]);
+    _tagInputController.clear();
+  }
+
+  Future<void> _removeTag(String tag) => _saveTags([
+        for (final existing in _tags)
+          if (existing != tag) existing,
+      ]);
+
+  Future<void> _saveTags(List<String> updated) async {
+    final previous = _tags;
+    setState(() => _tags = updated);
+    final ok = await _viewModel.saveTags(updated);
+    if (!ok && mounted) setState(() => _tags = previous);
   }
 
   Future<void> _pickStartDate(WorkItemDetail item) async {

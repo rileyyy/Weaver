@@ -3,6 +3,7 @@ import 'package:weaver/core/theme/app_theme.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/widgets/assignee_avatar.dart';
 import 'package:weaver/features/board/widgets/date_format.dart';
+import 'package:weaver/features/board/widgets/tag_badge.dart';
 
 const double _feedbackWidth = 208;
 
@@ -17,6 +18,7 @@ class BoardCard extends StatelessWidget {
     required this.card,
     required this.assigneeInitial,
     required this.onOpenDetails,
+    required this.onAssignTapped,
   });
 
   final WorkItemCard card;
@@ -32,6 +34,10 @@ class BoardCard extends StatelessWidget {
   /// children is reached from inside that dialog instead of from a separate
   /// tap target here.
   final VoidCallback onOpenDetails;
+
+  /// Called when the assignee avatar itself is tapped, to open a picker
+  /// that reassigns this work item directly from the board.
+  final VoidCallback onAssignTapped;
 
   @override
   Widget build(BuildContext context) {
@@ -119,12 +125,17 @@ class BoardCard extends StatelessWidget {
                             ),
                         ],
                       ),
-                      // 1.34x the default size (roughly the doubled size
-                      // from before, reduced by a third per follow-up
-                      // feedback that the doubled avatar was too big).
-                      AssigneeAvatar(
-                        initial: assigneeInitial,
-                        size: AssigneeAvatar.defaultSize * 4 / 3,
+                      Row(
+                        children: [
+                          AssigneeAvatar(
+                            initial: assigneeInitial,
+                            size: AssigneeAvatar.cardSize,
+                            showPlaceholderWhenUnassigned: true,
+                            onTap: onAssignTapped,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(child: TagBadgeRow(tags: card.tags)),
+                        ],
                       ),
                     ],
                   ),

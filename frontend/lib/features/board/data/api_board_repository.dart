@@ -118,6 +118,26 @@ class ApiBoardRepository implements BoardRepository {
     _checkOk(response, 'Failed to create work item');
   }
 
+  @override
+  Future<void> assign(String workItemId, String? userId) async {
+    final response = await _client.post(
+      _uri('/work-items/$workItemId/assignee'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({'userId': userId}),
+    );
+    _checkOk(response, 'Failed to assign work item');
+  }
+
+  @override
+  Future<void> setTags(String workItemId, List<String> tags) async {
+    final response = await _client.post(
+      _uri('/work-items/$workItemId/tags'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({'tags': tags}),
+    );
+    _checkOk(response, 'Failed to set tags');
+  }
+
   Future<List<BoardStatus>> _loadStatuses() async {
     final json = await _getJsonList('/statuses');
     return [
@@ -142,6 +162,9 @@ class ApiBoardRepository implements BoardRepository {
     );
   }
 
+  List<String> _toTags(Map<String, dynamic> item) =>
+      (item['tags'] as List<dynamic>?)?.cast<String>() ?? const [];
+
   Future<List<Map<String, dynamic>>> _loadChildren(String? parentId) =>
       _getJsonList(
         '/work-items',
@@ -158,16 +181,20 @@ class ApiBoardRepository implements BoardRepository {
     startDate: _parseDate(item['startDate']),
     endDate: _parseDate(item['endDate']),
     assignedToUserId: item['assignedToUserId'] as String?,
+    tags: _toTags(item),
   );
 
   HierarchyItem _toHierarchyItem(Map<String, dynamic> item) => HierarchyItem(
     id: item['id'] as String,
+    number: item['number'] as int,
     parentId: item['parentId'] as String?,
     title: item['title'] as String,
     statusId: item['statusId'] as String,
     description: item['description'] as String?,
     startDate: _parseDate(item['startDate']),
     endDate: _parseDate(item['endDate']),
+    assignedToUserId: item['assignedToUserId'] as String?,
+    tags: _toTags(item),
   );
 
   DateTime? _parseDate(dynamic value) =>

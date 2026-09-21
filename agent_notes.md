@@ -620,6 +620,32 @@ whoever (human or agent) next touches this area.
   the migration default bug above, since the "before" state showed every
   existing item as Priority "Low".
 
+## Tags (pre-Milestone 14 frontend round)
+
+- **First scalar-list field on `WorkItem`.** Every prior collection-typed
+  property was a real EF relationship (`Children`); `Tags` is a plain
+  `List<string>`, mapped straight to a Postgres `text[]` column (Npgsql
+  supports this natively, no join table). No index was added — tag
+  search/filter is entirely client-side (same as every board filter since
+  Milestone 8: the board already fetches full child lists, nothing queries
+  by tag server-side), so a GIN index would be speculative.
+- **Tags are set as a whole, not incrementally.** `SetTagsAsync` (mirroring
+  `AssignAsync`'s "set or clear" shape) always replaces the full list; there
+  is no add/remove-one-tag endpoint. The frontend always sends its complete
+  current tag list.
+- **Server-side normalization**: each tag is trimmed and rejected if blank
+  (`InvalidWorkItemTagException`, 400), and the list is de-duplicated
+  case-insensitively (first occurrence's casing wins) — this runs
+  server-side rather than trusting the frontend, the same reasoning as
+  `RescheduleAsync` validating its own dates itself.
+- **The generated migration (`AddWorkItemTags`) needed a hand-added
+  `defaultValueSql: "ARRAY[]::text[]"`.** EF's `dotnet ef migrations add`
+  left the new `NOT NULL text[]` column with no default at all, which would
+  have failed against any pre-existing row — the same class of "always
+  check the generated default" gotcha flagged for the Priority enum column
+  back in Milestone 9, just for a different reason (no default inferred at
+  all, rather than the wrong one).
+
 ## Comments and links (Milestone 11)
 
 - **A `WorkItemLink` row is symmetric by construction, not by query

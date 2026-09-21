@@ -4,16 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/core/theme/app_theme.dart';
 import 'package:weaver/features/board/board_view_model.dart';
+import 'package:weaver/features/board/hierarchy_view.dart';
 import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/board/models/card_sort_option.dart';
-import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/scope_crumb.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
+import 'package:weaver/features/board/roadmap_view.dart';
+import 'package:weaver/features/board/widgets/assign_dialog.dart';
 import 'package:weaver/features/board/widgets/assignee_avatar.dart';
 import 'package:weaver/features/board/widgets/board_card.dart';
 import 'package:weaver/features/board/widgets/create_work_item_dialog.dart';
 import 'package:weaver/features/board/widgets/date_format.dart';
+import 'package:weaver/features/board/widgets/load_error_view.dart';
+import 'package:weaver/features/board/widgets/status_dot.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view.dart';
 
 /// Below this width, the header collapses to a column (app name on its own
@@ -60,8 +64,7 @@ class BoardView extends StatefulWidget {
 }
 
 /// The board's alternate views, selected via the tabs in the top bar.
-/// Calendar and Hierarchy are stubs for now — only Swim Lanes is wired up.
-enum _BoardTab { swimLanes, calendar, hierarchy }
+enum _BoardTab { swimLanes, roadmap, hierarchy }
 
 class _BoardViewState extends State<BoardView> with SingleTickerProviderStateMixin {
   final BoardViewModel _viewModel = getIt<BoardViewModel>();
@@ -122,7 +125,9 @@ class _BoardViewState extends State<BoardView> with SingleTickerProviderStateMix
 
   void _onTabChanged() {
     setState(() {});
-    if (_tabController.index == _BoardTab.hierarchy.index && !_viewModel.hierarchyLoaded) {
+    final needsHierarchyData = _tabController.index == _BoardTab.hierarchy.index ||
+        _tabController.index == _BoardTab.roadmap.index;
+    if (needsHierarchyData && !_viewModel.hierarchyLoaded) {
       unawaited(_viewModel.loadHierarchy());
     }
   }
@@ -150,6 +155,19 @@ class _BoardViewState extends State<BoardView> with SingleTickerProviderStateMix
       workItemId: workItemId,
       onDeleted: _onWorkItemDeleted,
     ));
+  }
+
+  /// Opens a picker to assign [workItemId] — used wherever an assignee
+  /// avatar is tapped (a card, a swimlane label, or a Hierarchy row).
+  /// Picking a user (or "Unassigned") assigns immediately; there's no
+  /// separate confirm step.
+  Future<void> _openAssignDialog(String workItemId, String? currentAssigneeId) {
+    return showAssignDialog(
+      context,
+      users: _viewModel.users,
+      currentAssigneeId: currentAssigneeId,
+      onAssign: (userId) => _viewModel.assign(workItemId, userId),
+    );
   }
 
   Future<void> _openCreateWorkItemDialog() async {
@@ -198,6 +216,12 @@ class _BoardViewState extends State<BoardView> with SingleTickerProviderStateMix
                 _SortBar(
                   value: _viewModel.sortOption,
                   onChanged: _viewModel.setSortOption,
+                ),
+                const SizedBox(height: 8),
+                _TagFilterBar(
+                  availableTags: _viewModel.availableTags,
+                  selectedTags: _viewModel.selectedTagFilters,
+                  onToggle: _viewModel.toggleTagFilter,
                 ),
               ],
             ),
@@ -258,10 +282,14 @@ class _BoardViewState extends State<BoardView> with SingleTickerProviderStateMix
                       controller: _tabController,
                       children: [
                         _buildBoardArea(context),
-                        const _CalendarViewStub(),
-                        _HierarchyView(
+                        RoadmapView(
                           viewModel: _viewModel,
                           onItemOpened: _openDetailsById,
+                        ),
+                        HierarchyView(
+                          viewModel: _viewModel,
+                          onItemOpened: _openDetailsById,
+                          onAssignRequested: _openAssignDialog,
                         ),
                       ],
                     ),
@@ -295,7 +323,7 @@ class _BoardViewState extends State<BoardView> with SingleTickerProviderStateMix
     if (loadError != null) {
       return Container(
         color: swimlaneBackground,
-        child: _LoadErrorView(message: loadError, onRetry: _viewModel.retry),
+        child: LoadErrorView(message: loadError, onRetry: _viewModel.retry),
       );
     }
 
@@ -313,6 +341,7 @@ class _BoardViewState extends State<BoardView> with SingleTickerProviderStateMix
                 onCardReparented: _viewModel.reparentCard,
                 onCardDetailsOpened: _openDetails,
                 onSwimlaneLabelTapped: _openDetailsById,
+                onAssignRequested: _openAssignDialog,
                 cardVisible: _viewModel.cardVisible,
                 cardComparator: _viewModel.cardComparator,
                 assigneeInitialFor: _viewModel.assigneeInitialFor,
@@ -431,196 +460,11 @@ class _HeaderBar extends StatelessWidget {
             tabAlignment: isNarrow ? TabAlignment.start : TabAlignment.fill,
             tabs: const [
               Tab(text: 'Swim Lanes'),
-              Tab(text: 'Calendar'),
+              Tab(text: 'Roadmap'),
               Tab(text: 'Hierarchy'),
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _CalendarViewStub extends StatelessWidget {
-  const _CalendarViewStub();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('Calendar view — coming soon'));
-  }
-}
-
-/// Columns the Hierarchy view shows to the right of each row's title, in
-/// order. Currently fixed to just [status]; a future milestone can make
-/// this user-configurable (e.g. persisted per-user) — that's why this is a
-/// small enum of builder specs rather than a single hard-coded status
-/// column baked into the row widget itself.
-enum HierarchyColumn {
-  status;
-
-  String label(BoardViewModel viewModel, HierarchyItem item) => switch (this) {
-        HierarchyColumn.status => viewModel.statusNameFor(item.statusId) ?? '',
-      };
-
-  Color? color(BoardViewModel viewModel, HierarchyItem item) => switch (this) {
-        HierarchyColumn.status => viewModel.statusColorFor(item.statusId),
-      };
-}
-
-const List<HierarchyColumn> _hierarchyColumns = [HierarchyColumn.status];
-const double _hierarchyColumnWidth = 140;
-const double _hierarchyIndentPerLevel = 24;
-
-/// Every work item nested under its parent, respecting the same time/search/
-/// status filters and sort order as the swim-lane board (see
-/// [BoardViewModel.hierarchyRoots]). Loaded lazily by [_BoardViewState] the
-/// first time this tab is opened.
-class _HierarchyView extends StatefulWidget {
-  const _HierarchyView({required this.viewModel, required this.onItemOpened});
-
-  final BoardViewModel viewModel;
-  final void Function(String workItemId) onItemOpened;
-
-  @override
-  State<_HierarchyView> createState() => _HierarchyViewState();
-}
-
-class _HierarchyViewState extends State<_HierarchyView> {
-  final Set<String> _collapsedIds = {};
-
-  @override
-  Widget build(BuildContext context) {
-    final viewModel = widget.viewModel;
-
-    if (viewModel.isHierarchyLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    final error = viewModel.hierarchyLoadError;
-    if (error != null) {
-      return _LoadErrorView(message: error, onRetry: viewModel.loadHierarchy);
-    }
-
-    final rows = <_HierarchyRow>[];
-    void flatten(List<HierarchyNode> nodes, int depth) {
-      for (final node in nodes) {
-        rows.add(_HierarchyRow(node: node, depth: depth));
-        if (node.children.isNotEmpty && !_collapsedIds.contains(node.item.id)) {
-          flatten(node.children, depth + 1);
-        }
-      }
-    }
-
-    flatten(viewModel.hierarchyRoots, 0);
-
-    if (rows.isEmpty) {
-      return const Center(child: Text('No work items match the current filters.'));
-    }
-
-    return ListView.builder(
-      itemCount: rows.length,
-      itemBuilder: (context, index) {
-        final row = rows[index];
-        final node = row.node;
-        return _HierarchyItemTile(
-          node: node,
-          depth: row.depth,
-          isCollapsed: _collapsedIds.contains(node.item.id),
-          onToggleCollapsed: () => setState(() {
-            if (!_collapsedIds.remove(node.item.id)) _collapsedIds.add(node.item.id);
-          }),
-          onTap: () => widget.onItemOpened(node.item.id),
-          viewModel: viewModel,
-        );
-      },
-    );
-  }
-}
-
-/// One flattened row: a [HierarchyNode] paired with how deep it sits in the
-/// (currently expanded) tree, for [ListView.builder] to render linearly.
-class _HierarchyRow {
-  const _HierarchyRow({required this.node, required this.depth});
-
-  final HierarchyNode node;
-  final int depth;
-}
-
-class _HierarchyItemTile extends StatelessWidget {
-  const _HierarchyItemTile({
-    required this.node,
-    required this.depth,
-    required this.isCollapsed,
-    required this.onToggleCollapsed,
-    required this.onTap,
-    required this.viewModel,
-  });
-
-  final HierarchyNode node;
-  final int depth;
-  final bool isCollapsed;
-  final VoidCallback onToggleCollapsed;
-  final VoidCallback onTap;
-  final BoardViewModel viewModel;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasChildren = node.children.isNotEmpty;
-
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: depth * _hierarchyIndentPerLevel,
-          top: 6,
-          bottom: 6,
-          right: 12,
-        ),
-        child: Row(
-          children: [
-            // Fixed height/width regardless of whether this row has a
-            // caret — IconButton's default 48x48 minimum tap target would
-            // otherwise make rows with children taller than leaf rows.
-            SizedBox(
-              width: 24,
-              height: 24,
-              child: hasChildren
-                  ? IconButton(
-                      padding: EdgeInsets.zero,
-                      iconSize: 18,
-                      constraints: const BoxConstraints(),
-                      visualDensity: VisualDensity.compact,
-                      icon: Icon(isCollapsed ? Icons.chevron_right : Icons.expand_more),
-                      tooltip: isCollapsed ? 'Expand' : 'Collapse',
-                      onPressed: onToggleCollapsed,
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(node.item.title, overflow: TextOverflow.ellipsis),
-            ),
-            for (final column in _hierarchyColumns)
-              SizedBox(
-                width: _hierarchyColumnWidth,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    _StatusDot(color: column.color(viewModel, node.item)),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        column.label(viewModel, node.item),
-                        textAlign: TextAlign.right,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }
@@ -647,7 +491,7 @@ class _SearchAndActions extends StatelessWidget {
       decoration: const InputDecoration(
         isDense: true,
         prefixIcon: Icon(Icons.search),
-        hintText: 'Search title or description',
+        hintText: 'Search title, description, or tags',
         border: OutlineInputBorder(),
       ),
     );
@@ -671,33 +515,6 @@ class _SearchAndActions extends StatelessWidget {
           onPressed: onLogout,
         ),
       ],
-    );
-  }
-}
-
-class _LoadErrorView extends StatelessWidget {
-  const _LoadErrorView({required this.message, required this.onRetry});
-
-  final String message;
-  final Future<void> Function() onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () => unawaited(onRetry()),
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -761,7 +578,7 @@ class _StatusFilterBar extends StatelessWidget {
         Text('Show columns', style: Theme.of(context).textTheme.bodySmall),
         for (final status in statuses)
           FilterChip(
-            avatar: _StatusDot(color: status.color),
+            avatar: StatusDot(color: status.color),
             label: Text(status.name),
             selected: !hiddenStatusIds.contains(status.id),
             onSelected: (_) => onToggle(status.id),
@@ -771,25 +588,33 @@ class _StatusFilterBar extends StatelessWidget {
   }
 }
 
-/// A small colored circle indicating a status's configured color — falls
-/// back to a neutral outline color if a status has none (e.g. a test
-/// fixture that doesn't care about color).
-class _StatusDot extends StatelessWidget {
-  const _StatusDot({required this.color});
+class _TagFilterBar extends StatelessWidget {
+  const _TagFilterBar({
+    required this.availableTags,
+    required this.selectedTags,
+    required this.onToggle,
+  });
 
-  final Color? color;
-
-  static const double _size = 10;
+  final List<String> availableTags;
+  final Set<String> selectedTags;
+  final ValueChanged<String> onToggle;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: _size,
-      height: _size,
-      decoration: BoxDecoration(
-        color: color ?? Theme.of(context).colorScheme.outlineVariant,
-        shape: BoxShape.circle,
-      ),
+    if (availableTags.isEmpty) return const SizedBox.shrink();
+
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 8,
+      children: [
+        Text('Filter by tag', style: Theme.of(context).textTheme.bodySmall),
+        for (final tag in availableTags)
+          FilterChip(
+            label: Text(tag),
+            selected: selectedTags.contains(tag),
+            onSelected: (_) => onToggle(tag),
+          ),
+      ],
     );
   }
 }
@@ -910,6 +735,7 @@ class _SwimlaneBoard extends StatelessWidget {
     required this.onCardReparented,
     required this.onCardDetailsOpened,
     required this.onSwimlaneLabelTapped,
+    required this.onAssignRequested,
     required this.cardVisible,
     required this.cardComparator,
     required this.assigneeInitialFor,
@@ -927,6 +753,7 @@ class _SwimlaneBoard extends StatelessWidget {
   onCardReparented;
   final void Function(WorkItemCard card) onCardDetailsOpened;
   final void Function(String workItemId) onSwimlaneLabelTapped;
+  final void Function(String workItemId, String? currentAssigneeId) onAssignRequested;
   final bool Function(WorkItemCard card) cardVisible;
   final Comparator<WorkItemCard>? cardComparator;
   final String? Function(String? userId) assigneeInitialFor;
@@ -986,6 +813,7 @@ class _SwimlaneBoard extends StatelessWidget {
               isCollapsed: collapsedSwimlaneIds.contains(lane.parentId),
               onCardReparented: onCardReparented,
               onTapped: onSwimlaneLabelTapped,
+              onAssignTapped: () => onAssignRequested(lane.parentId, lane.assignedToUserId),
               onToggleCollapsed: () => onToggleSwimlaneCollapsed(lane.parentId),
             ),
           ),
@@ -1034,6 +862,7 @@ class _SwimlaneBoard extends StatelessWidget {
                     isCollapsed: collapsedSwimlaneIds.contains(lane.parentId),
                     onCardDropped: onCardDropped,
                     onCardDetailsOpened: onCardDetailsOpened,
+                    onAssignRequested: onAssignRequested,
                     cardVisible: cardVisible,
                     cardComparator: cardComparator,
                     assigneeInitialFor: assigneeInitialFor,
@@ -1129,7 +958,7 @@ class _SwimlaneBoard extends StatelessWidget {
     // a floor other content must never clip against.
     const measurementSafetyMargin = 4;
     var height = topPadding + textPainter.height + measurementSafetyMargin + bottomPadding;
-    if (showsAvatar) height += gapBeforeAvatar + AssigneeAvatar.defaultSize;
+    if (showsAvatar) height += gapBeforeAvatar + AssigneeAvatar.cardSize;
     return height;
   }
 
@@ -1189,6 +1018,7 @@ class _SwimlaneLabel extends StatelessWidget {
     required this.isCollapsed,
     required this.onCardReparented,
     required this.onTapped,
+    required this.onAssignTapped,
     required this.onToggleCollapsed,
   });
 
@@ -1203,6 +1033,7 @@ class _SwimlaneLabel extends StatelessWidget {
   final Future<void> Function(WorkItemCard card, String newParentId)
   onCardReparented;
   final void Function(String workItemId) onTapped;
+  final VoidCallback onAssignTapped;
   final VoidCallback onToggleCollapsed;
 
   @override
@@ -1270,7 +1101,19 @@ class _SwimlaneLabel extends StatelessWidget {
                               // assignee avatar below it, so they don't
                               // sit too close together.
                               const SizedBox(height: 24),
-                              AssigneeAvatar(initial: assigneeInitial),
+                              // Same size as a card's own avatar (see
+                              // AssigneeAvatar.cardSize) so the two read as
+                              // the same visual weight, plus a silhouette
+                              // placeholder when unassigned — a lane's own
+                              // assignee is prominent enough to always show
+                              // a tappable target, unlike a card's (which
+                              // stays compact when it has no assignee).
+                              AssigneeAvatar(
+                                initial: assigneeInitial,
+                                size: AssigneeAvatar.cardSize,
+                                showPlaceholderWhenUnassigned: true,
+                                onTap: onAssignTapped,
+                              ),
                             ],
                           ),
                   ),
@@ -1293,6 +1136,7 @@ class _StatusColumn extends StatelessWidget {
     required this.isCollapsed,
     required this.onCardDropped,
     required this.onCardDetailsOpened,
+    required this.onAssignRequested,
     required this.cardVisible,
     required this.cardComparator,
     required this.assigneeInitialFor,
@@ -1312,6 +1156,7 @@ class _StatusColumn extends StatelessWidget {
   final Future<void> Function(WorkItemCard card, String newStatusId)
   onCardDropped;
   final void Function(WorkItemCard card) onCardDetailsOpened;
+  final void Function(String workItemId, String? currentAssigneeId) onAssignRequested;
   final bool Function(WorkItemCard card) cardVisible;
   final Comparator<WorkItemCard>? cardComparator;
   final String? Function(String? userId) assigneeInitialFor;
@@ -1381,6 +1226,7 @@ class _StatusColumn extends StatelessWidget {
                     card: card,
                     assigneeInitial: assigneeInitialFor(card.assignedToUserId),
                     onOpenDetails: () => onCardDetailsOpened(card),
+                    onAssignTapped: () => onAssignRequested(card.id, card.assignedToUserId),
                   ),
                 ),
             ],

@@ -12,6 +12,7 @@ public record WorkItemDto(
     Guid? LayerId,
     WorkItemPriority Priority,
     Guid? AssignedToUserId,
+    IReadOnlyList<string> Tags,
     double Rank,
     DateTimeOffset? StartDate,
     DateTimeOffset? EndDate,
@@ -28,6 +29,7 @@ public record WorkItemDto(
         item.LayerId,
         item.Priority,
         item.AssignedToUserId,
+        item.Tags,
         item.Rank,
         item.StartDate,
         item.EndDate,
@@ -62,3 +64,5 @@ public record UpdateWorkItemDetailsRequest(
     WorkItemPriority Priority);
 
 public record AssignWorkItemRequest(Guid? UserId);
+
+public record SetTagsWorkItemRequest(IReadOnlyList<string> Tags);

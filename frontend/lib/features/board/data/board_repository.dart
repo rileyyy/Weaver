@@ -48,4 +48,12 @@ abstract class BoardRepository {
     required String? parentId,
     required String statusId,
   });
+
+  /// Sets or clears who the work item identified by [workItemId] is
+  /// assigned to. Throws on failure.
+  Future<void> assign(String workItemId, String? userId);
+
+  /// Replaces the work item identified by [workItemId]'s full tag list.
+  /// Throws on failure.
+  Future<void> setTags(String workItemId, List<String> tags);
 }

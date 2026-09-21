@@ -41,6 +41,13 @@ public class WorkItem
 
     public Guid? AssignedToUserId { get; set; }
 
+    /// <summary>
+    /// Short, free-text labels (e.g. "urgent", "needs review") — zero or
+    /// more, never null. Set as a whole via <c>SetTagsAsync</c>, not
+    /// individually added/removed server-side.
+    /// </summary>
+    public List<string> Tags { get; set; } = new();
+
     public double Rank { get; set; }
 
     /// <summary>

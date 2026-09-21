@@ -32,6 +32,9 @@ abstract class WorkItemDetailRepository {
 
   Future<WorkItemDetail> reschedule(String id, DateTime? startDate, DateTime? endDate);
 
+  /// Replaces this work item's full tag list.
+  Future<WorkItemDetail> updateTags(String id, List<String> tags);
+
   Future<List<WorkItemComment>> loadComments(String workItemId);
 
   Future<WorkItemComment> addComment(String workItemId, String body);

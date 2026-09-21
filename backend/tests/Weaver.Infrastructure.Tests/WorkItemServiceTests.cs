@@ -339,4 +339,51 @@ public class WorkItemServiceTests
         Assert.ThrowsAsync<EntityNotFoundException>(() =>
             _service.AssignAsync(Guid.NewGuid(), Guid.NewGuid()));
     }
+
+    [Test]
+    public async Task SetTagsAsync_SetsTheTagList()
+    {
+        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+
+        var tagged = await _service.SetTagsAsync(item.Id, ["urgent", "needs review"]);
+
+        Assert.That(tagged.Tags, Is.EqualTo(new[] { "urgent", "needs review" }));
+    }
+
+    [Test]
+    public async Task SetTagsAsync_WithEmptyList_ClearsTags()
+    {
+        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+        await _service.SetTagsAsync(item.Id, ["urgent"]);
+
+        var cleared = await _service.SetTagsAsync(item.Id, []);
+
+        Assert.That(cleared.Tags, Is.Empty);
+    }
+
+    [Test]
+    public async Task SetTagsAsync_TrimsAndDeDuplicatesCaseInsensitively()
+    {
+        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+
+        var tagged = await _service.SetTagsAsync(item.Id, [" Bug ", "bug", "Feature"]);
+
+        Assert.That(tagged.Tags, Is.EqualTo(new[] { "Bug", "Feature" }));
+    }
+
+    [Test]
+    public async Task SetTagsAsync_WithABlankTag_ThrowsInvalidWorkItemTagException()
+    {
+        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+
+        Assert.ThrowsAsync<InvalidWorkItemTagException>(() =>
+            _service.SetTagsAsync(item.Id, ["urgent", "   "]));
+    }
+
+    [Test]
+    public void SetTagsAsync_WhenNotFound_ThrowsEntityNotFoundException()
+    {
+        Assert.ThrowsAsync<EntityNotFoundException>(() =>
+            _service.SetTagsAsync(Guid.NewGuid(), ["urgent"]));
+    }
 }

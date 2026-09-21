@@ -42,6 +42,7 @@ public static class McpExceptionTranslation
         CyclicParentException or
         WorkItemHasChildrenException or
         InvalidWorkItemScheduleException or
+        InvalidWorkItemTagException or
         CommentAuthorMismatchException or
         SelfWorkItemLinkException or
         DuplicateWorkItemLinkException;

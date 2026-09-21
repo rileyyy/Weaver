@@ -177,4 +177,17 @@ public class WorkItemsControllerTests
         Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(WorkItemDto.FromEntity(item)));
         _workItems.VerifyAll();
     }
+
+    [Test]
+    public async Task SetTags_DelegatesToService_AndReturnsOk()
+    {
+        var item = MakeWorkItem();
+        var tags = new List<string> { "urgent", "needs review" };
+        _workItems.Setup(s => s.SetTagsAsync(item.Id, tags, It.IsAny<CancellationToken>())).ReturnsAsync(item);
+
+        var result = await _controller.SetTags(item.Id, new SetTagsWorkItemRequest(tags));
+
+        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(WorkItemDto.FromEntity(item)));
+        _workItems.VerifyAll();
+    }
 }

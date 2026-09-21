@@ -256,6 +256,42 @@ void main() {
     expect(board.swimlanes.single.cards.single.description, 'Some detail');
   });
 
+  test("loadBoard parses each card's tags", () async {
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/statuses') return _jsonResponse([]);
+      if (request.url.path == '/api/work-items' &&
+          request.url.queryParameters['parentId'] == 'epic-1') {
+        return _jsonResponse([
+          {
+            'id': 'lane-1',
+            'title': 'Lane One',
+            'parentId': 'epic-1',
+            'statusId': 'status-todo',
+          },
+        ]);
+      }
+      if (request.url.path == '/api/work-items' &&
+          request.url.queryParameters['parentId'] == 'lane-1') {
+        return _jsonResponse([
+          {
+            'id': 'card-1',
+            'number': 1,
+            'title': 'Card One',
+            'parentId': 'lane-1',
+            'statusId': 'status-todo',
+            'tags': ['urgent', 'needs review'],
+          },
+        ]);
+      }
+      throw StateError('Unexpected request: ${request.url}');
+    });
+
+    final repository = ApiBoardRepository(client, baseUrl);
+    final board = await repository.loadBoard('epic-1');
+
+    expect(board.swimlanes.single.cards.single.tags, ['urgent', 'needs review']);
+  });
+
   test("loadBoard parses the assignee of both a lane's own item and its cards", () async {
     final client = MockClient((request) async {
       if (request.url.path == '/api/statuses') return _jsonResponse([]);
@@ -317,15 +353,20 @@ void main() {
         return _jsonResponse([
           {
             'id': 'root-1',
+            'number': 1,
             'title': 'Root',
             'parentId': null,
             'statusId': 'status-todo',
+            'assignedToUserId': null,
           },
           {
             'id': 'child-1',
+            'number': 2,
             'title': 'Child',
             'parentId': 'root-1',
             'statusId': 'status-todo',
+            'assignedToUserId': 'user-1',
+            'tags': ['urgent'],
           },
         ]);
       }
@@ -336,8 +377,13 @@ void main() {
     final items = await repository.loadAllItems();
 
     expect(items.map((i) => i.id), ['root-1', 'child-1']);
+    expect(items.first.number, 1);
     expect(items.first.parentId, isNull);
+    expect(items.first.assignedToUserId, isNull);
+    expect(items.first.tags, isEmpty);
     expect(items.last.parentId, 'root-1');
+    expect(items.last.assignedToUserId, 'user-1');
+    expect(items.last.tags, ['urgent']);
   });
 
   test('loadAllItems throws an ApiException on failure', () async {
@@ -380,6 +426,79 @@ void main() {
 
     await expectLater(
       repository.rescheduleItem('card-1', DateTime.utc(2026, 2, 1), null),
+      throwsA(isA<ApiException>()),
+    );
+  });
+
+  test('assign posts the new assignee and succeeds on 200', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return http.Response('', 200);
+    });
+
+    final repository = ApiBoardRepository(client, baseUrl);
+    await repository.assign('card-1', 'user-1');
+
+    expect(sentRequest, isNotNull);
+    expect(sentRequest!.method, 'POST');
+    expect(sentRequest!.url.path, '/api/work-items/card-1/assignee');
+    expect(jsonDecode(sentRequest!.body), {'userId': 'user-1'});
+  });
+
+  test('assign posts a null userId to clear the assignee', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return http.Response('', 200);
+    });
+
+    final repository = ApiBoardRepository(client, baseUrl);
+    await repository.assign('card-1', null);
+
+    expect(jsonDecode(sentRequest!.body), {'userId': null});
+  });
+
+  test('assign throws an ApiException on failure', () async {
+    final client = MockClient((request) async {
+      return _jsonResponse({'detail': 'User not found.'}, statusCode: 404);
+    });
+
+    final repository = ApiBoardRepository(client, baseUrl);
+
+    await expectLater(
+      repository.assign('card-1', 'missing-user'),
+      throwsA(isA<ApiException>()),
+    );
+  });
+
+  test('setTags posts the new tag list and succeeds on 200', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return http.Response('', 200);
+    });
+
+    final repository = ApiBoardRepository(client, baseUrl);
+    await repository.setTags('card-1', ['urgent', 'needs review']);
+
+    expect(sentRequest, isNotNull);
+    expect(sentRequest!.method, 'POST');
+    expect(sentRequest!.url.path, '/api/work-items/card-1/tags');
+    expect(jsonDecode(sentRequest!.body), {
+      'tags': ['urgent', 'needs review'],
+    });
+  });
+
+  test('setTags throws an ApiException on failure', () async {
+    final client = MockClient((request) async {
+      return _jsonResponse({'detail': 'Tags must not be blank.'}, statusCode: 400);
+    });
+
+    final repository = ApiBoardRepository(client, baseUrl);
+
+    await expectLater(
+      repository.setTags('card-1', ['']),
       throwsA(isA<ApiException>()),
     );
   });

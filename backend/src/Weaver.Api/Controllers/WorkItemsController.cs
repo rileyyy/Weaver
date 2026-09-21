@@ -120,6 +120,17 @@ public class WorkItemsController : ControllerBase
         return Ok(WorkItemDto.FromEntity(item));
     }
 
+    /// <summary>
+    /// Replaces a work item's full tag list. Independent of every other
+    /// field.
+    /// </summary>
+    [HttpPost("{id:guid}/tags")]
+    public async Task<ActionResult<WorkItemDto>> SetTags(Guid id, SetTagsWorkItemRequest request)
+    {
+        var item = await _workItems.SetTagsAsync(id, request.Tags);
+        return Ok(WorkItemDto.FromEntity(item));
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, [FromQuery] bool cascade = false)
     {

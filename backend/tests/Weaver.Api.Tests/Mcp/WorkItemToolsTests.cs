@@ -138,6 +138,33 @@ public class WorkItemToolsTests
     }
 
     [Test]
+    public async Task SetWorkItemTags_DelegatesToService()
+    {
+        var item = MakeWorkItem();
+        var tags = new List<string> { "urgent", "needs review" };
+        _workItems.Setup(w => w.SetTagsAsync(item.Id, tags, It.IsAny<CancellationToken>())).ReturnsAsync(item);
+
+        var result = await _tools.SetWorkItemTags(item.Id, tags, ct: CancellationToken.None);
+
+        Assert.That(result.Id, Is.EqualTo(item.Id));
+        _workItems.VerifyAll();
+    }
+
+    [Test]
+    public void SetWorkItemTags_WhenTagIsBlank_ThrowsMcpExceptionWithSameMessage()
+    {
+        var id = Guid.NewGuid();
+        var tags = new List<string> { "  " };
+        var domainException = new InvalidWorkItemTagException(id);
+        _workItems.Setup(w => w.SetTagsAsync(id, tags, It.IsAny<CancellationToken>())).ThrowsAsync(domainException);
+
+        var thrown = Assert.ThrowsAsync<McpException>(() =>
+            _tools.SetWorkItemTags(id, tags, ct: CancellationToken.None));
+
+        Assert.That(thrown!.Message, Is.EqualTo(domainException.Message));
+    }
+
+    [Test]
     public async Task DeleteWorkItem_WithCascadeTrue_DelegatesToService()
     {
         var id = Guid.NewGuid();

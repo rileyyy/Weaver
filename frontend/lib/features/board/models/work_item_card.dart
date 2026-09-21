@@ -13,6 +13,7 @@ class WorkItemCard {
     this.startDate,
     this.endDate,
     this.assignedToUserId,
+    this.tags = const [],
   });
 
   final String id;
@@ -35,6 +36,9 @@ class WorkItemCard {
 
   final String? assignedToUserId;
 
+  /// Short free-text labels, zero or more — see [tagged].
+  final List<String> tags;
+
   WorkItemCard copyWith({String? statusId}) => WorkItemCard(
         id: id,
         number: number,
@@ -45,6 +49,7 @@ class WorkItemCard {
         startDate: startDate,
         endDate: endDate,
         assignedToUserId: assignedToUserId,
+        tags: tags,
       );
 
   /// Moves this card to a new parent, keeping its status — the model-level
@@ -60,6 +65,7 @@ class WorkItemCard {
         startDate: startDate,
         endDate: endDate,
         assignedToUserId: assignedToUserId,
+        tags: tags,
       );
 
   /// Sets this card's schedule, keeping its status and parent — the
@@ -75,5 +81,36 @@ class WorkItemCard {
         startDate: startDate,
         endDate: endDate,
         assignedToUserId: assignedToUserId,
+        tags: tags,
+      );
+
+  /// Sets this card's assignee, keeping everything else — the model-level
+  /// mirror of the backend's `Assign`.
+  WorkItemCard assigned(String? userId) => WorkItemCard(
+        id: id,
+        number: number,
+        title: title,
+        parentId: parentId,
+        statusId: statusId,
+        description: description,
+        startDate: startDate,
+        endDate: endDate,
+        assignedToUserId: userId,
+        tags: tags,
+      );
+
+  /// Sets this card's tags (the full replacement list), keeping everything
+  /// else — the model-level mirror of the backend's `SetTags`.
+  WorkItemCard tagged(List<String> tags) => WorkItemCard(
+        id: id,
+        number: number,
+        title: title,
+        parentId: parentId,
+        statusId: statusId,
+        description: description,
+        startDate: startDate,
+        endDate: endDate,
+        assignedToUserId: assignedToUserId,
+        tags: tags,
       );
 }

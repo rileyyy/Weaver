@@ -32,6 +32,7 @@ class BoardViewModel extends ViewModel {
   String _searchQuery = '';
   final Set<String> _hiddenStatusIds = {};
   CardSortOption _sortOption = CardSortOption.manual;
+  final Set<String> _selectedTagFilters = {};
   List<HierarchyItem> _hierarchyItems = const [];
   bool _isHierarchyLoading = false;
   String? _hierarchyLoadError;
@@ -40,6 +41,10 @@ class BoardViewModel extends ViewModel {
 
   List<BoardStatus> get statuses => _statuses;
   List<Swimlane> get swimlanes => _swimlanes;
+
+  /// Every registered user, for building an assignee picker. Empty until
+  /// [load] resolves the user directory (best-effort — see [load]).
+  List<AuthUser> get users => _users;
 
   /// The path from the board's root scope down to what's currently shown,
   /// for breadcrumb navigation. Always has at least one entry once [load]
@@ -74,6 +79,33 @@ class BoardViewModel extends ViewModel {
       _statuses.where((s) => !_hiddenStatusIds.contains(s.id)).toList();
 
   CardSortOption get sortOption => _sortOption;
+
+  /// Tags currently selected in the Filters dialog. Empty means no tag
+  /// filter is applied (shows everything) — unlike [hiddenStatusIds], this
+  /// is a filter you opt into, not out of.
+  Set<String> get selectedTagFilters => _selectedTagFilters;
+
+  /// Every distinct tag currently seen across loaded swimlane cards and
+  /// Hierarchy items, sorted case-insensitively — for populating the
+  /// Filters dialog's tag chip list.
+  List<String> get availableTags {
+    final seen = <String, String>{};
+    for (final lane in _swimlanes) {
+      for (final card in lane.cards) {
+        for (final tag in card.tags) {
+          seen.putIfAbsent(tag.toLowerCase(), () => tag);
+        }
+      }
+    }
+    for (final item in _hierarchyItems) {
+      for (final tag in item.tags) {
+        seen.putIfAbsent(tag.toLowerCase(), () => tag);
+      }
+    }
+    final tags = seen.values.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return tags;
+  }
 
   bool get isHierarchyLoading => _isHierarchyLoading;
 
@@ -164,6 +196,17 @@ class BoardViewModel extends ViewModel {
       if (user.id == userId) {
         return user.username.isEmpty ? null : user.username[0].toUpperCase();
       }
+    }
+    return null;
+  }
+
+  /// The assigned user's full username, for a picker/column with room to
+  /// show more than just an initial — null on the same terms as
+  /// [assigneeInitialFor].
+  String? usernameFor(String? userId) {
+    if (userId == null) return null;
+    for (final user in _users) {
+      if (user.id == userId) return user.username;
     }
     return null;
   }
@@ -289,6 +332,89 @@ class BoardViewModel extends ViewModel {
     }
   }
 
+  /// Sets or clears who the work item identified by [workItemId] is
+  /// assigned to. [workItemId] may be a card, a swimlane's own parent item,
+  /// a Hierarchy item, or several of those at once (the same work item can
+  /// appear in more than one place) — every matching in-memory
+  /// representation is updated together. Applies optimistically, then rolls
+  /// back if the backend rejects it.
+  Future<void> assign(String workItemId, String? userId) async {
+    final previousSwimlanes = _swimlanes;
+    final previousHierarchyItems = _hierarchyItems;
+
+    _swimlanes = _assignedInSwimlanes(workItemId, userId);
+    _hierarchyItems = [
+      for (final item in _hierarchyItems)
+        if (item.id == workItemId) item.assigned(userId) else item,
+    ];
+    notifyIfActive();
+
+    try {
+      await _repository.assign(workItemId, userId);
+    } catch (_) {
+      _swimlanes = previousSwimlanes;
+      _hierarchyItems = previousHierarchyItems;
+      _moveError = 'Could not update the assignee. Try again.';
+      notifyIfActive();
+    }
+  }
+
+  List<Swimlane> _assignedInSwimlanes(String workItemId, String? userId) => [
+        for (final lane in _swimlanes)
+          if (lane.parentId == workItemId)
+            lane.assigned(userId).copyWithCards(_assignedInCards(lane.cards, workItemId, userId))
+          else
+            lane.copyWithCards(_assignedInCards(lane.cards, workItemId, userId)),
+      ];
+
+  List<WorkItemCard> _assignedInCards(
+    List<WorkItemCard> cards,
+    String workItemId,
+    String? userId,
+  ) => [
+        for (final card in cards)
+          if (card.id == workItemId) card.assigned(userId) else card,
+      ];
+
+  /// Replaces the tag list of the work item identified by [workItemId] —
+  /// the view-model mirror of [assign], same dual-update-then-rollback
+  /// shape (a work item's tags may need updating in both a swimlane card
+  /// and a Hierarchy item at once).
+  Future<void> setTags(String workItemId, List<String> tags) async {
+    final previousSwimlanes = _swimlanes;
+    final previousHierarchyItems = _hierarchyItems;
+
+    _swimlanes = _taggedInSwimlanes(workItemId, tags);
+    _hierarchyItems = [
+      for (final item in _hierarchyItems)
+        if (item.id == workItemId) item.tagged(tags) else item,
+    ];
+    notifyIfActive();
+
+    try {
+      await _repository.setTags(workItemId, tags);
+    } catch (_) {
+      _swimlanes = previousSwimlanes;
+      _hierarchyItems = previousHierarchyItems;
+      _moveError = 'Could not update the tags. Try again.';
+      notifyIfActive();
+    }
+  }
+
+  List<Swimlane> _taggedInSwimlanes(String workItemId, List<String> tags) => [
+        for (final lane in _swimlanes)
+          lane.copyWithCards(_taggedInCards(lane.cards, workItemId, tags)),
+      ];
+
+  List<WorkItemCard> _taggedInCards(
+    List<WorkItemCard> cards,
+    String workItemId,
+    List<String> tags,
+  ) => [
+        for (final card in cards)
+          if (card.id == workItemId) card.tagged(tags) else card,
+      ];
+
   void clearMoveError() => _moveError = null;
 
   /// Creates a new work item under [parentId] (null for a new top-level
@@ -354,35 +480,52 @@ class BoardViewModel extends ViewModel {
 
   void clearSearchQuery() => setSearchQuery('');
 
-  /// True if [card]'s title or description contains [searchQuery]
+  /// True if [card]'s title, description, or any tag contains [searchQuery]
   /// (case-insensitive). Always true when the query is empty.
   bool matchesSearch(WorkItemCard card) =>
-      _matchesSearchText(card.title, card.description);
+      _matchesSearchText(card.title, card.description, card.tags);
 
-  /// Core of [matchesSearch], generalized to bare title/description so
+  /// Core of [matchesSearch], generalized to bare title/description/tags so
   /// [hierarchyItemVisible] can share it without needing a [WorkItemCard].
-  bool _matchesSearchText(String title, String? description) {
+  bool _matchesSearchText(String title, String? description, List<String> tags) {
     final query = _searchQuery.trim().toLowerCase();
     if (query.isEmpty) return true;
 
     return title.toLowerCase().contains(query) ||
-        (description?.toLowerCase().contains(query) ?? false);
+        (description?.toLowerCase().contains(query) ?? false) ||
+        tags.any((tag) => tag.toLowerCase().contains(query));
   }
 
+  /// Shows or hides [tag] from the current tag filter. An empty selection
+  /// means no tag filter is applied.
+  void toggleTagFilter(String tag) {
+    if (!_selectedTagFilters.remove(tag)) {
+      _selectedTagFilters.add(tag);
+    }
+    notifyIfActive();
+  }
+
+  /// True if no tag filter is selected, or [tags] contains at least one
+  /// selected tag.
+  bool matchesTagFilter(List<String> tags) =>
+      _selectedTagFilters.isEmpty || tags.any(_selectedTagFilters.contains);
+
   /// Whether [card] should be shown on the board under the current
-  /// time-frame filter and search query together.
+  /// time-frame filter, search query, and tag filter together.
   bool cardVisible(WorkItemCard card) =>
-      matchesTimeFilter(card) && matchesSearch(card);
+      matchesTimeFilter(card) && matchesSearch(card) && matchesTagFilter(card.tags);
 
   /// Whether [item] should be shown in the Hierarchy view under the current
-  /// time-frame filter, search query, and hidden-status columns together.
-  /// Unlike [cardVisible], this also checks [hiddenStatusIds] directly —
-  /// the swim-lane board gets that for free by only ever iterating
-  /// [visibleStatuses], but the Hierarchy view isn't organized by column.
+  /// time-frame filter, search query, tag filter, and hidden-status columns
+  /// together. Unlike [cardVisible], this also checks [hiddenStatusIds]
+  /// directly — the swim-lane board gets that for free by only ever
+  /// iterating [visibleStatuses], but the Hierarchy view isn't organized by
+  /// column.
   bool hierarchyItemVisible(HierarchyItem item) =>
       !_hiddenStatusIds.contains(item.statusId) &&
       _matchesTimeWindow(item.startDate, item.endDate) &&
-      _matchesSearchText(item.title, item.description);
+      _matchesSearchText(item.title, item.description, item.tags) &&
+      matchesTagFilter(item.tags);
 
   /// Shows or hides [statusId]'s column. Hiding a status doesn't move or
   /// otherwise change any work item in it — it's purely a display toggle.

@@ -77,6 +77,8 @@ class _TestBoardRepository implements BoardRepository {
     this.reparentError,
     this.rescheduleError,
     this.createError,
+    this.assignError,
+    this.tagsError,
     this.hierarchyItems = const [],
     this.hierarchyError,
     this.users = const [],
@@ -86,6 +88,8 @@ class _TestBoardRepository implements BoardRepository {
   final Exception? reparentError;
   final Exception? rescheduleError;
   final Exception? createError;
+  final Exception? assignError;
+  final Exception? tagsError;
   final List<HierarchyItem> hierarchyItems;
   final Exception? hierarchyError;
   final List<AuthUser> users;
@@ -94,6 +98,8 @@ class _TestBoardRepository implements BoardRepository {
   final List<String> reschedules = [];
   final List<String?> requestedScopes = [];
   final List<String> creates = [];
+  final List<String> assigns = [];
+  final List<String> tagUpdates = [];
   int loadAllItemsCallCount = 0;
 
   @override
@@ -154,6 +160,20 @@ class _TestBoardRepository implements BoardRepository {
     final error = createError;
     if (error != null) throw error;
   }
+
+  @override
+  Future<void> assign(String workItemId, String? userId) async {
+    assigns.add('$workItemId->$userId');
+    final error = assignError;
+    if (error != null) throw error;
+  }
+
+  @override
+  Future<void> setTags(String workItemId, List<String> tags) async {
+    tagUpdates.add('$workItemId->${tags.join(',')}');
+    final error = tagsError;
+    if (error != null) throw error;
+  }
 }
 
 class _FailingLoadRepository implements BoardRepository {
@@ -194,6 +214,12 @@ class _FailingLoadRepository implements BoardRepository {
     required String? parentId,
     required String statusId,
   }) => Future.value();
+
+  @override
+  Future<void> assign(String workItemId, String? userId) => Future.value();
+
+  @override
+  Future<void> setTags(String workItemId, List<String> tags) => Future.value();
 }
 
 void main() {
@@ -413,6 +439,119 @@ void main() {
     },
   );
 
+  test("assign sets a card's assignee", () async {
+    final card = viewModel.swimlanes[0].cards.single;
+
+    await viewModel.assign(card.id, 'user-1');
+
+    expect(viewModel.swimlanes[0].cards.single.assignedToUserId, 'user-1');
+  });
+
+  test("assign sets a swimlane's own assignee when the id is its parent item", () async {
+    await viewModel.assign('lane-a', 'user-1');
+
+    expect(viewModel.swimlanes[0].assignedToUserId, 'user-1');
+    // The lane's cards are untouched — only the lane's own assignee changed.
+    expect(viewModel.swimlanes[0].cards.single.assignedToUserId, isNull);
+  });
+
+  test('assign clears an assignee when passed null', () async {
+    final card = viewModel.swimlanes[0].cards.single;
+    await viewModel.assign(card.id, 'user-1');
+
+    await viewModel.assign(card.id, null);
+
+    expect(viewModel.swimlanes[0].cards.single.assignedToUserId, isNull);
+  });
+
+  test('assign persists the change through the repository', () async {
+    final card = viewModel.swimlanes[0].cards.single;
+
+    await viewModel.assign(card.id, 'user-1');
+
+    expect(repository.assigns, ['card-1->user-1']);
+  });
+
+  test('assign updates a matching Hierarchy item too', () async {
+    final repository = _TestBoardRepository(
+      hierarchyItems: const [
+        HierarchyItem(id: 'root-1', number: 1, parentId: null, title: 'Root', statusId: 'todo'),
+      ],
+    );
+    final hierarchyViewModel = BoardViewModel(repository);
+    await hierarchyViewModel.load();
+    await hierarchyViewModel.loadHierarchy();
+
+    await hierarchyViewModel.assign('root-1', 'user-1');
+
+    expect(hierarchyViewModel.hierarchyRoots.single.item.assignedToUserId, 'user-1');
+  });
+
+  test(
+    'assign rolls back the optimistic update when the repository call fails',
+    () async {
+      final failingRepository = _TestBoardRepository(
+        assignError: Exception('boom'),
+      );
+      final failingViewModel = BoardViewModel(failingRepository);
+      await failingViewModel.load();
+      final card = failingViewModel.swimlanes[0].cards.single;
+
+      await failingViewModel.assign(card.id, 'user-1');
+
+      expect(failingViewModel.swimlanes[0].cards.single.assignedToUserId, isNull);
+      expect(failingViewModel.moveError, isNotNull);
+    },
+  );
+
+  test('setTags updates the card locally', () async {
+    final card = viewModel.swimlanes[0].cards.single;
+
+    await viewModel.setTags(card.id, ['urgent', 'needs review']);
+
+    expect(viewModel.swimlanes[0].cards.single.tags, ['urgent', 'needs review']);
+  });
+
+  test('setTags persists the change through the repository', () async {
+    final card = viewModel.swimlanes[0].cards.single;
+
+    await viewModel.setTags(card.id, ['urgent']);
+
+    expect(repository.tagUpdates, ['card-1->urgent']);
+  });
+
+  test('setTags updates a matching Hierarchy item too', () async {
+    final repository = _TestBoardRepository(
+      hierarchyItems: const [
+        HierarchyItem(id: 'root-1', number: 1, parentId: null, title: 'Root', statusId: 'todo'),
+      ],
+    );
+    final hierarchyViewModel = BoardViewModel(repository);
+    await hierarchyViewModel.load();
+    await hierarchyViewModel.loadHierarchy();
+
+    await hierarchyViewModel.setTags('root-1', ['urgent']);
+
+    expect(hierarchyViewModel.hierarchyRoots.single.item.tags, ['urgent']);
+  });
+
+  test(
+    'setTags rolls back the optimistic update when the repository call fails',
+    () async {
+      final failingRepository = _TestBoardRepository(
+        tagsError: Exception('boom'),
+      );
+      final failingViewModel = BoardViewModel(failingRepository);
+      await failingViewModel.load();
+      final card = failingViewModel.swimlanes[0].cards.single;
+
+      await failingViewModel.setTags(card.id, ['urgent']);
+
+      expect(failingViewModel.swimlanes[0].cards.single.tags, isEmpty);
+      expect(failingViewModel.moveError, isNotNull);
+    },
+  );
+
   test('createWorkItem persists the new item and reloads the current scope', () async {
     await viewModel.createWorkItem(
       title: 'New card',
@@ -585,6 +724,21 @@ void main() {
     expect(viewModel.matchesSearch(card), isFalse);
   });
 
+  test('matchesSearch matches a tag when neither title nor description match', () {
+    viewModel.setSearchQuery('urgent');
+    const card = WorkItemCard(
+      id: 'x',
+      number: 15,
+      title: 'Fix red button',
+      description: 'Unrelated',
+      parentId: 'lane-a',
+      statusId: 'todo',
+      tags: ['Urgent', 'design'],
+    );
+
+    expect(viewModel.matchesSearch(card), isTrue);
+  });
+
   test('clearSearchQuery resets the query', () {
     viewModel
       ..setSearchQuery('red')
@@ -655,6 +809,65 @@ void main() {
     viewModel.toggleStatusVisibility('done');
     expect(viewModel.visibleStatuses.map((s) => s.id), ['todo', 'done']);
     expect(viewModel.hiddenStatusIds, isEmpty);
+  });
+
+  test('matchesTagFilter is true for everything when no tag is selected', () {
+    expect(viewModel.matchesTagFilter(const []), isTrue);
+    expect(viewModel.matchesTagFilter(const ['urgent']), isTrue);
+  });
+
+  test('toggleTagFilter narrows matchesTagFilter to items with a selected tag', () {
+    viewModel.toggleTagFilter('urgent');
+
+    expect(viewModel.matchesTagFilter(const ['urgent', 'design']), isTrue);
+    expect(viewModel.matchesTagFilter(const ['design']), isFalse);
+    expect(viewModel.selectedTagFilters, {'urgent'});
+
+    viewModel.toggleTagFilter('urgent');
+    expect(viewModel.matchesTagFilter(const ['design']), isTrue);
+  });
+
+  test('cardVisible respects the tag filter', () {
+    viewModel.toggleTagFilter('urgent');
+    const tagged = WorkItemCard(
+      id: 'a',
+      number: 16,
+      title: 'Tagged',
+      parentId: 'lane-a',
+      statusId: 'todo',
+      tags: ['urgent'],
+    );
+    const untagged = WorkItemCard(
+      id: 'b',
+      number: 17,
+      title: 'Untagged',
+      parentId: 'lane-a',
+      statusId: 'todo',
+    );
+
+    expect(viewModel.cardVisible(tagged), isTrue);
+    expect(viewModel.cardVisible(untagged), isFalse);
+  });
+
+  test('availableTags returns the distinct, sorted union of every card and hierarchy tag', () async {
+    final repository = _TestBoardRepository(
+      hierarchyItems: const [
+        HierarchyItem(
+          id: 'root-1',
+          number: 1,
+          parentId: null,
+          title: 'Root',
+          statusId: 'todo',
+          tags: ['Zebra', 'urgent'],
+        ),
+      ],
+    );
+    final withTags = BoardViewModel(repository);
+    await withTags.load();
+    await withTags.loadHierarchy();
+    await withTags.setTags(withTags.swimlanes[0].cards.single.id, ['bug', 'Urgent']);
+
+    expect(withTags.availableTags, ['bug', 'Urgent', 'Zebra']);
   });
 
   test('cardComparator is null for the default manual sort', () {
@@ -730,8 +943,8 @@ void main() {
   test('loadHierarchy populates hierarchyRoots and hierarchyLoaded', () async {
     final repository = _TestBoardRepository(
       hierarchyItems: const [
-        HierarchyItem(id: 'root-1', parentId: null, title: 'Root', statusId: 'todo'),
-        HierarchyItem(id: 'child-1', parentId: 'root-1', title: 'Child', statusId: 'todo'),
+        HierarchyItem(id: 'root-1', number: 1, parentId: null, title: 'Root', statusId: 'todo'),
+        HierarchyItem(id: 'child-1', number: 2, parentId: 'root-1', title: 'Child', statusId: 'todo'),
       ],
     );
     final hierarchyViewModel = BoardViewModel(repository);
@@ -763,8 +976,8 @@ void main() {
     () async {
       final repository = _TestBoardRepository(
         hierarchyItems: const [
-          HierarchyItem(id: 'root-1', parentId: null, title: 'Unrelated root', statusId: 'todo'),
-          HierarchyItem(id: 'child-1', parentId: 'root-1', title: 'Fix red button', statusId: 'todo'),
+          HierarchyItem(id: 'root-1', number: 1, parentId: null, title: 'Unrelated root', statusId: 'todo'),
+          HierarchyItem(id: 'child-1', number: 2, parentId: 'root-1', title: 'Fix red button', statusId: 'todo'),
         ],
       );
       final hierarchyViewModel = BoardViewModel(repository);
@@ -781,8 +994,8 @@ void main() {
   test('hierarchyRoots excludes a subtree with no matching item', () async {
     final repository = _TestBoardRepository(
       hierarchyItems: const [
-        HierarchyItem(id: 'root-1', parentId: null, title: 'Matches', statusId: 'todo'),
-        HierarchyItem(id: 'root-2', parentId: null, title: 'Does not', statusId: 'todo'),
+        HierarchyItem(id: 'root-1', number: 1, parentId: null, title: 'Matches', statusId: 'todo'),
+        HierarchyItem(id: 'root-2', number: 2, parentId: null, title: 'Does not', statusId: 'todo'),
       ],
     );
     final hierarchyViewModel = BoardViewModel(repository);
@@ -796,8 +1009,8 @@ void main() {
   test('hierarchyRoots excludes items in a hidden status column', () async {
     final repository = _TestBoardRepository(
       hierarchyItems: const [
-        HierarchyItem(id: 'root-1', parentId: null, title: 'Todo item', statusId: 'todo'),
-        HierarchyItem(id: 'root-2', parentId: null, title: 'Done item', statusId: 'done'),
+        HierarchyItem(id: 'root-1', number: 1, parentId: null, title: 'Todo item', statusId: 'todo'),
+        HierarchyItem(id: 'root-2', number: 2, parentId: null, title: 'Done item', statusId: 'done'),
       ],
     );
     final hierarchyViewModel = BoardViewModel(repository);
@@ -808,11 +1021,33 @@ void main() {
     expect(hierarchyViewModel.hierarchyRoots.map((n) => n.item.id), ['root-1']);
   });
 
+  test('hierarchyRoots excludes items not matching the tag filter', () async {
+    final repository = _TestBoardRepository(
+      hierarchyItems: const [
+        HierarchyItem(
+          id: 'root-1',
+          number: 1,
+          parentId: null,
+          title: 'Tagged',
+          statusId: 'todo',
+          tags: ['urgent'],
+        ),
+        HierarchyItem(id: 'root-2', number: 2, parentId: null, title: 'Untagged', statusId: 'todo'),
+      ],
+    );
+    final hierarchyViewModel = BoardViewModel(repository);
+    await hierarchyViewModel.load();
+    await hierarchyViewModel.loadHierarchy();
+    hierarchyViewModel.toggleTagFilter('urgent');
+
+    expect(hierarchyViewModel.hierarchyRoots.map((n) => n.item.id), ['root-1']);
+  });
+
   test('hierarchyComparator for title sorts siblings case-insensitively', () async {
     final repository = _TestBoardRepository(
       hierarchyItems: const [
-        HierarchyItem(id: 'a', parentId: null, title: 'banana', statusId: 'todo'),
-        HierarchyItem(id: 'b', parentId: null, title: 'Apple', statusId: 'todo'),
+        HierarchyItem(id: 'a', number: 1, parentId: null, title: 'banana', statusId: 'todo'),
+        HierarchyItem(id: 'b', number: 2, parentId: null, title: 'Apple', statusId: 'todo'),
       ],
     );
     final hierarchyViewModel = BoardViewModel(repository);

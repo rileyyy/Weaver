@@ -24,4 +24,12 @@ class Swimlane {
         cards: cards,
         assignedToUserId: assignedToUserId,
       );
+
+  /// Sets this lane's own work item's assignee, keeping its cards.
+  Swimlane assigned(String? userId) => Swimlane(
+        parentId: parentId,
+        title: title,
+        cards: cards,
+        assignedToUserId: userId,
+      );
 }

@@ -95,6 +95,8 @@ class WorkItemDetailViewModel extends ViewModel {
         errorMessage: 'Could not delete this work item. Try again.',
       );
 
+  Future<bool> saveTags(List<String> tags) => _save(() => _repository.updateTags(_item!.id, tags));
+
   Future<bool> saveSchedule(DateTime? startDate, DateTime? endDate) =>
       _save(() => _repository.reschedule(_item!.id, startDate, endDate));
 
