@@ -38,11 +38,15 @@ class _AuthGateState extends State<AuthGate> {
       listenable: _viewModel,
       builder: (context, _) {
         if (!_viewModel.hasRestored) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
+
         if (!_viewModel.isAuthenticated) {
           return LoginView(viewModel: _viewModel);
         }
+
         return BoardView(onLogout: _viewModel.logout);
       },
     );

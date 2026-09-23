@@ -5,9 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/features/auth/data/auth_session_store.dart';
 import 'package:weaver/features/board/widgets/date_format.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
+import 'package:weaver/features/work_item_detail/widgets/comment_tile.dart';
+import 'package:weaver/features/work_item_detail/widgets/date_field.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
 
 /// Opens [WorkItemDetailView] in a [Dialog] sized to fit comfortably on
@@ -43,7 +44,12 @@ Future<void> showWorkItemDetailDialog(
 }
 
 class WorkItemDetailView extends StatefulWidget {
-  const WorkItemDetailView({required this.workItemId, this.onDrillInto, this.onDeleted, super.key});
+  const WorkItemDetailView({
+    required this.workItemId,
+    this.onDrillInto,
+    this.onDeleted,
+    super.key,
+  });
 
   final String workItemId;
 
@@ -133,10 +139,17 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
           if (_viewModel.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
+
           final loadError = _viewModel.loadError;
           if (loadError != null) {
-            return Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(loadError)));
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(loadError),
+              ),
+            );
           }
+
           return _buildForm(context);
         },
       ),
@@ -179,9 +192,14 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
               decoration: const InputDecoration(labelText: 'Priority'),
               items: [
                 for (final priority in WorkItemPriority.values)
-                  DropdownMenuItem(value: priority, child: Text(priority.label)),
+                  DropdownMenuItem(
+                    value: priority,
+                    child: Text(priority.label),
+                  ),
               ],
-              onChanged: (value) => setState(() => _selectedPriority = value ?? WorkItemPriority.medium),
+              onChanged: (value) => setState(
+                () => _selectedPriority = value ?? WorkItemPriority.medium,
+              ),
             ),
             const SizedBox(height: 16),
             Text('Status', style: Theme.of(context).textTheme.labelLarge),
@@ -200,41 +218,59 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
             const SizedBox(height: 16),
             _buildTagsSection(context),
             const SizedBox(height: 16),
-            _DateField(
+            DateField(
               label: 'Start Date',
               value: item.startDate,
               onPick: () => unawaited(_pickStartDate(item)),
-              onClear: item.startDate == null ? null : () => unawaited(_viewModel.saveSchedule(null, item.endDate)),
+              onClear: item.startDate == null
+                  ? null
+                  : () =>
+                        unawaited(_viewModel.saveSchedule(null, item.endDate)),
             ),
             const SizedBox(height: 16),
-            _DateField(
+            DateField(
               label: 'End Date',
               value: item.endDate,
               onPick: () => unawaited(_pickEndDate(item)),
-              onClear: item.endDate == null ? null : () => unawaited(_viewModel.saveSchedule(item.startDate, null)),
+              onClear: item.endDate == null
+                  ? null
+                  : () => unawaited(
+                      _viewModel.saveSchedule(item.startDate, null),
+                    ),
             ),
             const SizedBox(height: 16),
-            Text('Created ${formatDate(item.createdAtUtc)} · Updated ${formatDate(item.updatedAtUtc)}',
-                style: Theme.of(context).textTheme.bodySmall),
+            Text(
+              'Created ${formatDate(item.createdAtUtc)} · Updated ${formatDate(item.updatedAtUtc)}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             const Divider(height: 32),
             _buildLinksSection(context),
             const Divider(height: 32),
             _buildCommentsSection(context),
             const Divider(height: 32),
             if (_viewModel.saveError != null) ...[
-              Text(_viewModel.saveError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              Text(
+                _viewModel.saveError!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
               const SizedBox(height: 8),
             ],
             Row(
               children: [
                 OutlinedButton(
-                  style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
-                  onPressed: _viewModel.isSaving ? null : () => unawaited(_confirmAndDelete()),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.error,
+                  ),
+                  onPressed: _viewModel.isSaving
+                      ? null
+                      : () => unawaited(_confirmAndDelete()),
                   child: const Text('Delete'),
                 ),
                 const Spacer(),
                 FilledButton(
-                  onPressed: _viewModel.isSaving ? null : () => unawaited(_saveDetails()),
+                  onPressed: _viewModel.isSaving
+                      ? null
+                      : () => unawaited(_saveDetails()),
                   child: Text(_viewModel.isSaving ? 'Saving…' : 'Save'),
                 ),
               ],
@@ -249,7 +285,10 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Related work items', style: Theme.of(context).textTheme.labelLarge),
+        Text(
+          'Related work items',
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
         for (final link in _viewModel.links)
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -265,7 +304,9 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
             Expanded(
               child: TextField(
                 controller: _linkTargetController,
-                decoration: const InputDecoration(hintText: 'Work item id to link'),
+                decoration: const InputDecoration(
+                  hintText: 'Work item id to link',
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -294,7 +335,10 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
               for (final tag in _tags)
                 InputChip(
                   label: Text(tag),
-                  labelStyle: TextStyle(color: colorScheme.onSecondaryContainer, fontSize: 12),
+                  labelStyle: TextStyle(
+                    color: colorScheme.onSecondaryContainer,
+                    fontSize: 12,
+                  ),
                   backgroundColor: colorScheme.secondaryContainer,
                   visualDensity: VisualDensity.compact,
                   onDeleted: () => unawaited(_removeTag(tag)),
@@ -328,12 +372,14 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Comments', style: Theme.of(context).textTheme.labelLarge),
-        for (final comment in _viewModel.comments) _CommentTile(
-          comment: comment,
-          isOwnComment: comment.authorUserId == _currentUserId,
-          onDelete: () => unawaited(_viewModel.deleteComment(comment.id)),
-          onEdit: (body) => unawaited(_viewModel.updateComment(comment.id, body)),
-        ),
+        for (final comment in _viewModel.comments)
+          CommentTile(
+            comment: comment,
+            isOwnComment: comment.authorUserId == _currentUserId,
+            onDelete: () => unawaited(_viewModel.deleteComment(comment.id)),
+            onEdit: (body) =>
+                unawaited(_viewModel.updateComment(comment.id, body)),
+          ),
         const SizedBox(height: 8),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -359,7 +405,9 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
   Future<void> _saveDetails() async {
     await _viewModel.saveDetails(
       title: _titleController.text,
-      description: _descriptionController.text.isEmpty ? null : _descriptionController.text,
+      description: _descriptionController.text.isEmpty
+          ? null
+          : _descriptionController.text,
       layerId: _selectedLayerId,
       priority: _selectedPriority,
     );
@@ -384,9 +432,9 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
   }
 
   Future<void> _removeTag(String tag) => _saveTags([
-        for (final existing in _tags)
-          if (existing != tag) existing,
-      ]);
+    for (final existing in _tags)
+      if (existing != tag) existing,
+  ]);
 
   Future<void> _saveTags(List<String> updated) async {
     final previous = _tags;
@@ -445,7 +493,9 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(dialogContext).colorScheme.error),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: const Text('Delete'),
           ),
@@ -459,124 +509,5 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
       Navigator.of(context).pop();
       widget.onDeleted?.call();
     }
-  }
-}
-
-class _CommentTile extends StatefulWidget {
-  const _CommentTile({
-    required this.comment,
-    required this.isOwnComment,
-    required this.onDelete,
-    required this.onEdit,
-  });
-
-  final WorkItemComment comment;
-  final bool isOwnComment;
-  final VoidCallback onDelete;
-  final ValueChanged<String> onEdit;
-
-  @override
-  State<_CommentTile> createState() => _CommentTileState();
-}
-
-class _CommentTileState extends State<_CommentTile> {
-  bool _isEditing = false;
-  late final _editController = TextEditingController(text: widget.comment.body);
-
-  @override
-  void dispose() {
-    _editController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final comment = widget.comment;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${comment.authorUsername} · ${formatDate(comment.createdAtUtc)}'
-                  '${comment.updatedAtUtc != null ? ' (edited)' : ''}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-              if (widget.isOwnComment && !_isEditing) ...[
-                IconButton(
-                  icon: const Icon(Icons.edit, size: 16),
-                  tooltip: 'Edit comment',
-                  onPressed: () => setState(() => _isEditing = true),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 16),
-                  tooltip: 'Delete comment',
-                  onPressed: widget.onDelete,
-                ),
-              ],
-            ],
-          ),
-          if (_isEditing) ...[
-            TextField(controller: _editController, maxLines: 3),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => setState(() => _isEditing = false),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    widget.onEdit(_editController.text);
-                    setState(() => _isEditing = false);
-                  },
-                  child: const Text('Save'),
-                ),
-              ],
-            ),
-          ] else
-            Text(comment.body),
-        ],
-      ),
-    );
-  }
-}
-
-/// One labeled date row (used for Start Date / End Date): shows the current
-/// value or "Not set", an Edit button to pick a new one, and — only once a
-/// value exists — a button to clear it back to unset.
-class _DateField extends StatelessWidget {
-  const _DateField({
-    required this.label,
-    required this.value,
-    required this.onPick,
-    required this.onClear,
-  });
-
-  final String label;
-  final DateTime? value;
-  final VoidCallback onPick;
-  final VoidCallback? onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: Theme.of(context).textTheme.labelLarge),
-        Row(
-          children: [
-            Expanded(child: Text(value == null ? 'Not set' : formatDate(value!))),
-            if (onClear != null)
-              TextButton(onPressed: onClear, child: const Text('Clear')),
-            TextButton(onPressed: onPick, child: const Text('Edit')),
-          ],
-        ),
-      ],
-    );
   }
 }

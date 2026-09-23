@@ -97,14 +97,15 @@ class BoardViewModel extends ViewModel {
         }
       }
     }
+
     for (final item in _hierarchyItems) {
       for (final tag in item.tags) {
         seen.putIfAbsent(tag.toLowerCase(), () => tag);
       }
     }
-    final tags = seen.values.toList()
+
+    return seen.values.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    return tags;
   }
 
   bool get isHierarchyLoading => _isHierarchyLoading;
@@ -135,7 +136,9 @@ class BoardViewModel extends ViewModel {
     List<HierarchyNode> buildLevel(String? parentId) {
       final children = byParent[parentId] ?? const [];
       final comparator = hierarchyComparator;
-      final ordered = comparator == null ? children : ([...children]..sort(comparator));
+      final ordered = comparator == null
+          ? children
+          : ([...children]..sort(comparator));
 
       final nodes = <HierarchyNode>[];
       for (final item in ordered) {
@@ -143,6 +146,7 @@ class BoardViewModel extends ViewModel {
         if (!hierarchyItemVisible(item) && childNodes.isEmpty) continue;
         nodes.add(HierarchyNode(item: item, children: childNodes));
       }
+
       return nodes;
     }
 
@@ -160,7 +164,8 @@ class BoardViewModel extends ViewModel {
     try {
       _hierarchyItems = await _repository.loadAllItems();
     } catch (_) {
-      _hierarchyLoadError = 'Could not load the hierarchy view. Check your connection and try again.';
+      _hierarchyLoadError =
+          'Could not load the hierarchy view. Check your connection and try again.';
     } finally {
       _hierarchyLoaded = true;
       _isHierarchyLoading = false;
@@ -171,12 +176,16 @@ class BoardViewModel extends ViewModel {
   /// Re-fetches the Hierarchy view's data only if it's already been loaded
   /// once — e.g. after a delete elsewhere on the board, so a still-unopened
   /// Hierarchy tab doesn't trigger a needless network call.
-  Future<void> refreshHierarchyIfLoaded() => _hierarchyLoaded ? loadHierarchy() : Future.value();
+  Future<void> refreshHierarchyIfLoaded() =>
+      _hierarchyLoaded ? loadHierarchy() : Future.value();
 
   String? statusNameFor(String statusId) {
     for (final status in _statuses) {
-      if (status.id == statusId) return status.name;
+      if (status.id == statusId) {
+        return status.name;
+      }
     }
+
     return null;
   }
 
@@ -184,6 +193,7 @@ class BoardViewModel extends ViewModel {
     for (final status in _statuses) {
       if (status.id == statusId) return status.color;
     }
+
     return null;
   }
 
@@ -191,12 +201,16 @@ class BoardViewModel extends ViewModel {
   /// small avatar — null if [userId] is null or unresolved (e.g. the user
   /// directory hasn't loaded yet).
   String? assigneeInitialFor(String? userId) {
-    if (userId == null) return null;
+    if (userId == null) {
+      return null;
+    }
+
     for (final user in _users) {
       if (user.id == userId) {
         return user.username.isEmpty ? null : user.username[0].toUpperCase();
       }
     }
+
     return null;
   }
 
@@ -204,44 +218,57 @@ class BoardViewModel extends ViewModel {
   /// show more than just an initial — null on the same terms as
   /// [assigneeInitialFor].
   String? usernameFor(String? userId) {
-    if (userId == null) return null;
-    for (final user in _users) {
-      if (user.id == userId) return user.username;
+    if (userId == null) {
+      return null;
     }
+
+    for (final user in _users) {
+      if (user.id == userId) {
+        return user.username;
+      }
+    }
+
     return null;
   }
 
-  Future<void> load() => _changeScope(() async {
-        final rootScopeId = await _repository.loadRootScopeItemId();
-        final data = await _repository.loadBoard(rootScopeId);
-        _applyScope(data);
-        _breadcrumbs = [ScopeCrumb(id: rootScopeId, title: 'Board')];
-        // Best-effort: a user directory failure shouldn't block the board
-        // itself from loading — assignee initials just won't show.
-        try {
-          _users = await _repository.loadUsers();
-        } catch (_) {
-          _users = const [];
-        }
-      }, errorMessage: 'Could not load the board. Check your connection and try again.');
+  Future<void> load() => _changeScope(
+    () async {
+      final rootScopeId = await _repository.loadRootScopeItemId();
+      final data = await _repository.loadBoard(rootScopeId);
+      _applyScope(data);
+      _breadcrumbs = [ScopeCrumb(id: rootScopeId, title: 'Board')];
+      // Best-effort: a user directory failure shouldn't block the board
+      // itself from loading — assignee initials just won't show.
+      try {
+        _users = await _repository.loadUsers();
+      } catch (_) {
+        _users = const [];
+      }
+    },
+    errorMessage:
+        'Could not load the board. Check your connection and try again.',
+  );
 
   Future<void> retry() => _retry();
 
   /// Re-scopes the board to [card]'s own children — they become the new
   /// swimlanes. Pushes [card] onto the breadcrumb trail.
   Future<void> drillInto(WorkItemCard card) => _changeScope(() async {
-        final data = await _repository.loadBoard(card.id);
-        _applyScope(data);
-        _breadcrumbs = [
-          ..._breadcrumbs,
-          ScopeCrumb(id: card.id, title: card.title),
-        ];
-      }, errorMessage: 'Could not open "${card.title}". Try again.');
+    final data = await _repository.loadBoard(card.id);
+    _applyScope(data);
+    _breadcrumbs = [
+      ..._breadcrumbs,
+      ScopeCrumb(id: card.id, title: card.title),
+    ];
+  }, errorMessage: 'Could not open "${card.title}". Try again.');
 
   /// Jumps back to the breadcrumb at [index], discarding any deeper
   /// entries. A no-op if [index] is already the current scope.
   Future<void> navigateToBreadcrumb(int index) {
-    if (index == _breadcrumbs.length - 1) return Future.value();
+    if (index == _breadcrumbs.length - 1) {
+      return Future.value();
+    }
+
     final target = _breadcrumbs[index];
 
     return _changeScope(() async {
@@ -258,12 +285,16 @@ class BoardViewModel extends ViewModel {
   /// ever touching `ParentId`. Applies the move optimistically, then rolls
   /// it back if the backend rejects it.
   Future<void> moveCard(WorkItemCard card, String newStatusId) async {
-    if (card.statusId == newStatusId) return;
+    if (card.statusId == newStatusId) {
+      return;
+    }
 
     final laneIndex = _swimlanes.indexWhere(
       (lane) => lane.parentId == card.parentId,
     );
-    if (laneIndex == -1) return;
+    if (laneIndex == -1) {
+      return;
+    }
 
     final previousSwimlanes = _swimlanes;
     _swimlanes = _movedWithinLane(laneIndex, card, newStatusId);
@@ -283,7 +314,9 @@ class BoardViewModel extends ViewModel {
   /// `Reparent`. Applies the move optimistically, then rolls it back if
   /// the backend rejects it.
   Future<void> reparentCard(WorkItemCard card, String newParentId) async {
-    if (card.parentId == newParentId) return;
+    if (card.parentId == newParentId) {
+      return;
+    }
 
     final oldLaneIndex = _swimlanes.indexWhere(
       (lane) => lane.parentId == card.parentId,
@@ -291,7 +324,9 @@ class BoardViewModel extends ViewModel {
     final newLaneIndex = _swimlanes.indexWhere(
       (lane) => lane.parentId == newParentId,
     );
-    if (oldLaneIndex == -1 || newLaneIndex == -1) return;
+    if (oldLaneIndex == -1 || newLaneIndex == -1) {
+      return;
+    }
 
     final previousSwimlanes = _swimlanes;
     _swimlanes = _movedToLane(oldLaneIndex, newLaneIndex, card, newParentId);
@@ -317,7 +352,9 @@ class BoardViewModel extends ViewModel {
     final laneIndex = _swimlanes.indexWhere(
       (lane) => lane.parentId == card.parentId,
     );
-    if (laneIndex == -1) return;
+    if (laneIndex == -1) {
+      return;
+    }
 
     final previousSwimlanes = _swimlanes;
     _swimlanes = _rescheduledWithinLane(laneIndex, card, startDate, endDate);
@@ -360,21 +397,23 @@ class BoardViewModel extends ViewModel {
   }
 
   List<Swimlane> _assignedInSwimlanes(String workItemId, String? userId) => [
-        for (final lane in _swimlanes)
-          if (lane.parentId == workItemId)
-            lane.assigned(userId).copyWithCards(_assignedInCards(lane.cards, workItemId, userId))
-          else
-            lane.copyWithCards(_assignedInCards(lane.cards, workItemId, userId)),
-      ];
+    for (final lane in _swimlanes)
+      if (lane.parentId == workItemId)
+        lane
+            .assigned(userId)
+            .copyWithCards(_assignedInCards(lane.cards, workItemId, userId))
+      else
+        lane.copyWithCards(_assignedInCards(lane.cards, workItemId, userId)),
+  ];
 
   List<WorkItemCard> _assignedInCards(
     List<WorkItemCard> cards,
     String workItemId,
     String? userId,
   ) => [
-        for (final card in cards)
-          if (card.id == workItemId) card.assigned(userId) else card,
-      ];
+    for (final card in cards)
+      if (card.id == workItemId) card.assigned(userId) else card,
+  ];
 
   /// Replaces the tag list of the work item identified by [workItemId] —
   /// the view-model mirror of [assign], same dual-update-then-rollback
@@ -402,18 +441,18 @@ class BoardViewModel extends ViewModel {
   }
 
   List<Swimlane> _taggedInSwimlanes(String workItemId, List<String> tags) => [
-        for (final lane in _swimlanes)
-          lane.copyWithCards(_taggedInCards(lane.cards, workItemId, tags)),
-      ];
+    for (final lane in _swimlanes)
+      lane.copyWithCards(_taggedInCards(lane.cards, workItemId, tags)),
+  ];
 
   List<WorkItemCard> _taggedInCards(
     List<WorkItemCard> cards,
     String workItemId,
     List<String> tags,
   ) => [
-        for (final card in cards)
-          if (card.id == workItemId) card.tagged(tags) else card,
-      ];
+    for (final card in cards)
+      if (card.id == workItemId) card.tagged(tags) else card,
+  ];
 
   void clearMoveError() => _moveError = null;
 
@@ -427,15 +466,15 @@ class BoardViewModel extends ViewModel {
     required String? parentId,
     required String statusId,
   }) => _changeScope(() async {
-        await _repository.createWorkItem(
-          title: title,
-          description: description,
-          parentId: parentId,
-          statusId: statusId,
-        );
-        final data = await _repository.loadBoard(_breadcrumbs.last.id);
-        _applyScope(data);
-      }, errorMessage: 'Could not create "$title". Try again.');
+    await _repository.createWorkItem(
+      title: title,
+      description: description,
+      parentId: parentId,
+      statusId: statusId,
+    );
+    final data = await _repository.loadBoard(_breadcrumbs.last.id);
+    _applyScope(data);
+  }, errorMessage: 'Could not create "$title". Try again.');
 
   /// Sets the board's time-frame filter. Either bound may be null (open on
   /// that side); passing both null is equivalent to [clearTimeFilter].
@@ -457,18 +496,19 @@ class BoardViewModel extends ViewModel {
   /// Core of [matchesTimeFilter], generalized to a bare start/end pair so
   /// [hierarchyItemVisible] can share it without needing a [WorkItemCard].
   bool _matchesTimeWindow(DateTime? itemStart, DateTime? itemEnd) {
-    final filterStart = _filterStart;
-    final filterEnd = _filterEnd;
-    if (filterStart == null && filterEnd == null) return true;
+    if (_filterStart == null && _filterEnd == null) {
+      return true;
+    }
 
     final startsInTime =
-        filterEnd == null ||
+        _filterEnd == null ||
         itemStart == null ||
-        !itemStart.isAfter(filterEnd);
+        !itemStart.isAfter(_filterEnd!);
+
     final endsInTime =
-        filterStart == null ||
+        _filterStart == null ||
         itemEnd == null ||
-        !itemEnd.isBefore(filterStart);
+        !itemEnd.isBefore(_filterStart!);
 
     return startsInTime && endsInTime;
   }
@@ -487,9 +527,15 @@ class BoardViewModel extends ViewModel {
 
   /// Core of [matchesSearch], generalized to bare title/description/tags so
   /// [hierarchyItemVisible] can share it without needing a [WorkItemCard].
-  bool _matchesSearchText(String title, String? description, List<String> tags) {
+  bool _matchesSearchText(
+    String title,
+    String? description,
+    List<String> tags,
+  ) {
     final query = _searchQuery.trim().toLowerCase();
-    if (query.isEmpty) return true;
+    if (query.isEmpty) {
+      return true;
+    }
 
     return title.toLowerCase().contains(query) ||
         (description?.toLowerCase().contains(query) ?? false) ||
@@ -502,6 +548,7 @@ class BoardViewModel extends ViewModel {
     if (!_selectedTagFilters.remove(tag)) {
       _selectedTagFilters.add(tag);
     }
+
     notifyIfActive();
   }
 
@@ -513,7 +560,9 @@ class BoardViewModel extends ViewModel {
   /// Whether [card] should be shown on the board under the current
   /// time-frame filter, search query, and tag filter together.
   bool cardVisible(WorkItemCard card) =>
-      matchesTimeFilter(card) && matchesSearch(card) && matchesTagFilter(card.tags);
+      matchesTimeFilter(card) &&
+      matchesSearch(card) &&
+      matchesTagFilter(card.tags);
 
   /// Whether [item] should be shown in the Hierarchy view under the current
   /// time-frame filter, search query, tag filter, and hidden-status columns
@@ -533,6 +582,7 @@ class BoardViewModel extends ViewModel {
     if (!_hiddenStatusIds.remove(statusId)) {
       _hiddenStatusIds.add(statusId);
     }
+
     notifyIfActive();
   }
 
@@ -546,14 +596,19 @@ class BoardViewModel extends ViewModel {
   /// view applies on top of that order — sorting is display-only and never
   /// changes `Rank` or persists anywhere.
   Comparator<WorkItemCard>? get cardComparator => switch (_sortOption) {
-        CardSortOption.manual => null,
-        CardSortOption.title => (a, b) =>
-            a.title.toLowerCase().compareTo(b.title.toLowerCase()),
-        CardSortOption.startDate => (a, b) =>
-            _compareOpenEndedDates(a.startDate, b.startDate),
-        CardSortOption.dueDate => (a, b) =>
-            _compareOpenEndedDates(a.endDate, b.endDate),
-      };
+    CardSortOption.manual => null,
+    CardSortOption.title => (a, b) => a.title.toLowerCase().compareTo(
+      b.title.toLowerCase(),
+    ),
+    CardSortOption.startDate => (a, b) => _compareOpenEndedDates(
+      a.startDate,
+      b.startDate,
+    ),
+    CardSortOption.dueDate => (a, b) => _compareOpenEndedDates(
+      a.endDate,
+      b.endDate,
+    ),
+  };
 
   /// The Hierarchy view's mirror of [cardComparator]: null for
   /// [CardSortOption.manual] (each sibling group keeps the backend's
@@ -561,21 +616,32 @@ class BoardViewModel extends ViewModel {
   /// [hierarchyRoots] — sorting the whole flat list at once would destroy
   /// the nesting a tree view depends on.
   Comparator<HierarchyItem>? get hierarchyComparator => switch (_sortOption) {
-        CardSortOption.manual => null,
-        CardSortOption.title => (a, b) =>
-            a.title.toLowerCase().compareTo(b.title.toLowerCase()),
-        CardSortOption.startDate => (a, b) =>
-            _compareOpenEndedDates(a.startDate, b.startDate),
-        CardSortOption.dueDate => (a, b) =>
-            _compareOpenEndedDates(a.endDate, b.endDate),
-      };
+    CardSortOption.manual => null,
+    CardSortOption.title => (a, b) => a.title.toLowerCase().compareTo(
+      b.title.toLowerCase(),
+    ),
+    CardSortOption.startDate => (a, b) => _compareOpenEndedDates(
+      a.startDate,
+      b.startDate,
+    ),
+    CardSortOption.dueDate => (a, b) => _compareOpenEndedDates(
+      a.endDate,
+      b.endDate,
+    ),
+  };
 
   /// Ascending, with a missing date sorted after every present date — an
   /// unscheduled item has no position to sort by, so it falls to the end
   /// rather than being treated as earliest.
   int _compareOpenEndedDates(DateTime? a, DateTime? b) {
-    if (a == null) return b == null ? 0 : 1;
-    if (b == null) return -1;
+    if (a == null) {
+      return b == null ? 0 : 1;
+    }
+    
+    if (b == null) {
+      return -1;
+    }
+
     return a.compareTo(b);
   }
 
