@@ -6,6 +6,7 @@ import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_layer.dart';
@@ -24,6 +25,20 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     final response = await _client.get(_uri('/work-items/$id'));
     _checkOk(response, 'Failed to load work item');
     return _toDetail(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  @override
+  Future<List<WorkItemChildSummary>> loadChildren(String parentId) async {
+    final json = await _getJsonList('/work-items?parentId=$parentId');
+    return [
+      for (final item in json)
+        WorkItemChildSummary(
+          id: item['id'] as String,
+          number: item['number'] as int,
+          title: item['title'] as String,
+          statusId: item['statusId'] as String,
+        ),
+    ];
   }
 
   @override

@@ -1,5 +1,6 @@
 import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/models/board_status.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_layer.dart';
@@ -8,6 +9,11 @@ import 'package:weaver/features/work_item_detail/models/work_item_priority.dart'
 
 abstract class WorkItemDetailRepository {
   Future<WorkItemDetail> getItem(String id);
+
+  /// This item's direct children, for the detail screen's "Sub-Items"
+  /// section — the same `parentId`-scoped `/work-items` query the board
+  /// uses for a swimlane's cards.
+  Future<List<WorkItemChildSummary>> loadChildren(String parentId);
 
   /// Deletes the work item identified by [id]. If it has children,
   /// [cascade] must be true or the backend rejects the delete — a subtree

@@ -5,11 +5,25 @@ import 'package:flutter/material.dart';
 import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/features/auth/data/auth_session_store.dart';
 import 'package:weaver/features/board/widgets/date_format.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/features/work_item_detail/widgets/comment_tile.dart';
 import 'package:weaver/features/work_item_detail/widgets/date_field.dart';
+import 'package:weaver/features/work_item_detail/widgets/field_label.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
+
+/// Below this available content width, the two-column layout collapses to a
+/// single stacked column — the two-column form is too cramped on a phone
+/// (per the project's "board must remain usable on both desktop/web and
+/// mobile" rule, which applies to this detail view too).
+const double _twoColumnBreakpoint = 640;
+
+/// The 65/35 column split requested for the detail view's content: primary
+/// content (description, sub-items, comments) gets the larger share,
+/// metadata fields get the rest.
+const int _primaryColumnFlex = 65;
+const int _metadataColumnFlex = 35;
 
 /// Opens [WorkItemDetailView] in a [Dialog] sized to fit comfortably on
 /// both desktop and mobile viewports. If [onDrillInto] is given, an app-bar
@@ -30,8 +44,8 @@ Future<void> showWorkItemDetailDialog(
       final screenSize = MediaQuery.sizeOf(context);
       return Dialog(
         child: SizedBox(
-          width: math.min(560, screenSize.width * 0.95),
-          height: math.min(720, screenSize.height * 0.9),
+          width: math.min(960, screenSize.width * 0.95),
+          height: math.min(760, screenSize.height * 0.9),
           child: WorkItemDetailView(
             workItemId: workItemId,
             onDrillInto: onDrillInto,
@@ -160,123 +174,207 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     final item = _viewModel.item!;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: _titleController,
-              decoration: const InputDecoration(labelText: 'Title'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(labelText: 'Description'),
-              maxLines: 4,
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String?>(
-              initialValue: _selectedLayerId,
-              decoration: const InputDecoration(labelText: 'Layer'),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('None')),
-                for (final layer in _viewModel.layers)
-                  DropdownMenuItem(value: layer.id, child: Text(layer.name)),
-              ],
-              onChanged: (value) => setState(() => _selectedLayerId = value),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<WorkItemPriority>(
-              initialValue: _selectedPriority,
-              decoration: const InputDecoration(labelText: 'Priority'),
-              items: [
-                for (final priority in WorkItemPriority.values)
-                  DropdownMenuItem(
-                    value: priority,
-                    child: Text(priority.label),
-                  ),
-              ],
-              onChanged: (value) => setState(
-                () => _selectedPriority = value ?? WorkItemPriority.medium,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text('Status', style: Theme.of(context).textTheme.labelLarge),
-            Text(_viewModel.statusName ?? item.statusId),
-            const SizedBox(height: 16),
-            Text('Assigned to', style: Theme.of(context).textTheme.labelLarge),
-            DropdownButtonFormField<String?>(
-              initialValue: _selectedAssigneeId,
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Unassigned')),
-                for (final user in _viewModel.users)
-                  DropdownMenuItem(value: user.id, child: Text(user.username)),
-              ],
-              onChanged: (value) => unawaited(_saveAssignee(value)),
-            ),
-            const SizedBox(height: 16),
-            _buildTagsSection(context),
-            const SizedBox(height: 16),
-            DateField(
-              label: 'Start Date',
-              value: item.startDate,
-              onPick: () => unawaited(_pickStartDate(item)),
-              onClear: item.startDate == null
-                  ? null
-                  : () =>
-                        unawaited(_viewModel.saveSchedule(null, item.endDate)),
-            ),
-            const SizedBox(height: 16),
-            DateField(
-              label: 'End Date',
-              value: item.endDate,
-              onPick: () => unawaited(_pickEndDate(item)),
-              onClear: item.endDate == null
-                  ? null
-                  : () => unawaited(
-                      _viewModel.saveSchedule(item.startDate, null),
-                    ),
-            ),
-            const SizedBox(height: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildTitleField(context),
+          const SizedBox(height: 20),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final primaryColumn = _buildPrimaryColumn(context);
+              final metadataColumn = _buildMetadataColumn(context, item);
+              if (constraints.maxWidth < _twoColumnBreakpoint) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    primaryColumn,
+                    const SizedBox(height: 24),
+                    metadataColumn,
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: _primaryColumnFlex, child: primaryColumn),
+                  const SizedBox(width: 32),
+                  Expanded(flex: _metadataColumnFlex, child: metadataColumn),
+                ],
+              );
+            },
+          ),
+          const Divider(height: 32),
+          if (_viewModel.saveError != null) ...[
             Text(
-              'Created ${formatDate(item.createdAtUtc)} · Updated ${formatDate(item.updatedAtUtc)}',
-              style: Theme.of(context).textTheme.bodySmall,
+              _viewModel.saveError!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
-            const Divider(height: 32),
-            _buildLinksSection(context),
-            const Divider(height: 32),
-            _buildCommentsSection(context),
-            const Divider(height: 32),
-            if (_viewModel.saveError != null) ...[
-              Text(
-                _viewModel.saveError!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-              const SizedBox(height: 8),
-            ],
-            Row(
-              children: [
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Theme.of(context).colorScheme.error,
-                  ),
-                  onPressed: _viewModel.isSaving
-                      ? null
-                      : () => unawaited(_confirmAndDelete()),
-                  child: const Text('Delete'),
-                ),
-                const Spacer(),
-                FilledButton(
-                  onPressed: _viewModel.isSaving
-                      ? null
-                      : () => unawaited(_saveDetails()),
-                  child: Text(_viewModel.isSaving ? 'Saving…' : 'Save'),
-                ),
-              ],
-            ),
+            const SizedBox(height: 8),
           ],
+          Row(
+            children: [
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                ),
+                onPressed: _viewModel.isSaving
+                    ? null
+                    : () => unawaited(_confirmAndDelete()),
+                child: const Text('Delete'),
+              ),
+              const Spacer(),
+              FilledButton(
+                onPressed: _viewModel.isSaving
+                    ? null
+                    : () => unawaited(_saveDetails()),
+                child: Text(_viewModel.isSaving ? 'Saving…' : 'Save'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTitleField(BuildContext context) {
+    return TextField(
+      controller: _titleController,
+      style: Theme.of(
+        context,
+      ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
+      decoration: const InputDecoration(hintText: 'Title'),
+    );
+  }
+
+  /// Column 1 (65% width on wide layouts): the item's main content.
+  Widget _buildPrimaryColumn(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const FieldLabel('Description'),
+        TextField(
+          controller: _descriptionController,
+          decoration: const InputDecoration(),
+          maxLines: 4,
         ),
+        const SizedBox(height: 20),
+        _buildSubItemsSection(context),
+        const SizedBox(height: 20),
+        _buildCommentsSection(context),
+      ],
+    );
+  }
+
+  /// Column 2 (35% width on wide layouts): everything else — the item's
+  /// metadata fields and its links to other work items.
+  Widget _buildMetadataColumn(BuildContext context, WorkItemDetail item) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const FieldLabel('Layer'),
+        DropdownButtonFormField<String?>(
+          initialValue: _selectedLayerId,
+          decoration: const InputDecoration(),
+          items: [
+            const DropdownMenuItem(value: null, child: Text('None')),
+            for (final layer in _viewModel.layers)
+              DropdownMenuItem(value: layer.id, child: Text(layer.name)),
+          ],
+          onChanged: (value) => setState(() => _selectedLayerId = value),
+        ),
+        const SizedBox(height: 16),
+        const FieldLabel('Priority'),
+        DropdownButtonFormField<WorkItemPriority>(
+          initialValue: _selectedPriority,
+          decoration: const InputDecoration(),
+          items: [
+            for (final priority in WorkItemPriority.values)
+              DropdownMenuItem(value: priority, child: Text(priority.label)),
+          ],
+          onChanged: (value) => setState(
+            () => _selectedPriority = value ?? WorkItemPriority.medium,
+          ),
+        ),
+        const SizedBox(height: 16),
+        const FieldLabel('Status'),
+        Text(_viewModel.statusName ?? item.statusId),
+        const SizedBox(height: 16),
+        const FieldLabel('Assigned To'),
+        DropdownButtonFormField<String?>(
+          initialValue: _selectedAssigneeId,
+          decoration: const InputDecoration(),
+          items: [
+            const DropdownMenuItem(value: null, child: Text('Unassigned')),
+            for (final user in _viewModel.users)
+              DropdownMenuItem(value: user.id, child: Text(user.username)),
+          ],
+          onChanged: (value) => unawaited(_saveAssignee(value)),
+        ),
+        const SizedBox(height: 16),
+        _buildTagsSection(context),
+        const SizedBox(height: 16),
+        DateField(
+          label: 'Start Date',
+          value: item.startDate,
+          onPick: () => unawaited(_pickStartDate(item)),
+          onClear: item.startDate == null
+              ? null
+              : () => unawaited(_viewModel.saveSchedule(null, item.endDate)),
+        ),
+        const SizedBox(height: 16),
+        DateField(
+          label: 'End Date',
+          value: item.endDate,
+          onPick: () => unawaited(_pickEndDate(item)),
+          onClear: item.endDate == null
+              ? null
+              : () =>
+                    unawaited(_viewModel.saveSchedule(item.startDate, null)),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Created ${formatDate(item.createdAtUtc)} · Updated ${formatDate(item.updatedAtUtc)}',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 20),
+        _buildLinksSection(context),
+      ],
+    );
+  }
+
+  Widget _buildSubItemsSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const FieldLabel('Sub-Items'),
+        if (_viewModel.children.isEmpty)
+          Text(
+            'No sub-items',
+            style: Theme.of(context).textTheme.bodySmall,
+          )
+        else
+          for (final child in _viewModel.children)
+            _buildSubItemTile(context, child),
+      ],
+    );
+  }
+
+  Widget _buildSubItemTile(BuildContext context, WorkItemChildSummary child) {
+    final statusColor = _viewModel.statusColorFor(child.statusId);
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      leading: Container(
+        width: 10,
+        height: 10,
+        decoration: BoxDecoration(
+          color: statusColor ?? Theme.of(context).colorScheme.outlineVariant,
+          shape: BoxShape.circle,
+        ),
+      ),
+      title: Text('#${child.number} ${child.title}', overflow: TextOverflow.ellipsis),
+      onTap: () => unawaited(
+        showWorkItemDetailDialog(context, workItemId: child.id),
       ),
     );
   }
@@ -285,10 +383,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Related work items',
-          style: Theme.of(context).textTheme.labelLarge,
-        ),
+        const FieldLabel('Related Work Items'),
         for (final link in _viewModel.links)
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -325,7 +420,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Tags', style: Theme.of(context).textTheme.labelLarge),
+        const FieldLabel('Tags'),
         if (_tags.isNotEmpty) ...[
           const SizedBox(height: 4),
           Wrap(
@@ -371,7 +466,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Comments', style: Theme.of(context).textTheme.labelLarge),
+        const FieldLabel('Comments'),
         for (final comment in _viewModel.comments)
           CommentTile(
             comment: comment,

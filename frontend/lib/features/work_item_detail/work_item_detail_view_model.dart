@@ -1,8 +1,11 @@
+import 'dart:ui' show Color;
+
 import 'package:injectable/injectable.dart';
 import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_layer.dart';
@@ -21,6 +24,7 @@ class WorkItemDetailViewModel extends ViewModel {
   List<AuthUser> _users = const [];
   List<WorkItemComment> _comments = const [];
   List<WorkItemLink> _links = const [];
+  List<WorkItemChildSummary> _children = const [];
   bool _isLoading = true;
   String? _loadError;
   bool _isSaving = false;
@@ -32,6 +36,7 @@ class WorkItemDetailViewModel extends ViewModel {
   List<AuthUser> get users => _users;
   List<WorkItemComment> get comments => _comments;
   List<WorkItemLink> get links => _links;
+  List<WorkItemChildSummary> get children => _children;
   bool get isLoading => _isLoading;
   String? get loadError => _loadError;
   bool get isSaving => _isSaving;
@@ -40,6 +45,16 @@ class WorkItemDetailViewModel extends ViewModel {
   String? get statusName {
     for (final status in _statuses) {
       if (status.id == _item?.statusId) return status.name;
+    }
+    return null;
+  }
+
+  /// Looks up a status's configured color by id — used to mark each
+  /// sub-item's status in the "Sub-Items" section without duplicating the
+  /// loaded status list into the view.
+  Color? statusColorFor(String statusId) {
+    for (final status in _statuses) {
+      if (status.id == statusId) return status.color;
     }
     return null;
   }
@@ -57,6 +72,7 @@ class WorkItemDetailViewModel extends ViewModel {
         _repository.loadUsers(),
         _repository.loadComments(id),
         _repository.loadLinks(id),
+        _repository.loadChildren(id),
       ]);
       _item = results[0] as WorkItemDetail;
       _statuses = results[1] as List<BoardStatus>;
@@ -64,6 +80,7 @@ class WorkItemDetailViewModel extends ViewModel {
       _users = results[3] as List<AuthUser>;
       _comments = results[4] as List<WorkItemComment>;
       _links = results[5] as List<WorkItemLink>;
+      _children = results[6] as List<WorkItemChildSummary>;
     } catch (_) {
       _loadError = 'Could not load this work item. Check your connection and try again.';
     } finally {

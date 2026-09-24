@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:weaver/features/board/widgets/date_format.dart';
+import 'package:weaver/features/work_item_detail/widgets/field_label.dart';
 
 /// One labeled date row (used for Start Date / End Date): shows the current
 /// value or "Not set", an Edit button to pick a new one, and — only once a
@@ -23,7 +24,7 @@ class DateField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: Theme.of(context).textTheme.labelLarge),
+        FieldLabel(label),
         Row(
           children: [
             Expanded(

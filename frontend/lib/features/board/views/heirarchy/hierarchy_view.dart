@@ -113,8 +113,9 @@ class _HierarchyViewState extends State<HierarchyView> {
                       columnWidths: _columnWidths,
                       isCollapsed: _collapsedIds.contains(node.item.id),
                       onToggleCollapsed: () => setState(() {
-                        if (!_collapsedIds.remove(node.item.id))
+                        if (!_collapsedIds.remove(node.item.id)) {
                           _collapsedIds.add(node.item.id);
+                        }
                       }),
                       onTap: () => widget.onItemOpened(node.item.id),
                       onAssignTapped: () => widget.onAssignRequested(
