@@ -164,6 +164,8 @@ instead of fixing it — don't silently expand scope.
 - Naming should be clear and concise — prefer a descriptive name over a
   short cryptic one, but don't over-qualify names to the point they become
   noise.
+- Files should be limited to one class per file. The exceptions are listed below:
+  - Flutter: Widgets + State classes
 
 ### 2.5 Comments
 

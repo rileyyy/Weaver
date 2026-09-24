@@ -27,14 +27,15 @@ builder.Services.AddOpenApi();
 builder.Services.AddDbContext<WeaverDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Weaver")));
 
-builder.Services.AddScoped<IWorkItemService, WorkItemService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<ICommentService, CommentService>();
-builder.Services.AddScoped<IWorkItemLinkService, WorkItemLinkService>();
-builder.Services.AddScoped<IBoardService, BoardService>();
-builder.Services.AddScoped<IStatusService, StatusService>();
-builder.Services.AddScoped<IWorkItemLayerService, WorkItemLayerService>();
+builder.Services
+    .AddScoped<IWorkItemService, WorkItemService>()
+    .AddScoped<IAuthService, AuthService>()
+    .AddScoped<IUserService, UserService>()
+    .AddScoped<ICommentService, CommentService>()
+    .AddScoped<IWorkItemLinkService, WorkItemLinkService>()
+    .AddScoped<IBoardService, BoardService>()
+    .AddScoped<IStatusService, StatusService>()
+    .AddScoped<IWorkItemLayerService, WorkItemLayerService>();
 
 // CommentTools reads the calling user's id off the current request the same way
 // CommentsController does (User.GetUserId()) — MCP tools don't get a ControllerBase's
