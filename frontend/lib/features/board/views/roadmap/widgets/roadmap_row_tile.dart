@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_timeframe.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_view.dart';
+import 'package:weaver/features/board/views/roadmap/widgets/roadmap_grid.dart';
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_row.dart';
 import 'package:weaver/features/board/widgets/tag_badge.dart';
 
@@ -39,6 +40,13 @@ class RoadmapRowTile extends StatelessWidget {
     final outlineColor = Theme.of(
       context,
     ).colorScheme.outlineVariant.withValues(alpha: 0.5);
+    final totalDays = timeframe.totalDays;
+    final gridOffsets = weeklyGridLineOffsets(timelineWidth, totalDays);
+    final todayOffset = todayLineOffset(
+      windowStart: windowStart,
+      timelineWidth: timelineWidth,
+      totalDays: totalDays,
+    );
 
     return InkWell(
       onTap: onTap,
@@ -93,20 +101,22 @@ class RoadmapRowTile extends StatelessWidget {
               width: timelineWidth,
               child: Stack(
                 children: [
-                  Row(
-                    children: [
-                      for (var i = 0; i < timeframe.unitCount; i++)
-                        Container(
-                          width: timelineWidth / timeframe.unitCount,
-                          height: double.infinity,
-                          decoration: BoxDecoration(
-                            border: Border(
-                              left: BorderSide(color: outlineColor),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                  for (final offset in gridOffsets)
+                    Positioned(
+                      left: offset,
+                      top: 0,
+                      bottom: 0,
+                      width: 1,
+                      child: Container(color: outlineColor),
+                    ),
+                  if (todayOffset != null)
+                    Positioned(
+                      left: todayOffset,
+                      top: 0,
+                      bottom: 0,
+                      width: 2,
+                      child: Container(color: roadmapTodayColor),
+                    ),
                   ..._buildBar(context, item),
                 ],
               ),
