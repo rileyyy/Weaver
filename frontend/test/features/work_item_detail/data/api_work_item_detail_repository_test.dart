@@ -68,6 +68,24 @@ void main() {
     expect(item.tags, ['urgent', 'needs review']);
   });
 
+  test('loadChildren queries by parentId and parses the child list', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse([
+        {'id': 'child-1', 'number': 7, 'title': 'A sub-item', 'statusId': 'status-todo'},
+      ]);
+    });
+    final repository = ApiWorkItemDetailRepository(client, baseUrl);
+
+    final children = await repository.loadChildren('item-1');
+
+    expect(sentRequest!.url.path, '/api/work-items');
+    expect(sentRequest!.url.queryParameters['parentId'], 'item-1');
+    expect(children.single.title, 'A sub-item');
+    expect(children.single.number, 7);
+  });
+
   test('loadLayers parses the layer list', () async {
     final client = MockClient((request) async => _jsonResponse([
           {'id': 'layer-1', 'name': 'Project', 'order': 0},

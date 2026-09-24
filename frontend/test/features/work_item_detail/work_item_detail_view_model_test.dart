@@ -1,7 +1,10 @@
+import 'dart:ui' show Color;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_layer.dart';
@@ -45,6 +48,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   final List<List<String>> updateTagsCalls = [];
   final List<WorkItemComment> commentsList = [];
   final List<WorkItemLink> linksList = [];
+  List<WorkItemChildSummary> childrenList = [];
 
   @override
   Future<WorkItemDetail> getItem(String id) async {
@@ -52,6 +56,10 @@ class _FakeRepository implements WorkItemDetailRepository {
     if (error != null) throw error;
     return item;
   }
+
+  @override
+  Future<List<WorkItemChildSummary>> loadChildren(String parentId) async =>
+      List.of(childrenList);
 
   @override
   Future<void> deleteItem(String id, {bool cascade = false}) async {
@@ -62,7 +70,7 @@ class _FakeRepository implements WorkItemDetailRepository {
 
   @override
   Future<List<BoardStatus>> loadStatuses() async => const [
-    BoardStatus(id: 'todo', name: 'To Do', order: 0),
+    BoardStatus(id: 'todo', name: 'To Do', order: 0, color: Color(0xFF00FF00)),
     BoardStatus(id: 'done', name: 'Done', order: 1),
   ];
 
@@ -212,6 +220,33 @@ void main() {
     await viewModel.load('item-1');
 
     expect(viewModel.statusName, 'To Do');
+  });
+
+  test('load populates children from the repository', () async {
+    final repository = _FakeRepository()
+      ..childrenList = [
+        const WorkItemChildSummary(
+          id: 'child-1',
+          number: 7,
+          title: 'A sub-item',
+          statusId: 'todo',
+        ),
+      ];
+    final viewModel = WorkItemDetailViewModel(repository);
+
+    await viewModel.load('item-1');
+
+    expect(viewModel.children, hasLength(1));
+    expect(viewModel.children.single.title, 'A sub-item');
+  });
+
+  test('statusColorFor resolves a status by id, or null when unknown', () async {
+    final repository = _FakeRepository();
+    final viewModel = WorkItemDetailViewModel(repository);
+    await viewModel.load('item-1');
+
+    expect(viewModel.statusColorFor('todo'), const Color(0xFF00FF00));
+    expect(viewModel.statusColorFor('not-a-status'), isNull);
   });
 
   test('saveDetails updates the item and returns true on success', () async {
