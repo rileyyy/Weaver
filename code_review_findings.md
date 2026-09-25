@@ -58,7 +58,7 @@ The most important problems cluster in four areas:
   - Also reject keys shorter than 32 bytes (HS256 minimum) and the known placeholder value when not in Development.
 
 #### B-H2. Deleting a linked work item or a board's scope item returns 500
-- [ ] **Resolved**
+- [x] **Resolved** in `bugfix/delete-linked-work-item`: links are removed with the deleted items, and deleting a board's scope item returns 409. Checked by hand against real Postgres; the automated real-Postgres test is still pending [T-1](#t-1-no-integration-tests-against-a-real-pipeline-or-database).
 - **Where:** [WorkItemLinkConfiguration.cs:18-26](backend/src/Weaver.Infrastructure/Configurations/WorkItemLinkConfiguration.cs#L18-L26), [BoardConfiguration.cs:13-16](backend/src/Weaver.Infrastructure/Configurations/BoardConfiguration.cs#L13-L16), [WorkItemService.cs:220-234](backend/src/Weaver.Infrastructure/Services/WorkItemService.cs#L220-L234), [ApiExceptionMiddleware.cs](backend/src/Weaver.Api/Middleware/ApiExceptionMiddleware.cs)
 - **Issue:** Both `WorkItemLink` FKs and `Board.ScopeItemId` are `Restrict`. `DeleteAsync` removes neither links nor boards first, so Postgres rejects the delete with a `DbUpdateException`. The middleware doesn't map that exception, so the client gets an opaque 500. A cascade delete fails entirely if *any* descendant has a link. `agent_notes.md:659-668` acknowledges the restriction but not the 500. The InMemory provider used in tests doesn't enforce these FKs, so no test catches it.
 - **Fix:** Decide on the behaviour first:

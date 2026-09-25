@@ -41,6 +41,7 @@ public static class McpExceptionTranslation
         EntityNotFoundException or
         CyclicParentException or
         WorkItemHasChildrenException or
+        WorkItemIsBoardScopeException or
         InvalidWorkItemScheduleException or
         InvalidWorkItemTagException or
         CommentAuthorMismatchException or
