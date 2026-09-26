@@ -42,6 +42,11 @@ services:
     image: weaver-frontend:dev
     ports:
       - "8082:8080"
+    # The Flutter dev server doesn't need the API to be up, and the first
+    # `dotnet watch` build can outlast the backend healthcheck.
+    depends_on:
+      backend:
+        condition: service_started
     stdin_open: true
     tty: true
     environment:

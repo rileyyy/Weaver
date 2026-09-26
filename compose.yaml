@@ -38,6 +38,14 @@ services:
       # The app is served same-origin through Caddy, so this only matters
       # for some other web origin calling the API directly.
       Cors__AllowedOrigins__0: ${CORS_ALLOWED_ORIGIN:-https://${WEAVER_DOMAIN:-localhost}}
+    healthcheck:
+      # /health includes a database check; start_period covers migrations
+      # applied at startup.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     # No published ports: the API (including /mcp) is only reachable through
     # Caddy -> nginx, so it always sits behind TLS.
 
@@ -45,7 +53,13 @@ services:
     image: ${FRONTEND_IMAGE:?Set FRONTEND_IMAGE in .env (copy .env.example) before starting}:${WEAVER_IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Terminates TLS for everything (app, /api, /mcp) and redirects HTTP to
   # HTTPS. --internal-certs issues the certificate from Caddy's own local
@@ -56,7 +70,8 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     depends_on:
-      - frontend
+      frontend:
+        condition: service_healthy
     environment:
       WEAVER_DOMAIN: ${WEAVER_DOMAIN:-}
     entrypoint: ["/bin/sh", "-c"]

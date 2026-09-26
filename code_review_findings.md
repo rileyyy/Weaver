@@ -158,7 +158,7 @@ The most important problems cluster in four areas:
   - Give `GetAllAsync` a deterministic order.
 
 #### B-M8. Startup auto-migration and hosting details
-- [ ] **Resolved** — *partly: forwarded headers and dropping `UseHttpsRedirection` were done with I-H1. Migrations and health endpoints are still open.*
+- [ ] **Resolved** — *partly: forwarded headers and dropping `UseHttpsRedirection` were done with I-H1, and `/health` with I-M1. Moving migrations out of startup is still open.*
 - **Where:** [Program.cs:107-110, 120](backend/src/Weaver.Api/Program.cs#L107-L110)
 - **Issues:**
   - `MigrateAsync()` on every boot races if more than one replica starts, and it applies schema changes without a deploy gate.
@@ -326,7 +326,7 @@ The most important problems cluster in four areas:
 
 ### Medium
 
-- [ ] **I-M1. No health-based startup ordering.** `frontend` depends on `backend` without a health condition, and the backend has no healthcheck (B-M8).
+- [x] *(Resolved in `feature/health-checks`: `/health` with a DB check; compose healthchecks on the backend and frontend; db → backend → frontend → caddy each wait for `service_healthy`.)* **I-M1. No health-based startup ordering.** `frontend` depends on `backend` without a health condition, and the backend has no healthcheck (B-M8).
 - [ ] **I-M2. CI gaps.**
   - The workflow doesn't run `flutter analyze` or `dart format --set-exit-if-changed`, doesn't build the Docker images on PRs (a broken Dockerfile is only found after merging to master), and doesn't pin the Flutter version (`channel: stable` floats).
   - The build image `ghcr.io/cirruslabs/flutter:stable` also floats, so CI tests and the shipped build can use different SDKs.

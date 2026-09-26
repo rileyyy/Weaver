@@ -134,6 +134,13 @@ whoever (human or agent) next touches this area.
   proxies (`UseForwardedHeaders`, known networks cleared because the
   compose IPs aren't fixed). `UseHttpsRedirection` was removed: TLS ends
   at Caddy, and in-container redirection only logged a warning.
+- **Startup is ordered by health, not just by start.** The API exposes an
+  anonymous `/health` (includes a database check; not proxied by nginx,
+  so only reachable inside the compose network). Compose waits
+  db → backend → frontend → caddy on `service_healthy`, so Caddy never
+  serves a frontend whose API is still migrating. The dev override
+  relaxes the frontend's wait to `service_started`, because the first
+  `dotnet watch` build can outlast the backend healthcheck.
 - **`.env.example` ships empty values** so a copy used unchanged fails
   compose validation instead of running with publicly known secrets, and
   the API refuses to start with a signing key under 32 bytes (HS256's
