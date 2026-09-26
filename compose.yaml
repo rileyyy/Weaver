@@ -7,7 +7,7 @@
 # For local development, `docker compose up` from this same directory picks
 # up compose.override.yaml automatically (Compose's default merge behavior)
 # and gets hot-reloading build-from-source containers instead. See
-# agent_notes.md for the reasoning.
+# docs/architecture.md for the reasoning.
 
 services:
   db:

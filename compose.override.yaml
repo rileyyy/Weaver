@@ -2,7 +2,7 @@
 # whenever you run `docker compose up` from this directory — no extra flag
 # needed. It replaces the pulled images with containers built from source
 # that bind-mount the working tree, so `dotnet watch` and Flutter's hot
-# reload both see host edits immediately. See agent_notes.md.
+# reload both see host edits immediately. See docs/development.md.
 #
 # Deploying to the self-hosted server should NOT pick this file up — don't
 # copy it there, or run `docker compose -f compose.yaml ...` explicitly if
