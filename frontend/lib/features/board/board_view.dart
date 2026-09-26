@@ -199,7 +199,7 @@ class _BoardViewState extends State<BoardView>
                 ),
                 TagFilterBar(
                   availableTags: _viewModel.availableTags,
-                  selectedTags: _viewModel.selectedTagFilters,
+                  isSelected: _viewModel.isTagFilterSelected,
                   onToggle: _viewModel.toggleTagFilter,
                 ),
               ],

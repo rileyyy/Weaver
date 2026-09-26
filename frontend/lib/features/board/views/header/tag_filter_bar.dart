@@ -4,12 +4,12 @@ class TagFilterBar extends StatelessWidget {
   const TagFilterBar({
     super.key,
     required this.availableTags,
-    required this.selectedTags,
+    required this.isSelected,
     required this.onToggle,
   });
 
   final List<String> availableTags;
-  final Set<String> selectedTags;
+  final bool Function(String tag) isSelected;
   final ValueChanged<String> onToggle;
 
   @override
@@ -24,7 +24,7 @@ class TagFilterBar extends StatelessWidget {
         for (final tag in availableTags)
           FilterChip(
             label: Text(tag),
-            selected: selectedTags.contains(tag),
+            selected: isSelected(tag),
             onSelected: (_) => onToggle(tag),
           ),
       ],

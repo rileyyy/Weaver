@@ -91,17 +91,15 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
   or instead.
 
 ### Tag casing
-- **Today:** the server de-duplicates a single item's tags
-  case-insensitively, keeping the first spelling, and search is
-  case-insensitive. The filter chip list also collapses casings across
-  items, showing whichever spelling it saw first. But the tag *filter*
-  itself matches exactly (`BoardViewModel.matchesTagFilter`), so if one
-  item has "Urgent" and another "urgent", selecting the "Urgent" chip
-  hides the second. There is no rename or merge UI to fix inconsistent
-  spellings, short of removing and re-adding the tag on each item.
-- **To decide:** whether tags should be canonicalised across items (and
-  the filter made case-insensitive), and whether a rename/merge tool is
-  needed.
+- **Today:** tags are case-insensitive everywhere: the server
+  de-duplicates a single item's tags keeping the first spelling, and
+  search, the filter chip list and the tag filter itself all ignore case.
+  But different items can still store different spellings ("Urgent" on
+  one, "urgent" on another), the chip shows whichever it saw first, and
+  there is no rename or merge UI short of removing and re-adding the tag
+  on each item.
+- **To decide:** whether tags should be canonicalised across items, and
+  whether a rename/merge tool is needed.
 
 ## Views
 

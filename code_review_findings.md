@@ -299,7 +299,7 @@ The most important problems cluster in four areas:
 - [ ] **F-L10. `pubspec_overrides.yaml`** pins `flutter_secure_storage` to 10.3.4 while `pubspec.yaml` declares `^11.2.0`. It was committed without explanation in `9cf3167`. Pin the version in `pubspec.yaml` with a reason, and delete the override.
 - [ ] *(Formatting is now enforced in CI (`feature/ci-hardening`); the rest is still open.)* **F-L11. `analysis_options.yaml`** excludes `pubspec.yaml`, so `sort_pub_dependencies` never runs (and the dependencies are unsorted). Several rule comments are wrong. `flutter_lints` is one major version behind. Formatting isn't enforced in CI.
 - [ ] **F-L12.** The `ViewModel` base class has no `isDisposed` for long operations to check, and there is no test for `notifyIfActive` after dispose.
-- [ ] **F-L13. The tag filter is case-sensitive across items** *(found 2026-09-26 during the docs restructure)*. `availableTags` merges spellings case-insensitively ("Urgent" and "urgent" show as one chip), but `BoardViewModel.matchesTagFilter` uses exact `Set.contains`, so picking the chip hides items that use the other casing. Normalise both sides (e.g. compare lower-cased) and add a test.
+- [x] *(Resolved in `bugfix/tag-filter-casing`.)* **F-L13. The tag filter is case-sensitive across items** *(found 2026-09-26 during the docs restructure)*. `availableTags` merges spellings case-insensitively ("Urgent" and "urgent" show as one chip), but `BoardViewModel.matchesTagFilter` uses exact `Set.contains`, so picking the chip hides items that use the other casing. Normalise both sides (e.g. compare lower-cased) and add a test.
 
 ---
 

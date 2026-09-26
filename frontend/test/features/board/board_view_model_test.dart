@@ -980,7 +980,7 @@ void main() {
 
       expect(viewModel.matchesTagFilter(const ['urgent', 'design']), isTrue);
       expect(viewModel.matchesTagFilter(const ['design']), isFalse);
-      expect(viewModel.selectedTagFilters, {'urgent'});
+      expect(viewModel.isTagFilterSelected('urgent'), isTrue);
 
       viewModel.toggleTagFilter('urgent');
       expect(viewModel.matchesTagFilter(const ['design']), isTrue);
@@ -1508,5 +1508,17 @@ void main() {
 
       expect(card1().statusId, 'todo');
     });
+  });
+
+  test('the tag filter ignores casing, like the merged tag chips', () {
+    viewModel.toggleTagFilter('Urgent');
+
+    expect(viewModel.matchesTagFilter(const ['urgent']), isTrue);
+    expect(viewModel.matchesTagFilter(const ['URGENT', 'design']), isTrue);
+    expect(viewModel.isTagFilterSelected('urgent'), isTrue);
+
+    viewModel.toggleTagFilter('urgent');
+
+    expect(viewModel.isTagFilterSelected('Urgent'), isFalse);
   });
 }

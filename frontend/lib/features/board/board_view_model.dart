@@ -32,6 +32,8 @@ class BoardViewModel extends ViewModel {
   String _searchQuery = '';
   final Set<String> _hiddenStatusIds = {};
   CardSortOption _sortOption = CardSortOption.manual;
+  // Lower-cased: tags are matched case-insensitively, the same way
+  // availableTags merges "Urgent" and "urgent" into one chip.
   final Set<String> _selectedTagFilters = {};
   List<HierarchyItem> _hierarchyItems = const [];
   bool _isHierarchyLoading = false;
@@ -90,10 +92,11 @@ class BoardViewModel extends ViewModel {
 
   CardSortOption get sortOption => _sortOption;
 
-  /// Tags currently selected in the Filters dialog. Empty means no tag
-  /// filter is applied (shows everything) — unlike [hiddenStatusIds], this
-  /// is a filter you opt into, not out of.
-  Set<String> get selectedTagFilters => _selectedTagFilters;
+  /// Whether [tag] (any casing) is selected in the Filters dialog. With
+  /// nothing selected no tag filter is applied — unlike [hiddenStatusIds],
+  /// this is a filter you opt into, not out of.
+  bool isTagFilterSelected(String tag) =>
+      _selectedTagFilters.contains(tag.toLowerCase());
 
   /// Every distinct tag currently seen across loaded swimlane cards and
   /// Hierarchy items, sorted case-insensitively — for populating the
@@ -613,17 +616,19 @@ class BoardViewModel extends ViewModel {
   /// Shows or hides [tag] from the current tag filter. An empty selection
   /// means no tag filter is applied.
   void toggleTagFilter(String tag) {
-    if (!_selectedTagFilters.remove(tag)) {
-      _selectedTagFilters.add(tag);
+    final key = tag.toLowerCase();
+    if (!_selectedTagFilters.remove(key)) {
+      _selectedTagFilters.add(key);
     }
 
     notifyIfActive();
   }
 
   /// True if no tag filter is selected, or [tags] contains at least one
-  /// selected tag.
+  /// selected tag, ignoring case.
   bool matchesTagFilter(List<String> tags) =>
-      _selectedTagFilters.isEmpty || tags.any(_selectedTagFilters.contains);
+      _selectedTagFilters.isEmpty ||
+      tags.any((tag) => _selectedTagFilters.contains(tag.toLowerCase()));
 
   /// Whether [card] should be shown on the board under the current
   /// time-frame filter, search query, and tag filter together.
