@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:weaver/features/work_item_detail/widgets/date_field.dart';
+import 'package:weaver/shared/widgets/date_field.dart';
 
 /// Start and end date fields. Each picker is bounded by the other date, so
 /// an inverted range can't be picked.

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// A field's label, styled identically everywhere in the detail view. Some
+/// A field's label, styled identically everywhere in forms. Some
 /// fields (`TextField`) could otherwise use their own floating
 /// `InputDecoration.labelText` while others (dropdowns with no built-in
 /// label, the tags/schedule sections) need a standalone label above the

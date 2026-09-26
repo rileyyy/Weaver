@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
-import 'package:weaver/features/work_item_detail/widgets/field_label.dart';
 import 'package:weaver/features/work_item_detail/widgets/text_entry_row.dart';
+import 'package:weaver/shared/widgets/field_label.dart';
 
 class LinksSection extends StatelessWidget {
   const LinksSection({

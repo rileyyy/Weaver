@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:weaver/features/work_item_detail/widgets/field_label.dart';
 import 'package:weaver/features/work_item_detail/widgets/text_entry_row.dart';
+import 'package:weaver/shared/widgets/field_label.dart';
 
 /// Chips for the current tags plus an input to add one. Adding a tag that
 /// only differs in case from an existing one is a no-op, matching the
