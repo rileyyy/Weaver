@@ -333,7 +333,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Created ${formatDate(item.createdAtUtc)} · Updated ${formatDate(item.updatedAtUtc)}',
+          'Created ${formatDate(item.createdAt)} · Updated ${formatDate(item.updatedAt)}',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 20),

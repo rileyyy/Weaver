@@ -48,4 +48,31 @@ public class JsonSerializationTests
 
         Assert.That(json, Does.Contain("\"category\":\"Doing\""));
     }
+
+    [Test]
+    public void WorkItemDto_SerializesScheduleDatesAsCalendarDates()
+    {
+        var item = new WorkItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "Item",
+            StartDate = new DateOnly(2026, 9, 25),
+            EndDate = new DateOnly(2026, 9, 30),
+        };
+
+        var json = JsonSerializer.Serialize(WorkItemDto.FromEntity(item), Options);
+
+        Assert.That(json, Does.Contain("\"startDate\":\"2026-09-25\""));
+        Assert.That(json, Does.Contain("\"endDate\":\"2026-09-30\""));
+    }
+
+    [Test]
+    public void RescheduleWorkItemRequest_ReadsCalendarDates()
+    {
+        var request = JsonSerializer.Deserialize<RescheduleWorkItemRequest>(
+            """{"startDate":"2026-09-25","endDate":null}""", Options);
+
+        Assert.That(request!.StartDate, Is.EqualTo(new DateOnly(2026, 9, 25)));
+        Assert.That(request.EndDate, Is.Null);
+    }
 }

@@ -14,8 +14,8 @@ class WorkItemDetail {
     required this.assignedToUserId,
     required this.startDate,
     required this.endDate,
-    required this.createdAtUtc,
-    required this.updatedAtUtc,
+    required this.createdAt,
+    required this.updatedAt,
     required this.version,
     this.tags = const [],
   });
@@ -30,8 +30,8 @@ class WorkItemDetail {
   final String? assignedToUserId;
   final DateTime? startDate;
   final DateTime? endDate;
-  final DateTime createdAtUtc;
-  final DateTime updatedAtUtc;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   /// Server-side row version. Sent back with overwriting saves so the
   /// backend can reject a save based on a stale read.

@@ -204,7 +204,7 @@ void main() {
             'title': 'Card One',
             'parentId': 'lane-1',
             'statusId': 'status-todo',
-            'startDate': '2026-01-10T00:00:00Z',
+            'startDate': '2026-01-10',
             'endDate': null,
           },
         ]);
@@ -216,7 +216,7 @@ void main() {
     final board = await repository.loadBoard('epic-1');
 
     final card = board.swimlanes.single.cards.single;
-    expect(card.startDate, DateTime.parse('2026-01-10T00:00:00Z'));
+    expect(card.startDate, DateTime(2026, 1, 10));
     expect(card.endDate, isNull);
   });
 
@@ -402,7 +402,9 @@ void main() {
       sentRequest = request;
       return http.Response('', 200);
     });
-    final start = DateTime.utc(2026, 2, 1);
+    // A picked day is local midnight; it must be sent as that same calendar
+    // day, not shifted by converting to UTC.
+    final start = DateTime(2026, 2, 1);
 
     final repository = ApiBoardRepository(client, baseUrl);
     await repository.rescheduleItem('card-1', start, null);
@@ -410,7 +412,7 @@ void main() {
     expect(sentRequest, isNotNull);
     expect(sentRequest!.url.path, '/api/work-items/card-1/schedule');
     expect(jsonDecode(sentRequest!.body), {
-      'startDate': start.toIso8601String(),
+      'startDate': '2026-02-01',
       'endDate': null,
     });
   });

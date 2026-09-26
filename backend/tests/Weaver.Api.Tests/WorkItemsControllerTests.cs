@@ -125,7 +125,7 @@ public class WorkItemsControllerTests
     public async Task Reschedule_DelegatesToServiceWithExpectedVersion_AndReturnsOk()
     {
         var item = MakeWorkItem();
-        var start = DateTimeOffset.UtcNow;
+        var start = new DateOnly(2026, 9, 25);
         var end = start.AddDays(3);
 
         _workItems.Setup(s => s.RescheduleAsync(item.Id, start, end, 7u, It.IsAny<CancellationToken>()))

@@ -34,14 +34,14 @@ Map<String, dynamic> _itemJson({
   'version': version,
 };
 
-Map<String, dynamic> _commentJson({DateTime? updatedAtUtc}) => {
+Map<String, dynamic> _commentJson({DateTime? updatedAt}) => {
   'id': 'comment-1',
   'workItemId': 'item-1',
   'authorUserId': 'user-1',
   'authorUsername': 'alice',
   'body': 'Looks good',
   'createdAtUtc': '2026-01-01T00:00:00Z',
-  'updatedAtUtc': updatedAtUtc?.toIso8601String(),
+  'updatedAtUtc': updatedAt?.toIso8601String(),
 };
 
 void main() {
@@ -213,13 +213,13 @@ void main() {
       return _jsonResponse(_itemJson());
     });
     final repository = ApiWorkItemDetailRepository(client, baseUrl);
-    final start = DateTime.utc(2026, 2, 1);
+    final start = DateTime(2026, 2, 1);
 
     await repository.reschedule('item-1', start, null, expectedVersion: 7);
 
     expect(sentRequest!.url.path, '/api/work-items/item-1/schedule');
     expect(jsonDecode(sentRequest!.body), {
-      'startDate': start.toIso8601String(),
+      'startDate': '2026-02-01',
       'endDate': null,
       'expectedVersion': 7,
     });
@@ -254,7 +254,7 @@ void main() {
     http.Request? sentRequest;
     final client = MockClient((request) async {
       sentRequest = request;
-      return _jsonResponse(_commentJson(updatedAtUtc: DateTime.utc(2026, 1, 2)));
+      return _jsonResponse(_commentJson(updatedAt: DateTime.utc(2026, 1, 2)));
     });
     final repository = ApiWorkItemDetailRepository(client, baseUrl);
 
@@ -262,7 +262,7 @@ void main() {
 
     expect(sentRequest!.method, 'PUT');
     expect(sentRequest!.url.path, '/api/comments/comment-1');
-    expect(comment.updatedAtUtc, isNotNull);
+    expect(comment.updatedAt, isNotNull);
   });
 
   test('deleteComment deletes the comment endpoint', () async {

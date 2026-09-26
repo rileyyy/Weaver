@@ -264,7 +264,7 @@ public class WorkItemServiceTests
     {
         var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId);
         var item = await _service.CreateAsync("Item", null, parent.Id, StatusConfiguration.ToDoId);
-        var start = DateTimeOffset.UtcNow;
+        var start = new DateOnly(2026, 9, 25);
         var end = start.AddDays(7);
 
         var rescheduled = await _service.RescheduleAsync(item.Id, start, end);
@@ -279,7 +279,7 @@ public class WorkItemServiceTests
     public async Task RescheduleAsync_WithNullDates_ClearsAnExistingSchedule()
     {
         var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
-        await _service.RescheduleAsync(item.Id, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(1));
+        await _service.RescheduleAsync(item.Id, new DateOnly(2026, 9, 25), new DateOnly(2026, 9, 26));
 
         var cleared = await _service.RescheduleAsync(item.Id, null, null);
 
@@ -291,7 +291,7 @@ public class WorkItemServiceTests
     public void RescheduleAsync_WithStartAfterEnd_ThrowsInvalidWorkItemScheduleException()
     {
         var itemId = Guid.NewGuid();
-        var start = DateTimeOffset.UtcNow;
+        var start = new DateOnly(2026, 9, 25);
         var end = start.AddDays(-1);
 
         Assert.ThrowsAsync<InvalidWorkItemScheduleException>(() =>
@@ -412,7 +412,7 @@ public class WorkItemServiceTests
         var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
 
         Assert.ThrowsAsync<WorkItemVersionConflictException>(() => _service.RescheduleAsync(
-            item.Id, DateTimeOffset.UtcNow, null, expectedVersion: item.Version + 1));
+            item.Id, new DateOnly(2026, 9, 25), null, expectedVersion: item.Version + 1));
     }
 
     [Test]

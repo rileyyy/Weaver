@@ -14,8 +14,8 @@ public record WorkItemDto(
     Guid? AssignedToUserId,
     IReadOnlyList<string> Tags,
     double Rank,
-    DateTimeOffset? StartDate,
-    DateTimeOffset? EndDate,
+    DateOnly? StartDate,
+    DateOnly? EndDate,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
     uint Version)
@@ -57,7 +57,7 @@ public record ChangeWorkItemStatusRequest(Guid StatusId, Guid? AfterId);
 
 public record ReparentWorkItemRequest(Guid? ParentId, Guid? AfterId);
 
-public record RescheduleWorkItemRequest(DateTimeOffset? StartDate, DateTimeOffset? EndDate, uint? ExpectedVersion = null);
+public record RescheduleWorkItemRequest(DateOnly? StartDate, DateOnly? EndDate, uint? ExpectedVersion = null);
 
 public record UpdateWorkItemDetailsRequest(
     string Title,

@@ -88,8 +88,8 @@ public class WorkItemTools
         "Either may be omitted to leave that side open-ended.")]
     public Task<WorkItemDto> RescheduleWorkItem(
         [Description("The work item's id.")] Guid id,
-        [Description("New start date. Omit to leave it open-ended on this side.")] DateTimeOffset? startDate = null,
-        [Description("New end date. Omit to leave it open-ended on this side.")] DateTimeOffset? endDate = null,
+        [Description("New start date (yyyy-MM-dd, a calendar date). Omit to leave it open-ended on this side.")] DateOnly? startDate = null,
+        [Description("New end date (yyyy-MM-dd, a calendar date). Omit to leave it open-ended on this side.")] DateOnly? endDate = null,
         [Description("The work item's Version from your last read. If given and the item has changed since, the update is rejected instead of overwriting someone else's change.")] uint? expectedVersion = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>

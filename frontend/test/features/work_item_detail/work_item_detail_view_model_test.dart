@@ -33,8 +33,8 @@ WorkItemDetail _item({
   assignedToUserId: assignedToUserId,
   startDate: null,
   endDate: null,
-  createdAtUtc: DateTime.utc(2026, 1, 1),
-  updatedAtUtc: DateTime.utc(2026, 1, 1),
+  createdAt: DateTime.utc(2026, 1, 1),
+  updatedAt: DateTime.utc(2026, 1, 1),
   version: version,
   tags: tags,
 );
@@ -153,8 +153,8 @@ class _FakeRepository implements WorkItemDetailRepository {
       authorUserId: 'user-1',
       authorUsername: 'alice',
       body: body,
-      createdAtUtc: DateTime.utc(2026, 1, 1),
-      updatedAtUtc: null,
+      createdAt: DateTime.utc(2026, 1, 1),
+      updatedAt: null,
     );
     commentsList.add(comment);
     return comment;
@@ -171,8 +171,8 @@ class _FakeRepository implements WorkItemDetailRepository {
       authorUserId: commentsList[index].authorUserId,
       authorUsername: commentsList[index].authorUsername,
       body: body,
-      createdAtUtc: commentsList[index].createdAtUtc,
-      updatedAtUtc: DateTime.utc(2026, 1, 2),
+      createdAt: commentsList[index].createdAt,
+      updatedAt: DateTime.utc(2026, 1, 2),
     );
     commentsList[index] = updated;
     return updated;
@@ -431,7 +431,7 @@ void main() {
 
     expect(ok, isTrue);
     expect(viewModel.comments.single.body, 'Edited');
-    expect(viewModel.comments.single.updatedAtUtc, isNotNull);
+    expect(viewModel.comments.single.updatedAt, isNotNull);
   });
 
   test('deleteComment removes the comment from the list', () async {

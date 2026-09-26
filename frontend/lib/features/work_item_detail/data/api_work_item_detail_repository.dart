@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
+import 'package:weaver/core/network/api_dates.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/models/board_status.dart';
@@ -129,8 +130,8 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
       _uri('/work-items/$id/schedule'),
       headers: const {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'startDate': startDate?.toUtc().toIso8601String(),
-        'endDate': endDate?.toUtc().toIso8601String(),
+        'startDate': formatCalendarDate(startDate),
+        'endDate': formatCalendarDate(endDate),
         'expectedVersion': expectedVersion,
       }),
     );
@@ -212,8 +213,8 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     authorUserId: json['authorUserId'] as String,
     authorUsername: json['authorUsername'] as String,
     body: json['body'] as String,
-    createdAtUtc: DateTime.parse(json['createdAtUtc'] as String),
-    updatedAtUtc: _parseDate(json['updatedAtUtc']),
+    createdAt: parseApiTimestamp(json['createdAtUtc'] as String),
+    updatedAt: parseOptionalApiTimestamp(json['updatedAtUtc']),
   );
 
   WorkItemLink _toLink(Map<String, dynamic> json) => WorkItemLink(
@@ -231,15 +232,14 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     layerId: json['layerId'] as String?,
     priority: workItemPriorityFromWire(json['priority'] as String),
     assignedToUserId: json['assignedToUserId'] as String?,
-    startDate: _parseDate(json['startDate']),
-    endDate: _parseDate(json['endDate']),
-    createdAtUtc: DateTime.parse(json['createdAtUtc'] as String),
-    updatedAtUtc: DateTime.parse(json['updatedAtUtc'] as String),
+    startDate: parseCalendarDate(json['startDate']),
+    endDate: parseCalendarDate(json['endDate']),
+    createdAt: parseApiTimestamp(json['createdAtUtc'] as String),
+    updatedAt: parseApiTimestamp(json['updatedAtUtc'] as String),
     version: json['version'] as int,
     tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? const [],
   );
 
-  DateTime? _parseDate(dynamic value) => value == null ? null : DateTime.parse(value as String);
 
   Future<List<Map<String, dynamic>>> _getJsonList(String path) async {
     final response = await _client.get(_uri(path));
