@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/work_item_detail/data/api_work_item_detail_repository.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 
@@ -14,6 +15,7 @@ Map<String, dynamic> _itemJson({
   String priority = 'Medium',
   String? assignedToUserId,
   List<String> tags = const [],
+  int version = 7,
 }) => {
   'id': 'item-1',
   'parentId': null,
@@ -29,6 +31,7 @@ Map<String, dynamic> _itemJson({
   'endDate': null,
   'createdAtUtc': '2026-01-01T00:00:00Z',
   'updatedAtUtc': '2026-01-01T00:00:00Z',
+  'version': version,
 };
 
 Map<String, dynamic> _commentJson({DateTime? updatedAtUtc}) => {
@@ -122,6 +125,7 @@ void main() {
       description: 'New description',
       layerId: 'layer-1',
       priority: WorkItemPriority.high,
+      expectedVersion: 7,
     );
 
     expect(sentRequest!.method, 'PUT');
@@ -131,7 +135,42 @@ void main() {
       'description': 'New description',
       'layerId': 'layer-1',
       'priority': 'High',
+      'expectedVersion': 7,
     });
+  });
+
+  test('updateDetails returns the new version from the response', () async {
+    final client = MockClient((request) async => _jsonResponse(_itemJson(version: 8)));
+    final repository = ApiWorkItemDetailRepository(client, baseUrl);
+
+    final item = await repository.updateDetails(
+      'item-1',
+      title: 'New title',
+      description: null,
+      layerId: null,
+      priority: WorkItemPriority.medium,
+      expectedVersion: 7,
+    );
+
+    expect(item.version, 8);
+  });
+
+  test('a 409 from a save throws a conflict ApiException with the server detail', () async {
+    final client = MockClient(
+      (request) async => _jsonResponse({'status': 409, 'detail': 'Changed by someone else.'}, statusCode: 409),
+    );
+    final repository = ApiWorkItemDetailRepository(client, baseUrl);
+
+    final call = repository.updateTags('item-1', ['urgent'], expectedVersion: 7);
+
+    await expectLater(
+      call,
+      throwsA(
+        isA<ApiException>()
+            .having((e) => e.isConflict, 'isConflict', isTrue)
+            .having((e) => e.message, 'message', contains('Changed by someone else.')),
+      ),
+    );
   });
 
   test('assign posts the userId to the assignee endpoint', () async {
@@ -156,12 +195,13 @@ void main() {
     });
     final repository = ApiWorkItemDetailRepository(client, baseUrl);
 
-    final item = await repository.updateTags('item-1', ['urgent']);
+    final item = await repository.updateTags('item-1', ['urgent'], expectedVersion: 7);
 
     expect(sentRequest!.method, 'POST');
     expect(sentRequest!.url.path, '/api/work-items/item-1/tags');
     expect(jsonDecode(sentRequest!.body), {
       'tags': ['urgent'],
+      'expectedVersion': 7,
     });
     expect(item.tags, ['urgent']);
   });
@@ -175,12 +215,13 @@ void main() {
     final repository = ApiWorkItemDetailRepository(client, baseUrl);
     final start = DateTime.utc(2026, 2, 1);
 
-    await repository.reschedule('item-1', start, null);
+    await repository.reschedule('item-1', start, null, expectedVersion: 7);
 
     expect(sentRequest!.url.path, '/api/work-items/item-1/schedule');
     expect(jsonDecode(sentRequest!.body), {
       'startDate': start.toIso8601String(),
       'endDate': null,
+      'expectedVersion': 7,
     });
   });
 

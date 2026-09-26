@@ -16,6 +16,7 @@ class WorkItemDetail {
     required this.endDate,
     required this.createdAtUtc,
     required this.updatedAtUtc,
+    required this.version,
     this.tags = const [],
   });
 
@@ -31,5 +32,9 @@ class WorkItemDetail {
   final DateTime? endDate;
   final DateTime createdAtUtc;
   final DateTime updatedAtUtc;
+
+  /// Server-side row version. Sent back with overwriting saves so the
+  /// backend can reject a save based on a stale read.
+  final int version;
   final List<String> tags;
 }

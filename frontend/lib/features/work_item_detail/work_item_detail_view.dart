@@ -88,7 +88,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
   final _newCommentController = TextEditingController();
   final _linkTargetController = TextEditingController();
   final _tagInputController = TextEditingController();
-  bool _fieldsInitialized = false;
+  int _seededGeneration = -1;
   String? _selectedLayerId;
   WorkItemPriority _selectedPriority = WorkItemPriority.medium;
   String? _selectedAssigneeId;
@@ -105,14 +105,14 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
 
   void _onViewModelChanged() {
     final item = _viewModel.item;
-    if (item != null && !_fieldsInitialized) {
+    if (item != null && _seededGeneration != _viewModel.reloadGeneration) {
       _titleController.text = item.title;
       _descriptionController.text = item.description ?? '';
       _selectedLayerId = item.layerId;
       _selectedPriority = item.priority;
       _selectedAssigneeId = item.assignedToUserId;
       _tags = [...item.tags];
-      _fieldsInitialized = true;
+      _seededGeneration = _viewModel.reloadGeneration;
     }
     setState(() {});
   }
@@ -533,9 +533,13 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
 
   Future<void> _saveTags(List<String> updated) async {
     final previous = _tags;
+    final generation = _viewModel.reloadGeneration;
     setState(() => _tags = updated);
     final ok = await _viewModel.saveTags(updated);
-    if (!ok && mounted) setState(() => _tags = previous);
+    // After a conflict the view model has already re-seeded _tags from the
+    // server's latest copy; restoring `previous` would put stale tags back.
+    final wasReloaded = _viewModel.reloadGeneration != generation;
+    if (!ok && !wasReloaded && mounted) setState(() => _tags = previous);
   }
 
   Future<void> _pickStartDate(WorkItemDetail item) async {

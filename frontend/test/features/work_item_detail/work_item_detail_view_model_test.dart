@@ -1,6 +1,7 @@
 import 'dart:ui' show Color;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart';
@@ -19,10 +20,12 @@ WorkItemDetail _item({
   WorkItemPriority priority = WorkItemPriority.medium,
   String? assignedToUserId,
   List<String> tags = const [],
+  String title = 'A task',
+  int version = 1,
 }) => WorkItemDetail(
   id: id,
   parentId: null,
-  title: 'A task',
+  title: title,
   description: null,
   statusId: statusId,
   layerId: layerId,
@@ -32,6 +35,7 @@ WorkItemDetail _item({
   endDate: null,
   createdAtUtc: DateTime.utc(2026, 1, 1),
   updatedAtUtc: DateTime.utc(2026, 1, 1),
+  version: version,
   tags: tags,
 );
 
@@ -46,6 +50,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   final List<String?> assignCalls = [];
   final List<String> rescheduleCalls = [];
   final List<List<String>> updateTagsCalls = [];
+  final List<int> expectedVersions = [];
   final List<WorkItemComment> commentsList = [];
   final List<WorkItemLink> linksList = [];
   List<WorkItemChildSummary> childrenList = [];
@@ -89,11 +94,19 @@ class _FakeRepository implements WorkItemDetailRepository {
     required String? description,
     required String? layerId,
     required WorkItemPriority priority,
+    required int expectedVersion,
   }) async {
     updateDetailsCalls.add(id);
+    expectedVersions.add(expectedVersion);
     final error = saveError;
     if (error != null) throw error;
-    return item = _item(id: id, statusId: item.statusId, layerId: layerId, priority: priority);
+    return item = _item(
+      id: id,
+      statusId: item.statusId,
+      layerId: layerId,
+      priority: priority,
+      version: item.version + 1,
+    );
   }
 
   @override
@@ -105,16 +118,23 @@ class _FakeRepository implements WorkItemDetailRepository {
   }
 
   @override
-  Future<WorkItemDetail> reschedule(String id, DateTime? startDate, DateTime? endDate) async {
+  Future<WorkItemDetail> reschedule(
+    String id,
+    DateTime? startDate,
+    DateTime? endDate, {
+    required int expectedVersion,
+  }) async {
     rescheduleCalls.add(id);
+    expectedVersions.add(expectedVersion);
     final error = saveError;
     if (error != null) throw error;
     return item;
   }
 
   @override
-  Future<WorkItemDetail> updateTags(String id, List<String> tags) async {
+  Future<WorkItemDetail> updateTags(String id, List<String> tags, {required int expectedVersion}) async {
     updateTagsCalls.add(tags);
+    expectedVersions.add(expectedVersion);
     final error = saveError;
     if (error != null) throw error;
     return item = _item(id: id, statusId: item.statusId, tags: tags);
@@ -281,6 +301,52 @@ void main() {
 
     expect(ok, isFalse);
     expect(viewModel.saveError, isNotNull);
+  });
+
+  test('saveDetails sends the loaded version, then the version each save returns', () async {
+    final repository = _FakeRepository()..item = _item(version: 5);
+    final viewModel = WorkItemDetailViewModel(repository);
+    await viewModel.load('item-1');
+
+    await viewModel.saveDetails(title: 'One', description: null, layerId: null, priority: WorkItemPriority.low);
+    await viewModel.saveTags(['urgent']);
+
+    expect(repository.expectedVersions, [5, 6]);
+  });
+
+  test('a save conflict reloads the latest item and bumps reloadGeneration', () async {
+    final repository = _FakeRepository(saveError: const ApiException('changed', statusCode: 409));
+    final viewModel = WorkItemDetailViewModel(repository);
+    await viewModel.load('item-1');
+    final generationBefore = viewModel.reloadGeneration;
+    repository.item = _item(title: "Someone else's title", version: 9);
+
+    final ok = await viewModel.saveDetails(
+      title: 'My title',
+      description: null,
+      layerId: null,
+      priority: WorkItemPriority.medium,
+    );
+
+    expect(ok, isFalse);
+    expect(viewModel.item!.title, "Someone else's title");
+    expect(viewModel.item!.version, 9);
+    expect(viewModel.reloadGeneration, generationBefore + 1);
+    expect(viewModel.saveError, contains('Someone else changed this work item'));
+    expect(viewModel.isSaving, isFalse);
+  });
+
+  test('a non-conflict ApiException does not reload the item', () async {
+    final repository = _FakeRepository(saveError: const ApiException('bad tag', statusCode: 400));
+    final viewModel = WorkItemDetailViewModel(repository);
+    await viewModel.load('item-1');
+    final generationBefore = viewModel.reloadGeneration;
+
+    final ok = await viewModel.saveTags(['  ']);
+
+    expect(ok, isFalse);
+    expect(viewModel.reloadGeneration, generationBefore);
+    expect(viewModel.saveError, 'Could not save your change. Try again.');
   });
 
   test('saveAssignee updates the assignee on success', () async {

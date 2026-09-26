@@ -90,6 +90,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     required String? description,
     required String? layerId,
     required WorkItemPriority priority,
+    required int expectedVersion,
   }) async {
     final response = await _client.put(
       _uri('/work-items/$id/details'),
@@ -99,6 +100,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
         'description': description,
         'layerId': layerId,
         'priority': priority.toWire(),
+        'expectedVersion': expectedVersion,
       }),
     );
     _checkOk(response, 'Failed to update work item');
@@ -117,13 +119,19 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   }
 
   @override
-  Future<WorkItemDetail> reschedule(String id, DateTime? startDate, DateTime? endDate) async {
+  Future<WorkItemDetail> reschedule(
+    String id,
+    DateTime? startDate,
+    DateTime? endDate, {
+    required int expectedVersion,
+  }) async {
     final response = await _client.post(
       _uri('/work-items/$id/schedule'),
       headers: const {'Content-Type': 'application/json'},
       body: jsonEncode({
         'startDate': startDate?.toUtc().toIso8601String(),
         'endDate': endDate?.toUtc().toIso8601String(),
+        'expectedVersion': expectedVersion,
       }),
     );
     _checkOk(response, 'Failed to reschedule work item');
@@ -131,11 +139,11 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   }
 
   @override
-  Future<WorkItemDetail> updateTags(String id, List<String> tags) async {
+  Future<WorkItemDetail> updateTags(String id, List<String> tags, {required int expectedVersion}) async {
     final response = await _client.post(
       _uri('/work-items/$id/tags'),
       headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({'tags': tags}),
+      body: jsonEncode({'tags': tags, 'expectedVersion': expectedVersion}),
     );
     _checkOk(response, 'Failed to set tags');
     return _toDetail(jsonDecode(response.body) as Map<String, dynamic>);
@@ -227,6 +235,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     endDate: _parseDate(json['endDate']),
     createdAtUtc: DateTime.parse(json['createdAtUtc'] as String),
     updatedAtUtc: DateTime.parse(json['updatedAtUtc'] as String),
+    version: json['version'] as int,
     tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? const [],
   );
 
@@ -242,7 +251,10 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
 
   void _checkOk(http.Response response, String fallbackMessage) {
     if (response.statusCode >= 200 && response.statusCode < 300) return;
-    throw ApiException('${_problemDetail(response) ?? fallbackMessage} (${response.statusCode}).');
+    throw ApiException(
+      '${_problemDetail(response) ?? fallbackMessage} (${response.statusCode}).',
+      statusCode: response.statusCode,
+    );
   }
 
   String? _problemDetail(http.Response response) {
