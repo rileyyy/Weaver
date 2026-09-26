@@ -26,6 +26,8 @@ builder.Services.AddOpenApi();
 builder.Services.AddDbContext<WeaverDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Weaver")));
 
+builder.Services.AddHealthChecks().AddDbContextCheck<WeaverDbContext>();
+
 builder.Services
     .AddScoped<IWorkItemService, WorkItemService>()
     .AddScoped<IAuthService, AuthService>()
@@ -141,6 +143,10 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// For compose healthchecks and startup ordering. Not proxied by nginx, so
+// only reachable from inside the compose network.
+app.MapHealthChecks("/health").AllowAnonymous();
 
 // Inherits the same [Authorize] fallback policy as every controller above (no
 // [AllowAnonymous]-equivalent opt-out here) — an MCP client authenticates with a bearer
