@@ -340,7 +340,7 @@ The most important problems cluster in four areas:
 - [ ] **I-L1.** The root rules file is committed as `claude.md` (lower-case). That works on Windows and macOS but not on case-sensitive tooling that looks for `CLAUDE.md`.
 - [ ] **I-L2.** `agent_notes.md` (50 KB) and `project_design.md` mix durable architecture decisions with milestone history and "open decisions" that have since been settled. Consider a lean `docs/architecture.md` (or ADRs) plus a changelog, and a top-level `README.md`; only `frontend/README.md` exists today.
 - [x] *(Resolved in `bugfix/deploy-exposure-and-tls`.)* **I-L3.** `compose.yaml` defaults to `ghcr.io/OWNER/...`, so a bare `docker compose pull` fails with an unclear error. Make it a required variable (`${BACKEND_IMAGE:?…}`) like the others.
-- [ ] **I-L4.** The nginx runtime image runs as root and sets no security headers (CSP, `X-Content-Type-Options`), and there is no cache policy distinguishing the hashed Flutter assets from `index.html`.
+- [x] *(Resolved in `feature/nginx-hardening`: `nginx-unprivileged` (uid 101), CSP and other security headers, CanvasKit served locally, and `no-cache` revalidation for app files. Flutter's web output isn't content-hashed, so no long-lived caching is safe. Verified with a UI login in headless Chromium.)* **I-L4.** The nginx runtime image runs as root and sets no security headers (CSP, `X-Content-Type-Options`), and there is no cache policy distinguishing the hashed Flutter assets from `index.html`.
 
 ---
 

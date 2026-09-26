@@ -157,6 +157,25 @@ whoever (human or agent) next touches this area.
 
   Copy `$BACKUP_DIR` off the server as well; a dump on the same disk
   doesn't survive losing that disk.
+- **The production frontend image is hardened** (verified by signing in
+  through the UI in headless Chromium with no CSP violations or console
+  errors):
+  - It runs as uid 101 on `nginxinc/nginx-unprivileged` (the official
+    NGINX image built for that), which already listens on 8080.
+  - It's built with `--no-web-resources-cdn`, so CanvasKit loads from the
+    server instead of `www.gstatic.com`. A LAN server doesn't depend on
+    Google's CDN, and the CSP keeps scripts to `'self'` (plus
+    `'wasm-unsafe-eval'`, which CanvasKit needs). The engine still
+    fetches Roboto/Noto from `fonts.gstatic.com`, so that host is allowed
+    for fonts and `connect-src`.
+  - Security headers are set once at `server` level with `always`,
+    because an `add_header` inside any `location` silently drops every
+    inherited one.
+  - Every app file is `Cache-Control: no-cache`. Flutter's web output
+    isn't content-hashed (`main.dart.js`, `canvaskit/`, `assets/` keep
+    their names across releases), so long-caching any of it could mix
+    versions after a deploy. Revalidation is a cheap 304 via ETag. API
+    responses keep their own headers.
 - **`.env.example` ships empty values** so a copy used unchanged fails
   compose validation instead of running with publicly known secrets, and
   the API refuses to start with a signing key under 32 bytes (HS256's
