@@ -28,17 +28,18 @@ const int _metadataColumnFlex = 35;
 /// Opens [WorkItemDetailView] in a [Dialog] sized to fit comfortably on
 /// both desktop and mobile viewports. If [onDrillInto] is given, an app-bar
 /// action lets the user close the dialog and re-scope the board to this
-/// item's children instead. If [onDeleted] is given, it's called after the
-/// user confirms and successfully deletes this work item, once the dialog
-/// has already closed — the caller's chance to refresh whatever list was
-/// showing it.
-Future<void> showWorkItemDetailDialog(
+/// item's children instead.
+///
+/// Completes with true if anything other views show was changed from the
+/// dialog (or from a sub-item dialog opened inside it), including deleting
+/// the item, so the caller can refresh whatever it was showing.
+Future<bool> showWorkItemDetailDialog(
   BuildContext context, {
   required String workItemId,
   VoidCallback? onDrillInto,
-  VoidCallback? onDeleted,
-}) {
-  return showDialog<void>(
+}) async {
+  var changed = false;
+  await showDialog<void>(
     context: context,
     builder: (context) {
       final screenSize = MediaQuery.sizeOf(context);
@@ -49,19 +50,20 @@ Future<void> showWorkItemDetailDialog(
           child: WorkItemDetailView(
             workItemId: workItemId,
             onDrillInto: onDrillInto,
-            onDeleted: onDeleted,
+            onChanged: () => changed = true,
           ),
         ),
       );
     },
   );
+  return changed;
 }
 
 class WorkItemDetailView extends StatefulWidget {
   const WorkItemDetailView({
     required this.workItemId,
     this.onDrillInto,
-    this.onDeleted,
+    this.onChanged,
     super.key,
   });
 
@@ -73,9 +75,9 @@ class WorkItemDetailView extends StatefulWidget {
   /// reachable from the detail dialog instead of a tap on the card itself.
   final VoidCallback? onDrillInto;
 
-  /// Called once this item has actually been deleted (after confirmation),
-  /// after this view's own dialog has closed itself.
-  final VoidCallback? onDeleted;
+  /// Called (possibly more than once) after a change other views show has
+  /// been saved — see [WorkItemDetailViewModel.hasChanges].
+  final VoidCallback? onChanged;
 
   @override
   State<WorkItemDetailView> createState() => _WorkItemDetailViewState();
@@ -114,6 +116,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
       _tags = [...item.tags];
       _seededGeneration = _viewModel.reloadGeneration;
     }
+    if (_viewModel.hasChanges) widget.onChanged?.call();
     setState(() {});
   }
 
@@ -373,9 +376,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
         ),
       ),
       title: Text('#${child.number} ${child.title}', overflow: TextOverflow.ellipsis),
-      onTap: () => unawaited(
-        showWorkItemDetailDialog(context, workItemId: child.id),
-      ),
+      onTap: () => unawaited(_openSubItem(child.id)),
     );
   }
 
@@ -602,9 +603,11 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     if (confirmed != true) return;
 
     final ok = await _viewModel.deleteItem();
-    if (ok && mounted) {
-      Navigator.of(context).pop();
-      widget.onDeleted?.call();
-    }
+    if (ok && mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _openSubItem(String subItemId) async {
+    final changed = await showWorkItemDetailDialog(context, workItemId: subItemId);
+    if (changed) await _viewModel.onSubItemChanged();
   }
 }

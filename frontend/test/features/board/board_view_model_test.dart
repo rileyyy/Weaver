@@ -1222,4 +1222,60 @@ void main() {
       expect(viewModel.moveError, isNotNull);
     });
   });
+
+  group('hierarchy stays in step with board mutations', () {
+    late _TestBoardRepository hierarchyRepository;
+    late BoardViewModel hierarchyViewModel;
+
+    setUp(() async {
+      hierarchyRepository = _TestBoardRepository(
+        hierarchyItems: const [
+          HierarchyItem(id: 'lane-a', number: 10, parentId: null, title: 'Lane A', statusId: 'todo'),
+          HierarchyItem(id: 'lane-b', number: 11, parentId: null, title: 'Lane B', statusId: 'todo'),
+          HierarchyItem(id: 'card-1', number: 1, parentId: 'lane-a', title: 'Card 1', statusId: 'todo'),
+        ],
+      );
+      hierarchyViewModel = BoardViewModel(hierarchyRepository);
+      await hierarchyViewModel.load();
+      await hierarchyViewModel.loadHierarchy();
+    });
+
+    HierarchyItem card1() =>
+        hierarchyViewModel.hierarchyRoots.expand((n) => n.children).single.item;
+
+    test('moveCard also moves the Hierarchy item to the new status', () async {
+      await hierarchyViewModel.moveCard(hierarchyViewModel.swimlanes[0].cards.single, 'done');
+
+      expect(card1().statusId, 'done');
+    });
+
+    test('reparentCard also moves the Hierarchy item under its new parent', () async {
+      await hierarchyViewModel.reparentCard(hierarchyViewModel.swimlanes[0].cards.single, 'lane-b');
+
+      final laneB = hierarchyViewModel.hierarchyRoots.singleWhere((n) => n.item.id == 'lane-b');
+      expect(laneB.children.single.item.id, 'card-1');
+    });
+
+    test('rescheduleCard also reschedules the Hierarchy item', () async {
+      final start = DateTime(2026, 9, 25);
+
+      await hierarchyViewModel.rescheduleCard(hierarchyViewModel.swimlanes[0].cards.single, start, null);
+
+      expect(card1().startDate, start);
+    });
+
+    test('a failed move reverts the Hierarchy item too', () async {
+      final failing = _TestBoardRepository(
+        changeStatusError: Exception('rejected'),
+        hierarchyItems: hierarchyRepository.hierarchyItems,
+      );
+      hierarchyViewModel = BoardViewModel(failing);
+      await hierarchyViewModel.load();
+      await hierarchyViewModel.loadHierarchy();
+
+      await hierarchyViewModel.moveCard(hierarchyViewModel.swimlanes[0].cards.single, 'done');
+
+      expect(card1().statusId, 'todo');
+    });
+  });
 }

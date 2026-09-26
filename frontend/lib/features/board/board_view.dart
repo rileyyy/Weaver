@@ -104,33 +104,34 @@ class _BoardViewState extends State<BoardView>
     }
   }
 
-  void _onWorkItemDeleted() {
-    unawaited(_viewModel.refreshCurrentScope());
+  /// Detail-dialog edits never go through [BoardViewModel], so reload what
+  /// the board shows once the dialog reports a change.
+  void _refreshAfterDetailEdits({bool reloadScope = true}) {
+    if (reloadScope) unawaited(_viewModel.refreshCurrentScope());
     unawaited(_viewModel.refreshHierarchyIfLoaded());
   }
 
-  void _openDetails(WorkItemCard card) {
-    unawaited(
-      showWorkItemDetailDialog(
-        context,
-        workItemId: card.id,
-        onDrillInto: () => unawaited(_viewModel.drillInto(card)),
-        onDeleted: _onWorkItemDeleted,
-      ),
+  Future<void> _openDetails(WorkItemCard card) async {
+    var drilledIn = false;
+    final changed = await showWorkItemDetailDialog(
+      context,
+      workItemId: card.id,
+      onDrillInto: () {
+        drilledIn = true;
+        unawaited(_viewModel.drillInto(card));
+      },
     );
+    // A drill-in already loads fresh data for the new scope; refreshing the
+    // old scope now would be the newer load and cancel it.
+    if (changed) _refreshAfterDetailEdits(reloadScope: !drilledIn);
   }
 
   /// Opens a work item's details given just its id — used where there's no
   /// [WorkItemCard] in hand, e.g. tapping a swimlane's own label or a
   /// Hierarchy row.
-  void _openDetailsById(String workItemId) {
-    unawaited(
-      showWorkItemDetailDialog(
-        context,
-        workItemId: workItemId,
-        onDeleted: _onWorkItemDeleted,
-      ),
-    );
+  Future<void> _openDetailsById(String workItemId) async {
+    final changed = await showWorkItemDetailDialog(context, workItemId: workItemId);
+    if (changed) _refreshAfterDetailEdits();
   }
 
   /// Opens a picker to assign [workItemId] — used wherever an assignee
