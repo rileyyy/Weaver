@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:weaver/core/network/api_exception.dart';
+import 'package:weaver/core/network/unexpected_response_exception.dart';
 import 'package:weaver/features/work_item_detail/data/api_work_item_detail_repository.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/shared/data/api_status_repository.dart';
@@ -77,6 +78,26 @@ void main() {
       expect(item.layerId, 'layer-1');
       expect(item.priority, WorkItemPriority.urgent);
       expect(item.assignedToUserId, 'user-1');
+    },
+  );
+
+  test(
+    'getItem reports an unknown priority as an unexpected response',
+    () async {
+      final client = MockClient(
+        (request) async => _jsonResponse(_itemJson(priority: 'Critical')),
+      );
+      final repository = ApiWorkItemDetailRepository(
+        client,
+        baseUrl,
+        ApiStatusRepository(client, baseUrl),
+        ApiUserDirectoryRepository(client, baseUrl),
+      );
+
+      await expectLater(
+        repository.getItem('item-1'),
+        throwsA(isA<UnexpectedResponseException>()),
+      );
     },
   );
 

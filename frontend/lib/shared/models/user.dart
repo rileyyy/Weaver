@@ -6,7 +6,7 @@ class User {
   factory User.fromJson(Map<String, dynamic> json) => User(
     id: json['id'] as String,
     username: json['username'] as String,
-    kind: userKindFromWire(json['kind'] as String),
+    kind: UserKind.fromWire(json['kind'] as String),
   );
 
   final String id;
