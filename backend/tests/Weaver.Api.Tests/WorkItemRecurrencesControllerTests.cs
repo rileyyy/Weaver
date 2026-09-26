@@ -25,7 +25,8 @@ public class WorkItemRecurrencesControllerTests
         workItemId,
         12,
         "Report",
-        null,
+        Guid.NewGuid(),
+        "Lane",
         RecurrenceSchedule.Create(
             RecurrenceFrequency.Weekly,
             [DayOfWeek.Monday, DayOfWeek.Thursday],
@@ -44,6 +45,7 @@ public class WorkItemRecurrencesControllerTests
         var body = ((result.Result as OkObjectResult)!.Value as IEnumerable<WorkItemRecurrenceDto>)!.Single();
         Assert.That(body.WorkItemId, Is.EqualTo(id));
         Assert.That(body.WorkItemNumber, Is.EqualTo(12));
+        Assert.That(body.ParentTitle, Is.EqualTo("Lane"));
         Assert.That(body.DaysOfWeek, Is.EqualTo(new[] { DayOfWeek.Monday, DayOfWeek.Thursday }));
         Assert.That(body.NextOccurrence, Is.EqualTo(new DateOnly(2026, 10, 1)));
     }

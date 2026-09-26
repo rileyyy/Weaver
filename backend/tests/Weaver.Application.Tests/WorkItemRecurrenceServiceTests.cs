@@ -55,6 +55,22 @@ public class WorkItemRecurrenceServiceTests
     }
 
     [Test]
+    public async Task SetAsync_AndListAsync_LoadTheParentForDisplay()
+    {
+        var lane = await CreateItem("Lane");
+        var item = await CreateItem("Report", lane.Id);
+
+        var set = await RepeatWeekly(item.Id, DayOfWeek.Monday);
+        _db.ChangeTracker.Clear();
+        var listed = (await _recurrences.ListAsync()).Single();
+        var fetched = await _recurrences.GetAsync(item.Id);
+
+        Assert.That(set.ParentTitle, Is.EqualTo("Lane"));
+        Assert.That(listed.ParentTitle, Is.EqualTo("Lane"));
+        Assert.That(fetched!.ParentTitle, Is.EqualTo("Lane"));
+    }
+
+    [Test]
     public void SetAsync_WithUnknownWorkItem_ThrowsEntityNotFoundException()
     {
         Assert.ThrowsAsync<EntityNotFoundException>(() => RepeatWeekly(Guid.NewGuid(), DayOfWeek.Monday));

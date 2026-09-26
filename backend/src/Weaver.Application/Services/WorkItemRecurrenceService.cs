@@ -23,7 +23,7 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
     {
         var item = await FindWorkItemAsync(workItemId, ct);
         var recurrence = await _db.WorkItemRecurrences.FindAsync([workItemId], ct);
-        return recurrence is null ? null : Describe(recurrence, item);
+        return recurrence is null ? null : Describe(recurrence, item, await ParentTitleAsync(item, ct));
     }
 
     public async Task<IReadOnlyList<RecurringWorkItem>> ListAsync(CancellationToken ct = default)
@@ -31,10 +31,11 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
         var recurrences = await _db.WorkItemRecurrences
             .AsNoTracking()
             .Include(r => r.WorkItem)
+            .ThenInclude(w => w!.Parent)
             .OrderBy(r => r.WorkItem!.Number)
             .ToListAsync(ct);
 
-        return recurrences.Select(r => Describe(r, r.WorkItem!)).ToList();
+        return recurrences.Select(r => Describe(r, r.WorkItem!, r.WorkItem!.Parent?.Title)).ToList();
     }
 
     public async Task<RecurringWorkItem> SetAsync(
@@ -69,7 +70,7 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
         await _db.SaveChangesAsync(ct);
 
         await GenerateForAsync(recurrence, item, new OccurrenceFactory(_db), ct);
-        return Describe(recurrence, item);
+        return Describe(recurrence, item, await ParentTitleAsync(item, ct));
     }
 
     public async Task RemoveAsync(Guid workItemId, CancellationToken ct = default)
@@ -143,11 +144,12 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
         return dates.Count;
     }
 
-    private RecurringWorkItem Describe(WorkItemRecurrence recurrence, WorkItem item) => new(
+    private RecurringWorkItem Describe(WorkItemRecurrence recurrence, WorkItem item, string? parentTitle) => new(
         item.Id,
         item.Number,
         item.Title,
         item.ParentId,
+        parentTitle,
         recurrence.Schedule,
         recurrence.Schedule.NextOccurrenceOnOrAfter(Today()));
 
@@ -156,6 +158,11 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
     /// is close enough given occurrences are created a week ahead.
     /// </summary>
     private DateOnly Today() => DateOnly.FromDateTime(_time.GetUtcNow().UtcDateTime);
+
+    private async Task<string?> ParentTitleAsync(WorkItem item, CancellationToken ct) =>
+        item.ParentId is null
+            ? null
+            : await _db.WorkItems.Where(w => w.Id == item.ParentId).Select(w => w.Title).FirstOrDefaultAsync(ct);
 
     private async Task<WorkItem> FindWorkItemAsync(Guid id, CancellationToken ct) =>
         await _db.WorkItems.FindAsync([id], ct) ?? throw new EntityNotFoundException(nameof(WorkItem), id);

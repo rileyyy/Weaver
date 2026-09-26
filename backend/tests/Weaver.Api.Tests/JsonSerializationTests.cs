@@ -75,7 +75,7 @@ public class JsonSerializationTests
     public void WorkItemRecurrenceDto_SerializesFrequencyAndDaysAsStrings()
     {
         var dto = new WorkItemRecurrenceDto(
-            Guid.NewGuid(), 7, "Report", null, RecurrenceFrequency.BiWeekly,
+            Guid.NewGuid(), 7, "Report", null, null, RecurrenceFrequency.BiWeekly,
             [DayOfWeek.Monday, DayOfWeek.Friday], new DateOnly(2026, 9, 28), null, new DateOnly(2026, 9, 28));
 
         var json = JsonSerializer.Serialize(dto, Options);
