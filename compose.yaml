@@ -90,6 +90,55 @@ services:
       # trust a new root certificate.
       - caddy-data:/data
 
+  # Nightly pg_dump into $BACKUP_DIR (./backups by default) on the host,
+  # plus one at startup. Keeps BACKUP_KEEP_DAYS daily dumps and
+  # BACKUP_KEEP_WEEKS weekly (Sunday) ones. Uses the official postgres image
+  # (it already has pg_dump) so the database password never goes to a
+  # third-party image. A dump is written as .partial and only renamed once
+  # pg_dump succeeds, so a crash can't leave a truncated "backup". Restore
+  # steps: README.md.
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: weaver
+      PGDATABASE: weaver
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (copy .env.example) before starting}
+      BACKUP_HOUR_UTC: ${BACKUP_HOUR_UTC:-2}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-7}
+      BACKUP_KEEP_WEEKS: ${BACKUP_KEEP_WEEKS:-4}
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        mkdir -p /backups/daily /backups/weekly
+        backup() {
+          name="weaver-$$(date -u +%Y%m%dT%H%M%SZ).dump"
+          if pg_dump --format=custom --file="/backups/daily/$$name.partial"; then
+            mv "/backups/daily/$$name.partial" "/backups/daily/$$name"
+            if [ "$$(date -u +%u)" = 7 ]; then cp "/backups/daily/$$name" "/backups/weekly/$$name"; fi
+            echo "Backup written: daily/$$name"
+          else
+            rm -f "/backups/daily/$$name.partial"
+            echo "Backup FAILED" >&2
+          fi
+          find /backups/daily -name 'weaver-*.dump' -mtime +"$$BACKUP_KEEP_DAYS" -delete
+          find /backups/weekly -name 'weaver-*.dump' -mtime +"$$(( BACKUP_KEEP_WEEKS * 7 ))" -delete
+        }
+        backup
+        while true; do
+          now=$$(date -u +%s)
+          next=$$(date -u -d "$$(date -u +%Y-%m-%d) $$BACKUP_HOUR_UTC:00:00" +%s)
+          if [ "$$next" -le "$$now" ]; then next=$$(( next + 86400 )); fi
+          sleep $$(( next - now ))
+          backup
+        done
+
 volumes:
   pgdata:
   caddy-data:

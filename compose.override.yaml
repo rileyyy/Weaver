@@ -59,5 +59,9 @@ services:
   caddy:
     profiles: ["production-only"]
 
+  # Dev data is disposable; no need for nightly dumps.
+  backup:
+    profiles: ["production-only"]
+
 volumes:
   backend-nuget-cache:
