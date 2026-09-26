@@ -15,8 +15,10 @@ the history is in [CHANGELOG.md](../CHANGELOG.md).
   - `Weaver.Api`: controllers, DTOs (`Contracts/`), MCP tools (`Mcp/`),
     `ApiExceptionMiddleware`, `Program.cs`.
 - **Frontend:** Flutter (`frontend/lib/`), organised by feature (`auth`,
-  `board`, `work_item_detail`) plus shared `core/` (DI, networking,
-  `ViewModel` base, theme).
+  `board`, `work_item_detail`), plus `core/` (infrastructure: DI,
+  networking, dates, `ViewModel` base, theme) and `shared/` (what several
+  features use: the `WorkItemStatus` and `User` models, cached lookup
+  repositories, the `CurrentUser` interface and `WorkItemDetailOpener`).
 - **Database:** PostgreSQL 16 through EF Core (Npgsql). Migrations are
   applied at API startup (`Database.MigrateAsync()` in `Program.cs`).
 - **Deployment:** Docker Compose: `db`, `backend`, `frontend` (nginx),
@@ -319,6 +321,18 @@ and it is what allows MCP tools to reuse the same business logic (see
 ## Frontend
 
 ### Structure and DI
+
+- **Features don't import each other.** `app.dart` is the composition
+  root: it builds `AuthGate` with the signed-in screen, and gives
+  `BoardView` a `WorkItemDetailOpener` (`showWorkItemDetailDialog`). The
+  detail view model learns who is signed in through `CurrentUser`, which
+  `AuthSessionStore` implements (bound in `NetworkModule`).
+- **Statuses and users are fetched through shared, cached repositories**
+  (`StatusRepository`, `UserDirectoryRepository`) that the feature
+  repositories delegate to. Statuses are cached for the session (they are
+  seeded and have no write endpoint); the user list is re-fetched after
+  five minutes because people can register while the app is open. A
+  failed fetch is never cached.
 
 - **`ViewModel`** (`lib/core/presentation/view_model.dart`) is a thin
   `ChangeNotifier` that adds `notifyIfActive()`: async work can finish

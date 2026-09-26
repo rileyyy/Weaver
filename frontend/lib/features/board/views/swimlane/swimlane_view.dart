@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/views/swimlane/widgets/grid_row_box.dart';
 import 'package:weaver/features/board/views/swimlane/widgets/status_column.dart';
 import 'package:weaver/features/board/views/swimlane/widgets/swimlane_label.dart';
 import 'package:weaver/features/board/widgets/assignee_avatar.dart';
+import 'package:weaver/shared/models/work_item_status.dart';
 
 /// The swimlane board itself: a pinned lane-label column on the left plus
 /// a columns area on the right. When [width] is wide enough to give every
@@ -69,7 +69,7 @@ class SwimlaneView extends StatelessWidget {
   });
 
   final double width;
-  final List<BoardStatus> statuses;
+  final List<WorkItemStatus> statuses;
   final List<Swimlane> swimlanes;
   final Future<void> Function(WorkItemCard card, String newStatusId)
   onCardDropped;

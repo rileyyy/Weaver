@@ -3,22 +3,22 @@ import 'dart:ui' show Color;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/core/network/api_exception.dart';
-import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
-import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/board/models/card_sort_option.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
+import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item_status.dart';
 
 const _todoColor = Color(0xFF1E88E5);
 
 const _rootBoard = BoardData(
   statuses: [
-    BoardStatus(id: 'done', name: 'Done', order: 1),
-    BoardStatus(id: 'todo', name: 'To Do', order: 0, color: _todoColor),
+    WorkItemStatus(id: 'done', name: 'Done', order: 1),
+    WorkItemStatus(id: 'todo', name: 'To Do', order: 0, color: _todoColor),
   ],
   swimlanes: [
     Swimlane(
@@ -51,7 +51,7 @@ const _rootBoard = BoardData(
 );
 
 const _card1Children = BoardData(
-  statuses: [BoardStatus(id: 'todo', name: 'To Do', order: 0)],
+  statuses: [WorkItemStatus(id: 'todo', name: 'To Do', order: 0)],
   swimlanes: [
     Swimlane(
       parentId: 'card-1',
@@ -94,7 +94,7 @@ class _TestBoardRepository implements BoardRepository {
   final Exception? tagsError;
   final List<HierarchyItem> hierarchyItems;
   final Exception? hierarchyError;
-  final List<AuthUser> users;
+  final List<User> users;
   final List<String> statusChanges = [];
   final List<String> reparents = [];
   final List<String> reschedules = [];
@@ -147,7 +147,7 @@ class _TestBoardRepository implements BoardRepository {
   }
 
   @override
-  Future<List<AuthUser>> loadUsers() => Future.value(users);
+  Future<List<User>> loadUsers() => Future.value(users);
 
   @override
   Future<void> changeStatus(String cardId, String newStatusId) async {
@@ -217,7 +217,7 @@ class _FailingLoadRepository implements BoardRepository {
       Future.error(const ApiException('network down'));
 
   @override
-  Future<List<AuthUser>> loadUsers() => Future.value(const []);
+  Future<List<User>> loadUsers() => Future.value(const []);
 
   @override
   Future<void> changeStatus(String cardId, String newStatusId) =>
@@ -941,7 +941,7 @@ void main() {
       final withUsers = BoardViewModel(
         _TestBoardRepository(
           users: const [
-            AuthUser(id: 'user-1', username: 'riley', kind: UserKind.human),
+            User(id: 'user-1', username: 'riley', kind: UserKind.human),
           ],
         ),
       );

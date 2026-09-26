@@ -27,6 +27,11 @@ import 'package:weaver/features/work_item_detail/data/work_item_detail_repositor
     as _i982;
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart'
     as _i194;
+import 'package:weaver/shared/data/api_status_repository.dart' as _i209;
+import 'package:weaver/shared/data/api_user_directory_repository.dart' as _i982;
+import 'package:weaver/shared/data/current_user.dart' as _i875;
+import 'package:weaver/shared/data/status_repository.dart' as _i770;
+import 'package:weaver/shared/data/user_directory_repository.dart' as _i562;
 
 extension GetItInjectableX on _i174.GetIt {
   // initializes the registration of main-scope dependencies inside of GetIt
@@ -65,29 +70,51 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i605.AuthSessionStore>(),
       ),
     );
+    gh.lazySingleton<_i770.StatusRepository>(
+      () => _i209.ApiStatusRepository(
+        gh<_i519.Client>(),
+        gh<String>(instanceName: 'apiBaseUrl'),
+      ),
+    );
+    gh.factory<_i875.CurrentUser>(
+      () => networkModule.currentUser(gh<_i605.AuthSessionStore>()),
+    );
+    gh.lazySingleton<_i562.UserDirectoryRepository>(
+      () => _i982.ApiUserDirectoryRepository(
+        gh<_i519.Client>(),
+        gh<String>(instanceName: 'apiBaseUrl'),
+      ),
+    );
     gh.factory<_i6.AuthViewModel>(
       () => _i6.AuthViewModel(
         gh<_i899.AuthRepository>(),
         gh<_i605.AuthSessionStore>(),
       ),
     );
-    gh.lazySingleton<_i522.BoardRepository>(
-      () => _i436.ApiBoardRepository(
-        gh<_i519.Client>(),
-        gh<String>(instanceName: 'apiBaseUrl'),
-      ),
-    );
     gh.lazySingleton<_i982.WorkItemDetailRepository>(
       () => _i335.ApiWorkItemDetailRepository(
         gh<_i519.Client>(),
         gh<String>(instanceName: 'apiBaseUrl'),
+        gh<_i770.StatusRepository>(),
+        gh<_i562.UserDirectoryRepository>(),
+      ),
+    );
+    gh.factory<_i194.WorkItemDetailViewModel>(
+      () => _i194.WorkItemDetailViewModel(
+        gh<_i982.WorkItemDetailRepository>(),
+        gh<_i875.CurrentUser>(),
+      ),
+    );
+    gh.lazySingleton<_i522.BoardRepository>(
+      () => _i436.ApiBoardRepository(
+        gh<_i519.Client>(),
+        gh<String>(instanceName: 'apiBaseUrl'),
+        gh<_i770.StatusRepository>(),
+        gh<_i562.UserDirectoryRepository>(),
       ),
     );
     gh.factory<_i314.BoardViewModel>(
       () => _i314.BoardViewModel(gh<_i522.BoardRepository>()),
-    );
-    gh.factory<_i194.WorkItemDetailViewModel>(
-      () => _i194.WorkItemDetailViewModel(gh<_i982.WorkItemDetailRepository>()),
     );
     return this;
   }

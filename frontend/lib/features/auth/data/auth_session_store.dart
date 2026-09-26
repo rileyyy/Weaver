@@ -4,6 +4,7 @@ import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/auth/data/auth_repository.dart';
 import 'package:weaver/features/auth/data/secure_token_store.dart';
 import 'package:weaver/features/auth/models/auth_session.dart';
+import 'package:weaver/shared/data/current_user.dart';
 
 /// Single source of truth for "is anyone signed in, and with what token" —
 /// shared by [AuthViewModel] (view-facing login/logout state) and
@@ -15,7 +16,7 @@ import 'package:weaver/features/auth/models/auth_session.dart';
 /// singleton for the app's lifetime, never disposed), reused by both a
 /// ViewModel and a non-widget HTTP client.
 @lazySingleton
-class AuthSessionStore extends ChangeNotifier {
+class AuthSessionStore extends ChangeNotifier implements CurrentUser {
   AuthSessionStore(this._authRepository, this._tokenStore);
 
   final AuthRepository _authRepository;
@@ -23,6 +24,9 @@ class AuthSessionStore extends ChangeNotifier {
 
   AuthSession? _session;
   AuthSession? get current => _session;
+
+  @override
+  String? get currentUserId => _session?.user.id;
 
   Future<bool>? _refreshInFlight;
 

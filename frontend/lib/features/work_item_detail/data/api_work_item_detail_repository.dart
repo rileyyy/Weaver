@@ -2,8 +2,6 @@ import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
 import 'package:weaver/core/network/api_dates.dart';
 import 'package:weaver/core/network/json_api_client.dart';
-import 'package:weaver/features/auth/models/auth_user.dart';
-import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
@@ -11,15 +9,23 @@ import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_layer.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
+import 'package:weaver/shared/data/status_repository.dart';
+import 'package:weaver/shared/data/user_directory_repository.dart';
+import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item_status.dart';
 
 @LazySingleton(as: WorkItemDetailRepository)
 class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   ApiWorkItemDetailRepository(
     http.Client client,
     @Named('apiBaseUrl') String baseUrl,
+    this._statuses,
+    this._users,
   ) : _api = JsonApiClient(client, baseUrl);
 
   final JsonApiClient _api;
+  final StatusRepository _statuses;
+  final UserDirectoryRepository _users;
 
   static WorkItemDetail _detail(Object? json) =>
       WorkItemDetail.fromJson(json as Map<String, dynamic>);
@@ -47,11 +53,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   );
 
   @override
-  Future<List<BoardStatus>> loadStatuses() => _api.get(
-    '/statuses',
-    (json) => JsonApiClient.listOf(json, BoardStatus.fromJson),
-    failureMessage: 'Failed to load statuses',
-  );
+  Future<List<WorkItemStatus>> loadStatuses() => _statuses.loadStatuses();
 
   @override
   Future<List<WorkItemLayer>> loadLayers() => _api.get(
@@ -61,11 +63,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   );
 
   @override
-  Future<List<AuthUser>> loadUsers() => _api.get(
-    '/users',
-    (json) => JsonApiClient.listOf(json, AuthUser.fromJson),
-    failureMessage: 'Failed to load users',
-  );
+  Future<List<User>> loadUsers() => _users.loadUsers();
 
   @override
   Future<WorkItemDetail> updateDetails(

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/board/widgets/status_dot.dart';
+import 'package:weaver/shared/models/work_item_status.dart';
 
 class StatusFilterBar extends StatelessWidget {
   const StatusFilterBar({
@@ -10,7 +10,7 @@ class StatusFilterBar extends StatelessWidget {
     required this.onToggle,
   });
 
-  final List<BoardStatus> statuses;
+  final List<WorkItemStatus> statuses;
   final Set<String> hiddenStatusIds;
   final ValueChanged<String> onToggle;
 

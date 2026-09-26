@@ -2,15 +2,15 @@ import 'dart:ui' show Color;
 
 /// A board column. Mirrors the backend's `Status` shape — see
 /// `backend/src/Weaver.Domain/Status.cs`.
-class BoardStatus {
-  const BoardStatus({
+class WorkItemStatus {
+  const WorkItemStatus({
     required this.id,
     required this.name,
     required this.order,
     this.color,
   });
 
-  factory BoardStatus.fromJson(Map<String, dynamic> json) => BoardStatus(
+  factory WorkItemStatus.fromJson(Map<String, dynamic> json) => WorkItemStatus(
     id: json['id'] as String,
     name: json['name'] as String,
     order: json['order'] as int,

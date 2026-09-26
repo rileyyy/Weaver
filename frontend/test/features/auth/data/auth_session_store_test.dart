@@ -7,7 +7,7 @@ import 'package:weaver/features/auth/data/auth_repository.dart';
 import 'package:weaver/features/auth/data/auth_session_store.dart';
 import 'package:weaver/features/auth/data/secure_token_store.dart';
 import 'package:weaver/features/auth/models/auth_session.dart';
-import 'package:weaver/features/auth/models/auth_user.dart';
+import 'package:weaver/shared/models/user.dart';
 
 class _FakeAuthRepository implements AuthRepository {
   _FakeAuthRepository({this.refreshError});
@@ -94,7 +94,7 @@ AuthSession _session(
   accessTokenExpiresAtUtc:
       expiresAtUtc ?? DateTime.now().toUtc().add(const Duration(hours: 1)),
   refreshToken: refreshToken,
-  user: const AuthUser(id: 'user-1', username: 'alice', kind: UserKind.human),
+  user: const User(id: 'user-1', username: 'alice', kind: UserKind.human),
 );
 
 void main() {

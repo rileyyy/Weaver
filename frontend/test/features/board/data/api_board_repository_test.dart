@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/board/data/api_board_repository.dart';
+import 'package:weaver/shared/data/api_status_repository.dart';
+import 'package:weaver/shared/data/api_user_directory_repository.dart';
 
 http.Response _jsonResponse(Object body, {int statusCode = 200}) =>
     http.Response(
@@ -27,7 +29,12 @@ void main() {
       throw StateError('Unexpected request: ${request.url}');
     });
 
-    final repository = ApiBoardRepository(client, baseUrl);
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
 
     expect(await repository.loadRootScopeItemId(), 'epic-1');
   });
@@ -38,7 +45,12 @@ void main() {
       throw StateError('Unexpected request: ${request.url}');
     });
 
-    final repository = ApiBoardRepository(client, baseUrl);
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
 
     expect(await repository.loadRootScopeItemId(), isNull);
   });
@@ -84,7 +96,12 @@ void main() {
         throw StateError('Unexpected request: ${request.url}');
       });
 
-      final repository = ApiBoardRepository(client, baseUrl);
+      final repository = ApiBoardRepository(
+        client,
+        baseUrl,
+        ApiStatusRepository(client, baseUrl),
+        ApiUserDirectoryRepository(client, baseUrl),
+      );
       final board = await repository.loadBoard('epic-1');
 
       expect(board.statuses.single.id, 'status-todo');
@@ -106,7 +123,12 @@ void main() {
       throw StateError('Unexpected request: ${request.url}');
     });
 
-    final repository = ApiBoardRepository(client, baseUrl);
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
     final board = await repository.loadBoard(null);
 
     expect(board.swimlanes, isEmpty);
@@ -121,7 +143,12 @@ void main() {
         }, statusCode: 500);
       });
 
-      final repository = ApiBoardRepository(client, baseUrl);
+      final repository = ApiBoardRepository(
+        client,
+        baseUrl,
+        ApiStatusRepository(client, baseUrl),
+        ApiUserDirectoryRepository(client, baseUrl),
+      );
 
       await expectLater(
         repository.loadBoard(null),
@@ -143,7 +170,12 @@ void main() {
       return http.Response('', 200);
     });
 
-    final repository = ApiBoardRepository(client, baseUrl);
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
     await repository.changeStatus('card-1', 'status-done');
 
     expect(sentRequest, isNotNull);
@@ -156,7 +188,12 @@ void main() {
       return _jsonResponse({'detail': 'Conflict.'}, statusCode: 409);
     });
 
-    final repository = ApiBoardRepository(client, baseUrl);
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
 
     await expectLater(
       repository.changeStatus('card-1', 'status-done'),
@@ -171,7 +208,12 @@ void main() {
       return http.Response('', 200);
     });
 
-    final repository = ApiBoardRepository(client, baseUrl);
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
     await repository.reparentItem('card-1', 'lane-2');
 
     expect(sentRequest, isNotNull);
@@ -184,7 +226,12 @@ void main() {
       return _jsonResponse({'detail': 'Cycle detected.'}, statusCode: 409);
     });
 
-    final repository = ApiBoardRepository(client, baseUrl);
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
 
     await expectLater(
       repository.reparentItem('card-1', 'lane-2'),
@@ -223,7 +270,12 @@ void main() {
       throw StateError('Unexpected request: ${request.url}');
     });
 
-    final repository = ApiBoardRepository(client, baseUrl);
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
     final board = await repository.loadBoard('epic-1');
 
     final card = board.swimlanes.single.cards.single;
@@ -261,7 +313,12 @@ void main() {
       throw StateError('Unexpected request: ${request.url}');
     });
 
-    final repository = ApiBoardRepository(client, baseUrl);
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
     final board = await repository.loadBoard('epic-1');
 
     expect(board.swimlanes.single.cards.single.description, 'Some detail');
@@ -297,7 +354,12 @@ void main() {
       throw StateError('Unexpected request: ${request.url}');
     });
 
-    final repository = ApiBoardRepository(client, baseUrl);
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
     final board = await repository.loadBoard('epic-1');
 
     expect(board.swimlanes.single.cards.single.tags, [
@@ -339,7 +401,12 @@ void main() {
         throw StateError('Unexpected request: ${request.url}');
       });
 
-      final repository = ApiBoardRepository(client, baseUrl);
+      final repository = ApiBoardRepository(
+        client,
+        baseUrl,
+        ApiStatusRepository(client, baseUrl),
+        ApiUserDirectoryRepository(client, baseUrl),
+      );
       final board = await repository.loadBoard('epic-1');
 
       expect(board.swimlanes.single.assignedToUserId, 'user-lane');
@@ -357,7 +424,12 @@ void main() {
       throw StateError('Unexpected request: ${request.url}');
     });
 
-    final repository = ApiBoardRepository(client, baseUrl);
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
     final users = await repository.loadUsers();
 
     expect(users.single.id, 'user-1');
@@ -392,7 +464,12 @@ void main() {
         throw StateError('Unexpected request: ${request.url}');
       });
 
-      final repository = ApiBoardRepository(client, baseUrl);
+      final repository = ApiBoardRepository(
+        client,
+        baseUrl,
+        ApiStatusRepository(client, baseUrl),
+        ApiUserDirectoryRepository(client, baseUrl),
+      );
       final items = await repository.loadAllItems();
 
       expect(items.map((i) => i.id), ['root-1', 'child-1']);
@@ -413,7 +490,12 @@ void main() {
       }, statusCode: 500);
     });
 
-    final repository = ApiBoardRepository(client, baseUrl);
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
 
     await expectLater(repository.loadAllItems(), throwsA(isA<ApiException>()));
   });
@@ -428,7 +510,12 @@ void main() {
     // day, not shifted by converting to UTC.
     final start = DateTime(2026, 2, 1);
 
-    final repository = ApiBoardRepository(client, baseUrl);
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
     await repository.rescheduleItem('card-1', start, null);
 
     expect(sentRequest, isNotNull);
@@ -446,7 +533,12 @@ void main() {
       }, statusCode: 400);
     });
 
-    final repository = ApiBoardRepository(client, baseUrl);
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
 
     await expectLater(
       repository.rescheduleItem('card-1', DateTime.utc(2026, 2, 1), null),
@@ -461,7 +553,12 @@ void main() {
       return http.Response('', 200);
     });
 
-    final repository = ApiBoardRepository(client, baseUrl);
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
     await repository.assign('card-1', 'user-1');
 
     expect(sentRequest, isNotNull);
@@ -477,7 +574,12 @@ void main() {
       return http.Response('', 200);
     });
 
-    final repository = ApiBoardRepository(client, baseUrl);
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
     await repository.assign('card-1', null);
 
     expect(jsonDecode(sentRequest!.body), {'userId': null});
@@ -488,7 +590,12 @@ void main() {
       return _jsonResponse({'detail': 'User not found.'}, statusCode: 404);
     });
 
-    final repository = ApiBoardRepository(client, baseUrl);
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
 
     await expectLater(
       repository.assign('card-1', 'missing-user'),
@@ -503,7 +610,12 @@ void main() {
       return http.Response('', 200);
     });
 
-    final repository = ApiBoardRepository(client, baseUrl);
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
     await repository.setTags('card-1', ['urgent', 'needs review']);
 
     expect(sentRequest, isNotNull);
@@ -521,7 +633,12 @@ void main() {
       }, statusCode: 400);
     });
 
-    final repository = ApiBoardRepository(client, baseUrl);
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
 
     await expectLater(
       repository.setTags('card-1', ['']),

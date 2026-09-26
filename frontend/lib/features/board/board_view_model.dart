@@ -4,15 +4,15 @@ import 'package:injectable/injectable.dart';
 import 'package:weaver/core/dates/calendar_days.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/core/presentation/view_model.dart';
-import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
-import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/board/models/card_sort_option.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/scope_crumb.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
+import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item_status.dart';
 
 Future<void> _noRetry() => Future.value();
 
@@ -22,7 +22,7 @@ class BoardViewModel extends ViewModel {
 
   final BoardRepository _repository;
 
-  List<BoardStatus> _statuses = const [];
+  List<WorkItemStatus> _statuses = const [];
   List<Swimlane> _swimlanes = const [];
   List<ScopeCrumb> _breadcrumbs = const [];
   bool _isLoading = true;
@@ -41,7 +41,7 @@ class BoardViewModel extends ViewModel {
   bool _isHierarchyLoading = false;
   String? _hierarchyLoadError;
   bool _hierarchyLoaded = false;
-  List<AuthUser> _users = const [];
+  List<User> _users = const [];
 
   // Bumped by every scope/hierarchy load so a slower, older response can't
   // overwrite a newer one, and so optimistic rollbacks know when the data
@@ -49,12 +49,12 @@ class BoardViewModel extends ViewModel {
   int _scopeGeneration = 0;
   int _hierarchyGeneration = 0;
 
-  List<BoardStatus> get statuses => _statuses;
+  List<WorkItemStatus> get statuses => _statuses;
   List<Swimlane> get swimlanes => _swimlanes;
 
   /// Every registered user, for building an assignee picker. Empty until
   /// [load] resolves the user directory (best-effort — see [load]).
-  List<AuthUser> get users => _users;
+  List<User> get users => _users;
 
   /// The path from the board's root scope down to what's currently shown,
   /// for breadcrumb navigation. Always has at least one entry once [load]
@@ -89,7 +89,7 @@ class BoardViewModel extends ViewModel {
   Set<String> get hiddenStatusIds => _hiddenStatusIds;
 
   /// [statuses], excluding any hidden via [toggleStatusVisibility].
-  List<BoardStatus> get visibleStatuses =>
+  List<WorkItemStatus> get visibleStatuses =>
       _statuses.where((s) => !_hiddenStatusIds.contains(s.id)).toList();
 
   CardSortOption get sortOption => _sortOption;
@@ -258,7 +258,7 @@ class BoardViewModel extends ViewModel {
       final data = await _repository.loadBoard(rootScopeId);
       // Best-effort: a user directory failure shouldn't block the board
       // itself from loading — assignee initials just won't show.
-      List<AuthUser> users;
+      List<User> users;
       try {
         users = await _repository.loadUsers();
       } on ApiException {
