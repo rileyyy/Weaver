@@ -241,7 +241,7 @@ The most important problems cluster in four areas:
 ### Medium
 
 - [x] *(Resolved in `bugfix/token-refresh-stampede`.)* **F-M1. Near-expiry tokens and blanket 401 handling.** `isAccessTokenExpired` has no leeway, so a token with 1 s left expires in flight. Any 401 then clears the session without trying a refresh, even when a newer session already exists. **Fix:** treat the token as expired 30–60 s early, and only clear if the token that was sent is still the current one. (`auth_session.dart:21`, `auth_http_client.dart:31-33`)
-- [ ] **F-M2. `unawaited(_repository.logout(...))` has no error handler**, so a network failure becomes an unhandled async error. (`auth_view_model.dart:58`)
+- [x] *(Resolved in `bugfix/detail-dialog-fixes`.)* **F-M2. `unawaited(_repository.logout(...))` has no error handler**, so a network failure becomes an unhandled async error. (`auth_view_model.dart:58`)
 - [ ] **F-M3. `catch (_)` everywhere** (about 12 sites) swallows `TypeError`/`StateError` from JSON casts and `!`. A backend contract change looks like "check your connection", and in `auth_session_store.dart:70` any parsing bug logs the user out. **Fix:** catch `ApiException` and network exceptions only, and wrap parse failures in a typed exception.
 - [ ] **F-M4. HTTP/JSON plumbing is copied across three repositories.**
   - `_uri`, `_checkOk`, `_problemDetail`, `_getJsonList` and `_parseDate` are defined in `api_board_repository`, `api_work_item_detail_repository` and `api_auth_repository`.
@@ -272,8 +272,8 @@ The most important problems cluster in four areas:
   - The widget calls `getIt<AuthSessionStore>()` directly, bypassing the VM.
   - Save semantics are mixed: some fields need **Save** and others save immediately, and unsaved title edits are lost on close.
   - It accepts an empty title and start > end.
-- [ ] **F-M11. Comment tiles have no `key`.** `CommentTile` is stateful and seeds its edit controller once. After a deletion, a tile's State serves the next comment, so **Edit → Save can overwrite a different comment with the deleted comment's text**. **Fix:** `key: ValueKey(comment.id)`, and reset the controller when editing starts. ([work_item_detail_view.dart:470-477](frontend/lib/features/work_item_detail/work_item_detail_view.dart#L470-L477))
-- [ ] **F-M12. `WorkItemDetailViewModel` issues.**
+- [x] *(Resolved in `bugfix/detail-dialog-fixes`: tiles are keyed by comment id, and the tile re-seeds its editor on every edit and cancels it if its comment changes. Covered by a widget test.)* **F-M11. Comment tiles have no `key`.** `CommentTile` is stateful and seeds its edit controller once. After a deletion, a tile's State serves the next comment, so **Edit → Save can overwrite a different comment with the deleted comment's text**. **Fix:** `key: ValueKey(comment.id)`, and reset the controller when editing starts. ([work_item_detail_view.dart:470-477](frontend/lib/features/work_item_detail/work_item_detail_view.dart#L470-L477))
+- [x] *(Resolved in `bugfix/detail-dialog-fixes`: `load` uses record `.wait`, `isSaving` counts overlapping saves, and comment/link mutations apply the server response instead of reloading.)* **F-M12. `WorkItemDetailViewModel` issues.**
   - `Future.wait` over a `List<Object>` with positional `as` casts. Use Dart 3 record `.wait`.
   - `_isSaving` is a single bool shared by concurrent operations.
   - "POST succeeded but the reload failed" is reported as a failure, so the user retries and creates a duplicate comment or link.

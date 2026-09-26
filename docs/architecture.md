@@ -373,6 +373,10 @@ and it is what allows MCP tools to reuse the same business logic (see
   `setSession` / `clear` update state and notify listeners *before*
   persisting. A storage failure once silently broke logout because the
   write was awaited first.
+- **Comment and link changes in the detail dialog apply the server's
+  response locally** instead of reloading the list. A reload that failed
+  after a successful POST used to show as a failure, and retrying created
+  a duplicate.
 - **`core/network/api_dates.dart` owns the wire format for dates.**
   Schedule dates are `yyyy-MM-dd` and parse to local midnight
   (`parseCalendarDate` / `formatCalendarDate`); every other timestamp is
