@@ -5,8 +5,8 @@ class WorkItemComment {
     required this.authorUserId,
     required this.authorUsername,
     required this.body,
-    required this.createdAtUtc,
-    required this.updatedAtUtc,
+    required this.createdAt,
+    required this.updatedAt,
   });
 
   final String id;
@@ -14,6 +14,6 @@ class WorkItemComment {
   final String authorUserId;
   final String authorUsername;
   final String body;
-  final DateTime createdAtUtc;
-  final DateTime? updatedAtUtc;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
 }

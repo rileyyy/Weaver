@@ -128,8 +128,8 @@ public class WorkItemService : IWorkItemService
 
     public async Task<WorkItem> RescheduleAsync(
         Guid id,
-        DateTimeOffset? startDate,
-        DateTimeOffset? endDate,
+        DateOnly? startDate,
+        DateOnly? endDate,
         uint? expectedVersion = null,
         CancellationToken ct = default)
     {

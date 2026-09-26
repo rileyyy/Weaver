@@ -224,7 +224,7 @@ The most important problems cluster in four areas:
 - **Fix:** Capture a monotonically increasing request id and discard stale completions, including their `finally` state resets.
 
 #### F-H5. Schedule dates display one day early east of UTC
-- [ ] **Resolved**
+- [x] **Resolved** in `bugfix/schedule-date-timezone`: `StartDate`/`EndDate` are `DateOnly` (`date` column), sent as `yyyy-MM-dd`. The migration rounds existing values to the nearest UTC midnight, which recovers the picked day. The frontend parses calendar dates as local midnight and all other timestamps with `.toLocal()`. The full suite passes under UTC+2, UTC+9 and UTC−7. F-M13/F-M14 (time-filter bounds, roadmap DST maths) are still open.
 - **Where:** `api_board_repository.dart:94-95, 200-201`, `api_work_item_detail_repository.dart:125-126, 233`, `widgets/date_format.dart:3-8`
 - **Issue:** The date picker returns local midnight, and the client sends it `toUtc()` (for example `2026-09-24T22:00Z` for 25 Sept in UTC+2). The value comes back from the API and is parsed as UTC, with no `.toLocal()`. `formatDate` then prints 24 Sept. Picker initial dates, comment timestamps and Created/Updated are also shown in UTC. The team works in UTC+2, so this affects them directly.
 - **Fix:** Choose a convention. The recommendation is to treat schedule dates as calendar dates: send `yyyy-MM-dd` and make the backend `StartDate`/`EndDate` a `DateOnly`. Parse and display all other timestamps through a single `parseApiDate(...).toLocal()`. Add a round-trip test in a non-UTC zone.

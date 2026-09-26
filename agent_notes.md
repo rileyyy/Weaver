@@ -428,6 +428,17 @@ whoever (human or agent) next touches this area.
   `WorkItemService.RescheduleAsync` and is checked *before* the entity
   lookup, so it also rejects a bad range for a nonexistent id rather than
   a confusing 404 masking the real problem.
+- **Schedule dates are calendar dates (`DateOnly`, a Postgres `date`),
+  sent as `yyyy-MM-dd`.** They were originally `DateTimeOffset`, and the
+  client sent the picked day as local midnight converted to UTC, so in
+  UTC+2 "25 Sept" was stored as `2026-09-24T22:00Z` and displayed as the
+  24th. The migration (`ScheduleDatesAsCalendarDates`) is hand-written:
+  it rounds each stored value to the *nearest* UTC midnight rather than
+  truncating, which recovers the picked day for any zone from UTC−12 to
+  UTC+12. On the client, `core/network/api_dates.dart` owns the wire
+  format: calendar dates parse to local midnight, and every other
+  timestamp (created/updated times) is parsed then converted with
+  `.toLocal()`. The API rejects the old timestamp format with a 400.
 - **Added a minimal "set schedule" affordance directly on `BoardCard`**
   (a calendar icon opening a small dialog) even though a fuller work-item
   editing UI belongs to Milestone 9. Without *some* way to set these dates

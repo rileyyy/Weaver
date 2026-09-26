@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
+import 'package:weaver/core/network/api_dates.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
@@ -91,8 +92,8 @@ class ApiBoardRepository implements BoardRepository {
       _uri('/work-items/$itemId/schedule'),
       headers: const {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'startDate': startDate?.toUtc().toIso8601String(),
-        'endDate': endDate?.toUtc().toIso8601String(),
+        'startDate': formatCalendarDate(startDate),
+        'endDate': formatCalendarDate(endDate),
       }),
     );
     _checkOk(response, 'Failed to reschedule item');
@@ -178,8 +179,8 @@ class ApiBoardRepository implements BoardRepository {
     parentId: item['parentId'] as String,
     statusId: item['statusId'] as String,
     description: item['description'] as String?,
-    startDate: _parseDate(item['startDate']),
-    endDate: _parseDate(item['endDate']),
+    startDate: parseCalendarDate(item['startDate']),
+    endDate: parseCalendarDate(item['endDate']),
     assignedToUserId: item['assignedToUserId'] as String?,
     tags: _toTags(item),
   );
@@ -191,14 +192,12 @@ class ApiBoardRepository implements BoardRepository {
     title: item['title'] as String,
     statusId: item['statusId'] as String,
     description: item['description'] as String?,
-    startDate: _parseDate(item['startDate']),
-    endDate: _parseDate(item['endDate']),
+    startDate: parseCalendarDate(item['startDate']),
+    endDate: parseCalendarDate(item['endDate']),
     assignedToUserId: item['assignedToUserId'] as String?,
     tags: _toTags(item),
   );
 
-  DateTime? _parseDate(dynamic value) =>
-      value == null ? null : DateTime.parse(value as String);
 
   Future<List<Map<String, dynamic>>> _getJsonList(
     String path, [

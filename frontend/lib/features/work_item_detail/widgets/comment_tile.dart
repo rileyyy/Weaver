@@ -42,8 +42,8 @@ class _CommentTileState extends State<CommentTile> {
             children: [
               Expanded(
                 child: Text(
-                  '${comment.authorUsername} · ${formatDate(comment.createdAtUtc)}'
-                  '${comment.updatedAtUtc != null ? ' (edited)' : ''}',
+                  '${comment.authorUsername} · ${formatDate(comment.createdAt)}'
+                  '${comment.updatedAt != null ? ' (edited)' : ''}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
