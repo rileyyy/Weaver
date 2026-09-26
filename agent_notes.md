@@ -360,6 +360,16 @@ whoever (human or agent) next touches this area.
   `createWorkItem` is deliberately *not* a `_changeScope` action: a failed
   create reports through `moveError` and keeps the board, and a create
   must never become the retry target, since retrying would POST it again.
+- **Board async work is guarded against overlap.** Every scope load
+  (`_changeScope`) and hierarchy load bumps a generation counter. A load's
+  `fetch` returns a closure that applies its result, and that closure only
+  runs if no newer load started meanwhile, so a slow older response can't
+  overwrite the lanes or breadcrumbs of a newer one. Optimistic mutations
+  go through `_optimistic(apply, persist, revertLanes, revertHierarchy)`:
+  the revert undoes only that one item's change (by id), and is skipped
+  if the lanes or hierarchy were reloaded since. Before this, each
+  mutation restored a whole-list snapshot, so a failed move could undo a
+  different move that had succeeded in the meantime.
 - **`WorkItemCard.movedToParent` is a separate method from `copyWith`**,
   deliberately not a `copyWith(parentId: ...)` overload. `copyWith`'s own
   doc comment already promises it never touches `parentId` — reusing it

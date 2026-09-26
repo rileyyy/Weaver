@@ -39,6 +39,12 @@ class BoardViewModel extends ViewModel {
   bool _hierarchyLoaded = false;
   List<AuthUser> _users = const [];
 
+  // Bumped by every scope/hierarchy load so a slower, older response can't
+  // overwrite a newer one, and so optimistic rollbacks know when the data
+  // they captured has since been replaced.
+  int _scopeGeneration = 0;
+  int _hierarchyGeneration = 0;
+
   List<BoardStatus> get statuses => _statuses;
   List<Swimlane> get swimlanes => _swimlanes;
 
@@ -160,19 +166,25 @@ class BoardViewModel extends ViewModel {
   /// swim-lane board's current drill-down scope — the Hierarchy view always
   /// shows the whole tree.
   Future<void> loadHierarchy() async {
+    final generation = ++_hierarchyGeneration;
     _isHierarchyLoading = true;
     _hierarchyLoadError = null;
     notifyIfActive();
 
     try {
-      _hierarchyItems = await _repository.loadAllItems();
+      final items = await _repository.loadAllItems();
+      if (generation != _hierarchyGeneration) return;
+      _hierarchyItems = items;
     } catch (_) {
+      if (generation != _hierarchyGeneration) return;
       _hierarchyLoadError =
           'Could not load the hierarchy view. Check your connection and try again.';
     } finally {
-      _hierarchyLoaded = true;
-      _isHierarchyLoading = false;
-      notifyIfActive();
+      if (generation == _hierarchyGeneration) {
+        _hierarchyLoaded = true;
+        _isHierarchyLoading = false;
+        notifyIfActive();
+      }
     }
   }
 
@@ -238,15 +250,19 @@ class BoardViewModel extends ViewModel {
     () async {
       final rootScopeId = await _repository.loadRootScopeItemId();
       final data = await _repository.loadBoard(rootScopeId);
-      _applyScope(data);
-      _breadcrumbs = [ScopeCrumb(id: rootScopeId, title: 'Board')];
       // Best-effort: a user directory failure shouldn't block the board
       // itself from loading — assignee initials just won't show.
+      List<AuthUser> users;
       try {
-        _users = await _repository.loadUsers();
+        users = await _repository.loadUsers();
       } catch (_) {
-        _users = const [];
+        users = const [];
       }
+      return () {
+        _applyScope(data);
+        _breadcrumbs = [ScopeCrumb(id: rootScopeId, title: 'Board')];
+        _users = users;
+      };
     },
     errorMessage:
         'Could not load the board. Check your connection and try again.',
@@ -263,7 +279,10 @@ class BoardViewModel extends ViewModel {
 
     final current = _breadcrumbs.last;
     return _changeScope(
-      () async => _applyScope(await _repository.loadBoard(current.id)),
+      () async {
+        final data = await _repository.loadBoard(current.id);
+        return () => _applyScope(data);
+      },
       errorMessage: 'Could not refresh the board. Check your connection and try again.',
     );
   }
@@ -272,11 +291,13 @@ class BoardViewModel extends ViewModel {
   /// swimlanes. Pushes [card] onto the breadcrumb trail.
   Future<void> drillInto(WorkItemCard card) => _changeScope(() async {
     final data = await _repository.loadBoard(card.id);
-    _applyScope(data);
-    _breadcrumbs = [
-      ..._breadcrumbs,
-      ScopeCrumb(id: card.id, title: card.title),
-    ];
+    return () {
+      _applyScope(data);
+      _breadcrumbs = [
+        ..._breadcrumbs,
+        ScopeCrumb(id: card.id, title: card.title),
+      ];
+    };
   }, errorMessage: 'Could not open "${card.title}". Try again.');
 
   /// Jumps back to the breadcrumb at [index], discarding any deeper
@@ -286,12 +307,15 @@ class BoardViewModel extends ViewModel {
       return Future.value();
     }
 
-    final target = _breadcrumbs[index];
+    final trail = _breadcrumbs.sublist(0, index + 1);
+    final target = trail.last;
 
     return _changeScope(() async {
       final data = await _repository.loadBoard(target.id);
-      _applyScope(data);
-      _breadcrumbs = _breadcrumbs.sublist(0, index + 1);
+      return () {
+        _applyScope(data);
+        _breadcrumbs = trail;
+      };
     }, errorMessage: 'Could not go back to "${target.title}". Try again.');
   }
 
@@ -301,61 +325,41 @@ class BoardViewModel extends ViewModel {
   /// backend's `ChangeStatus`/`Reparent` split keeps a status change from
   /// ever touching `ParentId`. Applies the move optimistically, then rolls
   /// it back if the backend rejects it.
-  Future<void> moveCard(WorkItemCard card, String newStatusId) async {
-    if (card.statusId == newStatusId) {
-      return;
+  Future<void> moveCard(WorkItemCard card, String newStatusId) {
+    if (card.statusId == newStatusId || !_hasLane(card.parentId)) {
+      return Future.value();
     }
 
-    final laneIndex = _swimlanes.indexWhere(
-      (lane) => lane.parentId == card.parentId,
+    return _optimistic(
+      apply: () => _swimlanes = _withCard(card.id, (c) => c.copyWith(statusId: newStatusId)),
+      persist: () => _repository.changeStatus(card.id, newStatusId),
+      revertLanes: () =>
+          _swimlanes = _withCard(card.id, (c) => c.copyWith(statusId: card.statusId)),
+      errorMessage: 'Could not move "${card.title}". Try again.',
     );
-    if (laneIndex == -1) {
-      return;
-    }
-
-    final previousSwimlanes = _swimlanes;
-    _swimlanes = _movedWithinLane(laneIndex, card, newStatusId);
-    notifyIfActive();
-
-    try {
-      await _repository.changeStatus(card.id, newStatusId);
-    } catch (_) {
-      _swimlanes = previousSwimlanes;
-      _moveError = 'Could not move "${card.title}". Try again.';
-      notifyIfActive();
-    }
   }
 
   /// Moves [card] to a different swimlane (i.e. a different parent),
   /// keeping its status — the view-model mirror of the backend's
   /// `Reparent`. Applies the move optimistically, then rolls it back if
   /// the backend rejects it.
-  Future<void> reparentCard(WorkItemCard card, String newParentId) async {
-    if (card.parentId == newParentId) {
-      return;
+  Future<void> reparentCard(WorkItemCard card, String newParentId) {
+    if (card.parentId == newParentId || !_hasLane(card.parentId) || !_hasLane(newParentId)) {
+      return Future.value();
     }
 
-    final oldLaneIndex = _swimlanes.indexWhere(
-      (lane) => lane.parentId == card.parentId,
+    final originalIndex = _swimlanes
+        .firstWhere((lane) => lane.parentId == card.parentId)
+        .cards
+        .indexWhere((c) => c.id == card.id);
+
+    return _optimistic(
+      apply: () => _swimlanes = _withCardMovedToLane(card.id, card.parentId, newParentId),
+      persist: () => _repository.reparentItem(card.id, newParentId),
+      revertLanes: () => _swimlanes =
+          _withCardMovedToLane(card.id, newParentId, card.parentId, atIndex: originalIndex),
+      errorMessage: 'Could not move "${card.title}". Try again.',
     );
-    final newLaneIndex = _swimlanes.indexWhere(
-      (lane) => lane.parentId == newParentId,
-    );
-    if (oldLaneIndex == -1 || newLaneIndex == -1) {
-      return;
-    }
-
-    final previousSwimlanes = _swimlanes;
-    _swimlanes = _movedToLane(oldLaneIndex, newLaneIndex, card, newParentId);
-    notifyIfActive();
-
-    try {
-      await _repository.reparentItem(card.id, newParentId);
-    } catch (_) {
-      _swimlanes = previousSwimlanes;
-      _moveError = 'Could not move "${card.title}". Try again.';
-      notifyIfActive();
-    }
   }
 
   /// Sets [card]'s scheduled start/end, keeping its status and swimlane —
@@ -365,25 +369,16 @@ class BoardViewModel extends ViewModel {
     WorkItemCard card,
     DateTime? startDate,
     DateTime? endDate,
-  ) async {
-    final laneIndex = _swimlanes.indexWhere(
-      (lane) => lane.parentId == card.parentId,
+  ) {
+    if (!_hasLane(card.parentId)) return Future.value();
+
+    return _optimistic(
+      apply: () => _swimlanes = _withCard(card.id, (c) => c.rescheduled(startDate, endDate)),
+      persist: () => _repository.rescheduleItem(card.id, startDate, endDate),
+      revertLanes: () =>
+          _swimlanes = _withCard(card.id, (c) => c.rescheduled(card.startDate, card.endDate)),
+      errorMessage: 'Could not reschedule "${card.title}". Try again.',
     );
-    if (laneIndex == -1) {
-      return;
-    }
-
-    final previousSwimlanes = _swimlanes;
-    _swimlanes = _rescheduledWithinLane(laneIndex, card, startDate, endDate);
-    notifyIfActive();
-
-    try {
-      await _repository.rescheduleItem(card.id, startDate, endDate);
-    } catch (_) {
-      _swimlanes = previousSwimlanes;
-      _moveError = 'Could not reschedule "${card.title}". Try again.';
-      notifyIfActive();
-    }
   }
 
   /// Sets or clears who the work item identified by [workItemId] is
@@ -392,25 +387,20 @@ class BoardViewModel extends ViewModel {
   /// appear in more than one place) — every matching in-memory
   /// representation is updated together. Applies optimistically, then rolls
   /// back if the backend rejects it.
-  Future<void> assign(String workItemId, String? userId) async {
-    final previousSwimlanes = _swimlanes;
-    final previousHierarchyItems = _hierarchyItems;
+  Future<void> assign(String workItemId, String? userId) {
+    final previousUserId = _currentAssigneeOf(workItemId);
 
-    _swimlanes = _assignedInSwimlanes(workItemId, userId);
-    _hierarchyItems = [
-      for (final item in _hierarchyItems)
-        if (item.id == workItemId) item.assigned(userId) else item,
-    ];
-    notifyIfActive();
-
-    try {
-      await _repository.assign(workItemId, userId);
-    } catch (_) {
-      _swimlanes = previousSwimlanes;
-      _hierarchyItems = previousHierarchyItems;
-      _moveError = 'Could not update the assignee. Try again.';
-      notifyIfActive();
-    }
+    return _optimistic(
+      apply: () {
+        _swimlanes = _assignedInSwimlanes(workItemId, userId);
+        _hierarchyItems = _withHierarchyItem(workItemId, (item) => item.assigned(userId));
+      },
+      persist: () => _repository.assign(workItemId, userId),
+      revertLanes: () => _swimlanes = _assignedInSwimlanes(workItemId, previousUserId),
+      revertHierarchy: () =>
+          _hierarchyItems = _withHierarchyItem(workItemId, (item) => item.assigned(previousUserId)),
+      errorMessage: 'Could not update the assignee. Try again.',
+    );
   }
 
   List<Swimlane> _assignedInSwimlanes(String workItemId, String? userId) => [
@@ -436,40 +426,26 @@ class BoardViewModel extends ViewModel {
   /// the view-model mirror of [assign], same dual-update-then-rollback
   /// shape (a work item's tags may need updating in both a swimlane card
   /// and a Hierarchy item at once).
-  Future<void> setTags(String workItemId, List<String> tags) async {
-    final previousSwimlanes = _swimlanes;
-    final previousHierarchyItems = _hierarchyItems;
+  Future<void> setTags(String workItemId, List<String> tags) {
+    final previousTags = _currentTagsOf(workItemId);
 
-    _swimlanes = _taggedInSwimlanes(workItemId, tags);
-    _hierarchyItems = [
-      for (final item in _hierarchyItems)
-        if (item.id == workItemId) item.tagged(tags) else item,
-    ];
-    notifyIfActive();
-
-    try {
-      await _repository.setTags(workItemId, tags);
-    } catch (_) {
-      _swimlanes = previousSwimlanes;
-      _hierarchyItems = previousHierarchyItems;
-      _moveError = 'Could not update the tags. Try again.';
-      notifyIfActive();
-    }
+    return _optimistic(
+      apply: () {
+        _swimlanes = _withCard(workItemId, (c) => c.tagged(tags));
+        _hierarchyItems = _withHierarchyItem(workItemId, (item) => item.tagged(tags));
+      },
+      persist: () => _repository.setTags(workItemId, tags),
+      revertLanes: () {
+        if (previousTags != null) _swimlanes = _withCard(workItemId, (c) => c.tagged(previousTags));
+      },
+      revertHierarchy: () {
+        if (previousTags != null) {
+          _hierarchyItems = _withHierarchyItem(workItemId, (item) => item.tagged(previousTags));
+        }
+      },
+      errorMessage: 'Could not update the tags. Try again.',
+    );
   }
-
-  List<Swimlane> _taggedInSwimlanes(String workItemId, List<String> tags) => [
-    for (final lane in _swimlanes)
-      lane.copyWithCards(_taggedInCards(lane.cards, workItemId, tags)),
-  ];
-
-  List<WorkItemCard> _taggedInCards(
-    List<WorkItemCard> cards,
-    String workItemId,
-    List<String> tags,
-  ) => [
-    for (final card in cards)
-      if (card.id == workItemId) card.tagged(tags) else card,
-  ];
 
   void clearMoveError() => _moveError = null;
 
@@ -675,24 +651,62 @@ class BoardViewModel extends ViewModel {
     return a.compareTo(b);
   }
 
+  /// Runs a scope load. [fetch] does the network work and returns a
+  /// closure that applies the result; it's only applied if no newer scope
+  /// load started in the meantime, so clicking a breadcrumb then quickly
+  /// drilling into a card can't leave the lanes and breadcrumbs describing
+  /// different scopes.
   Future<void> _changeScope(
-    Future<void> Function() action, {
+    Future<void Function()> Function() fetch, {
     required String errorMessage,
   }) async {
+    final generation = ++_scopeGeneration;
     _isLoading = true;
     _loadError = null;
     notifyIfActive();
 
     try {
-      await action();
+      final apply = await fetch();
+      if (generation != _scopeGeneration) return;
+      apply();
       _retry = _noRetry;
     } catch (_) {
+      if (generation != _scopeGeneration) return;
       _loadError = errorMessage;
       // Only a failure is retryable: replaying a successful drill-in would
       // push its breadcrumb a second time.
-      _retry = () => _changeScope(action, errorMessage: errorMessage);
+      _retry = () => _changeScope(fetch, errorMessage: errorMessage);
     } finally {
-      _isLoading = false;
+      if (generation == _scopeGeneration) {
+        _isLoading = false;
+        notifyIfActive();
+      }
+    }
+  }
+
+  /// Applies a change locally, persists it, and on failure reverts just
+  /// that change (per item, not a whole-list snapshot, so a failed move
+  /// can't undo a different move that succeeded in the meantime). A revert
+  /// is skipped if the data it would touch has been reloaded since — the
+  /// reload already reflects the server.
+  Future<void> _optimistic({
+    required void Function() apply,
+    required Future<void> Function() persist,
+    required void Function() revertLanes,
+    void Function()? revertHierarchy,
+    required String errorMessage,
+  }) async {
+    final scopeGeneration = _scopeGeneration;
+    final hierarchyGeneration = _hierarchyGeneration;
+    apply();
+    notifyIfActive();
+
+    try {
+      await persist();
+    } catch (_) {
+      if (scopeGeneration == _scopeGeneration) revertLanes();
+      if (hierarchyGeneration == _hierarchyGeneration) revertHierarchy?.call();
+      _moveError = errorMessage;
       notifyIfActive();
     }
   }
@@ -702,65 +716,73 @@ class BoardViewModel extends ViewModel {
     _swimlanes = data.swimlanes;
   }
 
-  List<Swimlane> _movedWithinLane(
-    int laneIndex,
-    WorkItemCard card,
-    String newStatusId,
-  ) {
-    final lane = _swimlanes[laneIndex];
-    final updatedCards = [
-      for (final c in lane.cards)
-        if (c.id == card.id) c.copyWith(statusId: newStatusId) else c,
-    ];
+  bool _hasLane(String parentId) => _swimlanes.any((lane) => lane.parentId == parentId);
+
+  List<Swimlane> _withCard(String cardId, WorkItemCard Function(WorkItemCard) update) => [
+    for (final lane in _swimlanes)
+      lane.copyWithCards([
+        for (final c in lane.cards)
+          if (c.id == cardId) update(c) else c,
+      ]),
+  ];
+
+  List<HierarchyItem> _withHierarchyItem(
+    String id,
+    HierarchyItem Function(HierarchyItem) update,
+  ) => [
+    for (final item in _hierarchyItems)
+      if (item.id == id) update(item) else item,
+  ];
+
+  /// Moves the card from [fromParentId]'s lane to [toParentId]'s, appended
+  /// unless [atIndex] is given. A no-op if the card isn't in the source lane
+  /// (e.g. a later move already took it elsewhere).
+  List<Swimlane> _withCardMovedToLane(
+    String cardId,
+    String fromParentId,
+    String toParentId, {
+    int? atIndex,
+  }) {
+    final fromLane = _swimlanes.where((lane) => lane.parentId == fromParentId).firstOrNull;
+    final card = fromLane?.cards.where((c) => c.id == cardId).firstOrNull;
+    if (card == null) return _swimlanes;
+
+    final moved = card.movedToParent(toParentId);
+    List<WorkItemCard> insertedInto(List<WorkItemCard> cards) {
+      final index = (atIndex ?? cards.length).clamp(0, cards.length);
+      return [...cards]..insert(index, moved);
+    }
 
     return [
-      for (var i = 0; i < _swimlanes.length; i++)
-        if (i == laneIndex) lane.copyWithCards(updatedCards) else _swimlanes[i],
-    ];
-  }
-
-  List<Swimlane> _rescheduledWithinLane(
-    int laneIndex,
-    WorkItemCard card,
-    DateTime? startDate,
-    DateTime? endDate,
-  ) {
-    final lane = _swimlanes[laneIndex];
-    final updatedCards = [
-      for (final c in lane.cards)
-        if (c.id == card.id) c.rescheduled(startDate, endDate) else c,
-    ];
-
-    return [
-      for (var i = 0; i < _swimlanes.length; i++)
-        if (i == laneIndex) lane.copyWithCards(updatedCards) else _swimlanes[i],
-    ];
-  }
-
-  List<Swimlane> _movedToLane(
-    int oldLaneIndex,
-    int newLaneIndex,
-    WorkItemCard card,
-    String newParentId,
-  ) {
-    final oldLane = _swimlanes[oldLaneIndex];
-    final newLane = _swimlanes[newLaneIndex];
-    final movedCard = card.movedToParent(newParentId);
-
-    final updatedOldLaneCards = [
-      for (final c in oldLane.cards)
-        if (c.id != card.id) c,
-    ];
-    final updatedNewLaneCards = [...newLane.cards, movedCard];
-
-    return [
-      for (var i = 0; i < _swimlanes.length; i++)
-        if (i == oldLaneIndex)
-          oldLane.copyWithCards(updatedOldLaneCards)
-        else if (i == newLaneIndex)
-          newLane.copyWithCards(updatedNewLaneCards)
+      for (final lane in _swimlanes)
+        if (lane.parentId == fromParentId)
+          lane.copyWithCards([
+            for (final c in lane.cards)
+              if (c.id != cardId) c,
+          ])
+        else if (lane.parentId == toParentId)
+          lane.copyWithCards(insertedInto(lane.cards))
         else
-          _swimlanes[i],
+          lane,
     ];
+  }
+
+  String? _currentAssigneeOf(String workItemId) {
+    for (final lane in _swimlanes) {
+      if (lane.parentId == workItemId) return lane.assignedToUserId;
+      for (final card in lane.cards) {
+        if (card.id == workItemId) return card.assignedToUserId;
+      }
+    }
+    return _hierarchyItems.where((item) => item.id == workItemId).firstOrNull?.assignedToUserId;
+  }
+
+  List<String>? _currentTagsOf(String workItemId) {
+    for (final lane in _swimlanes) {
+      for (final card in lane.cards) {
+        if (card.id == workItemId) return card.tags;
+      }
+    }
+    return _hierarchyItems.where((item) => item.id == workItemId).firstOrNull?.tags;
   }
 }

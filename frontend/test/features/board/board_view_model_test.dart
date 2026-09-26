@@ -103,6 +103,18 @@ class _TestBoardRepository implements BoardRepository {
   /// When set, [createWorkItem] waits on it, so a test can navigate while
   /// a create is in flight.
   Completer<void>? createGate;
+
+  /// Scope loads for these scope ids wait on their completer, so a test can
+  /// finish overlapping loads in any order.
+  final Map<String?, Completer<void>> loadGates = {};
+
+  /// Status changes for these card ids wait on their completer; completing
+  /// it with an error makes that one change fail.
+  final Map<String, Completer<void>> statusGates = {};
+
+  /// When non-null, each [loadAllItems] call parks a completer here instead
+  /// of returning immediately.
+  List<Completer<List<HierarchyItem>>>? pendingHierarchyLoads;
   final List<String> assigns = [];
   final List<String> tagUpdates = [];
   int loadAllItemsCallCount = 0;
@@ -111,16 +123,23 @@ class _TestBoardRepository implements BoardRepository {
   Future<String?> loadRootScopeItemId() => Future.value();
 
   @override
-  Future<BoardData> loadBoard(String? scopeItemId) {
+  Future<BoardData> loadBoard(String? scopeItemId) async {
     requestedScopes.add(scopeItemId);
-    if (scopeItemId == null) return Future.value(_rootBoard);
-    if (scopeItemId == 'card-1') return Future.value(_card1Children);
-    return Future.error(StateError('No fixture for scope $scopeItemId'));
+    await loadGates[scopeItemId]?.future;
+    if (scopeItemId == null) return _rootBoard;
+    if (scopeItemId == 'card-1') return _card1Children;
+    throw StateError('No fixture for scope $scopeItemId');
   }
 
   @override
   Future<List<HierarchyItem>> loadAllItems() async {
     loadAllItemsCallCount++;
+    final pending = pendingHierarchyLoads;
+    if (pending != null) {
+      final load = Completer<List<HierarchyItem>>();
+      pending.add(load);
+      return load.future;
+    }
     final error = hierarchyError;
     if (error != null) throw error;
     return hierarchyItems;
@@ -132,6 +151,7 @@ class _TestBoardRepository implements BoardRepository {
   @override
   Future<void> changeStatus(String cardId, String newStatusId) async {
     statusChanges.add('$cardId->$newStatusId');
+    await statusGates[cardId]?.future;
     final error = changeStatusError;
     if (error != null) throw error;
   }
@@ -1130,5 +1150,76 @@ void main() {
     await viewModel.refreshHierarchyIfLoaded();
 
     expect(repository.loadAllItemsCallCount, 2);
+  });
+
+  group('overlapping async work', () {
+    HierarchyItem hierarchyItem(String title) =>
+        HierarchyItem(id: 'x', number: 1, parentId: null, title: title, statusId: 'todo');
+
+    test('an older scope load finishing last does not overwrite the newer scope', () async {
+      repository.loadGates[null] = Completer<void>();
+      final olderRefresh = viewModel.refreshCurrentScope();
+      await viewModel.drillInto(viewModel.swimlanes[0].cards.single);
+
+      repository.loadGates[null]!.complete();
+      await olderRefresh;
+
+      expect(viewModel.breadcrumbs.map((c) => c.id), [null, 'card-1']);
+      expect(viewModel.swimlanes.single.parentId, 'card-1');
+    });
+
+    test('the spinner stays up until the newest scope load finishes', () async {
+      repository.loadGates[null] = Completer<void>();
+      repository.loadGates['card-1'] = Completer<void>();
+      final older = viewModel.refreshCurrentScope();
+      final newer = viewModel.drillInto(viewModel.swimlanes[0].cards.single);
+
+      repository.loadGates[null]!.complete();
+      await older;
+      expect(viewModel.isLoading, isTrue);
+
+      repository.loadGates['card-1']!.complete();
+      await newer;
+      expect(viewModel.isLoading, isFalse);
+    });
+
+    test('an older hierarchy load finishing last does not overwrite the newer one', () async {
+      repository.pendingHierarchyLoads = [];
+      final older = viewModel.loadHierarchy();
+      final newer = viewModel.loadHierarchy();
+
+      repository.pendingHierarchyLoads![1].complete([hierarchyItem('newer')]);
+      await newer;
+      repository.pendingHierarchyLoads![0].complete([hierarchyItem('older')]);
+      await older;
+
+      expect(viewModel.hierarchyRoots.single.item.title, 'newer');
+    });
+
+    test('a failed move does not undo a different move that succeeded meanwhile', () async {
+      repository.statusGates['card-1'] = Completer<void>();
+      final failing = viewModel.moveCard(viewModel.swimlanes[0].cards.single, 'done');
+      await viewModel.moveCard(viewModel.swimlanes[1].cards.single, 'done');
+
+      repository.statusGates['card-1']!.completeError(Exception('rejected'));
+      await failing;
+
+      expect(viewModel.swimlanes[0].cards.single.statusId, 'todo');
+      expect(viewModel.swimlanes[1].cards.single.statusId, 'done');
+      expect(viewModel.moveError, isNotNull);
+    });
+
+    test('a failed move after a scope change leaves the new scope alone', () async {
+      repository.statusGates['card-1'] = Completer<void>();
+      final failing = viewModel.moveCard(viewModel.swimlanes[0].cards.single, 'done');
+      await viewModel.drillInto(viewModel.swimlanes[0].cards.single);
+
+      repository.statusGates['card-1']!.completeError(Exception('rejected'));
+      await failing;
+
+      expect(viewModel.swimlanes.single.parentId, 'card-1');
+      expect(viewModel.swimlanes.single.cards.single.id, 'grandchild-1');
+      expect(viewModel.moveError, isNotNull);
+    });
   });
 }
