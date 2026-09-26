@@ -114,6 +114,7 @@ class HeaderBar extends StatelessWidget {
               Tab(text: 'Swim Lanes'),
               Tab(text: 'Roadmap'),
               Tab(text: 'Hierarchy'),
+              Tab(text: 'Repeating'),
             ],
           ),
         ],

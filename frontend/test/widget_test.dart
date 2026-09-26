@@ -13,6 +13,9 @@ import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
+import 'package:weaver/shared/recurrence/data/recurrence_repository.dart';
+
+import 'shared/recurrence/fake_recurrence_repository.dart';
 
 /// Stands in for the real, network-backed [BoardRepository] so this smoke
 /// test never makes an HTTP call.
@@ -124,7 +127,11 @@ void main() {
       ..unregister<AuthRepository>()
       ..registerLazySingleton<AuthRepository>(_UnusedAuthRepository.new)
       ..unregister<SecureTokenStore>()
-      ..registerLazySingleton<SecureTokenStore>(_InMemoryTokenStore.new);
+      ..registerLazySingleton<SecureTokenStore>(_InMemoryTokenStore.new)
+      ..unregister<RecurrenceRepository>()
+      ..registerLazySingleton<RecurrenceRepository>(
+        FakeRecurrenceRepository.new,
+      );
 
     await getIt<AuthSessionStore>().setSession(
       AuthSession(

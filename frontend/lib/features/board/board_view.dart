@@ -5,12 +5,14 @@ import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/core/theme/app_theme.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
+import 'package:weaver/features/board/repeating_items_view_model.dart';
 import 'package:weaver/features/board/views/board_tab.dart';
 import 'package:weaver/features/board/views/header/header_bar.dart';
 import 'package:weaver/features/board/views/header/sort_bar.dart';
 import 'package:weaver/features/board/views/header/status_filter_bar.dart';
 import 'package:weaver/features/board/views/header/tag_filter_bar.dart';
 import 'package:weaver/features/board/views/hierarchy/hierarchy_view.dart';
+import 'package:weaver/features/board/views/repeating/repeating_view.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_view.dart';
 import 'package:weaver/features/board/views/swimlane/swimlane_view.dart';
 import 'package:weaver/features/board/widgets/assign_dialog.dart';
@@ -43,6 +45,8 @@ class BoardView extends StatefulWidget {
 class _BoardViewState extends State<BoardView>
     with SingleTickerProviderStateMixin {
   final BoardViewModel _viewModel = getIt<BoardViewModel>();
+  final RepeatingItemsViewModel _repeatingViewModel =
+      getIt<RepeatingItemsViewModel>();
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
   late final TabController _tabController = TabController(
@@ -95,6 +99,7 @@ class _BoardViewState extends State<BoardView>
     _viewModel
       ..removeListener(_showMoveErrorIfAny)
       ..dispose();
+    _repeatingViewModel.dispose();
     _searchDebounce?.cancel();
     _searchController.dispose();
     _tabController
@@ -119,6 +124,11 @@ class _BoardViewState extends State<BoardView>
 
   void _onTabChanged() {
     setState(() {});
+    // Reloaded on every visit: schedules can change from any detail dialog.
+    if (_tabController.index == BoardTab.repeating.index &&
+        !_tabController.indexIsChanging) {
+      unawaited(_repeatingViewModel.load());
+    }
     final needsHierarchyData =
         _tabController.index == BoardTab.hierarchy.index ||
         _tabController.index == BoardTab.roadmap.index;
@@ -158,6 +168,16 @@ class _BoardViewState extends State<BoardView>
       workItemId: workItemId,
     );
     if (changed) _refreshAfterDetailEdits();
+  }
+
+  Future<void> _openRepeatingItem(String workItemId) async {
+    final changed = await widget.openWorkItemDetails(
+      context,
+      workItemId: workItemId,
+    );
+    if (!changed) return;
+    _refreshAfterDetailEdits();
+    unawaited(_repeatingViewModel.load());
   }
 
   /// Opens a picker to assign [workItemId] — used wherever an assignee
@@ -299,6 +319,12 @@ class _BoardViewState extends State<BoardView>
                           viewModel: _viewModel,
                           onItemOpened: _openDetailsById,
                           onAssignRequested: _openAssignDialog,
+                        ),
+                        RepeatingView(
+                          viewModel: _repeatingViewModel,
+                          onItemOpened: (id) =>
+                              unawaited(_openRepeatingItem(id)),
+                          onSchedulesChanged: _refreshAfterDetailEdits,
                         ),
                       ],
                     ),

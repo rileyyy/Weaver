@@ -23,6 +23,7 @@ import 'package:weaver/features/auth/data/secure_token_store.dart' as _i54;
 import 'package:weaver/features/board/board_view_model.dart' as _i314;
 import 'package:weaver/features/board/data/api_board_repository.dart' as _i436;
 import 'package:weaver/features/board/data/board_repository.dart' as _i522;
+import 'package:weaver/features/board/repeating_items_view_model.dart' as _i87;
 import 'package:weaver/features/work_item_detail/data/api_work_item_detail_repository.dart'
     as _i335;
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart'
@@ -129,6 +130,9 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i314.BoardViewModel>(
       () => _i314.BoardViewModel(gh<_i522.BoardRepository>()),
+    );
+    gh.factory<_i87.RepeatingItemsViewModel>(
+      () => _i87.RepeatingItemsViewModel(gh<_i65.RecurrenceRepository>()),
     );
     gh.factory<_i60.RepeatSettingsViewModel>(
       () => _i60.RepeatSettingsViewModel(gh<_i65.RecurrenceRepository>()),
