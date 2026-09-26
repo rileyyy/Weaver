@@ -4,7 +4,7 @@
 **Scope:** `backend/` (.NET 9 API, Domain, Infrastructure, tests), `frontend/` (Flutter app + tests), `docker/`, `compose*.yaml`, `.github/workflows/`.
 No code was changed as part of this review.
 
-Each finding has a checkbox: tick it (`[x]`) once the fix is merged to `master`, and note the branch/PR next to it.
+Each finding has a checkbox. Tick it (`[x]`) in the commit that fixes it, and note the branch next to it, so the tick lands on `master` together with the fix.
 
 Severity key: **High** means data loss, a security exposure, or a bug users will regularly hit. **Medium** means a real defect or a design problem that will get more expensive the longer it stays. **Low** means cleanup or consistency work.
 
