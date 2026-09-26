@@ -67,6 +67,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   final List<WorkItemLink> linksList = [];
   List<WorkItemChildSummary> childrenList = [];
   int loadCommentsCalls = 0;
+  int getItemCalls = 0;
   int loadLinksCalls = 0;
 
   /// When set, [assign] waits on it, so a test can overlap two saves.
@@ -74,6 +75,7 @@ class _FakeRepository implements WorkItemDetailRepository {
 
   @override
   Future<WorkItemDetail> getItem(String id) async {
+    getItemCalls++;
     final error = getItemError;
     // An Object so tests can simulate either an API failure or a bug.
     if (error != null) Error.throwWithStackTrace(error, StackTrace.current);
@@ -369,6 +371,22 @@ void main() {
       expect(repository.expectedVersions, [5, 6]);
     },
   );
+
+  test('a save conflict after the dialog closed skips the reload', () async {
+    final repository = _FakeRepository(
+      saveError: const ApiException('changed', statusCode: 409),
+    )..assignGate = Completer<void>();
+    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    await viewModel.load('item-1');
+    final getItemCallsBefore = repository.getItemCalls;
+
+    final save = viewModel.saveAssignee('user-1');
+    viewModel.dispose();
+    repository.assignGate!.complete();
+
+    expect(await save, isFalse);
+    expect(repository.getItemCalls, getItemCallsBefore);
+  });
 
   test(
     'a save conflict reloads the latest item and bumps reloadGeneration',

@@ -6,6 +6,12 @@ import 'package:flutter/foundation.dart';
 abstract class ViewModel extends ChangeNotifier {
   bool _disposed = false;
 
+  /// True once the View has torn this ViewModel down. Long operations check
+  /// it after an `await` to skip follow-up work nobody will see, such as a
+  /// reload after a save.
+  @protected
+  bool get isDisposed => _disposed;
+
   @override
   void dispose() {
     _disposed = true;

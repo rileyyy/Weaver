@@ -706,6 +706,22 @@ void main() {
     },
   );
 
+  test('createWorkItem skips the reload once the board is disposed', () async {
+    repository.createGate = Completer<void>();
+    final create = viewModel.createWorkItem(
+      title: 'New card',
+      parentId: 'lane-a',
+      statusId: 'todo',
+    );
+    viewModel.dispose();
+    repository.requestedScopes.clear();
+
+    repository.createGate!.complete();
+    await create;
+
+    expect(repository.requestedScopes, isEmpty);
+  });
+
   test(
     'canCreateWorkItem is false while loading and after a failed load',
     () async {

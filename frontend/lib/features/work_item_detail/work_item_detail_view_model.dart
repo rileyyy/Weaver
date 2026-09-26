@@ -265,6 +265,7 @@ class WorkItemDetailViewModel extends ViewModel {
   Future<void> _reloadAfterConflict() async {
     const notSaved =
         'Someone else changed this work item, so your change was not saved.';
+    if (isDisposed) return;
     try {
       _item = await _repository.getItem(_item!.id);
       _reloadGeneration++;

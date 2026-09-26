@@ -201,6 +201,7 @@ class BoardViewModel extends ViewModel {
     () async {
       final rootScopeId = await _repository.loadRootScopeItemId();
       final data = await _repository.loadBoard(rootScopeId);
+      if (isDisposed) return () {};
       // Best-effort: a user directory failure shouldn't block the board
       // itself from loading — assignee initials just won't show.
       List<User> users;
@@ -479,7 +480,9 @@ class BoardViewModel extends ViewModel {
 
     // If the user navigated elsewhere while the create was in flight, that
     // navigation already loaded the scope they're now looking at.
-    if (_breadcrumbs.last.id == scopeId) await refreshCurrentScope();
+    if (!isDisposed && _breadcrumbs.last.id == scopeId) {
+      await refreshCurrentScope();
+    }
   }
 
   /// Sets the board's time-frame filter. Either bound may be null (open on
