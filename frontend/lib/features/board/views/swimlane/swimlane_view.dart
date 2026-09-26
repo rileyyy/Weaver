@@ -244,7 +244,7 @@ class SwimlaneView extends StatelessWidget {
     return cardBasedHeight > labelHeight ? cardBasedHeight : labelHeight;
   }
 
-  /// The [_SwimlaneLabel]'s own minimum height: its top/bottom padding, plus
+  /// The [SwimlaneLabel]'s own minimum height: its top/bottom padding, plus
   /// its (possibly multi-line, wrapped) title, plus — when [showsAvatar] —
   /// the fixed gap and assignee avatar below it. Measured directly rather
   /// than guessed, since the label and the status-columns row it sits

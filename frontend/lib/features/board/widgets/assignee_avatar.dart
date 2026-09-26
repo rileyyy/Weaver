@@ -17,10 +17,9 @@ class AssigneeAvatar extends StatelessWidget {
 
   static const double defaultSize = 24;
 
-  /// The size [BoardCard] renders its own avatar at — 1.34x the default
-  /// (roughly the doubled size from before, reduced by a third per
-  /// follow-up feedback that the doubled avatar was too big). Shared with
-  /// the swimlane label so both read as the same visual weight.
+  /// The size [BoardCard] renders its avatar at, a third larger than the
+  /// default so it reads at card scale. Shared with the swimlane label so
+  /// both carry the same visual weight.
   static const double cardSize = defaultSize * 4 / 3;
 
   final String? initial;

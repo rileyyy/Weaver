@@ -26,7 +26,7 @@ class StatusColumn extends StatelessWidget {
   final Swimlane swimlane;
   final WorkItemStatus status;
 
-  /// Precomputed by [SwimlaneBoard] (shared across every column so a
+  /// Precomputed by [SwimlaneView] (shared across every column so a
   /// swimlane's row height, also computed there, matches what actually
   /// renders here).
   final double cardWidth;
@@ -87,10 +87,9 @@ class StatusColumn extends StatelessWidget {
                 : colorScheme.surfaceContainerLow,
             borderRadius: BorderRadius.circular(8),
           ),
-          // The row's own height (computed by SwimlaneBoard) already
-          // reserves at least a 2x2 grid, growing for however many rows
-          // this cell's card count actually needs — so this Wrap never
-          // needs to scroll internally, it just fills the space given.
+          // The row's height (computed by SwimlaneView) already fits the
+          // busiest column's cards plus a free slot, so this Wrap never
+          // needs to scroll internally; it just fills the space given.
           child: Wrap(
             spacing: cardGridSpacing,
             runSpacing: cardGridSpacing,
