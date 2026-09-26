@@ -203,7 +203,7 @@ The most important problems cluster in four areas:
 - **Fix:** Share one refresh `Future` (`_refreshing ??= _doRefresh().whenComplete(() => _refreshing = null)`). Only `clear()` if the session is still the one the failed refresh started from. Add a test where concurrent sends produce exactly one `refresh` call.
 
 #### F-H2. `retry()` is used as "refresh" and replays the last action: duplicate work items
-- [ ] **Resolved**
+- [x] **Resolved** in `bugfix/board-retry-replays-create`: `_retry` is only recorded on failure. A new `refreshCurrentScope()` replaces `retry()` as the post-delete refresh. `createWorkItem` no longer goes through `_changeScope`: a failure keeps the board and shows a SnackBar.
 - **Where:** [board_view_model.dart:252, 463-477, 648-655](frontend/lib/features/board/board_view_model.dart#L648-L655), [board_view.dart:107-110](frontend/lib/features/board/board_view.dart#L107-L110)
 - **Issue:** `_changeScope` stores `_retry` on *every* call, including successful ones, and `createWorkItem` goes through `_changeScope`. `BoardView._onWorkItemDeleted` calls `retry()` to refresh the board. So "create item X, then delete any item from the detail dialog" POSTs X again. If the last action was `drillInto`, the breadcrumb is pushed a second time ("Board > X > X").
 - **Fix:**
@@ -295,7 +295,7 @@ The most important problems cluster in four areas:
 - [ ] **F-L6. `parseStatusColor`** renders the colour fully transparent if the `#` is missing, and throws on invalid input, which fails the whole board load. It has no tests.
 - [ ] **F-L7. Unknown wire values fall back silently** (priority → medium, user kind → human). `WorkItemPriority.toWire()` uses the display label, which couples the UI text to the API contract.
 - [ ] **F-L8.** `hiddenStatusIds` and `selectedTagFilters` expose mutable internal sets. Return `UnmodifiableSetView`.
-- [ ] **F-L9.** The FAB and create dialog stay available while the board is loading or has failed. `createWorkItem` reloads whatever scope is current when it *completes*, not the scope the item was created in.
+- [x] *(Resolved in `bugfix/board-retry-replays-create`.)* **F-L9.** The FAB and create dialog stay available while the board is loading or has failed. `createWorkItem` reloads whatever scope is current when it *completes*, not the scope the item was created in.
 - [ ] **F-L10. `pubspec_overrides.yaml`** pins `flutter_secure_storage` to 10.3.4 while `pubspec.yaml` declares `^11.2.0`. It was committed without explanation in `9cf3167`. Pin the version in `pubspec.yaml` with a reason, and delete the override.
 - [ ] **F-L11. `analysis_options.yaml`** excludes `pubspec.yaml`, so `sort_pub_dependencies` never runs (and the dependencies are unsorted). Several rule comments are wrong. `flutter_lints` is one major version behind. Formatting isn't enforced in CI.
 - [ ] **F-L12.** The `ViewModel` base class has no `isDisposed` for long operations to check, and there is no test for `notifyIfActive` after dispose.

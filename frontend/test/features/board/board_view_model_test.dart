@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show Color;
 
 import 'package:flutter_test/flutter_test.dart';
@@ -98,6 +99,10 @@ class _TestBoardRepository implements BoardRepository {
   final List<String> reschedules = [];
   final List<String?> requestedScopes = [];
   final List<String> creates = [];
+
+  /// When set, [createWorkItem] waits on it, so a test can navigate while
+  /// a create is in flight.
+  Completer<void>? createGate;
   final List<String> assigns = [];
   final List<String> tagUpdates = [];
   int loadAllItemsCallCount = 0;
@@ -157,6 +162,7 @@ class _TestBoardRepository implements BoardRepository {
     required String statusId,
   }) async {
     creates.add('$title->$parentId/$statusId');
+    await createGate?.future;
     final error = createError;
     if (error != null) throw error;
   }
@@ -564,7 +570,7 @@ void main() {
     expect(viewModel.loadError, isNull);
   });
 
-  test('createWorkItem sets loadError when the repository call fails', () async {
+  test('createWorkItem failure keeps the board and reports a transient error', () async {
     final failingRepository = _TestBoardRepository(
       createError: Exception('boom'),
     );
@@ -577,7 +583,58 @@ void main() {
       statusId: 'todo',
     );
 
-    expect(failingViewModel.loadError, isNotNull);
+    expect(failingViewModel.loadError, isNull);
+    expect(failingViewModel.moveError, isNotNull);
+    expect(failingViewModel.swimlanes, isNotEmpty);
+  });
+
+  test('retry after a successful create never creates the item again', () async {
+    await viewModel.createWorkItem(title: 'New card', parentId: 'lane-a', statusId: 'todo');
+
+    await viewModel.retry();
+
+    expect(repository.creates, ['New card->lane-a/todo']);
+  });
+
+  test('retry after a successful drillInto does not push the breadcrumb again', () async {
+    await viewModel.drillInto(viewModel.swimlanes[0].cards.single);
+    final crumbs = viewModel.breadcrumbs.length;
+
+    await viewModel.retry();
+
+    expect(viewModel.breadcrumbs, hasLength(crumbs));
+  });
+
+  test('refreshCurrentScope reloads the scope shown and keeps the breadcrumbs', () async {
+    await viewModel.drillInto(viewModel.swimlanes[0].cards.single);
+    repository.requestedScopes.clear();
+
+    await viewModel.refreshCurrentScope();
+
+    expect(repository.requestedScopes, ['card-1']);
+    expect(viewModel.breadcrumbs.map((c) => c.id), [null, 'card-1']);
+  });
+
+  test('createWorkItem does not reload if the user navigated away while it was in flight', () async {
+    repository.createGate = Completer<void>();
+    final create = viewModel.createWorkItem(title: 'New card', parentId: 'lane-a', statusId: 'todo');
+    await viewModel.drillInto(viewModel.swimlanes[0].cards.single);
+    repository.requestedScopes.clear();
+
+    repository.createGate!.complete();
+    await create;
+
+    expect(repository.requestedScopes, isEmpty);
+  });
+
+  test('canCreateWorkItem is false while loading and after a failed load', () async {
+    final failingViewModel = BoardViewModel(_FailingLoadRepository());
+    expect(failingViewModel.canCreateWorkItem, isFalse);
+
+    await failingViewModel.load();
+
+    expect(failingViewModel.canCreateWorkItem, isFalse);
+    expect(viewModel.canCreateWorkItem, isTrue);
   });
 
   test('matchesTimeFilter is true for every card when no filter is set', () {
