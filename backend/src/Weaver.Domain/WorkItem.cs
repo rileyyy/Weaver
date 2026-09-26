@@ -74,6 +74,15 @@ public class WorkItem : IHasUpdatedAt
 
     public DateOnly? EndDate { get; private set; }
 
+    /// <summary>
+    /// The repeating work item this one was generated from, and the occurrence date it was
+    /// generated for. Both null for items created by hand. Together they're unique, which is
+    /// what stops generation from creating the same occurrence twice.
+    /// </summary>
+    public Guid? RecurrenceSourceId { get; private set; }
+
+    public DateOnly? RecurrenceDate { get; private set; }
+
     public DateTimeOffset CreatedAtUtc { get; private set; }
 
     public DateTimeOffset UpdatedAtUtc { get; private set; }
@@ -89,6 +98,8 @@ public class WorkItem : IHasUpdatedAt
     public WorkItemLayer? Layer { get; private set; }
 
     public User? AssignedToUser { get; private set; }
+
+    public WorkItem? RecurrenceSource { get; private set; }
 
     public static WorkItem Create(
         string title,

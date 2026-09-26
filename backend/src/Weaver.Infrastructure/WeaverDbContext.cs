@@ -29,6 +29,8 @@ public class WeaverDbContext : DbContext, IWeaverDbContext
 
     public DbSet<WorkItemLink> WorkItemLinks => Set<WorkItemLink>();
 
+    public DbSet<WorkItemRecurrence> WorkItemRecurrences => Set<WorkItemRecurrence>();
+
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         try
@@ -74,5 +76,6 @@ public class WeaverDbContext : DbContext, IWeaverDbContext
         modelBuilder.ApplyConfiguration(new WorkItemLayerConfiguration());
         modelBuilder.ApplyConfiguration(new CommentConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemLinkConfiguration());
+        modelBuilder.ApplyConfiguration(new WorkItemRecurrenceConfiguration());
     }
 }

@@ -38,6 +38,16 @@ public class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             .HasForeignKey(w => w.AssignedToUserId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        // SetNull: deleting the repeating item keeps the items it generated, which may be
+        // needed for reference; they just stop pointing at a template that no longer exists.
+        builder.HasOne(w => w.RecurrenceSource)
+            .WithMany()
+            .HasForeignKey(w => w.RecurrenceSourceId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Postgres treats NULLs as distinct, so hand-created items (both columns null) never collide.
+        builder.HasIndex(w => new { w.RecurrenceSourceId, w.RecurrenceDate }).IsUnique();
+
         // Native Postgres array column (Npgsql maps List<string> to text[]
         // directly) — no join table, since nothing queries by tag
         // server-side today (tag search/filter is client-side, matching
