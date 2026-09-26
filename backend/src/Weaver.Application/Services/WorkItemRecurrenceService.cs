@@ -137,6 +137,9 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
         foreach (var date in dates)
         {
             await factory.AddOccurrenceAsync(template, date, ct);
+            // One save per occurrence: EF orders a batch's inserts by primary key, and
+            // random GUIDs would hand out display numbers (#N) out of date order.
+            await _db.SaveChangesAsync(ct);
         }
 
         recurrence.MarkGeneratedThrough(horizon);
