@@ -309,7 +309,7 @@ The most important problems cluster in four areas:
   - References to types that no longer exist (`[SwimlaneBoard]`, `_StatusColumn`, `_SwimlaneLabel`).
   - Contradictory layout notes.
   - Feedback history that belongs in commit messages (`assignee_avatar.dart:20-23`).
-- [ ] **F-L5. `ApiConfig` fails late and breaks on a trailing slash.** A missing native `API_BASE_URL` throws only inside a widget initialiser, and `http://host/` becomes `//api`. Validate in `main()` and normalise the URL.
+- [x] *(Resolved in `feature/frontend-review-cleanup`: `main()` calls `ApiConfig.validate()` before dependency setup, and the rule is a pure, tested `resolveApiBaseUrl` that strips trailing slashes.)* **F-L5. `ApiConfig` fails late and breaks on a trailing slash.** A missing native `API_BASE_URL` throws only inside a widget initialiser, and `http://host/` becomes `//api`. Validate in `main()` and normalise the URL.
 - [ ] **F-L6. `parseStatusColor`** renders the colour fully transparent if the `#` is missing, and throws on invalid input, which fails the whole board load. It has no tests.
 - [ ] **F-L7. Unknown wire values fall back silently** (priority → medium, user kind → human). `WorkItemPriority.toWire()` uses the display label, which couples the UI text to the API contract.
 - [x] *(Resolved: `selectedTagFilters` was replaced by `isTagFilterSelected` in `bugfix/tag-filter-casing`, and `hiddenStatusIds` is unmodifiable since `feature/split-board-view-model`.)* **F-L8.** `hiddenStatusIds` and `selectedTagFilters` expose mutable internal sets. Return `UnmodifiableSetView`.
