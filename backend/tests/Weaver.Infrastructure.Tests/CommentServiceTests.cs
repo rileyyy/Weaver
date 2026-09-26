@@ -128,4 +128,34 @@ public class CommentServiceTests
         Assert.ThrowsAsync<EntityNotFoundException>(() =>
             _comments.DeleteAsync(Guid.NewGuid(), _authorId));
     }
+
+    [TestCase("")]
+    [TestCase("  ")]
+    public async Task CreateAsync_WithBlankBody_ThrowsDomainValidationException(string body)
+    {
+        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+
+        Assert.ThrowsAsync<DomainValidationException>(() => _comments.CreateAsync(item.Id, _authorId, body));
+    }
+
+    [Test]
+    public async Task CreateAsync_WithBodyOverMaxLength_ThrowsDomainValidationException()
+    {
+        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+        var body = new string('a', Comment.BodyMaxLength + 1);
+
+        Assert.ThrowsAsync<DomainValidationException>(() => _comments.CreateAsync(item.Id, _authorId, body));
+    }
+
+    [Test]
+    public async Task UpdateAsync_WithBlankBody_ThrowsAndKeepsTheOriginalBody()
+    {
+        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+        var comment = await _comments.CreateAsync(item.Id, _authorId, "Looks good");
+
+        Assert.ThrowsAsync<DomainValidationException>(() => _comments.UpdateAsync(comment.Id, _authorId, " "));
+
+        _db.ChangeTracker.Clear();
+        Assert.That((await _db.Comments.SingleAsync()).Body, Is.EqualTo("Looks good"));
+    }
 }

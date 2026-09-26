@@ -8,7 +8,7 @@ public class BoardConfiguration : IEntityTypeConfiguration<Board>
 {
     public void Configure(EntityTypeBuilder<Board> builder)
     {
-        builder.Property(b => b.Name).IsRequired().HasMaxLength(200);
+        builder.Property(b => b.Name).IsRequired().HasMaxLength(Board.NameMaxLength);
 
         builder.HasOne(b => b.ScopeItem)
             .WithMany()

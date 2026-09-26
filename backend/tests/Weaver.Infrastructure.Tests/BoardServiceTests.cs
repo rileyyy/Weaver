@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Weaver.Domain;
 using Weaver.Domain.Exceptions;
 using Weaver.Infrastructure.Configurations;
 using Weaver.Infrastructure.Services;
@@ -68,5 +69,19 @@ public class BoardServiceTests
         var boards = await _boards.GetAllAsync();
 
         Assert.That(boards, Has.Count.EqualTo(2));
+    }
+
+    [TestCase("")]
+    [TestCase("  ")]
+    public void CreateAsync_WithBlankName_ThrowsDomainValidationException(string name)
+    {
+        Assert.ThrowsAsync<DomainValidationException>(() => _boards.CreateAsync(name, null));
+    }
+
+    [Test]
+    public void CreateAsync_WithNameOverMaxLength_ThrowsDomainValidationException()
+    {
+        Assert.ThrowsAsync<DomainValidationException>(() =>
+            _boards.CreateAsync(new string('b', Board.NameMaxLength + 1), null));
     }
 }

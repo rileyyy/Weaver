@@ -21,6 +21,8 @@ public class BoardService : IBoardService
 
     public async Task<Board> CreateAsync(string name, Guid? scopeItemId, CancellationToken ct = default)
     {
+        TextValidation.RequireText(name, "Board name", Board.NameMaxLength);
+
         if (scopeItemId is not null && !await _db.WorkItems.AnyAsync(w => w.Id == scopeItemId, ct))
         {
             throw new EntityNotFoundException(nameof(WorkItem), scopeItemId.Value);

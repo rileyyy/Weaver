@@ -22,6 +22,8 @@ public class CommentService : ICommentService
 
     public async Task<Comment> CreateAsync(Guid workItemId, Guid authorUserId, string body, CancellationToken ct = default)
     {
+        TextValidation.RequireText(body, "Comment", Comment.BodyMaxLength);
+
         if (!await _db.WorkItems.AnyAsync(w => w.Id == workItemId, ct))
         {
             throw new EntityNotFoundException(nameof(WorkItem), workItemId);
@@ -44,6 +46,8 @@ public class CommentService : ICommentService
 
     public async Task<Comment> UpdateAsync(Guid id, Guid requestingUserId, string body, CancellationToken ct = default)
     {
+        TextValidation.RequireText(body, "Comment", Comment.BodyMaxLength);
+
         var comment = await _db.Comments.Include(c => c.AuthorUser).FirstOrDefaultAsync(c => c.Id == id, ct)
             ?? throw new EntityNotFoundException(nameof(Comment), id);
 

@@ -55,4 +55,15 @@ public class McpExceptionTranslationTests
 
         Assert.That(thrown!.Message, Is.EqualTo(domainException.Message));
     }
+
+    [Test]
+    public void TranslateAsync_WhenOperationThrowsDomainValidationException_ThrowsMcpException()
+    {
+        var domainException = new DomainValidationException("Title is required.");
+
+        var thrown = Assert.ThrowsAsync<McpException>(() =>
+            McpExceptionTranslation.TranslateAsync(() => throw domainException));
+
+        Assert.That(thrown!.Message, Is.EqualTo(domainException.Message));
+    }
 }

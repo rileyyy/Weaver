@@ -39,6 +39,7 @@ public static class McpExceptionTranslation
 
     private static bool IsKnownDomainException(Exception ex) => ex is
         EntityNotFoundException or
+        DomainValidationException or
         CyclicParentException or
         WorkItemHasChildrenException or
         WorkItemIsBoardScopeException or

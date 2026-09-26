@@ -2,6 +2,8 @@ namespace Weaver.Domain;
 
 public class Comment
 {
+    public const int BodyMaxLength = 4000;
+
     public Guid Id { get; set; }
 
     public Guid WorkItemId { get; set; }

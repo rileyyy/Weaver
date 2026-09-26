@@ -520,4 +520,62 @@ public class WorkItemServiceTests
         Assert.ThrowsAsync<EntityNotFoundException>(() =>
             _service.SetTagsAsync(Guid.NewGuid(), ["urgent"]));
     }
+
+    [TestCase("")]
+    [TestCase("   ")]
+    public void CreateAsync_WithBlankTitle_ThrowsDomainValidationException(string title)
+    {
+        Assert.ThrowsAsync<DomainValidationException>(() =>
+            _service.CreateAsync(title, null, null, StatusConfiguration.ToDoId));
+    }
+
+    [Test]
+    public void CreateAsync_WithTitleOverMaxLength_ThrowsDomainValidationException()
+    {
+        var title = new string('a', WorkItem.TitleMaxLength + 1);
+
+        Assert.ThrowsAsync<DomainValidationException>(() =>
+            _service.CreateAsync(title, null, null, StatusConfiguration.ToDoId));
+    }
+
+    [Test]
+    public async Task UpdateDetailsAsync_WithBlankTitle_ThrowsAndLeavesTitleUnchanged()
+    {
+        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
+
+        Assert.ThrowsAsync<DomainValidationException>(() =>
+            _service.UpdateDetailsAsync(item.Id, " ", null, null, WorkItemPriority.Medium));
+
+        _db.ChangeTracker.Clear();
+        Assert.That((await _db.WorkItems.SingleAsync()).Title, Is.EqualTo("Item"));
+    }
+
+    [Test]
+    public async Task SetTagsAsync_WithATagOverMaxLength_ThrowsDomainValidationException()
+    {
+        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
+
+        Assert.ThrowsAsync<DomainValidationException>(() =>
+            _service.SetTagsAsync(item.Id, [new string('t', WorkItem.TagMaxLength + 1)]));
+    }
+
+    [Test]
+    public async Task SetTagsAsync_WithMoreThanMaxTags_ThrowsDomainValidationException()
+    {
+        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
+        var tags = Enumerable.Range(0, WorkItem.MaxTags + 1).Select(i => $"tag{i}").ToList();
+
+        Assert.ThrowsAsync<DomainValidationException>(() => _service.SetTagsAsync(item.Id, tags));
+    }
+
+    [Test]
+    public async Task SetTagsAsync_CountsTagsAfterDeDuplication()
+    {
+        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
+        var tags = Enumerable.Range(0, WorkItem.MaxTags).Select(i => $"tag{i}").Append("TAG0").ToList();
+
+        var tagged = await _service.SetTagsAsync(item.Id, tags);
+
+        Assert.That(tagged.Tags, Has.Count.EqualTo(WorkItem.MaxTags));
+    }
 }

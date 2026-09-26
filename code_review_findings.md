@@ -95,7 +95,7 @@ The most important problems cluster in four areas:
 ### Medium
 
 #### B-M1. No request validation, so oversized input returns 500
-- [ ] **Resolved**
+- [x] **Resolved** in `bugfix/request-validation`: titles, comment bodies and board names are required, non-blank and length-checked. Tags are capped at 20 per item and 50 characters each. Failures return 400 via `DomainValidationException` in both REST and MCP. Max lengths are shared constants on the entities, also used by the EF configurations.
 - **Where:** all `Contracts/*Request` records, [WorkItemService.cs](backend/src/Weaver.Infrastructure/Services/WorkItemService.cs), [CommentService.cs](backend/src/Weaver.Infrastructure/Services/CommentService.cs), [BoardService.cs](backend/src/Weaver.Infrastructure/Services/BoardService.cs)
 - **Issue:** Nothing checks length or blankness:
   - Titles over 500 characters, comments over 4000 and board names over 200 hit the DB constraint and return a `DbUpdateException` → 500.
