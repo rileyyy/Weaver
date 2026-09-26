@@ -25,12 +25,16 @@ class TimeFilterBar extends StatelessWidget {
         DateFilterButton(
           label: 'from',
           value: start,
+          lastDate: end,
           onPicked: (picked) => onChanged(start: picked, end: end),
+          onCleared: () => onChanged(start: null, end: end),
         ),
         DateFilterButton(
           label: 'to',
           value: end,
+          firstDate: start,
           onPicked: (picked) => onChanged(start: start, end: picked),
+          onCleared: () => onChanged(start: start, end: null),
         ),
         if (start != null || end != null)
           TextButton(onPressed: onClear, child: const Text('Clear')),

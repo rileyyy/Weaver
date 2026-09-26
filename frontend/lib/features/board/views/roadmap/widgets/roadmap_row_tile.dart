@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
+import 'package:weaver/features/board/views/roadmap/roadmap_bar.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_timeframe.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_view.dart';
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_grid.dart';
@@ -135,26 +136,17 @@ class RoadmapRowTile extends StatelessWidget {
   /// neither date set, or one whose schedule falls entirely outside the
   /// visible window.
   List<Widget> _buildBar(BuildContext context, HierarchyItem item) {
-    final start = item.startDate;
-    final end = item.endDate;
-    if (start == null && end == null) return const [];
+    final span = roadmapBarSpan(
+      windowStart: windowStart,
+      totalDays: timeframe.totalDays,
+      start: item.startDate,
+      end: item.endDate,
+    );
+    if (span == null) return const [];
 
     final totalDays = timeframe.totalDays.toDouble();
-    final rawStartDay = start == null
-        ? 0.0
-        : start.difference(windowStart).inDays.toDouble();
-    // +1 so a single-day item (start == end) still renders a visible
-    // one-day-wide bar rather than a zero-width one.
-    final rawEndDay = end == null
-        ? totalDays
-        : end.difference(windowStart).inDays.toDouble() + 1;
-
-    final clampedStart = rawStartDay.clamp(0.0, totalDays);
-    final clampedEnd = rawEndDay.clamp(0.0, totalDays);
-    if (clampedEnd <= clampedStart) return const [];
-
-    final left = clampedStart / totalDays * timelineWidth;
-    final width = (clampedEnd - clampedStart) / totalDays * timelineWidth;
+    final left = span.startDay / totalDays * timelineWidth;
+    final width = (span.endDay - span.startDay) / totalDays * timelineWidth;
 
     return [
       Positioned(

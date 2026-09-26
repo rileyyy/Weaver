@@ -1,6 +1,7 @@
 import 'dart:ui' show Color;
 
 import 'package:injectable/injectable.dart';
+import 'package:weaver/core/dates/calendar_days.dart';
 import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
@@ -550,8 +551,11 @@ class BoardViewModel extends ViewModel {
   /// Sets the board's time-frame filter. Either bound may be null (open on
   /// that side); passing both null is equivalent to [clearTimeFilter].
   void setTimeFilter({DateTime? start, DateTime? end}) {
-    _filterStart = start;
-    _filterEnd = end;
+    // The pickers prevent an inverted range; swap rather than silently
+    // match nothing if one arrives anyway.
+    final inverted = start != null && end != null && start.isAfter(end);
+    _filterStart = inverted ? end : start;
+    _filterEnd = inverted ? start : end;
     notifyIfActive();
   }
 
@@ -571,15 +575,17 @@ class BoardViewModel extends ViewModel {
       return true;
     }
 
+    // Compared by calendar day, so both bounds include their whole day
+    // whatever the time part of either side.
     final startsInTime =
         _filterEnd == null ||
         itemStart == null ||
-        !itemStart.isAfter(_filterEnd!);
+        daysBetween(_filterEnd!, itemStart) <= 0;
 
     final endsInTime =
         _filterStart == null ||
         itemEnd == null ||
-        !itemEnd.isBefore(_filterStart!);
+        daysBetween(_filterStart!, itemEnd) >= 0;
 
     return startsInTime && endsInTime;
   }

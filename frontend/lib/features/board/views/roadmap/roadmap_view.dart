@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:weaver/core/dates/calendar_days.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_timeframe.dart';
@@ -36,21 +37,15 @@ class RoadmapView extends StatefulWidget {
 class _RoadmapViewState extends State<RoadmapView> {
   final Set<String> _collapsedIds = {};
   RoadmapTimeframe _timeframe = RoadmapTimeframe.month;
-  DateTime _windowStart = _startOfDay(DateTime.now());
-
-  static DateTime _startOfDay(DateTime dt) =>
-      DateTime(dt.year, dt.month, dt.day);
+  DateTime _windowStart = dateOnly(DateTime.now());
 
   void _shiftWindow(int direction) {
     setState(() {
-      _windowStart = _windowStart.add(
-        Duration(days: direction * _timeframe.totalDays),
-      );
+      _windowStart = addDays(_windowStart, direction * _timeframe.totalDays);
     });
   }
 
-  void _goToToday() =>
-      setState(() => _windowStart = _startOfDay(DateTime.now()));
+  void _goToToday() => setState(() => _windowStart = dateOnly(DateTime.now()));
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +72,7 @@ class _RoadmapViewState extends State<RoadmapView> {
 
     flatten(viewModel.hierarchyRoots, 0);
 
-    final windowEnd = _windowStart.add(Duration(days: _timeframe.totalDays));
+    final windowEnd = addDays(_windowStart, _timeframe.totalDays);
     final rangeLabel = '${formatDate(_windowStart)} → ${formatDate(windowEnd)}';
 
     return LayoutBuilder(

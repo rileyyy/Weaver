@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:weaver/core/dates/calendar_days.dart';
 
 /// Vertical gridlines are always spaced by calendar week, independent of
 /// [RoadmapTimeframe]'s own column width (a day for week/fortnight/month, a
@@ -27,9 +28,7 @@ double? todayLineOffset({
   required double timelineWidth,
   required int totalDays,
 }) {
-  final now = DateTime.now();
-  final startOfToday = DateTime(now.year, now.month, now.day);
-  final offsetDays = startOfToday.difference(windowStart).inDays;
+  final offsetDays = daysBetween(windowStart, DateTime.now());
   if (offsetDays < 0 || offsetDays >= totalDays) return null;
 
   final dayWidth = timelineWidth / totalDays;

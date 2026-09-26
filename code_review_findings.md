@@ -224,7 +224,7 @@ The most important problems cluster in four areas:
 - **Fix:** Capture a monotonically increasing request id and discard stale completions, including their `finally` state resets.
 
 #### F-H5. Schedule dates display one day early east of UTC
-- [x] **Resolved** in `bugfix/schedule-date-timezone`: `StartDate`/`EndDate` are `DateOnly` (`date` column), sent as `yyyy-MM-dd`. The migration rounds existing values to the nearest UTC midnight, which recovers the picked day. The frontend parses calendar dates as local midnight and all other timestamps with `.toLocal()`. The full suite passes under UTC+2, UTC+9 and UTC−7. F-M13/F-M14 (time-filter bounds, roadmap DST maths) are still open.
+- [x] **Resolved** in `bugfix/schedule-date-timezone`: `StartDate`/`EndDate` are `DateOnly` (`date` column), sent as `yyyy-MM-dd`. The migration rounds existing values to the nearest UTC midnight, which recovers the picked day. The frontend parses calendar dates as local midnight and all other timestamps with `.toLocal()`. The full suite passes under UTC+2, UTC+9 and UTC−7. F-M13/F-M14 followed in `bugfix/time-filter-and-roadmap-dates`.
 - **Where:** `api_board_repository.dart:94-95, 200-201`, `api_work_item_detail_repository.dart:125-126, 233`, `widgets/date_format.dart:3-8`
 - **Issue:** The date picker returns local midnight, and the client sends it `toUtc()` (for example `2026-09-24T22:00Z` for 25 Sept in UTC+2). The value comes back from the API and is parsed as UTC, with no `.toLocal()`. `formatDate` then prints 24 Sept. Picker initial dates, comment timestamps and Created/Updated are also shown in UTC. The team works in UTC+2, so this affects them directly.
 - **Fix:** Choose a convention. The recommendation is to treat schedule dates as calendar dates: send `yyyy-MM-dd` and make the backend `StartDate`/`EndDate` a `DateOnly`. Parse and display all other timestamps through a single `parseApiDate(...).toLocal()`. Add a round-trip test in a non-UTC zone.
@@ -277,8 +277,8 @@ The most important problems cluster in four areas:
   - `Future.wait` over a `List<Object>` with positional `as` casts. Use Dart 3 record `.wait`.
   - `_isSaving` is a single bool shared by concurrent operations.
   - "POST succeeded but the reload failed" is reported as a failure, so the user retries and creates a duplicate comment or link.
-- [ ] **F-M13. Time filter.** The end bound is effectively exclusive (items later on the "to" day are dropped), start > end is accepted, and a single bound can't be cleared on its own.
-- [ ] **F-M14. Roadmap date maths breaks across DST** (`add(Duration(days: n))` on local times, `inDays` truncation). **Fix:** use `DateTime(y, m, d + n)` and compare date parts only.
+- [x] *(Resolved in `bugfix/time-filter-and-roadmap-dates`: bounds compare by calendar day, inverted ranges are prevented in the picker and swapped otherwise, and each bound has its own clear button.)* **F-M13. Time filter.** The end bound is effectively exclusive (items later on the "to" day are dropped), start > end is accepted, and a single bound can't be cleared on its own.
+- [x] *(Resolved in `bugfix/time-filter-and-roadmap-dates`: `core/dates/calendar_days.dart` (`addDays`, `daysBetween`). The bar maths is extracted into a tested `roadmapBarSpan`, and the suite passes under Stockholm, New York and UTC.)* **F-M14. Roadmap date maths breaks across DST** (`add(Duration(days: n))` on local times, `inDays` truncation). **Fix:** use `DateTime(y, m, d + n)` and compare date parts only.
 - [ ] **F-M15. The Hierarchy view overflows narrow screens.** Its fixed columns total about 950 px in a plain `Row` with no horizontal scroll.
 - [ ] **F-M16. Hierarchy column widths are keyed by magic strings with `!` lookups** (`columnWidths['number']!`). **Fix:** use a `Map<HierarchyColumn, double>`.
 

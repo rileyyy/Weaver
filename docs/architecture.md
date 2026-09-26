@@ -377,6 +377,12 @@ and it is what allows MCP tools to reuse the same business logic (see
   response locally** instead of reloading the list. A reload that failed
   after a successful POST used to show as a failure, and retrying created
   a duplicate.
+- **Day arithmetic goes through `core/dates/calendar_days.dart`**
+  (`dateOnly`, `addDays`, `daysBetween`). `add(Duration(days: n))` adds
+  24-hour blocks, so across a DST change a local date lands at 23:00 or
+  01:00, and `difference().inDays` truncates 23 hours to zero. The
+  Roadmap's window, headers, today marker and bars (`roadmapBarSpan`) and
+  the time filter all compare calendar days.
 - **`core/network/api_dates.dart` owns the wire format for dates.**
   Schedule dates are `yyyy-MM-dd` and parse to local midnight
   (`parseCalendarDate` / `formatCalendarDate`); every other timestamp is
@@ -439,7 +445,9 @@ and it is what allows MCP tools to reuse the same business logic (see
   with only a start date matches any frame ending at or after it; one with
   only an end date matches any frame starting at or before it.
   `BoardViewModel.matchesTimeFilter` implements this; its tests cover the
-  open-ended cases, where overlap and containment diverge. It is not a
+  open-ended cases, where overlap and containment diverge. Both bounds are
+  inclusive whole days, each can be cleared on its own, and an inverted
+  range can't be picked (and is swapped if set programmatically). It is not a
   sprint system: there is no fixed-length cycle, and the frame isn't
   saved.
 - **`CardSortOption.manual` has a `null` comparator** and `StatusColumn`
