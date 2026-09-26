@@ -131,6 +131,99 @@ public class WorkItemServiceTests
     }
 
     [Test]
+    public async Task DeleteAsync_ItemWithLinksOnEitherSide_RemovesThoseLinks()
+    {
+        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
+        var linkedFrom = await _service.CreateAsync("Linked from", null, null, StatusConfiguration.ToDoId);
+        var linkedTo = await _service.CreateAsync("Linked to", null, null, StatusConfiguration.ToDoId);
+        await AddLinkAsync(item.Id, linkedTo.Id);
+        await AddLinkAsync(linkedFrom.Id, item.Id);
+        var unrelatedLink = await AddLinkAsync(linkedFrom.Id, linkedTo.Id);
+
+        await _service.DeleteAsync(item.Id);
+
+        var remainingLinks = await _db.WorkItemLinks.ToListAsync();
+        Assert.That(remainingLinks.Select(l => l.Id), Is.EqualTo(new[] { unrelatedLink.Id }));
+        Assert.That(await _db.WorkItems.CountAsync(), Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task DeleteAsync_WithCascade_RemovesLinksOfDescendants()
+    {
+        var root = await _service.CreateAsync("Root", null, null, StatusConfiguration.ToDoId);
+        var child = await _service.CreateAsync("Child", null, root.Id, StatusConfiguration.ToDoId);
+        var grandchild = await _service.CreateAsync("Grandchild", null, child.Id, StatusConfiguration.ToDoId);
+        var outside = await _service.CreateAsync("Outside", null, null, StatusConfiguration.ToDoId);
+        await AddLinkAsync(outside.Id, grandchild.Id);
+
+        await _service.DeleteAsync(root.Id, cascade: true);
+
+        Assert.That(await _db.WorkItemLinks.ToListAsync(), Is.Empty);
+        Assert.That((await _db.WorkItems.SingleAsync()).Id, Is.EqualTo(outside.Id));
+    }
+
+    [Test]
+    public async Task DeleteAsync_ItemIsBoardScope_ThrowsAndDeletesNothing()
+    {
+        var item = await _service.CreateAsync("Scope", null, null, StatusConfiguration.ToDoId);
+        var other = await _service.CreateAsync("Other", null, null, StatusConfiguration.ToDoId);
+        await AddLinkAsync(item.Id, other.Id);
+        var board = await AddBoardAsync(item.Id);
+
+        var thrown = Assert.ThrowsAsync<WorkItemIsBoardScopeException>(() => _service.DeleteAsync(item.Id));
+
+        Assert.That(thrown!.BoardId, Is.EqualTo(board.Id));
+        Assert.That(await _db.WorkItems.CountAsync(), Is.EqualTo(2));
+        Assert.That(await _db.WorkItemLinks.CountAsync(), Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task DeleteAsync_WithCascade_DescendantIsBoardScope_Throws()
+    {
+        var root = await _service.CreateAsync("Root", null, null, StatusConfiguration.ToDoId);
+        var child = await _service.CreateAsync("Child", null, root.Id, StatusConfiguration.ToDoId);
+        await AddBoardAsync(child.Id);
+
+        Assert.ThrowsAsync<WorkItemIsBoardScopeException>(() => _service.DeleteAsync(root.Id, cascade: true));
+        Assert.That(await _db.WorkItems.CountAsync(), Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task DeleteAsync_BoardScopedElsewhere_DoesNotBlockDelete()
+    {
+        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
+        var scope = await _service.CreateAsync("Scope", null, null, StatusConfiguration.ToDoId);
+        await AddBoardAsync(scope.Id);
+        await AddBoardAsync(scopeItemId: null);
+
+        await _service.DeleteAsync(item.Id);
+
+        Assert.That((await _db.WorkItems.SingleAsync()).Id, Is.EqualTo(scope.Id));
+    }
+
+    private async Task<WorkItemLink> AddLinkAsync(Guid workItemId, Guid linkedWorkItemId)
+    {
+        var link = new WorkItemLink
+        {
+            Id = Guid.NewGuid(),
+            WorkItemId = workItemId,
+            LinkedWorkItemId = linkedWorkItemId,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+        };
+        _db.WorkItemLinks.Add(link);
+        await _db.SaveChangesAsync();
+        return link;
+    }
+
+    private async Task<Board> AddBoardAsync(Guid? scopeItemId)
+    {
+        var board = new Board { Id = Guid.NewGuid(), Name = "Board", ScopeItemId = scopeItemId };
+        _db.Boards.Add(board);
+        await _db.SaveChangesAsync();
+        return board;
+    }
+
+    [Test]
     public async Task GetByIdAsync_WhenNotFound_ReturnsNull()
     {
         var result = await _service.GetByIdAsync(Guid.NewGuid());

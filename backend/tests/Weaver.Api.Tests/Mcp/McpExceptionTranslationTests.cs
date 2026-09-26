@@ -44,4 +44,15 @@ public class McpExceptionTranslationTests
 
         Assert.That(thrown!.Message, Is.EqualTo(domainException.Message));
     }
+
+    [Test]
+    public void TranslateAsync_WhenOperationThrowsWorkItemIsBoardScopeException_ThrowsMcpException()
+    {
+        var domainException = new WorkItemIsBoardScopeException(Guid.NewGuid(), Guid.NewGuid());
+
+        var thrown = Assert.ThrowsAsync<McpException>(() =>
+            McpExceptionTranslation.TranslateAsync(() => throw domainException));
+
+        Assert.That(thrown!.Message, Is.EqualTo(domainException.Message));
+    }
 }

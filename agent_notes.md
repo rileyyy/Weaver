@@ -665,11 +665,17 @@ whoever (human or agent) next touches this area.
   Two `Cascade`/`SetNull` paths from the same table to the same
   principal is what EF Core rejects as "multiple cascade paths" — two
   `Restrict` paths are always fine, since neither one triggers an
-  automatic delete. This does mean deleting a work item with active
-  links currently fails at the DB level rather than cleaning them up
-  first; no cleanup-on-delete was added, matching how `Board.ScopeItemId`
-  already restricts deleting a board's scope item without special
-  handling.
+  automatic delete. Because of that, `WorkItemService.DeleteAsync`
+  removes every link touching the deleted item (or any cascaded
+  descendant) itself, in the same `SaveChanges` — without that, Postgres
+  rejected the delete and the client got an unmapped 500. The EF
+  in-memory provider doesn't enforce FKs, which is why no test caught it
+  originally; this was verified against a real Postgres container.
+- **Deleting a board's scope item (or an ancestor of it, via cascade) is
+  rejected** with `WorkItemIsBoardScopeException` (409), rather than
+  deleting the board or clearing its `ScopeItemId`. A board is a saved
+  view other users rely on; silently widening it to top-level or removing
+  it would be a surprising side effect of deleting a card.
 - **Comment edit/delete authorization is enforced in `CommentService`,
   not the controller** — `UpdateAsync`/`DeleteAsync` take the requesting
   user's id (from the access token, via `User.GetUserId()` in

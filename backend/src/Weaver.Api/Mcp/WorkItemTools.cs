@@ -140,7 +140,8 @@ public class WorkItemTools
 
     [McpServerTool(Name = "delete_work_item", Destructive = true)]
     [Description("Deletes a work item. If it has children, cascade must be true or the delete is " +
-        "rejected — a subtree is never silently dropped.")]
+        "rejected — a subtree is never silently dropped. Links to any deleted item are removed. " +
+        "Rejected if the item or any descendant is a board's scope.")]
     public Task DeleteWorkItem(
         [Description("The work item's id.")] Guid id,
         [Description("Must be true to delete a work item that has children; this also deletes the entire subtree.")] bool cascade = false,

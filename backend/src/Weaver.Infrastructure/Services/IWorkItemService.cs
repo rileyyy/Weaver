@@ -56,6 +56,8 @@ public interface IWorkItemService
     /// <summary>
     /// Deletes a work item. If it has children, <paramref name="cascade"/> must be
     /// true or the delete is rejected — a subtree is never silently dropped.
+    /// Links to any deleted item are removed with it. The delete is rejected if any
+    /// deleted item is a board's scope.
     /// </summary>
     Task DeleteAsync(Guid id, bool cascade = false, CancellationToken ct = default);
 
