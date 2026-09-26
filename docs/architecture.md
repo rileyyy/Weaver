@@ -172,6 +172,56 @@ and it is what allows MCP tools to reuse the same business logic (see
 - **A missing date is open-ended, not "unscheduled"** (see the time
   filter under [Frontend](#frontend)).
 
+### Repeating work items
+
+- **The schedule lives in its own table, the template stays a normal
+  item.** `WorkItemRecurrence` is keyed by the work item's id (at most one
+  schedule per item) and cascades with it. The item itself is the template:
+  generation reads its current fields and parent each time and never
+  changes it. Generated copies are ordinary work items, so they get every
+  board feature for free and remain for reference after they're done.
+- **Schedule maths is a pure domain value object**, `RecurrenceSchedule`.
+  Weekly/Bi-weekly use a `RecurrenceDays` bitmask (Monday first; not
+  `DayOfWeek`'s Sunday-zero ordinals). Bi-weekly counts weeks from the
+  Monday of the start date's week. Monthly/Quarterly/Yearly fall on the
+  start date's day of the month and ignore weekdays (normalised to none on
+  save); each date is computed as an offset from the start date, not the
+  previous occurrence, so a clamped 31st never drifts to the 30th forever.
+- **Copies record where they came from.** `WorkItem.RecurrenceSourceId`
+  (`SetNull` when the template is deleted) and `RecurrenceDate` have a
+  unique index together. That index is the backstop against creating an
+  occurrence twice; hand-made items have both null, and Postgres treats
+  nulls as distinct.
+- **`GeneratedThrough` is a watermark.** Generation only considers dates
+  after it (or from today when unset), so deleting a generated copy doesn't
+  bring it back on the next run. Changing the schedule clears it, so the
+  new schedule's dates within the window appear straight away; dates that
+  already have a copy are skipped. The downside: a copy deleted inside the
+  current window reappears if the schedule is then edited.
+- **No backfill, but catch-up.** A new schedule starts from today even if
+  its start date is in the past. If the server was down longer than the
+  lead window, the next run creates the missed occurrences, because they
+  were real tasks that fell due.
+- **The template's own start date counts as an occurrence.** Setting a
+  task dated Monday to repeat every Monday doesn't immediately create a
+  second copy for that Monday.
+- **A generated copy can't be given its own schedule** (400). Otherwise
+  every copy would spawn its own series. Sub-items that are themselves
+  copies of a repeating sub-item aren't copied into the parent's
+  occurrences either.
+- **Generation runs in `RecurrenceGenerationWorker`** (a `BackgroundService`
+  in `Weaver.Api/Background`) at startup and hourly, and synchronously when
+  a schedule is saved. It catches everything: an exception escaping a
+  `BackgroundService` stops the whole host. `GenerateDueAsync` isolates
+  failures per schedule. Each occurrence is saved on its own because EF
+  orders one batch's inserts by primary key, which with random GUIDs gave
+  display numbers out of date order.
+- **"Today" is the server's UTC date**, via `TimeProvider` (injected, so
+  the lead window is testable). With a seven-day lead that's close enough;
+  only the "next occurrence" label can be a day off around midnight.
+- **Schedule saves are last-write-wins**, like status and assignee: a
+  schedule is one small form with no version token yet.
+
 ## API
 
 - **Operation-oriented endpoints** for state changes: `POST
@@ -526,6 +576,26 @@ and it is what allows MCP tools to reuse the same business logic (see
   refreshed: the drill-in already loads the new scope, and refreshing the
   old one would be the newer load and cancel it. The longer-term fix is a
   shared per-item store both features read from.
+
+### Repeating items in the UI
+
+- **The recurrence model, repository and `RecurrenceEditor` live in
+  `shared/recurrence/`**, because both the detail dialog and the board's
+  Repeating tab use them and features don't import each other. `DateField`
+  and `FieldLabel` moved to `shared/widgets/` for the same reason.
+- **Each has its own view model**: `RepeatSettingsViewModel` for the detail
+  dialog's Repeat section and `RepeatingItemsViewModel` for the tab,
+  rather than growing `WorkItemDetailViewModel` or `BoardViewModel`.
+- **Repeat settings are saved explicitly** (Save repeat), like the details
+  form and unlike the other detail fields: saving each change would send
+  invalid in-between states such as "weekly on no days". A
+  `RecurrenceDraft` holds the edit, keeps its weekdays while a month-based
+  frequency is selected (so switching back doesn't lose them), and mirrors
+  the server's validation.
+- `GET /work-items/{id}/recurrence` returns 204 for "doesn't repeat";
+  `JsonApiClient` decodes the empty body as null.
+- The Repeating tab reloads on every visit, and a save or stop refreshes
+  the board, since saving can create items straight away.
 
 ### Board, filters and views
 

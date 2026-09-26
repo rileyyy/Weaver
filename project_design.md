@@ -38,6 +38,19 @@ Changing a work item's status must not change its parent.
 Changing a work item's parent is a separate operation from changing
 its status.
 
+## Repeating Work Items
+
+A work item may repeat on a schedule. The item is the template; each
+occurrence is a new work item created under the template's current
+parent, so earlier occurrences remain for reference.
+
+The schedule is stored separately from the work item.
+
+An occurrence must never be created twice for the same date, and a
+deleted occurrence must not be recreated by routine generation.
+
+A generated occurrence must not itself be given a schedule.
+
 ## Board
 
 The primary board is a swimlane board.
