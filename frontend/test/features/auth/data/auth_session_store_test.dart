@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/features/auth/data/auth_repository.dart';
 import 'package:weaver/features/auth/data/auth_session_store.dart';
@@ -23,6 +25,28 @@ class _FakeAuthRepository implements AuthRepository {
     final error = refreshError;
     if (error != null) throw error;
     return _session('refreshed-access', 'refreshed-refresh');
+  }
+
+  @override
+  Future<void> logout(String refreshToken) => throw UnimplementedError();
+}
+
+/// Holds every refresh open until the test completes [gate], so tests can
+/// fire concurrent callers while a refresh is in flight.
+class _GatedAuthRepository implements AuthRepository {
+  final Completer<AuthSession> gate = Completer<AuthSession>();
+  final List<String> refreshCalls = [];
+
+  @override
+  Future<AuthSession> login(String username, String password) => throw UnimplementedError();
+
+  @override
+  Future<AuthSession> register(String username, String password) => throw UnimplementedError();
+
+  @override
+  Future<AuthSession> refresh(String refreshToken) {
+    refreshCalls.add(refreshToken);
+    return gate.future;
   }
 
   @override
@@ -173,5 +197,58 @@ void main() {
     await store.setSession(_session('access', 'refresh'));
 
     expect(notified, isTrue);
+  });
+
+  AuthSession expiredSession() => _session(
+    'access',
+    'refresh',
+    expiresAtUtc: DateTime.now().toUtc().subtract(const Duration(minutes: 1)),
+  );
+
+  test('concurrent ensureValidSession calls share a single refresh', () async {
+    final gated = _GatedAuthRepository();
+    store = AuthSessionStore(gated, tokenStore);
+    await store.setSession(expiredSession());
+
+    final results = Future.wait([for (var i = 0; i < 7; i++) store.ensureValidSession()]);
+    gated.gate.complete(_session('refreshed-access', 'refreshed-refresh'));
+
+    expect(await results, everyElement(isTrue));
+    expect(gated.refreshCalls, ['refresh']);
+    expect(store.current!.accessToken, 'refreshed-access');
+  });
+
+  test('a later expiry starts a new refresh once the previous one has finished', () async {
+    await store.setSession(expiredSession());
+    await store.ensureValidSession();
+    await store.setSession(expiredSession());
+
+    await store.ensureValidSession();
+
+    expect(repository.refreshCalls, ['refresh', 'refresh']);
+  });
+
+  test('a failed refresh does not clear a session that replaced it while in flight', () async {
+    final gated = _GatedAuthRepository();
+    store = AuthSessionStore(gated, tokenStore);
+    await store.setSession(expiredSession());
+
+    final result = store.ensureValidSession();
+    await store.setSession(_session('logged-in-again', 'new-refresh'));
+    gated.gate.completeError(Exception('refresh token already rotated'));
+
+    expect(await result, isTrue);
+    expect(store.current!.accessToken, 'logged-in-again');
+    expect(tokenStore.token, 'new-refresh');
+  });
+
+  test('a token within the expiry leeway is refreshed before use', () async {
+    await store.setSession(
+      _session('access', 'refresh', expiresAtUtc: DateTime.now().toUtc().add(const Duration(seconds: 10))),
+    );
+
+    await store.ensureValidSession();
+
+    expect(repository.refreshCalls, ['refresh']);
   });
 }

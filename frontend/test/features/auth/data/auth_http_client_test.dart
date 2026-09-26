@@ -93,4 +93,19 @@ void main() {
 
     expect(sessionStore.isAuthenticated, isTrue);
   });
+
+  test('a 401 for a token that has since been replaced does not clear the newer session', () async {
+    final sessionStore = AuthSessionStore(_UnusedAuthRepository(), _InMemoryTokenStore());
+    await sessionStore.setSession(_session('old-token'));
+    final inner = MockClient((request) async {
+      // A parallel request refreshed the session while this one was in flight.
+      await sessionStore.setSession(_session('new-token'));
+      return http.Response('', 401);
+    });
+    final client = AuthHttpClient(inner, sessionStore);
+
+    await client.get(Uri.parse('http://backend.test/api/statuses'));
+
+    expect(sessionStore.current!.accessToken, 'new-token');
+  });
 }

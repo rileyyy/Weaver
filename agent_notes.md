@@ -504,10 +504,10 @@ whoever (human or agent) next touches this area.
   Logged-out tokens have no replacement and are just rejected.
 - **There's a 30-second grace window.** A rotated token that comes back
   within 30 s is rejected with a 401 but doesn't trigger chain
-  revocation. The Flutter client still fires parallel refreshes with the
-  same token when the access token expires (F-H1), and without the
-  window every such page load would also revoke the fresh session
-  server-side. Reconsider the window once F-H1 is fixed.
+  revocation. One app instance now shares a single in-flight refresh
+  (`AuthSessionStore.ensureValidSession`), but two browser tabs share the
+  cached refresh token and can both refresh at startup; without the
+  window, that would revoke the session in both tabs.
 - **`RefreshToken.Version` maps to `xmin`**, so two simultaneous
   refreshes with the same token can't both mint a new pair: the loser's
   `SaveChanges` fails and it gets a 401. The migration adding it is
@@ -570,6 +570,17 @@ whoever (human or agent) next touches this area.
   exception, wired to a separately-`@Named('rawHttpClient')`
   unauthenticated client — it must never go through the wrapper, since
   refresh is what that wrapper would otherwise recurse into.
+- **Concurrent API calls share one token refresh.**
+  `AuthSessionStore.ensureValidSession` keeps the in-flight refresh
+  `Future` and hands it to every caller until it completes. The backend
+  rotates the refresh token on every use, so before this, parallel
+  requests after the 15-minute expiry each refreshed with the same token,
+  all but one got a 401, and each failure cleared the session the winner
+  had just stored (the user was sent to the login screen). A failed
+  refresh, or a 401 from `AuthHttpClient`, now only clears the session if
+  it is still the one the request started with. Access tokens are also
+  treated as expired 30 s early (`AuthSession.expiryLeeway`) so they
+  can't expire in flight.
 - **Refresh token persistence goes through `flutter_secure_storage`**,
   wrapped in try/catch at the `AuthSessionStore` level (not inside the
   store itself) so a persistence failure can never prevent the in-memory
