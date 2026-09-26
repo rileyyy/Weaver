@@ -26,7 +26,7 @@ services:
       retries: 10
 
   backend:
-    image: ${BACKEND_IMAGE:-ghcr.io/OWNER/weaver-backend}:${WEAVER_IMAGE_TAG:-latest}
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE in .env (copy .env.example) before starting}:${WEAVER_IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       db:
@@ -35,17 +35,46 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__Weaver: Host=db;Port=5432;Database=weaver;Username=weaver;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (copy .env.example) before starting}
       Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env (copy .env.example) before starting}
-      Cors__AllowedOrigins__0: ${CORS_ALLOWED_ORIGIN:?Set CORS_ALLOWED_ORIGIN in .env (copy .env.example) before starting}
-    ports:
-      - "8080:8080"
+      # The app is served same-origin through Caddy, so this only matters
+      # for some other web origin calling the API directly.
+      Cors__AllowedOrigins__0: ${CORS_ALLOWED_ORIGIN:-https://${WEAVER_DOMAIN:-localhost}}
+    # No published ports: the API (including /mcp) is only reachable through
+    # Caddy -> nginx, so it always sits behind TLS.
 
   frontend:
-    image: ${FRONTEND_IMAGE:-ghcr.io/OWNER/weaver-frontend}:${WEAVER_IMAGE_TAG:-latest}
+    image: ${FRONTEND_IMAGE:?Set FRONTEND_IMAGE in .env (copy .env.example) before starting}:${WEAVER_IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       - backend
+
+  # Terminates TLS for everything (app, /api, /mcp) and redirects HTTP to
+  # HTTPS. --internal-certs issues the certificate from Caddy's own local
+  # CA, for a LAN server with no public domain: each device must trust the
+  # CA's root once (see README.md). WEAVER_DOMAIN is checked here rather
+  # than with ${...:?} so local dev, which doesn't run Caddy, doesn't need it.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - frontend
+    environment:
+      WEAVER_DOMAIN: ${WEAVER_DOMAIN:-}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ -z "$$WEAVER_DOMAIN" ]; then
+          echo "Set WEAVER_DOMAIN in .env (copy .env.example): the host name or IP clients use to reach this server." >&2
+          exit 1
+        fi
+        exec caddy reverse-proxy --from "https://$$WEAVER_DOMAIN" --to frontend:8080 --internal-certs
     ports:
-      - "80:8080"
+      - "${WEAVER_HTTP_PORT:-80}:80"
+      - "${WEAVER_HTTPS_PORT:-443}:443"
+    volumes:
+      # Holds the local CA's keys; losing it means every device has to
+      # trust a new root certificate.
+      - caddy-data:/data
 
 volumes:
   pgdata:
+  caddy-data:

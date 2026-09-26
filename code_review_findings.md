@@ -158,7 +158,7 @@ The most important problems cluster in four areas:
   - Give `GetAllAsync` a deterministic order.
 
 #### B-M8. Startup auto-migration and hosting details
-- [ ] **Resolved**
+- [ ] **Resolved** — *partly: forwarded headers and dropping `UseHttpsRedirection` were done with I-H1. Migrations and health endpoints are still open.*
 - **Where:** [Program.cs:107-110, 120](backend/src/Weaver.Api/Program.cs#L107-L110)
 - **Issues:**
   - `MigrateAsync()` on every boot races if more than one replica starts, and it applies schema changes without a deploy gate.
@@ -307,7 +307,12 @@ The most important problems cluster in four areas:
 ### High
 
 #### I-H1. Production compose publishes the API directly over plain HTTP, and `/mcp` isn't proxied
-- [ ] **Resolved**
+- [x] **Resolved** in `bugfix/deploy-exposure-and-tls`:
+  - The backend publishes no host port.
+  - Caddy (internal CA) terminates TLS on 80/443 and redirects HTTP.
+  - nginx proxies `/mcp` unbuffered.
+  - The API honours forwarded headers and no longer runs `UseHttpsRedirection`.
+  - Verified with the production images: login, `/api` and an MCP handshake work over HTTPS, and the backend port is unreachable.
 - **Where:** [compose.yaml:39-40, 47-48](compose.yaml#L39-L48), [nginx.conf:16-21](docker/frontend/nginx.conf#L16-L21)
 - **Issue:**
   - The backend publishes `8080:8080` on the host, bypassing nginx.
@@ -327,14 +332,14 @@ The most important problems cluster in four areas:
   - The build image `ghcr.io/cirruslabs/flutter:stable` also floats, so CI tests and the shipped build can use different SDKs.
   - No coverage is reported even though `coverlet` is referenced.
   - **Fix:** add the analyze/format steps, run `docker build` without push on PRs, and pin one Flutter version for both CI and the Dockerfile.
-- [ ] **I-M3. Placeholder values that pass validation.** `.env.example` uses `changeme` for `POSTGRES_PASSWORD` and `JWT_SIGNING_KEY`, and `compose.yaml` only checks that they are non-empty. Copying the example unchanged produces a running deployment with an 8-byte, publicly known signing key. The B-H1 key-strength check would also catch this.
+- [x] *(Resolved in `bugfix/deploy-exposure-and-tls`: `.env.example` values are empty, so an unedited copy fails compose validation, and the API refuses signing keys under 32 bytes.)* **I-M3. Placeholder values that pass validation.** `.env.example` uses `changeme` for `POSTGRES_PASSWORD` and `JWT_SIGNING_KEY`, and `compose.yaml` only checks that they are non-empty. Copying the example unchanged produces a running deployment with an 8-byte, publicly known signing key. The B-H1 key-strength check would also catch this.
 - [ ] **I-M4. No backups.** The `pgdata` volume has no backup or restore procedure or container for a self-hosted deployment.
 
 ### Low
 
 - [ ] **I-L1.** The root rules file is committed as `claude.md` (lower-case). That works on Windows and macOS but not on case-sensitive tooling that looks for `CLAUDE.md`.
 - [ ] **I-L2.** `agent_notes.md` (50 KB) and `project_design.md` mix durable architecture decisions with milestone history and "open decisions" that have since been settled. Consider a lean `docs/architecture.md` (or ADRs) plus a changelog, and a top-level `README.md`; only `frontend/README.md` exists today.
-- [ ] **I-L3.** `compose.yaml` defaults to `ghcr.io/OWNER/...`, so a bare `docker compose pull` fails with an unclear error. Make it a required variable (`${BACKEND_IMAGE:?…}`) like the others.
+- [x] *(Resolved in `bugfix/deploy-exposure-and-tls`.)* **I-L3.** `compose.yaml` defaults to `ghcr.io/OWNER/...`, so a bare `docker compose pull` fails with an unclear error. Make it a required variable (`${BACKEND_IMAGE:?…}`) like the others.
 - [ ] **I-L4.** The nginx runtime image runs as root and sets no security headers (CSP, `X-Content-Type-Options`), and there is no cache policy distinguishing the hashed Flutter assets from `index.html`.
 
 ---

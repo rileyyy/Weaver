@@ -115,6 +115,29 @@ whoever (human or agent) next touches this area.
   base's value. (`ports:` unioning, by contrast, is harmless here: the
   frontend ends up with both `80:8080` and `8082:8080` mapped in dev, and
   both work since the container always listens on 8080.)
+- **Production TLS is Caddy with its internal CA.** The server is LAN-only
+  with no public domain, so Let's Encrypt isn't an option: `caddy` runs
+  `caddy reverse-proxy --from https://$WEAVER_DOMAIN --to frontend:8080
+  --internal-certs`, owns host ports 80/443 and redirects HTTP to HTTPS.
+  Configured on the command line so the server still needs only
+  `compose.yaml` and `.env`. The CA lives in the `caddy-data` volume;
+  each device trusts its root certificate once. Caddy checks
+  `WEAVER_DOMAIN` itself at startup instead of `${...:?}`, because
+  compose interpolates the whole file before applying profiles, and the
+  dev override (which disables Caddy via an unused profile) shouldn't
+  need it.
+- **The backend publishes no port in production.** Everything, including
+  `/mcp`, goes Caddy → nginx → backend, so nothing reaches the API
+  without TLS. The dev override publishes 8080 for the Flutter dev
+  server. nginx passes Caddy's `X-Forwarded-Proto` through (instead of
+  its own `http`), and the API trusts forwarded headers from up to two
+  proxies (`UseForwardedHeaders`, known networks cleared because the
+  compose IPs aren't fixed). `UseHttpsRedirection` was removed: TLS ends
+  at Caddy, and in-container redirection only logged a warning.
+- **`.env.example` ships empty values** so a copy used unchanged fails
+  compose validation instead of running with publicly known secrets, and
+  the API refuses to start with a signing key under 32 bytes (HS256's
+  minimum), which would otherwise only fail at the first login.
 - **Frontend container listens on 8080 in both prod and dev images**
   (nginx's `listen` directive was changed from the default 80), purely so
   the two Dockerfiles don't need different mental models — only the
@@ -169,9 +192,9 @@ whoever (human or agent) next touches this area.
   If it ever misses a change, the container still has `stdin_open`/`tty`
   set, so `docker compose attach frontend` and pressing `r`/`R` by hand is
   the guaranteed-to-work fallback.
-- **GHCR image ownership is a placeholder.** `compose.yaml` defaults
-  `BACKEND_IMAGE`/`FRONTEND_IMAGE` to `ghcr.io/OWNER/weaver-backend` /
-  `-frontend`; `.env.example` calls this out. The CI workflow itself
+- **`BACKEND_IMAGE`/`FRONTEND_IMAGE` are required variables.** They used
+  to default to `ghcr.io/OWNER/...`, which failed with an unclear
+  invalid-reference error on a bare `docker compose pull`. The CI workflow itself
   doesn't have this problem — it resolves the owner dynamically via
   `github.repository_owner` — but the deployment-side compose file can't,
   since it isn't running inside GitHub Actions. Update `.env` (not
@@ -860,9 +883,10 @@ whoever (human or agent) next touches this area.
   gets `"An error occurred invoking 'delete_work_item': WorkItem {id} was
   not found."` with `isError: true`, not a blank generic failure.
 - **Stateless HTTP transport (`options.Stateless = true`), mapped at
-  `/mcp` on the existing backend port.** No new Docker/compose config was
-  needed — `compose.yaml`/`compose.override.yaml` already forward port
-  8080 for the backend, and stateless mode means each MCP call is handled
+  `/mcp` on the existing backend.** In production it's reached through
+  the same Caddy → nginx path as the app (`https://<domain>/mcp`; nginx
+  proxies `/mcp` unbuffered because responses can be event streams), and
+  the backend port is not published. Stateless mode means each MCP call is handled
   as an ordinary request with no server-side session state to persist
   between calls, matching how the REST API itself is already stateless
   (JWT-based auth, no server sessions).
