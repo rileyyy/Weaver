@@ -11,6 +11,12 @@ permissions:
   contents: read
   packages: write
 
+# One Flutter version for CI and both frontend Dockerfiles (the cirruslabs
+# image tag), so the tests run on the same SDK the shipped build uses. Bump
+# all three together.
+env:
+  FLUTTER_VERSION: "3.44.0"
+
 jobs:
   test-backend:
     runs-on: ubuntu-latest
@@ -19,7 +25,13 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "9.0.x"
-      - run: dotnet test backend/Weaver.sln --configuration Release
+      - run: >-
+          dotnet test backend/Weaver.sln --configuration Release
+          --collect:"XPlat Code Coverage" --results-directory coverage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: coverage/**/coverage.cobertura.xml
 
   test-frontend:
     runs-on: ubuntu-latest
@@ -27,22 +39,30 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
       - run: flutter pub get
         working-directory: frontend
-      - run: flutter test
+      - run: dart format --output=none --set-exit-if-changed lib test
         working-directory: frontend
+      - run: flutter analyze
+        working-directory: frontend
+      - run: flutter test --coverage
+        working-directory: frontend
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/lcov.info
 
-  # Only push images from commits actually landing on master or a version
-  # tag — pull_request runs stop at the test jobs above.
+  # Images are built on every run so a broken Dockerfile fails the PR, but
+  # only pushed for commits landing on master or a version tag.
   publish-backend:
     needs: test-backend
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -66,7 +86,7 @@ jobs:
         with:
           context: .
           file: docker/backend/Dockerfile
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=backend
@@ -74,12 +94,12 @@ jobs:
 
   publish-frontend:
     needs: test-frontend
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -100,7 +120,8 @@ jobs:
         with:
           context: .
           file: docker/frontend/Dockerfile
-          push: true
+          build-args: FLUTTER_VERSION=${{ env.FLUTTER_VERSION }}
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=frontend
