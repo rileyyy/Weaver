@@ -1,6 +1,7 @@
 import 'dart:ui' show Color;
 
 import 'package:injectable/injectable.dart';
+import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/models/board_status.dart';
@@ -29,6 +30,7 @@ class WorkItemDetailViewModel extends ViewModel {
   String? _loadError;
   bool _isSaving = false;
   String? _saveError;
+  int _reloadGeneration = 0;
 
   WorkItemDetail? get item => _item;
   List<BoardStatus> get statuses => _statuses;
@@ -41,6 +43,12 @@ class WorkItemDetailViewModel extends ViewModel {
   String? get loadError => _loadError;
   bool get isSaving => _isSaving;
   String? get saveError => _saveError;
+
+  /// Increments whenever [item] is replaced by a fresh server copy that
+  /// should overwrite any unsaved edits in the view (after a save conflict).
+  /// The view re-seeds its form fields when this changes; otherwise its
+  /// stale values would overwrite the other person's change on the next save.
+  int get reloadGeneration => _reloadGeneration;
 
   String? get statusName {
     for (final status in _statuses) {
@@ -100,6 +108,7 @@ class WorkItemDetailViewModel extends ViewModel {
         description: description,
         layerId: layerId,
         priority: priority,
+        expectedVersion: _item!.version,
       ));
 
   Future<bool> saveAssignee(String? userId) => _save(() => _repository.assign(_item!.id, userId));
@@ -112,10 +121,11 @@ class WorkItemDetailViewModel extends ViewModel {
         errorMessage: 'Could not delete this work item. Try again.',
       );
 
-  Future<bool> saveTags(List<String> tags) => _save(() => _repository.updateTags(_item!.id, tags));
+  Future<bool> saveTags(List<String> tags) =>
+      _save(() => _repository.updateTags(_item!.id, tags, expectedVersion: _item!.version));
 
   Future<bool> saveSchedule(DateTime? startDate, DateTime? endDate) =>
-      _save(() => _repository.reschedule(_item!.id, startDate, endDate));
+      _save(() => _repository.reschedule(_item!.id, startDate, endDate, expectedVersion: _item!.version));
 
   Future<bool> addComment(String body) => _mutate(
         () async {
@@ -160,9 +170,25 @@ class WorkItemDetailViewModel extends ViewModel {
   Future<bool> _save(Future<WorkItemDetail> Function() action) => _mutate(
         () async => _item = await action(),
         errorMessage: 'Could not save your change. Try again.',
+        onConflict: _reloadAfterConflict,
       );
 
-  Future<bool> _mutate(Future<void> Function() action, {required String errorMessage}) async {
+  Future<void> _reloadAfterConflict() async {
+    const notSaved = 'Someone else changed this work item, so your change was not saved.';
+    try {
+      _item = await _repository.getItem(_item!.id);
+      _reloadGeneration++;
+      _saveError = '$notSaved The latest version is now shown.';
+    } on Exception {
+      _saveError = '$notSaved Close and reopen it to see the latest version.';
+    }
+  }
+
+  Future<bool> _mutate(
+    Future<void> Function() action, {
+    required String errorMessage,
+    Future<void> Function()? onConflict,
+  }) async {
     _isSaving = true;
     _saveError = null;
     notifyIfActive();
@@ -170,6 +196,13 @@ class WorkItemDetailViewModel extends ViewModel {
     try {
       await action();
       return true;
+    } on ApiException catch (e) {
+      if (e.isConflict && onConflict != null) {
+        await onConflict();
+      } else {
+        _saveError = errorMessage;
+      }
+      return false;
     } catch (_) {
       _saveError = errorMessage;
       return false;

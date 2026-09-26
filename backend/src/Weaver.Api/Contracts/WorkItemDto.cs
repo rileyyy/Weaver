@@ -17,7 +17,8 @@ public record WorkItemDto(
     DateTimeOffset? StartDate,
     DateTimeOffset? EndDate,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset UpdatedAtUtc)
+    DateTimeOffset UpdatedAtUtc,
+    uint Version)
 {
     public static WorkItemDto FromEntity(WorkItem item) => new(
         item.Id,
@@ -34,7 +35,8 @@ public record WorkItemDto(
         item.StartDate,
         item.EndDate,
         item.CreatedAtUtc,
-        item.UpdatedAtUtc);
+        item.UpdatedAtUtc,
+        item.Version);
 }
 
 public record WorkItemLayerDto(Guid Id, string Name, int Order)
@@ -55,14 +57,15 @@ public record ChangeWorkItemStatusRequest(Guid StatusId, Guid? AfterId);
 
 public record ReparentWorkItemRequest(Guid? ParentId, Guid? AfterId);
 
-public record RescheduleWorkItemRequest(DateTimeOffset? StartDate, DateTimeOffset? EndDate);
+public record RescheduleWorkItemRequest(DateTimeOffset? StartDate, DateTimeOffset? EndDate, uint? ExpectedVersion = null);
 
 public record UpdateWorkItemDetailsRequest(
     string Title,
     string? Description,
     Guid? LayerId,
-    WorkItemPriority Priority);
+    WorkItemPriority Priority,
+    uint? ExpectedVersion = null);
 
 public record AssignWorkItemRequest(Guid? UserId);
 
-public record SetTagsWorkItemRequest(IReadOnlyList<string> Tags);
+public record SetTagsWorkItemRequest(IReadOnlyList<string> Tags, uint? ExpectedVersion = null);

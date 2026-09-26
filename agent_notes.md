@@ -36,8 +36,19 @@ whoever (human or agent) next touches this area.
   yet; add one if repeated inserts at the same spot ever exhaust double
   precision (extremely unlikely at realistic board sizes).
 - **`WorkItem.Version` maps to Postgres's `xmin`** as an EF Core
-  concurrency token, so two people dragging cards at the same time get a
-  conflict instead of a silent overwrite. This is why `WorkItemService`
+  concurrency token, and is returned as `Version` on every `WorkItemDto`.
+  On its own the token only guards the moment between a request's read
+  and its write, so the operations that overwrite a group of fields
+  (details, schedule, tags) also accept an optional `ExpectedVersion`
+  and reject a stale one with a 409 (`WorkItemVersionConflictException`).
+  Status, parent and assignee stay last-write-wins on purpose: each is a
+  single intentional change, and `xmin` moves on *any* update, so a
+  version check there would reject a card drag because someone else
+  edited the description. `ExpectedVersion` is optional so MCP clients
+  that don't track versions keep working. The detail dialog sends it and,
+  on a conflict, reloads the item and re-seeds its form fields so the
+  next save can't overwrite the other person's change with stale values.
+  This is why `WorkItemService`
   tests use the EF Core in-memory provider rather than mocking
   `DbContext` — the in-memory provider still gives real
   create/read/update/delete semantics for the invariants under test; a

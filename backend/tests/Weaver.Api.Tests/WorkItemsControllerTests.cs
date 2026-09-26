@@ -122,16 +122,16 @@ public class WorkItemsControllerTests
     }
 
     [Test]
-    public async Task Reschedule_DelegatesToService_AndReturnsOk()
+    public async Task Reschedule_DelegatesToServiceWithExpectedVersion_AndReturnsOk()
     {
         var item = MakeWorkItem();
         var start = DateTimeOffset.UtcNow;
         var end = start.AddDays(3);
 
-        _workItems.Setup(s => s.RescheduleAsync(item.Id, start, end, It.IsAny<CancellationToken>()))
+        _workItems.Setup(s => s.RescheduleAsync(item.Id, start, end, 7u, It.IsAny<CancellationToken>()))
             .ReturnsAsync(item);
 
-        var result = await _controller.Reschedule(item.Id, new RescheduleWorkItemRequest(start, end));
+        var result = await _controller.Reschedule(item.Id, new RescheduleWorkItemRequest(start, end, 7u));
 
         Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(WorkItemDto.FromEntity(item)));
         _workItems.VerifyAll();
@@ -150,16 +150,16 @@ public class WorkItemsControllerTests
     }
 
     [Test]
-    public async Task UpdateDetails_DelegatesToService_AndReturnsOk()
+    public async Task UpdateDetails_DelegatesToServiceWithExpectedVersion_AndReturnsOk()
     {
         var item = MakeWorkItem();
         var layerId = Guid.NewGuid();
         _workItems.Setup(s => s.UpdateDetailsAsync(
-                item.Id, "New title", "New description", layerId, WorkItemPriority.High, It.IsAny<CancellationToken>()))
+                item.Id, "New title", "New description", layerId, WorkItemPriority.High, 7u, It.IsAny<CancellationToken>()))
             .ReturnsAsync(item);
 
         var result = await _controller.UpdateDetails(
-            item.Id, new UpdateWorkItemDetailsRequest("New title", "New description", layerId, WorkItemPriority.High));
+            item.Id, new UpdateWorkItemDetailsRequest("New title", "New description", layerId, WorkItemPriority.High, 7u));
 
         Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(WorkItemDto.FromEntity(item)));
         _workItems.VerifyAll();
@@ -179,13 +179,13 @@ public class WorkItemsControllerTests
     }
 
     [Test]
-    public async Task SetTags_DelegatesToService_AndReturnsOk()
+    public async Task SetTags_DelegatesToServiceWithExpectedVersion_AndReturnsOk()
     {
         var item = MakeWorkItem();
         var tags = new List<string> { "urgent", "needs review" };
-        _workItems.Setup(s => s.SetTagsAsync(item.Id, tags, It.IsAny<CancellationToken>())).ReturnsAsync(item);
+        _workItems.Setup(s => s.SetTagsAsync(item.Id, tags, 7u, It.IsAny<CancellationToken>())).ReturnsAsync(item);
 
-        var result = await _controller.SetTags(item.Id, new SetTagsWorkItemRequest(tags));
+        var result = await _controller.SetTags(item.Id, new SetTagsWorkItemRequest(tags, 7u));
 
         Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(WorkItemDto.FromEntity(item)));
         _workItems.VerifyAll();

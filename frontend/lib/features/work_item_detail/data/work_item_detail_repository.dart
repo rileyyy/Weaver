@@ -1,3 +1,4 @@
+import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
@@ -26,20 +27,29 @@ abstract class WorkItemDetailRepository {
 
   Future<List<AuthUser>> loadUsers();
 
+  /// [expectedVersion] is the [WorkItemDetail.version] the edit was based
+  /// on; the save fails with a 409 [ApiException] if the item has changed
+  /// since. The same applies to [reschedule] and [updateTags].
   Future<WorkItemDetail> updateDetails(
     String id, {
     required String title,
     required String? description,
     required String? layerId,
     required WorkItemPriority priority,
+    required int expectedVersion,
   });
 
   Future<WorkItemDetail> assign(String id, String? userId);
 
-  Future<WorkItemDetail> reschedule(String id, DateTime? startDate, DateTime? endDate);
+  Future<WorkItemDetail> reschedule(
+    String id,
+    DateTime? startDate,
+    DateTime? endDate, {
+    required int expectedVersion,
+  });
 
   /// Replaces this work item's full tag list.
-  Future<WorkItemDetail> updateTags(String id, List<String> tags);
+  Future<WorkItemDetail> updateTags(String id, List<String> tags, {required int expectedVersion});
 
   Future<List<WorkItemComment>> loadComments(String workItemId);
 

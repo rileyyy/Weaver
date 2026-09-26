@@ -64,11 +64,13 @@ public interface IWorkItemService
     /// <summary>
     /// Sets a work item's scheduled start/end, independently of status or
     /// parent. Either may be null. Rejects a start date after the end date.
+    /// Rejects the change if <paramref name="expectedVersion"/> is given and stale.
     /// </summary>
     Task<WorkItem> RescheduleAsync(
         Guid id,
         DateTimeOffset? startDate,
         DateTimeOffset? endDate,
+        uint? expectedVersion = null,
         CancellationToken ct = default);
 
     /// <summary>
@@ -76,7 +78,8 @@ public interface IWorkItemService
     /// priority — independently of status/parent/schedule/assignee. These
     /// fields share no cross-cutting invariant with each other or with those
     /// other operations, so they're safe to group behind one call unlike
-    /// e.g. status and parent.
+    /// e.g. status and parent. Rejects the change if <paramref name="expectedVersion"/>
+    /// is given and stale.
     /// </summary>
     Task<WorkItem> UpdateDetailsAsync(
         Guid id,
@@ -84,6 +87,7 @@ public interface IWorkItemService
         string? description,
         Guid? layerId,
         WorkItemPriority priority,
+        uint? expectedVersion = null,
         CancellationToken ct = default);
 
     /// <summary>
@@ -95,7 +99,12 @@ public interface IWorkItemService
     /// <summary>
     /// Replaces a work item's full tag list, independently of every other
     /// field. Tags are trimmed and de-duplicated case-insensitively; an
-    /// empty/blank tag is rejected.
+    /// empty/blank tag is rejected. Rejects the change if <paramref name="expectedVersion"/>
+    /// is given and stale.
     /// </summary>
-    Task<WorkItem> SetTagsAsync(Guid id, IReadOnlyList<string> tags, CancellationToken ct = default);
+    Task<WorkItem> SetTagsAsync(
+        Guid id,
+        IReadOnlyList<string> tags,
+        uint? expectedVersion = null,
+        CancellationToken ct = default);
 }

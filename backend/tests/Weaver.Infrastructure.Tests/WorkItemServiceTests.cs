@@ -384,6 +384,47 @@ public class WorkItemServiceTests
     }
 
     [Test]
+    public async Task UpdateDetailsAsync_WithCurrentExpectedVersion_Succeeds()
+    {
+        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
+
+        var updated = await _service.UpdateDetailsAsync(
+            item.Id, "Renamed", null, null, WorkItemPriority.High, expectedVersion: item.Version);
+
+        Assert.That(updated.Title, Is.EqualTo("Renamed"));
+    }
+
+    [Test]
+    public async Task UpdateDetailsAsync_WithStaleExpectedVersion_ThrowsAndLeavesItemUnchanged()
+    {
+        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
+
+        Assert.ThrowsAsync<WorkItemVersionConflictException>(() => _service.UpdateDetailsAsync(
+            item.Id, "Renamed", null, null, WorkItemPriority.High, expectedVersion: item.Version + 1));
+
+        _db.ChangeTracker.Clear();
+        Assert.That((await _db.WorkItems.SingleAsync()).Title, Is.EqualTo("Item"));
+    }
+
+    [Test]
+    public async Task RescheduleAsync_WithStaleExpectedVersion_Throws()
+    {
+        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
+
+        Assert.ThrowsAsync<WorkItemVersionConflictException>(() => _service.RescheduleAsync(
+            item.Id, DateTimeOffset.UtcNow, null, expectedVersion: item.Version + 1));
+    }
+
+    [Test]
+    public async Task SetTagsAsync_WithStaleExpectedVersion_Throws()
+    {
+        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
+
+        Assert.ThrowsAsync<WorkItemVersionConflictException>(() =>
+            _service.SetTagsAsync(item.Id, ["urgent"], expectedVersion: item.Version + 1));
+    }
+
+    [Test]
     public async Task AssignAsync_WithAKnownUser_SetsAssignedToUserId()
     {
         var user = new User
