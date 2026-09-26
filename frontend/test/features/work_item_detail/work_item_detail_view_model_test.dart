@@ -411,7 +411,8 @@ void main() {
 
     expect(ok, isFalse);
     expect(viewModel.reloadGeneration, generationBefore);
-    expect(viewModel.saveError, 'Could not save your change. Try again.');
+    // A 400 shows the server's validation message.
+    expect(viewModel.saveError, 'bad tag');
   });
 
   test('saveAssignee updates the assignee on success', () async {
@@ -717,5 +718,58 @@ void main() {
 
     expect(viewModel.isOwnComment(mine), isTrue);
     expect(viewModel.isOwnComment(theirs), isFalse);
+  });
+
+  group('validation before saving', () {
+    test('a blank title is rejected without calling the server', () async {
+      final repository = _FakeRepository();
+      final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+      await viewModel.load('item-1');
+
+      final ok = await viewModel.saveDetails(
+        title: '   ',
+        description: null,
+        layerId: null,
+        priority: WorkItemPriority.medium,
+      );
+
+      expect(ok, isFalse);
+      expect(viewModel.saveError, 'Title is required.');
+      expect(repository.updateDetailsCalls, isEmpty);
+    });
+
+    test('titleError flags blank and overlong titles only', () {
+      final viewModel = WorkItemDetailViewModel(
+        _FakeRepository(),
+        _currentUser,
+      );
+
+      expect(viewModel.titleError('A task'), isNull);
+      expect(viewModel.titleError(''), isNotNull);
+      expect(
+        viewModel.titleError(
+          'x' * (WorkItemDetailViewModel.titleMaxLength + 1),
+        ),
+        isNotNull,
+      );
+    });
+
+    test(
+      'an inverted schedule is rejected without calling the server',
+      () async {
+        final repository = _FakeRepository();
+        final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+        await viewModel.load('item-1');
+
+        final ok = await viewModel.saveSchedule(
+          DateTime(2026, 9, 30),
+          DateTime(2026, 9, 1),
+        );
+
+        expect(ok, isFalse);
+        expect(viewModel.saveError, contains('start date'));
+        expect(repository.rescheduleCalls, isEmpty);
+      },
+    );
   });
 }

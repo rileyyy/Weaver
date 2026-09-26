@@ -401,6 +401,14 @@ and it is what allows MCP tools to reuse the same business logic (see
   `setSession` / `clear` update state and notify listeners *before*
   persisting. A storage failure once silently broke logout because the
   write was awaited first.
+- **The detail dialog has two save modes, on purpose.** Title,
+  description, layer and priority form one "details" form saved with
+  **Save details** (enabled only when it differs from the saved item);
+  assignee, tags, schedule, comments and links save as soon as they
+  change. Closing with unsaved details (back, tapping outside, or "View
+  sub-items") asks before discarding them (`PopScope`). A blank title and
+  an inverted schedule are rejected before any request, and a 400 shows
+  the server's validation message.
 - **Comment and link changes in the detail dialog apply the server's
   response locally** instead of reloading the list. A reload that failed
   after a successful POST used to show as a failure, and retrying created
