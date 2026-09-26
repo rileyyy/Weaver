@@ -73,7 +73,12 @@ The most important problems cluster in four areas:
 - **Fix:** Return `Version` in the DTO and accept it on mutating requests (or use `If-Match`/ETag). Set `Entry(item).Property(w => w.Version).OriginalValue = expected` before `SaveChanges`. The frontend will need to carry it too.
 
 #### B-H4. Refresh-token rotation has no reuse detection and a double-spend race
-- [ ] **Resolved**
+- [x] **Resolved** in `bugfix/refresh-token-reuse-detection`:
+  - Reusing a rotated token revokes every token issued from it (only that session's chain).
+  - `RefreshToken` has an `xmin` concurrency token.
+  - The lifetime comes from `JwtOptions`.
+  - Expired tokens are purged per user on login/refresh.
+  - A 30 s grace window stops the current client stampede ([F-H1](#f-h1-parallel-requests-trigger-concurrent-token-refreshes-and-log-the-user-out)) from triggering revocation.
 - **Where:** [AuthService.cs:95-111, 137-160](backend/src/Weaver.Infrastructure/Services/AuthService.cs#L95-L111), [RefreshTokenConfiguration.cs](backend/src/Weaver.Infrastructure/Configurations/RefreshTokenConfiguration.cs)
 - **Issues:**
   - `ReplacedByTokenHash` is written but never read. Presenting an already-rotated token (the classic sign of a stolen token) just returns 401 instead of revoking the whole token family.

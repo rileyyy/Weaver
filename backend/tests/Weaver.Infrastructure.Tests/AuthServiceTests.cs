@@ -27,7 +27,7 @@ public class AuthServiceTests
         _db.Database.EnsureCreated();
 
         var jwtOptions = Options.Create(new JwtOptions { SigningKey = "test-only-signing-key-at-least-32-bytes-long" });
-        _service = new AuthService(_db, new JwtTokenService(jwtOptions), new PasswordHasher<User>());
+        _service = new AuthService(_db, new JwtTokenService(jwtOptions), new PasswordHasher<User>(), jwtOptions);
     }
 
     [TearDown]
@@ -158,6 +158,106 @@ public class AuthServiceTests
     public void RefreshAsync_WithAnUnknownToken_ThrowsInvalidRefreshTokenException()
     {
         Assert.ThrowsAsync<InvalidRefreshTokenException>(() => _service.RefreshAsync("not-a-real-token"));
+    }
+
+    [Test]
+    public async Task RefreshAsync_ReusingARotatedTokenAfterTheGracePeriod_RevokesEveryTokenIssuedFromIt()
+    {
+        var initial = await _service.RegisterAsync("alice", ValidPassword);
+        var second = await _service.RefreshAsync(initial.RefreshToken);
+        var third = await _service.RefreshAsync(second.RefreshToken);
+        await BackdateRevocationAsync(initial.RefreshToken, TimeSpan.FromMinutes(5));
+
+        Assert.ThrowsAsync<InvalidRefreshTokenException>(() => _service.RefreshAsync(initial.RefreshToken));
+
+        Assert.ThrowsAsync<InvalidRefreshTokenException>(() => _service.RefreshAsync(third.RefreshToken));
+    }
+
+    [Test]
+    public async Task RefreshAsync_ReusingARotatedTokenWithinTheGracePeriod_IsRejectedButKeepsTheNewToken()
+    {
+        var initial = await _service.RegisterAsync("alice", ValidPassword);
+        var rotated = await _service.RefreshAsync(initial.RefreshToken);
+
+        Assert.ThrowsAsync<InvalidRefreshTokenException>(() => _service.RefreshAsync(initial.RefreshToken));
+
+        var refreshed = await _service.RefreshAsync(rotated.RefreshToken);
+        Assert.That(refreshed.RefreshToken, Is.Not.Empty);
+    }
+
+    [Test]
+    public async Task RefreshAsync_ReuseInOneSession_DoesNotRevokeTheUsersOtherSessions()
+    {
+        var sessionA = await _service.RegisterAsync("alice", ValidPassword);
+        var sessionB = await _service.LoginAsync("alice", ValidPassword);
+        await _service.RefreshAsync(sessionA.RefreshToken);
+        await BackdateRevocationAsync(sessionA.RefreshToken, TimeSpan.FromMinutes(5));
+
+        Assert.ThrowsAsync<InvalidRefreshTokenException>(() => _service.RefreshAsync(sessionA.RefreshToken));
+
+        var refreshedB = await _service.RefreshAsync(sessionB.RefreshToken);
+        Assert.That(refreshedB.RefreshToken, Is.Not.Empty);
+    }
+
+    [Test]
+    public async Task RefreshAsync_WithALoggedOutToken_DoesNotRevokeAnythingElse()
+    {
+        var sessionA = await _service.RegisterAsync("alice", ValidPassword);
+        var sessionB = await _service.LoginAsync("alice", ValidPassword);
+        await _service.LogoutAsync(sessionA.RefreshToken);
+        await BackdateRevocationAsync(sessionA.RefreshToken, TimeSpan.FromMinutes(5));
+
+        Assert.ThrowsAsync<InvalidRefreshTokenException>(() => _service.RefreshAsync(sessionA.RefreshToken));
+
+        Assert.That((await _service.RefreshAsync(sessionB.RefreshToken)).RefreshToken, Is.Not.Empty);
+    }
+
+    [Test]
+    public async Task IssuedRefreshTokens_UseTheConfiguredLifetime()
+    {
+        var jwtOptions = Options.Create(new JwtOptions
+        {
+            SigningKey = "test-only-signing-key-at-least-32-bytes-long",
+            RefreshTokenLifetime = TimeSpan.FromDays(2),
+        });
+        var service = new AuthService(_db, new JwtTokenService(jwtOptions), new PasswordHasher<User>(), jwtOptions);
+
+        await service.RegisterAsync("alice", ValidPassword);
+
+        var stored = await _db.RefreshTokens.SingleAsync();
+        Assert.That(stored.ExpiresAtUtc - stored.CreatedAtUtc, Is.EqualTo(TimeSpan.FromDays(2)));
+    }
+
+    [Test]
+    public async Task LoginAsync_RemovesTheUsersExpiredRefreshTokens_ButKeepsOtherUsersTokens()
+    {
+        var alice = await _service.RegisterAsync("alice", ValidPassword);
+        var bob = await _service.RegisterAsync("bob", ValidPassword);
+        await ExpireAllRefreshTokensAsync();
+
+        await _service.LoginAsync("alice", ValidPassword);
+
+        var remainingUserIds = await _db.RefreshTokens.Select(t => t.UserId).ToListAsync();
+        Assert.That(remainingUserIds.Count(id => id == alice.User.Id), Is.EqualTo(1));
+        Assert.That(remainingUserIds.Count(id => id == bob.User.Id), Is.EqualTo(1));
+    }
+
+    private async Task BackdateRevocationAsync(string refreshToken, TimeSpan ago)
+    {
+        var tokenHash = Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(refreshToken)));
+        var stored = await _db.RefreshTokens.SingleAsync(t => t.TokenHash == tokenHash);
+        stored.RevokedAtUtc = DateTimeOffset.UtcNow - ago;
+        await _db.SaveChangesAsync();
+    }
+
+    private async Task ExpireAllRefreshTokensAsync()
+    {
+        foreach (var token in await _db.RefreshTokens.ToListAsync())
+        {
+            token.ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(-1);
+        }
+        await _db.SaveChangesAsync();
     }
 
     [Test]

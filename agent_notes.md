@@ -478,18 +478,33 @@ whoever (human or agent) next touches this area.
 
 ## Authentication (Milestone 10)
 
-- **JWT access token (15 min) + rotating opaque refresh token (30 days).**
+- **JWT access token (15 min) + rotating opaque refresh token (30 days,
+  `JwtOptions.RefreshTokenLifetime`).**
   Only the refresh token's SHA-256 hash is ever stored (`RefreshToken
   .TokenHash`) — a database read alone can never yield a usable
   credential. Every `RefreshAsync` call revokes the token it was given and
-  issues a new one (`ReplacedByTokenHash` records the chain), so presenting
-  an already-rotated token again gets a 401. This is *not* full reuse
-  detection yet: `ReplacedByTokenHash` is never read, so a reused token
-  doesn't revoke the rest of its chain, and two simultaneous refreshes
-  with the same token can both succeed (no concurrency token on
-  `RefreshToken`). The 30-day lifetime is also hard-coded in
-  `AuthService` rather than read from `JwtOptions.RefreshTokenLifetime`.
-  See B-H4 in `code_review_findings.md`.
+  issues a new one (`ReplacedByTokenHash` records the chain).
+- **Reuse detection revokes the chain, not the account.** Presenting an
+  already-rotated token means two parties hold it, so `RefreshAsync`
+  walks `ReplacedByTokenHash` forward and revokes every token issued
+  from it. The user's other sessions (separate logins) are untouched.
+  Logged-out tokens have no replacement and are just rejected.
+- **There's a 30-second grace window.** A rotated token that comes back
+  within 30 s is rejected with a 401 but doesn't trigger chain
+  revocation. The Flutter client still fires parallel refreshes with the
+  same token when the access token expires (F-H1), and without the
+  window every such page load would also revoke the fresh session
+  server-side. Reconsider the window once F-H1 is fixed.
+- **`RefreshToken.Version` maps to `xmin`**, so two simultaneous
+  refreshes with the same token can't both mint a new pair: the loser's
+  `SaveChanges` fails and it gets a 401. The migration adding it is
+  SQL-free (Npgsql never creates the `xmin` system column); only the
+  model snapshot changes. Like `WorkItem.Version`, the in-memory test
+  provider doesn't generate `xmin`, so the race was verified against
+  real Postgres.
+- **Expired refresh tokens are purged per user whenever new ones are
+  issued**, instead of by a background job. Revoked-but-unexpired tokens
+  are kept, because reuse detection needs them.
 - **Passwords are hashed with `Microsoft.AspNetCore.Identity`'s
   `PasswordHasher<User>`** (PBKDF2-HMAC-SHA256, framework-managed
   iteration count) via the standalone `Microsoft.Extensions.Identity.Core`
