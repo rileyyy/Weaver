@@ -212,13 +212,13 @@ The most important problems cluster in four areas:
   - Take `createWorkItem` out of `_changeScope`. A failed create shouldn't replace the board with an error screen, and a retry must never re-POST.
 
 #### F-H3. Optimistic rollbacks restore whole-list snapshots
-- [ ] **Resolved**
+- [x] **Resolved** in `bugfix/board-state-races`: all five board mutations go through one `_optimistic` helper, which reverts only the changed item by id and skips the revert if the data was reloaded in the meantime. The detail dialog's tag rollback re-seeds from the last server-confirmed item.
 - **Where:** `board_view_model.dart:299-440` (five copies), `work_item_detail_view.dart:534-539`
 - **Issue:** Each mutation captures `previousSwimlanes = _swimlanes` and restores it on failure. If move A fails after move B succeeded, the rollback reverts B too. If a scope change finished in between, the rollback writes the previous scope's lanes under the new breadcrumbs.
 - **Fix:** Roll back per item (reapply the inverse change to the one card), and drop the rollback if the scope generation has changed. Pull the five copies into a single `_optimistic(apply, persist, revert, message)` helper.
 
 #### F-H4. Scope loads race, and an older response can overwrite a newer one
-- [ ] **Resolved**
+- [x] **Resolved** in `bugfix/board-state-races`: scope and hierarchy loads carry a generation number. A load only applies its result, and only clears the spinner, if it's still the newest.
 - **Where:** `board_view_model.dart:159-174, 234-279, 648-665`
 - **Issue:** Nothing identifies the latest request. Clicking a breadcrumb and then quickly drilling into a card starts two loads, and whichever finishes last wins. The breadcrumbs and lanes can then describe different scopes, and the first completion hides the spinner while the second is still running. `loadHierarchy` has the same problem.
 - **Fix:** Capture a monotonically increasing request id and discard stale completions, including their `finally` state resets.

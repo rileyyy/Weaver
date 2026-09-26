@@ -532,14 +532,12 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
   ]);
 
   Future<void> _saveTags(List<String> updated) async {
-    final previous = _tags;
-    final generation = _viewModel.reloadGeneration;
     setState(() => _tags = updated);
     final ok = await _viewModel.saveTags(updated);
-    // After a conflict the view model has already re-seeded _tags from the
-    // server's latest copy; restoring `previous` would put stale tags back.
-    final wasReloaded = _viewModel.reloadGeneration != generation;
-    if (!ok && !wasReloaded && mounted) setState(() => _tags = previous);
+    // Re-seed from the last server-confirmed item rather than a snapshot
+    // taken before this save: another tag save may have succeeded while
+    // this one was in flight, and a conflict reload may have replaced it.
+    if (!ok && mounted) setState(() => _tags = [..._viewModel.item!.tags]);
   }
 
   Future<void> _pickStartDate(WorkItemDetail item) async {
