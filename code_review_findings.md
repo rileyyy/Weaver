@@ -279,8 +279,8 @@ The most important problems cluster in four areas:
   - "POST succeeded but the reload failed" is reported as a failure, so the user retries and creates a duplicate comment or link.
 - [x] *(Resolved in `bugfix/time-filter-and-roadmap-dates`: bounds compare by calendar day, inverted ranges are prevented in the picker and swapped otherwise, and each bound has its own clear button.)* **F-M13. Time filter.** The end bound is effectively exclusive (items later on the "to" day are dropped), start > end is accepted, and a single bound can't be cleared on its own.
 - [x] *(Resolved in `bugfix/time-filter-and-roadmap-dates`: `core/dates/calendar_days.dart` (`addDays`, `daysBetween`). The bar maths is extracted into a tested `roadmapBarSpan`, and the suite passes under Stockholm, New York and UTC.)* **F-M14. Roadmap date maths breaks across DST** (`add(Duration(days: n))` on local times, `inDays` truncation). **Fix:** use `DateTime(y, m, d + n)` and compare date parts only.
-- [ ] **F-M15. The Hierarchy view overflows narrow screens.** Its fixed columns total about 950 px in a plain `Row` with no horizontal scroll.
-- [ ] **F-M16. Hierarchy column widths are keyed by magic strings with `!` lookups** (`columnWidths['number']!`). **Fix:** use a `Map<HierarchyColumn, double>`.
+- [x] *(Resolved in `bugfix/hierarchy-layout`: when the columns are wider than the screen, the header and rows scroll horizontally together. Covered by a 400 px widget test.)* **F-M15. The Hierarchy view overflows narrow screens.** Its fixed columns total about 950 px in a plain `Row` with no horizontal scroll.
+- [x] *(Resolved in `bugfix/hierarchy-layout`: `HierarchyColumn` covers every column, and widths live in an immutable `HierarchyColumnWidths` keyed by it. Layout constants moved to `hierarchy_layout.dart`, so the child widgets no longer import their parent view.)* **F-M16. Hierarchy column widths are keyed by magic strings with `!` lookups** (`columnWidths['number']!`). **Fix:** use a `Map<HierarchyColumn, double>`.
 
 ### Low
 

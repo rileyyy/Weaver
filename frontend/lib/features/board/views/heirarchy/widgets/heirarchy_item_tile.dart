@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
-import 'package:weaver/features/board/views/heirarchy/hierarchy_view.dart';
+import 'package:weaver/features/board/views/heirarchy/heirarchy_column.dart';
+import 'package:weaver/features/board/views/heirarchy/hierarchy_column_widths.dart';
+import 'package:weaver/features/board/views/heirarchy/hierarchy_layout.dart';
 import 'package:weaver/features/board/views/heirarchy/widgets/column_value.dart';
-import 'package:weaver/features/board/views/heirarchy/widgets/heirarchy_header_row.dart';
 import 'package:weaver/features/board/views/heirarchy/widgets/resize_handle.dart';
 
 class HierarchyItemTile extends StatelessWidget {
@@ -23,7 +24,7 @@ class HierarchyItemTile extends StatelessWidget {
 
   final HierarchyNode node;
   final int depth;
-  final Map<String, double> columnWidths;
+  final HierarchyColumnWidths columnWidths;
   final bool isCollapsed;
   final VoidCallback onToggleCollapsed;
   final VoidCallback onTap;
@@ -33,12 +34,14 @@ class HierarchyItemTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasChildren = node.children.isNotEmpty;
-    final item = node.item;
 
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+        padding: const EdgeInsets.symmetric(
+          vertical: 6,
+          horizontal: hierarchyRowHorizontalPadding,
+        ),
         child: Row(
           children: [
             // Fixed height/width regardless of whether this row has a
@@ -63,38 +66,31 @@ class HierarchyItemTile extends StatelessWidget {
                   : null,
             ),
             const SizedBox(width: caretGap),
-            SizedBox(
-              width: columnWidths['number'],
-              child: Text('#${item.number}', overflow: TextOverflow.ellipsis),
-            ),
-            const SizedBox(width: ResizeHandle.width),
-            // Depth only indents the title's own text — not the caret or
-            // number column before it, nor the columns after it — so every
-            // column stays aligned under its header regardless of nesting.
-            SizedBox(
-              width: columnWidths['title'],
-              child: Padding(
-                padding: EdgeInsets.only(left: depth * _indentPerLevel),
-                child: Text(item.title, overflow: TextOverflow.ellipsis),
-              ),
-            ),
-            const SizedBox(width: ResizeHandle.width),
-            for (final column in trailingColumns) ...[
-              SizedBox(
-                width: columnWidths[column.name],
-                child: ColumnValue(
-                  column: column,
-                  item: item,
-                  viewModel: viewModel,
-                  onAssignTapped: onAssignTapped,
-                ),
-              ),
+            for (final column in HierarchyColumn.values) ...[
+              SizedBox(width: columnWidths[column], child: _cell(column)),
               const SizedBox(width: ResizeHandle.width),
             ],
             const Expanded(child: SizedBox()),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _cell(HierarchyColumn column) {
+    final value = ColumnValue(
+      column: column,
+      item: node.item,
+      viewModel: viewModel,
+      onAssignTapped: onAssignTapped,
+    );
+    // Depth only indents the title's own text — not the caret, the number
+    // or the columns after it — so every column stays aligned under its
+    // header regardless of nesting.
+    if (column != HierarchyColumn.title) return value;
+    return Padding(
+      padding: EdgeInsets.only(left: depth * _indentPerLevel),
+      child: value,
     );
   }
 }

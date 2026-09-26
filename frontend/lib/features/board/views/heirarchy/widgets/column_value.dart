@@ -23,6 +23,14 @@ class ColumnValue extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return switch (column) {
+      HierarchyColumn.number => Text(
+        '#${item.number}',
+        overflow: TextOverflow.ellipsis,
+      ),
+      HierarchyColumn.title => Text(
+        item.title,
+        overflow: TextOverflow.ellipsis,
+      ),
       HierarchyColumn.status => Row(
         children: [
           StatusDot(color: viewModel.statusColorFor(item.statusId)),

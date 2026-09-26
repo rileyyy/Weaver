@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:weaver/features/board/views/heirarchy/hierarchy_view.dart';
+import 'package:weaver/features/board/views/heirarchy/heirarchy_column.dart';
+import 'package:weaver/features/board/views/heirarchy/hierarchy_column_widths.dart';
+import 'package:weaver/features/board/views/heirarchy/hierarchy_layout.dart';
 import 'package:weaver/features/board/views/heirarchy/widgets/header_cell.dart';
 import 'package:weaver/features/board/views/heirarchy/widgets/resize_handle.dart';
-
-const double caretColumnWidth = 24;
-const double caretGap = 8;
 
 class HierarchyHeaderRow extends StatelessWidget {
   const HierarchyHeaderRow({
@@ -13,8 +12,8 @@ class HierarchyHeaderRow extends StatelessWidget {
     required this.onResize,
   });
 
-  final Map<String, double> columnWidths;
-  final void Function(String key, double deltaX) onResize;
+  final HierarchyColumnWidths columnWidths;
+  final void Function(HierarchyColumn column, double deltaX) onResize;
 
   @override
   Widget build(BuildContext context) {
@@ -29,25 +28,20 @@ class HierarchyHeaderRow extends StatelessWidget {
           ),
         ),
       ),
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      padding: const EdgeInsets.symmetric(
+        vertical: 8,
+        horizontal: hierarchyRowHorizontalPadding,
+      ),
       child: Row(
         children: [
           const SizedBox(width: caretColumnWidth + caretGap),
-          HeaderCell(label: '#', width: columnWidths['number']!, style: style),
-          ResizeHandle(onDrag: (dx) => onResize('number', dx)),
-          HeaderCell(
-            label: 'Title',
-            width: columnWidths['title']!,
-            style: style,
-          ),
-          ResizeHandle(onDrag: (dx) => onResize('title', dx)),
-          for (final column in trailingColumns) ...[
+          for (final column in HierarchyColumn.values) ...[
             HeaderCell(
               label: column.headerLabel,
-              width: columnWidths[column.name]!,
+              width: columnWidths[column],
               style: style,
             ),
-            ResizeHandle(onDrag: (dx) => onResize(column.name, dx)),
+            ResizeHandle(onDrag: (dx) => onResize(column, dx)),
           ],
           const Expanded(child: SizedBox()),
         ],
