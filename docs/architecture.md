@@ -340,6 +340,20 @@ and it is what allows MCP tools to reuse the same business logic (see
 
 ### Networking
 
+- **One HTTP/JSON path.** Every `Api…Repository` wraps its injected
+  `http.Client` in `JsonApiClient` (`core/network/json_api_client.dart`),
+  which builds URIs, checks status codes, reads the problem-detail message
+  and decodes; models parse themselves with `fromJson` factories. Every
+  failure is an `ApiException`: a non-2xx response keeps its
+  `statusCode`, an unreachable server is a `NetworkException`, and a body
+  that doesn't match the contract is an `UnexpectedResponseException`, so
+  a backend contract change isn't reported as "check your connection".
+- **View models catch `ApiException`, not everything.** A `TypeError` or
+  `StateError` from app code propagates instead of being shown as a
+  failed request. A record `.wait` wraps failures in `ParallelWaitError`;
+  `rethrowNonApiErrors` rethrows anything in it that isn't an API
+  failure. A token refresh only clears the session on a 401, so a network
+  blip or a parsing bug doesn't log the user out.
 - **Repositories behind interfaces** (`BoardRepository`,
   `WorkItemDetailRepository`, `AuthRepository`), each with an `Api…`
   implementation. View models depend only on the interface; tests use

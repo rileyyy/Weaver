@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
+import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/auth/data/auth_repository.dart';
 import 'package:weaver/features/auth/data/secure_token_store.dart';
 import 'package:weaver/features/auth/models/auth_session.dart';
@@ -50,7 +51,7 @@ class AuthSessionStore extends ChangeNotifier {
   Future<void> _persistBestEffort(Future<void> Function() action) async {
     try {
       await action();
-    } catch (_) {
+    } on Exception {
       // Best-effort — see doc comment above.
     }
   }
@@ -58,9 +59,9 @@ class AuthSessionStore extends ChangeNotifier {
   /// Ensures [current] has a non-expired access token, refreshing from
   /// either the in-memory or the cached refresh token if needed (the
   /// latter is what restores a session after an app restart). Returns
-  /// false if there's no usable session at all — expired refresh token,
-  /// none cached, or the refresh call itself failed — in which case the
-  /// session is cleared.
+  /// false if there's no usable session: none cached, or the refresh
+  /// failed. The session is cleared only if the server rejected the
+  /// refresh token (401).
   ///
   /// Concurrent callers share one refresh. The backend rotates the refresh
   /// token on every use, so a second refresh with the same token is
@@ -87,11 +88,13 @@ class AuthSessionStore extends ChangeNotifier {
     try {
       await setSession(await _authRepository.refresh(refreshToken));
       return true;
-    } catch (_) {
+    } on ApiException catch (e) {
       // A login may have replaced the session while this refresh was in
       // flight; that newer session isn't this failure's to discard.
       if (!identical(_session, startedFrom)) return isAuthenticated;
-      await clear();
+      // Only the server rejecting the refresh token ends the session; a
+      // network failure keeps it so a later request can refresh again.
+      if (e.isUnauthorized) await clear();
       return false;
     }
   }

@@ -10,6 +10,13 @@ class BoardStatus {
     this.color,
   });
 
+  factory BoardStatus.fromJson(Map<String, dynamic> json) => BoardStatus(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    order: json['order'] as int,
+    color: parseStatusColor(json['color'] as String),
+  );
+
   final String id;
   final String name;
   final int order;

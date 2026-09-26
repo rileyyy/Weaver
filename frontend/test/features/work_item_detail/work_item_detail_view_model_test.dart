@@ -43,7 +43,7 @@ WorkItemDetail _item({
 class _FakeRepository implements WorkItemDetailRepository {
   _FakeRepository({this.getItemError, this.saveError});
 
-  final Exception? getItemError;
+  final Object? getItemError;
   final Exception? saveError;
   WorkItemDetail item = _item();
   bool deleted = false;
@@ -64,7 +64,8 @@ class _FakeRepository implements WorkItemDetailRepository {
   @override
   Future<WorkItemDetail> getItem(String id) async {
     final error = getItemError;
-    if (error != null) throw error;
+    // An Object so tests can simulate either an API failure or a bug.
+    if (error != null) Error.throwWithStackTrace(error, StackTrace.current);
     return item;
   }
 
@@ -249,7 +250,9 @@ void main() {
   });
 
   test('load sets loadError when the repository throws', () async {
-    final repository = _FakeRepository(getItemError: Exception('network down'));
+    final repository = _FakeRepository(
+      getItemError: const ApiException('network down'),
+    );
     final viewModel = WorkItemDetailViewModel(repository);
 
     await viewModel.load('item-1');
@@ -315,7 +318,9 @@ void main() {
   });
 
   test('saveDetails returns false and sets saveError on failure', () async {
-    final repository = _FakeRepository(saveError: Exception('conflict'));
+    final repository = _FakeRepository(
+      saveError: const ApiException('conflict'),
+    );
     final viewModel = WorkItemDetailViewModel(repository);
     await viewModel.load('item-1');
 
@@ -421,7 +426,9 @@ void main() {
   });
 
   test('saveTags returns false and sets saveError on failure', () async {
-    final repository = _FakeRepository(saveError: Exception('invalid tag'));
+    final repository = _FakeRepository(
+      saveError: const ApiException('invalid tag'),
+    );
     final viewModel = WorkItemDetailViewModel(repository);
     await viewModel.load('item-1');
 
@@ -458,7 +465,7 @@ void main() {
   });
 
   test('addComment returns false and sets saveError on failure', () async {
-    final repository = _FakeRepository(saveError: Exception('down'));
+    final repository = _FakeRepository(saveError: const ApiException('down'));
     final viewModel = WorkItemDetailViewModel(repository);
     await viewModel.load('item-1');
 
@@ -508,7 +515,9 @@ void main() {
   });
 
   test('addLink returns false and sets saveError on failure', () async {
-    final repository = _FakeRepository(saveError: Exception('duplicate'));
+    final repository = _FakeRepository(
+      saveError: const ApiException('duplicate'),
+    );
     final viewModel = WorkItemDetailViewModel(repository);
     await viewModel.load('item-1');
 
@@ -530,7 +539,9 @@ void main() {
   });
 
   test('deleteItem returns false and sets saveError on failure', () async {
-    final repository = _FakeRepository(saveError: Exception('has children'));
+    final repository = _FakeRepository(
+      saveError: const ApiException('has children'),
+    );
     final viewModel = WorkItemDetailViewModel(repository);
     await viewModel.load('item-1');
 
@@ -572,7 +583,7 @@ void main() {
 
     test('stays false after a failed save', () async {
       final viewModel = WorkItemDetailViewModel(
-        _FakeRepository(saveError: Exception('boom')),
+        _FakeRepository(saveError: const ApiException('boom')),
       );
       await viewModel.load('item-1');
 
@@ -647,6 +658,18 @@ void main() {
 
       expect(viewModel.comments, isEmpty);
       expect(repository.loadCommentsCalls, loadsAfterOpen);
+    },
+  );
+
+  test(
+    'a programming error during load is rethrown, not shown as a load failure',
+    () async {
+      final viewModel = WorkItemDetailViewModel(
+        _FakeRepository(getItemError: StateError('bug')),
+      );
+
+      await expectLater(viewModel.load('item-1'), throwsStateError);
+      expect(viewModel.loadError, isNull);
     },
   );
 }

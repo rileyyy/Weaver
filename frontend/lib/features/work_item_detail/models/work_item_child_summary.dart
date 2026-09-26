@@ -9,6 +9,14 @@ class WorkItemChildSummary {
     required this.statusId,
   });
 
+  factory WorkItemChildSummary.fromJson(Map<String, dynamic> json) =>
+      WorkItemChildSummary(
+        id: json['id'] as String,
+        number: json['number'] as int,
+        title: json['title'] as String,
+        statusId: json['statusId'] as String,
+      );
+
   final String id;
   final int number;
   final String title;

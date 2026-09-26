@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:ui' show Color;
 
 import 'package:injectable/injectable.dart';
 import 'package:weaver/core/network/api_exception.dart';
+import 'package:weaver/core/network/parallel_api_errors.dart';
 import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/models/board_status.dart';
@@ -97,7 +99,19 @@ class WorkItemDetailViewModel extends ViewModel {
       _comments = comments;
       _links = links;
       _children = children;
-    } catch (_) {
+    } on ParallelWaitError<Object?, Object?> catch (e) {
+      final (a, b, c, d, f, g, h) =
+          e.errors
+              as (
+                AsyncError?,
+                AsyncError?,
+                AsyncError?,
+                AsyncError?,
+                AsyncError?,
+                AsyncError?,
+                AsyncError?,
+              );
+      rethrowNonApiErrors([a, b, c, d, f, g, h]);
       _loadError =
           'Could not load this work item. Check your connection and try again.';
     } finally {
@@ -243,9 +257,6 @@ class WorkItemDetailViewModel extends ViewModel {
       } else {
         _saveError = errorMessage;
       }
-      return false;
-    } catch (_) {
-      _saveError = errorMessage;
       return false;
     } finally {
       _pendingSaves--;

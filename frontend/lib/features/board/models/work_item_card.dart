@@ -1,3 +1,6 @@
+import 'package:weaver/core/network/api_dates.dart';
+import 'package:weaver/core/network/json_fields.dart';
+
 /// A card on the board: the subset of a work item's fields the board needs
 /// to render. [parentId] is the swimlane's work item id — never mutated by
 /// [copyWith], since a status change must never become a reparent (see
@@ -15,6 +18,19 @@ class WorkItemCard {
     this.assignedToUserId,
     this.tags = const [],
   });
+
+  factory WorkItemCard.fromJson(Map<String, dynamic> json) => WorkItemCard(
+    id: json['id'] as String,
+    number: json['number'] as int,
+    title: json['title'] as String,
+    parentId: json['parentId'] as String,
+    statusId: json['statusId'] as String,
+    description: json['description'] as String?,
+    startDate: parseCalendarDate(json['startDate']),
+    endDate: parseCalendarDate(json['endDate']),
+    assignedToUserId: json['assignedToUserId'] as String?,
+    tags: stringList(json['tags']),
+  );
 
   final String id;
 

@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:injectable/injectable.dart';
+import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/auth/data/auth_repository.dart';
 import 'package:weaver/features/auth/data/auth_session_store.dart';
+import 'package:weaver/features/auth/models/auth_session.dart';
 import 'package:weaver/features/auth/models/auth_user.dart';
 
 @injectable
@@ -68,7 +70,7 @@ class AuthViewModel extends ViewModel {
   }
 
   Future<void> _submit(
-    Future<dynamic> Function() action, {
+    Future<AuthSession> Function() action, {
     required String errorMessage,
   }) async {
     isSubmitting = true;
@@ -78,7 +80,7 @@ class AuthViewModel extends ViewModel {
     try {
       final session = await action();
       await _sessionStore.setSession(session);
-    } catch (_) {
+    } on ApiException {
       this.errorMessage = errorMessage;
     } finally {
       isSubmitting = false;

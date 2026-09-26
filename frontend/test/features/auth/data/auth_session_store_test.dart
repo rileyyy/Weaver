@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:weaver/core/network/api_exception.dart';
+import 'package:weaver/core/network/network_exception.dart';
 import 'package:weaver/features/auth/data/auth_repository.dart';
 import 'package:weaver/features/auth/data/auth_session_store.dart';
 import 'package:weaver/features/auth/data/secure_token_store.dart';
@@ -159,7 +161,9 @@ void main() {
     'ensureValidSession clears the session when the refresh call fails',
     () async {
       store = AuthSessionStore(
-        _FakeAuthRepository(refreshError: Exception('expired')),
+        _FakeAuthRepository(
+          refreshError: const ApiException('expired', statusCode: 401),
+        ),
         tokenStore,
       );
       await store.setSession(
@@ -278,7 +282,9 @@ void main() {
 
       final result = store.ensureValidSession();
       await store.setSession(_session('logged-in-again', 'new-refresh'));
-      gated.gate.completeError(Exception('refresh token already rotated'));
+      gated.gate.completeError(
+        const ApiException('refresh token already rotated', statusCode: 401),
+      );
 
       expect(await result, isTrue);
       expect(store.current!.accessToken, 'logged-in-again');
@@ -298,5 +304,19 @@ void main() {
     await store.ensureValidSession();
 
     expect(repository.refreshCalls, ['refresh']);
+  });
+
+  test('a network failure during refresh keeps the session', () async {
+    store = AuthSessionStore(
+      _FakeAuthRepository(refreshError: const NetworkException()),
+      tokenStore,
+    );
+    await store.setSession(expiredSession());
+
+    final result = await store.ensureValidSession();
+
+    expect(result, isFalse);
+    expect(store.isAuthenticated, isTrue);
+    expect(tokenStore.token, 'refresh');
   });
 }

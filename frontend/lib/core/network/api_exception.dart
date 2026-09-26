@@ -1,4 +1,6 @@
-/// Thrown by repository implementations when a backend request fails.
+/// Thrown by repositories when a backend request fails. View models catch
+/// this type (and its subclasses) rather than everything, so a programming
+/// error still surfaces instead of being shown as "check your connection".
 class ApiException implements Exception {
   const ApiException(this.message, {this.statusCode});
 
@@ -8,6 +10,8 @@ class ApiException implements Exception {
   final int? statusCode;
 
   bool get isConflict => statusCode == 409;
+
+  bool get isUnauthorized => statusCode == 401;
 
   @override
   String toString() => message;

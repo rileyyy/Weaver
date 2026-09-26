@@ -12,6 +12,12 @@ class AuthUser {
     required this.kind,
   });
 
+  factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
+    id: json['id'] as String,
+    username: json['username'] as String,
+    kind: userKindFromWire(json['kind'] as String),
+  );
+
   final String id;
   final String username;
   final UserKind kind;

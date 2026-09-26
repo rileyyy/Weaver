@@ -242,8 +242,13 @@ The most important problems cluster in four areas:
 
 - [x] *(Resolved in `bugfix/token-refresh-stampede`.)* **F-M1. Near-expiry tokens and blanket 401 handling.** `isAccessTokenExpired` has no leeway, so a token with 1 s left expires in flight. Any 401 then clears the session without trying a refresh, even when a newer session already exists. **Fix:** treat the token as expired 30–60 s early, and only clear if the token that was sent is still the current one. (`auth_session.dart:21`, `auth_http_client.dart:31-33`)
 - [x] *(Resolved in `bugfix/detail-dialog-fixes`.)* **F-M2. `unawaited(_repository.logout(...))` has no error handler**, so a network failure becomes an unhandled async error. (`auth_view_model.dart:58`)
-- [ ] **F-M3. `catch (_)` everywhere** (about 12 sites) swallows `TypeError`/`StateError` from JSON casts and `!`. A backend contract change looks like "check your connection", and in `auth_session_store.dart:70` any parsing bug logs the user out. **Fix:** catch `ApiException` and network exceptions only, and wrap parse failures in a typed exception.
-- [ ] **F-M4. HTTP/JSON plumbing is copied across three repositories.**
+- [x] *(Resolved in `feature/shared-api-client`:
+  - Failures are typed: `ApiException` with a status code, `NetworkException` and `UnexpectedResponseException`.
+  - View models catch only `ApiException`, so programming errors surface.
+  - A token refresh clears the session only on a 401.)*
+
+  **F-M3. `catch (_)` everywhere** (about 12 sites) swallows `TypeError`/`StateError` from JSON casts and `!`. A backend contract change looks like "check your connection", and in `auth_session_store.dart:70` any parsing bug logs the user out. **Fix:** catch `ApiException` and network exceptions only, and wrap parse failures in a typed exception.
+- [x] *(Resolved in `feature/shared-api-client`: `core/network/json_api_client.dart` handles all HTTP/JSON, and the models have `fromJson` factories.)* **F-M4. HTTP/JSON plumbing is copied across three repositories.**
   - `_uri`, `_checkOk`, `_problemDetail`, `_getJsonList` and `_parseDate` are defined in `api_board_repository`, `api_work_item_detail_repository` and `api_auth_repository`.
   - Status, user and tag parsing is duplicated.
   - The copies are already drifting: one uses `queryParameters`, the other concatenates `?parentId=$id`.

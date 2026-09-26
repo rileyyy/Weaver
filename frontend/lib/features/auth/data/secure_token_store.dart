@@ -23,7 +23,7 @@ class FlutterSecureTokenStore implements SecureTokenStore {
   Future<String?> readRefreshToken() async {
     try {
       return await _storage.read(key: _refreshTokenKey);
-    } catch (_) {
+    } on Exception {
       // A corrupted keystore entry or unavailable secure storage (e.g. a
       // locked-down browser profile) should fall back to "not logged in"
       // rather than crash the app on startup.
