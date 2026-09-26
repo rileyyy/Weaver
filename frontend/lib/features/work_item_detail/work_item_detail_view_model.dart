@@ -127,21 +127,38 @@ class WorkItemDetailViewModel extends ViewModel {
     }
   }
 
+  /// Why [title] can't be saved, or null if it can. The server enforces
+  /// the same rules; checking here lets the view say so before a round trip.
+  String? titleError(String title) {
+    if (title.trim().isEmpty) return 'Title is required.';
+    if (title.length > titleMaxLength) {
+      return 'Title must be at most $titleMaxLength characters.';
+    }
+    return null;
+  }
+
+  /// Mirrors `WorkItem.TitleMaxLength` on the backend.
+  static const int titleMaxLength = 500;
+
   Future<bool> saveDetails({
     required String title,
     required String? description,
     required String? layerId,
     required WorkItemPriority priority,
-  }) => _save(
-    () => _repository.updateDetails(
-      _item!.id,
-      title: title,
-      description: description,
-      layerId: layerId,
-      priority: priority,
-      expectedVersion: _item!.version,
-    ),
-  );
+  }) {
+    final error = titleError(title);
+    if (error != null) return _reject(error);
+    return _save(
+      () => _repository.updateDetails(
+        _item!.id,
+        title: title,
+        description: description,
+        layerId: layerId,
+        priority: priority,
+        expectedVersion: _item!.version,
+      ),
+    );
+  }
 
   Future<bool> saveAssignee(String? userId) =>
       _save(() => _repository.assign(_item!.id, userId));
@@ -162,14 +179,25 @@ class WorkItemDetailViewModel extends ViewModel {
     ),
   );
 
-  Future<bool> saveSchedule(DateTime? startDate, DateTime? endDate) => _save(
-    () => _repository.reschedule(
-      _item!.id,
-      startDate,
-      endDate,
-      expectedVersion: _item!.version,
-    ),
-  );
+  Future<bool> saveSchedule(DateTime? startDate, DateTime? endDate) {
+    if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
+      return _reject('The start date must not be after the end date.');
+    }
+    return _save(
+      () => _repository.reschedule(
+        _item!.id,
+        startDate,
+        endDate,
+        expectedVersion: _item!.version,
+      ),
+    );
+  }
+
+  Future<bool> _reject(String message) {
+    _saveError = message;
+    notifyIfActive();
+    return Future.value(false);
+  }
 
   // Comment and link mutations apply the server's response locally instead
   // of reloading the list: a reload that failed after a successful POST
@@ -262,7 +290,9 @@ class WorkItemDetailViewModel extends ViewModel {
       if (e.isConflict && onConflict != null) {
         await onConflict();
       } else {
-        _saveError = errorMessage;
+        // A 400 carries the server's validation message ("Each tag must be
+        // at most 50 characters."), which says more than "try again".
+        _saveError = e.statusCode == 400 ? e.message : errorMessage;
       }
       return false;
     } finally {

@@ -278,7 +278,14 @@ The most important problems cluster in four areas:
   - `GridRowBox` has a fixed height, but a card with a long title can grow past it and paint into the next lane.
   - (`swimlane_view.dart:136-306`, `status_column.dart`, `tag_badge.dart`)
 - [x] *(Resolved in `feature/single-request-board-load`: `GET /api/work-items/swimlanes` returns every lane with its cards using two queries. With statuses cached, a board load is one request. Verified on the dev database: same lanes, cards and order as the per-lane requests, 1 request instead of 8.)* **F-M9. N+1 board load.** The client fetches `/statuses`, then children, *sequentially*, then one request per swimlane: 32 requests for a 30-lane board. This fan-out is also what triggers F-H1. **Fix:** add a backend endpoint that returns two levels at once, and at minimum run the first two requests in parallel.
-- [ ] **F-M10. `WorkItemDetailView` is 608 lines.**
+- [x] *(Resolved in `feature/split-detail-view` (the `getIt` part in `feature/untangle-features`):
+  - Sub-items, links, tags, comments and schedule are widget classes, and the view dropped from 608 to 429 lines.
+  - The details form saves with "Save details", enabled only when there are changes; closing with unsaved edits asks first.
+  - A blank title is flagged and blocked, and the date pickers can't invert the range.
+  - A 400 now shows the server's message.
+  - Widget tests cover the flow.)*
+
+  **F-M10. `WorkItemDetailView` is 608 lines.**
   - Seven `_buildXxx` methods should be widget classes.
   - The widget calls `getIt<AuthSessionStore>()` directly, bypassing the VM.
   - Save semantics are mixed: some fields need **Save** and others save immediately, and unsaved title edits are lost on close.
