@@ -16,8 +16,10 @@ abstract class NetworkModule {
   /// plain `http.Client` and gets this token-attaching wrapper for free,
   /// with no auth-specific code of its own.
   @lazySingleton
-  http.Client httpClient(@Named('rawHttpClient') http.Client raw, AuthSessionStore sessionStore) =>
-      AuthHttpClient(raw, sessionStore);
+  http.Client httpClient(
+    @Named('rawHttpClient') http.Client raw,
+    AuthSessionStore sessionStore,
+  ) => AuthHttpClient(raw, sessionStore);
 
   @Named('apiBaseUrl')
   String get apiBaseUrl => ApiConfig.baseUrl;

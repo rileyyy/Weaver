@@ -16,7 +16,9 @@ class TagBadge extends StatelessWidget {
   final bool isOverflow;
 
   static TextStyle _textStyle(BuildContext context) =>
-      (Theme.of(context).textTheme.labelSmall ?? const TextStyle()).copyWith(fontSize: _fontSize);
+      (Theme.of(context).textTheme.labelSmall ?? const TextStyle()).copyWith(
+        fontSize: _fontSize,
+      );
 
   /// The exact rendered width of a badge showing [label] — used by
   /// [TagBadgeRow]'s fitting logic so its measurement matches what this
@@ -34,15 +36,22 @@ class TagBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: _horizontalPadding, vertical: _verticalPadding),
+      padding: const EdgeInsets.symmetric(
+        horizontal: _horizontalPadding,
+        vertical: _verticalPadding,
+      ),
       decoration: BoxDecoration(
-        color: isOverflow ? colorScheme.surfaceContainerHighest : colorScheme.secondaryContainer,
+        color: isOverflow
+            ? colorScheme.surfaceContainerHighest
+            : colorScheme.secondaryContainer,
         borderRadius: BorderRadius.circular(_borderRadius),
       ),
       child: Text(
         label,
         style: _textStyle(context).copyWith(
-          color: isOverflow ? colorScheme.onSurfaceVariant : colorScheme.onSecondaryContainer,
+          color: isOverflow
+              ? colorScheme.onSurfaceVariant
+              : colorScheme.onSecondaryContainer,
         ),
       ),
     );
@@ -97,8 +106,9 @@ class TagBadgeRow extends StatelessWidget {
     for (var i = 0; i < tags.length; i++) {
       final tagWidth = TagBadge.widthFor(context, tags[i]);
       final remainingAfterThis = tags.length - (i + 1);
-      final reserve =
-          remainingAfterThis > 0 ? spacing + TagBadge.widthFor(context, '+$remainingAfterThis') : 0.0;
+      final reserve = remainingAfterThis > 0
+          ? spacing + TagBadge.widthFor(context, '+$remainingAfterThis')
+          : 0.0;
       final gap = i > 0 ? spacing : 0.0;
 
       if (used + gap + tagWidth + reserve <= maxWidth) {

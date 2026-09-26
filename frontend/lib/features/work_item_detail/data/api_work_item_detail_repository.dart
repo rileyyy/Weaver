@@ -44,7 +44,9 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
 
   @override
   Future<void> deleteItem(String id, {bool cascade = false}) async {
-    final response = await _client.delete(_uri('/work-items/$id?cascade=$cascade'));
+    final response = await _client.delete(
+      _uri('/work-items/$id?cascade=$cascade'),
+    );
     _checkOk(response, 'Failed to delete work item');
   }
 
@@ -67,7 +69,11 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     final json = await _getJsonList('/work-item-layers');
     return [
       for (final item in json)
-        WorkItemLayer(id: item['id'] as String, name: item['name'] as String, order: item['order'] as int),
+        WorkItemLayer(
+          id: item['id'] as String,
+          name: item['name'] as String,
+          order: item['order'] as int,
+        ),
     ];
   }
 
@@ -140,7 +146,11 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   }
 
   @override
-  Future<WorkItemDetail> updateTags(String id, List<String> tags, {required int expectedVersion}) async {
+  Future<WorkItemDetail> updateTags(
+    String id,
+    List<String> tags, {
+    required int expectedVersion,
+  }) async {
     final response = await _client.post(
       _uri('/work-items/$id/tags'),
       headers: const {'Content-Type': 'application/json'},
@@ -191,7 +201,10 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   }
 
   @override
-  Future<WorkItemLink> addLink(String workItemId, String targetWorkItemId) async {
+  Future<WorkItemLink> addLink(
+    String workItemId,
+    String targetWorkItemId,
+  ) async {
     final response = await _client.post(
       _uri('/work-items/$workItemId/links'),
       headers: const {'Content-Type': 'application/json'},
@@ -240,11 +253,11 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? const [],
   );
 
-
   Future<List<Map<String, dynamic>>> _getJsonList(String path) async {
     final response = await _client.get(_uri(path));
     _checkOk(response, 'Failed to load $path');
-    return (jsonDecode(response.body) as List<dynamic>).cast<Map<String, dynamic>>();
+    return (jsonDecode(response.body) as List<dynamic>)
+        .cast<Map<String, dynamic>>();
   }
 
   Uri _uri(String path) => Uri.parse('$_baseUrl$path');

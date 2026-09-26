@@ -13,7 +13,8 @@ class RoadmapRowTile extends StatelessWidget {
   static const double _barHeight = 20;
   static const double _minBarWidth = 4;
 
-  const RoadmapRowTile({super.key, 
+  const RoadmapRowTile({
+    super.key,
     required this.row,
     required this.timeframe,
     required this.windowStart,

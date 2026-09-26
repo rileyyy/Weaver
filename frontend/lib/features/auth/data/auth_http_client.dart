@@ -29,7 +29,8 @@ class AuthHttpClient extends http.BaseClient {
     }
 
     final response = await _inner.send(request);
-    if (response.statusCode == 401 && _sessionStore.current?.accessToken == token) {
+    if (response.statusCode == 401 &&
+        _sessionStore.current?.accessToken == token) {
       await _sessionStore.clear();
     }
     return response;

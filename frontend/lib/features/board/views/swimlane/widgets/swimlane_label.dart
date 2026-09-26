@@ -44,7 +44,9 @@ class SwimlaneLabel extends StatelessWidget {
         final borderRadius = BorderRadius.circular(8);
         final baseLabelStyle = Theme.of(context).textTheme.titleSmall;
         final labelStyle = baseLabelStyle?.copyWith(
-          fontSize: (baseLabelStyle.fontSize ?? 14) * SwimlaneView.gridHeaderFontScale,
+          fontSize:
+              (baseLabelStyle.fontSize ?? 14) *
+              SwimlaneView.gridHeaderFontScale,
           color: SwimlaneView.onGridBackground,
           fontWeight: FontWeight.w600,
           decoration: TextDecoration.underline,

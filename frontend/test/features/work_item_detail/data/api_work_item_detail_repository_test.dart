@@ -8,7 +8,11 @@ import 'package:weaver/features/work_item_detail/data/api_work_item_detail_repos
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 
 http.Response _jsonResponse(Object body, {int statusCode = 200}) =>
-    http.Response(jsonEncode(body), statusCode, headers: {'content-type': 'application/json'});
+    http.Response(
+      jsonEncode(body),
+      statusCode,
+      headers: {'content-type': 'application/json'},
+    );
 
 Map<String, dynamic> _itemJson({
   String? layerId,
@@ -47,23 +51,33 @@ Map<String, dynamic> _commentJson({DateTime? updatedAt}) => {
 void main() {
   const baseUrl = 'http://backend.test/api';
 
-  test('getItem parses the work item, including layer/priority/assignee', () async {
-    final client = MockClient((request) async => _jsonResponse(
-          _itemJson(layerId: 'layer-1', priority: 'Urgent', assignedToUserId: 'user-1'),
-        ));
-    final repository = ApiWorkItemDetailRepository(client, baseUrl);
+  test(
+    'getItem parses the work item, including layer/priority/assignee',
+    () async {
+      final client = MockClient(
+        (request) async => _jsonResponse(
+          _itemJson(
+            layerId: 'layer-1',
+            priority: 'Urgent',
+            assignedToUserId: 'user-1',
+          ),
+        ),
+      );
+      final repository = ApiWorkItemDetailRepository(client, baseUrl);
 
-    final item = await repository.getItem('item-1');
+      final item = await repository.getItem('item-1');
 
-    expect(item.layerId, 'layer-1');
-    expect(item.priority, WorkItemPriority.urgent);
-    expect(item.assignedToUserId, 'user-1');
-  });
+      expect(item.layerId, 'layer-1');
+      expect(item.priority, WorkItemPriority.urgent);
+      expect(item.assignedToUserId, 'user-1');
+    },
+  );
 
   test('getItem parses tags', () async {
-    final client = MockClient((request) async => _jsonResponse(
-          _itemJson(tags: ['urgent', 'needs review']),
-        ));
+    final client = MockClient(
+      (request) async =>
+          _jsonResponse(_itemJson(tags: ['urgent', 'needs review'])),
+    );
     final repository = ApiWorkItemDetailRepository(client, baseUrl);
 
     final item = await repository.getItem('item-1');
@@ -76,7 +90,12 @@ void main() {
     final client = MockClient((request) async {
       sentRequest = request;
       return _jsonResponse([
-        {'id': 'child-1', 'number': 7, 'title': 'A sub-item', 'statusId': 'status-todo'},
+        {
+          'id': 'child-1',
+          'number': 7,
+          'title': 'A sub-item',
+          'statusId': 'status-todo',
+        },
       ]);
     });
     final repository = ApiWorkItemDetailRepository(client, baseUrl);
@@ -90,9 +109,11 @@ void main() {
   });
 
   test('loadLayers parses the layer list', () async {
-    final client = MockClient((request) async => _jsonResponse([
-          {'id': 'layer-1', 'name': 'Project', 'order': 0},
-        ]));
+    final client = MockClient(
+      (request) async => _jsonResponse([
+        {'id': 'layer-1', 'name': 'Project', 'order': 0},
+      ]),
+    );
     final repository = ApiWorkItemDetailRepository(client, baseUrl);
 
     final layers = await repository.loadLayers();
@@ -101,9 +122,11 @@ void main() {
   });
 
   test('loadUsers parses the user list', () async {
-    final client = MockClient((request) async => _jsonResponse([
-          {'id': 'user-1', 'username': 'alice', 'kind': 'Human'},
-        ]));
+    final client = MockClient(
+      (request) async => _jsonResponse([
+        {'id': 'user-1', 'username': 'alice', 'kind': 'Human'},
+      ]),
+    );
     final repository = ApiWorkItemDetailRepository(client, baseUrl);
 
     final users = await repository.loadUsers();
@@ -140,7 +163,9 @@ void main() {
   });
 
   test('updateDetails returns the new version from the response', () async {
-    final client = MockClient((request) async => _jsonResponse(_itemJson(version: 8)));
+    final client = MockClient(
+      (request) async => _jsonResponse(_itemJson(version: 8)),
+    );
     final repository = ApiWorkItemDetailRepository(client, baseUrl);
 
     final item = await repository.updateDetails(
@@ -155,23 +180,35 @@ void main() {
     expect(item.version, 8);
   });
 
-  test('a 409 from a save throws a conflict ApiException with the server detail', () async {
-    final client = MockClient(
-      (request) async => _jsonResponse({'status': 409, 'detail': 'Changed by someone else.'}, statusCode: 409),
-    );
-    final repository = ApiWorkItemDetailRepository(client, baseUrl);
+  test(
+    'a 409 from a save throws a conflict ApiException with the server detail',
+    () async {
+      final client = MockClient(
+        (request) async => _jsonResponse({
+          'status': 409,
+          'detail': 'Changed by someone else.',
+        }, statusCode: 409),
+      );
+      final repository = ApiWorkItemDetailRepository(client, baseUrl);
 
-    final call = repository.updateTags('item-1', ['urgent'], expectedVersion: 7);
+      final call = repository.updateTags('item-1', [
+        'urgent',
+      ], expectedVersion: 7);
 
-    await expectLater(
-      call,
-      throwsA(
-        isA<ApiException>()
-            .having((e) => e.isConflict, 'isConflict', isTrue)
-            .having((e) => e.message, 'message', contains('Changed by someone else.')),
-      ),
-    );
-  });
+      await expectLater(
+        call,
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.isConflict, 'isConflict', isTrue)
+              .having(
+                (e) => e.message,
+                'message',
+                contains('Changed by someone else.'),
+              ),
+        ),
+      );
+    },
+  );
 
   test('assign posts the userId to the assignee endpoint', () async {
     http.Request? sentRequest;
@@ -195,7 +232,9 @@ void main() {
     });
     final repository = ApiWorkItemDetailRepository(client, baseUrl);
 
-    final item = await repository.updateTags('item-1', ['urgent'], expectedVersion: 7);
+    final item = await repository.updateTags('item-1', [
+      'urgent',
+    ], expectedVersion: 7);
 
     expect(sentRequest!.method, 'POST');
     expect(sentRequest!.url.path, '/api/work-items/item-1/tags');
@@ -226,7 +265,9 @@ void main() {
   });
 
   test('loadComments parses the comment list', () async {
-    final client = MockClient((request) async => _jsonResponse([_commentJson()]));
+    final client = MockClient(
+      (request) async => _jsonResponse([_commentJson()]),
+    );
     final repository = ApiWorkItemDetailRepository(client, baseUrl);
 
     final comments = await repository.loadComments('item-1');
@@ -295,9 +336,15 @@ void main() {
   });
 
   test('loadLinks parses the link list', () async {
-    final client = MockClient((request) async => _jsonResponse([
-          {'id': 'link-1', 'linkedWorkItemId': 'item-2', 'linkedWorkItemTitle': 'Other task'},
-        ]));
+    final client = MockClient(
+      (request) async => _jsonResponse([
+        {
+          'id': 'link-1',
+          'linkedWorkItemId': 'item-2',
+          'linkedWorkItemTitle': 'Other task',
+        },
+      ]),
+    );
     final repository = ApiWorkItemDetailRepository(client, baseUrl);
 
     final links = await repository.loadLinks('item-1');
@@ -309,7 +356,11 @@ void main() {
     http.Request? sentRequest;
     final client = MockClient((request) async {
       sentRequest = request;
-      return _jsonResponse({'id': 'link-1', 'linkedWorkItemId': 'item-2', 'linkedWorkItemTitle': 'Other task'});
+      return _jsonResponse({
+        'id': 'link-1',
+        'linkedWorkItemId': 'item-2',
+        'linkedWorkItemTitle': 'Other task',
+      });
     });
     final repository = ApiWorkItemDetailRepository(client, baseUrl);
 

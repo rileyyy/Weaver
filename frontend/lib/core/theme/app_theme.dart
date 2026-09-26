@@ -23,21 +23,21 @@ abstract final class AppTheme {
   static const double _fontSizeFactor = 1.1;
 
   static ThemeData get light => _withScaledFonts(
-        ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: _seedColor),
-          useMaterial3: true,
-        ),
-      );
+    ThemeData(
+      colorScheme: ColorScheme.fromSeed(seedColor: _seedColor),
+      useMaterial3: true,
+    ),
+  );
 
   static ThemeData get dark => _withScaledFonts(
-        ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: _seedColor,
-            brightness: Brightness.dark,
-          ),
-          useMaterial3: true,
-        ),
-      );
+    ThemeData(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: _seedColor,
+        brightness: Brightness.dark,
+      ),
+      useMaterial3: true,
+    ),
+  );
 
   static ThemeData _withScaledFonts(ThemeData theme) =>
       theme.copyWith(textTheme: _scaled(theme.textTheme));
@@ -48,22 +48,22 @@ abstract final class AppTheme {
   // Passing those through unscaled avoids the crash without losing any size
   // that was actually set.
   static TextTheme _scaled(TextTheme base) => TextTheme(
-        displayLarge: _scaleStyle(base.displayLarge),
-        displayMedium: _scaleStyle(base.displayMedium),
-        displaySmall: _scaleStyle(base.displaySmall),
-        headlineLarge: _scaleStyle(base.headlineLarge),
-        headlineMedium: _scaleStyle(base.headlineMedium),
-        headlineSmall: _scaleStyle(base.headlineSmall),
-        titleLarge: _scaleStyle(base.titleLarge),
-        titleMedium: _scaleStyle(base.titleMedium),
-        titleSmall: _scaleStyle(base.titleSmall),
-        bodyLarge: _scaleStyle(base.bodyLarge),
-        bodyMedium: _scaleStyle(base.bodyMedium),
-        bodySmall: _scaleStyle(base.bodySmall),
-        labelLarge: _scaleStyle(base.labelLarge),
-        labelMedium: _scaleStyle(base.labelMedium),
-        labelSmall: _scaleStyle(base.labelSmall),
-      );
+    displayLarge: _scaleStyle(base.displayLarge),
+    displayMedium: _scaleStyle(base.displayMedium),
+    displaySmall: _scaleStyle(base.displaySmall),
+    headlineLarge: _scaleStyle(base.headlineLarge),
+    headlineMedium: _scaleStyle(base.headlineMedium),
+    headlineSmall: _scaleStyle(base.headlineSmall),
+    titleLarge: _scaleStyle(base.titleLarge),
+    titleMedium: _scaleStyle(base.titleMedium),
+    titleSmall: _scaleStyle(base.titleSmall),
+    bodyLarge: _scaleStyle(base.bodyLarge),
+    bodyMedium: _scaleStyle(base.bodyMedium),
+    bodySmall: _scaleStyle(base.bodySmall),
+    labelLarge: _scaleStyle(base.labelLarge),
+    labelMedium: _scaleStyle(base.labelMedium),
+    labelSmall: _scaleStyle(base.labelSmall),
+  );
 
   static TextStyle? _scaleStyle(TextStyle? style) {
     final fontSize = style?.fontSize;

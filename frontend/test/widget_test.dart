@@ -90,7 +90,8 @@ class _UnusedAuthRepository implements AuthRepository {
       throw UnimplementedError();
 
   @override
-  Future<AuthSession> refresh(String refreshToken) => throw UnimplementedError();
+  Future<AuthSession> refresh(String refreshToken) =>
+      throw UnimplementedError();
 
   @override
   Future<void> logout(String refreshToken) => throw UnimplementedError();
@@ -127,9 +128,15 @@ void main() {
     await getIt<AuthSessionStore>().setSession(
       AuthSession(
         accessToken: 'test-access-token',
-        accessTokenExpiresAtUtc: DateTime.now().toUtc().add(const Duration(hours: 1)),
+        accessTokenExpiresAtUtc: DateTime.now().toUtc().add(
+          const Duration(hours: 1),
+        ),
         refreshToken: 'test-refresh-token',
-        user: const AuthUser(id: 'user-1', username: 'tester', kind: UserKind.human),
+        user: const AuthUser(
+          id: 'user-1',
+          username: 'tester',
+          kind: UserKind.human,
+        ),
       ),
     );
   });

@@ -56,7 +56,11 @@ class _LoginViewState extends State<LoginView> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Weaver', style: Theme.of(context).textTheme.headlineMedium, textAlign: TextAlign.center),
+                    Text(
+                      'Weaver',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                      textAlign: TextAlign.center,
+                    ),
                     const SizedBox(height: 24),
                     TextField(
                       controller: _usernameController,
@@ -68,11 +72,15 @@ class _LoginViewState extends State<LoginView> {
                       controller: _passwordController,
                       decoration: InputDecoration(
                         labelText: 'Password',
-                        helperText: _isRegistering ? 'At least 12 characters' : null,
+                        helperText: _isRegistering
+                            ? 'At least 12 characters'
+                            : null,
                       ),
                       obscureText: true,
                       autofillHints: [
-                        _isRegistering ? AutofillHints.newPassword : AutofillHints.password,
+                        _isRegistering
+                            ? AutofillHints.newPassword
+                            : AutofillHints.password,
                       ],
                       onSubmitted: (_) => unawaited(_submit()),
                     ),
@@ -80,25 +88,35 @@ class _LoginViewState extends State<LoginView> {
                     if (viewModel.errorMessage != null) ...[
                       Text(
                         viewModel.errorMessage!,
-                        style: TextStyle(color: Theme.of(context).colorScheme.error),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 12),
                     ],
                     FilledButton(
-                      onPressed: viewModel.isSubmitting ? null : () => unawaited(_submit()),
-                      child: Text(viewModel.isSubmitting
-                          ? 'Please wait…'
-                          : (_isRegistering ? 'Create account' : 'Sign in')),
+                      onPressed: viewModel.isSubmitting
+                          ? null
+                          : () => unawaited(_submit()),
+                      child: Text(
+                        viewModel.isSubmitting
+                            ? 'Please wait…'
+                            : (_isRegistering ? 'Create account' : 'Sign in'),
+                      ),
                     ),
                     const SizedBox(height: 8),
                     TextButton(
                       onPressed: viewModel.isSubmitting
                           ? null
-                          : () => setState(() => _isRegistering = !_isRegistering),
-                      child: Text(_isRegistering
-                          ? 'Already have an account? Sign in'
-                          : "Don't have an account? Create one"),
+                          : () => setState(
+                              () => _isRegistering = !_isRegistering,
+                            ),
+                      child: Text(
+                        _isRegistering
+                            ? 'Already have an account? Sign in'
+                            : "Don't have an account? Create one",
+                      ),
                     ),
                   ],
                 );

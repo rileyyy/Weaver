@@ -80,12 +80,14 @@ class _FakeRepository implements WorkItemDetailRepository {
   ];
 
   @override
-  Future<List<WorkItemLayer>> loadLayers() async =>
-      const [WorkItemLayer(id: 'layer-task', name: 'Task', order: 0)];
+  Future<List<WorkItemLayer>> loadLayers() async => const [
+    WorkItemLayer(id: 'layer-task', name: 'Task', order: 0),
+  ];
 
   @override
-  Future<List<AuthUser>> loadUsers() async =>
-      const [AuthUser(id: 'user-1', username: 'alice', kind: UserKind.human)];
+  Future<List<AuthUser>> loadUsers() async => const [
+    AuthUser(id: 'user-1', username: 'alice', kind: UserKind.human),
+  ];
 
   @override
   Future<WorkItemDetail> updateDetails(
@@ -114,7 +116,11 @@ class _FakeRepository implements WorkItemDetailRepository {
     assignCalls.add(userId);
     final error = saveError;
     if (error != null) throw error;
-    return item = _item(id: id, statusId: item.statusId, assignedToUserId: userId);
+    return item = _item(
+      id: id,
+      statusId: item.statusId,
+      assignedToUserId: userId,
+    );
   }
 
   @override
@@ -132,7 +138,11 @@ class _FakeRepository implements WorkItemDetailRepository {
   }
 
   @override
-  Future<WorkItemDetail> updateTags(String id, List<String> tags, {required int expectedVersion}) async {
+  Future<WorkItemDetail> updateTags(
+    String id,
+    List<String> tags, {
+    required int expectedVersion,
+  }) async {
     updateTagsCalls.add(tags);
     expectedVersions.add(expectedVersion);
     final error = saveError;
@@ -141,7 +151,8 @@ class _FakeRepository implements WorkItemDetailRepository {
   }
 
   @override
-  Future<List<WorkItemComment>> loadComments(String workItemId) async => List.of(commentsList);
+  Future<List<WorkItemComment>> loadComments(String workItemId) async =>
+      List.of(commentsList);
 
   @override
   Future<WorkItemComment> addComment(String workItemId, String body) async {
@@ -186,10 +197,14 @@ class _FakeRepository implements WorkItemDetailRepository {
   }
 
   @override
-  Future<List<WorkItemLink>> loadLinks(String workItemId) async => List.of(linksList);
+  Future<List<WorkItemLink>> loadLinks(String workItemId) async =>
+      List.of(linksList);
 
   @override
-  Future<WorkItemLink> addLink(String workItemId, String targetWorkItemId) async {
+  Future<WorkItemLink> addLink(
+    String workItemId,
+    String targetWorkItemId,
+  ) async {
     final error = saveError;
     if (error != null) throw error;
     final link = WorkItemLink(
@@ -260,14 +275,17 @@ void main() {
     expect(viewModel.children.single.title, 'A sub-item');
   });
 
-  test('statusColorFor resolves a status by id, or null when unknown', () async {
-    final repository = _FakeRepository();
-    final viewModel = WorkItemDetailViewModel(repository);
-    await viewModel.load('item-1');
+  test(
+    'statusColorFor resolves a status by id, or null when unknown',
+    () async {
+      final repository = _FakeRepository();
+      final viewModel = WorkItemDetailViewModel(repository);
+      await viewModel.load('item-1');
 
-    expect(viewModel.statusColorFor('todo'), const Color(0xFF00FF00));
-    expect(viewModel.statusColorFor('not-a-status'), isNull);
-  });
+      expect(viewModel.statusColorFor('todo'), const Color(0xFF00FF00));
+      expect(viewModel.statusColorFor('not-a-status'), isNull);
+    },
+  );
 
   test('saveDetails updates the item and returns true on success', () async {
     final repository = _FakeRepository();
@@ -303,41 +321,59 @@ void main() {
     expect(viewModel.saveError, isNotNull);
   });
 
-  test('saveDetails sends the loaded version, then the version each save returns', () async {
-    final repository = _FakeRepository()..item = _item(version: 5);
-    final viewModel = WorkItemDetailViewModel(repository);
-    await viewModel.load('item-1');
+  test(
+    'saveDetails sends the loaded version, then the version each save returns',
+    () async {
+      final repository = _FakeRepository()..item = _item(version: 5);
+      final viewModel = WorkItemDetailViewModel(repository);
+      await viewModel.load('item-1');
 
-    await viewModel.saveDetails(title: 'One', description: null, layerId: null, priority: WorkItemPriority.low);
-    await viewModel.saveTags(['urgent']);
+      await viewModel.saveDetails(
+        title: 'One',
+        description: null,
+        layerId: null,
+        priority: WorkItemPriority.low,
+      );
+      await viewModel.saveTags(['urgent']);
 
-    expect(repository.expectedVersions, [5, 6]);
-  });
+      expect(repository.expectedVersions, [5, 6]);
+    },
+  );
 
-  test('a save conflict reloads the latest item and bumps reloadGeneration', () async {
-    final repository = _FakeRepository(saveError: const ApiException('changed', statusCode: 409));
-    final viewModel = WorkItemDetailViewModel(repository);
-    await viewModel.load('item-1');
-    final generationBefore = viewModel.reloadGeneration;
-    repository.item = _item(title: "Someone else's title", version: 9);
+  test(
+    'a save conflict reloads the latest item and bumps reloadGeneration',
+    () async {
+      final repository = _FakeRepository(
+        saveError: const ApiException('changed', statusCode: 409),
+      );
+      final viewModel = WorkItemDetailViewModel(repository);
+      await viewModel.load('item-1');
+      final generationBefore = viewModel.reloadGeneration;
+      repository.item = _item(title: "Someone else's title", version: 9);
 
-    final ok = await viewModel.saveDetails(
-      title: 'My title',
-      description: null,
-      layerId: null,
-      priority: WorkItemPriority.medium,
-    );
+      final ok = await viewModel.saveDetails(
+        title: 'My title',
+        description: null,
+        layerId: null,
+        priority: WorkItemPriority.medium,
+      );
 
-    expect(ok, isFalse);
-    expect(viewModel.item!.title, "Someone else's title");
-    expect(viewModel.item!.version, 9);
-    expect(viewModel.reloadGeneration, generationBefore + 1);
-    expect(viewModel.saveError, contains('Someone else changed this work item'));
-    expect(viewModel.isSaving, isFalse);
-  });
+      expect(ok, isFalse);
+      expect(viewModel.item!.title, "Someone else's title");
+      expect(viewModel.item!.version, 9);
+      expect(viewModel.reloadGeneration, generationBefore + 1);
+      expect(
+        viewModel.saveError,
+        contains('Someone else changed this work item'),
+      );
+      expect(viewModel.isSaving, isFalse);
+    },
+  );
 
   test('a non-conflict ApiException does not reload the item', () async {
-    final repository = _FakeRepository(saveError: const ApiException('bad tag', statusCode: 400));
+    final repository = _FakeRepository(
+      saveError: const ApiException('bad tag', statusCode: 400),
+    );
     final viewModel = WorkItemDetailViewModel(repository);
     await viewModel.load('item-1');
     final generationBefore = viewModel.reloadGeneration;
@@ -386,16 +422,19 @@ void main() {
     expect(viewModel.saveError, isNotNull);
   });
 
-  test('saveSchedule delegates to the repository and returns success', () async {
-    final repository = _FakeRepository();
-    final viewModel = WorkItemDetailViewModel(repository);
-    await viewModel.load('item-1');
+  test(
+    'saveSchedule delegates to the repository and returns success',
+    () async {
+      final repository = _FakeRepository();
+      final viewModel = WorkItemDetailViewModel(repository);
+      await viewModel.load('item-1');
 
-    final ok = await viewModel.saveSchedule(DateTime(2026, 2, 1), null);
+      final ok = await viewModel.saveSchedule(DateTime(2026, 2, 1), null);
 
-    expect(ok, isTrue);
-    expect(repository.rescheduleCalls, ['item-1']);
-  });
+      expect(ok, isTrue);
+      expect(repository.rescheduleCalls, ['item-1']);
+    },
+  );
 
   test('addComment appends the new comment to the list', () async {
     final repository = _FakeRepository();
@@ -523,7 +562,9 @@ void main() {
     });
 
     test('stays false after a failed save', () async {
-      final viewModel = WorkItemDetailViewModel(_FakeRepository(saveError: Exception('boom')));
+      final viewModel = WorkItemDetailViewModel(
+        _FakeRepository(saveError: Exception('boom')),
+      );
       await viewModel.load('item-1');
 
       await viewModel.saveTags(['urgent']);
@@ -540,18 +581,26 @@ void main() {
       expect(viewModel.hasChanges, isTrue);
     });
 
-    test('onSubItemChanged reloads the Sub-Items list and marks the dialog changed', () async {
-      final repository = _FakeRepository();
-      final viewModel = WorkItemDetailViewModel(repository);
-      await viewModel.load('item-1');
-      repository.childrenList = [
-        const WorkItemChildSummary(id: 'child-2', number: 7, title: 'Remaining', statusId: 'todo'),
-      ];
+    test(
+      'onSubItemChanged reloads the Sub-Items list and marks the dialog changed',
+      () async {
+        final repository = _FakeRepository();
+        final viewModel = WorkItemDetailViewModel(repository);
+        await viewModel.load('item-1');
+        repository.childrenList = [
+          const WorkItemChildSummary(
+            id: 'child-2',
+            number: 7,
+            title: 'Remaining',
+            statusId: 'todo',
+          ),
+        ];
 
-      await viewModel.onSubItemChanged();
+        await viewModel.onSubItemChanged();
 
-      expect(viewModel.children.single.id, 'child-2');
-      expect(viewModel.hasChanges, isTrue);
-    });
+        expect(viewModel.children.single.id, 'child-2');
+        expect(viewModel.hasChanges, isTrue);
+      },
+    );
   });
 }

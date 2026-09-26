@@ -2,11 +2,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/core/network/api_dates.dart';
 
 void main() {
-  test('formatCalendarDate sends the picked local day, whatever the time zone', () {
-    expect(formatCalendarDate(DateTime(2026, 9, 25)), '2026-09-25');
-    expect(formatCalendarDate(DateTime(2026, 9, 25, 23, 59)), '2026-09-25');
-    expect(formatCalendarDate(null), isNull);
-  });
+  test(
+    'formatCalendarDate sends the picked local day, whatever the time zone',
+    () {
+      expect(formatCalendarDate(DateTime(2026, 9, 25)), '2026-09-25');
+      expect(formatCalendarDate(DateTime(2026, 9, 25, 23, 59)), '2026-09-25');
+      expect(formatCalendarDate(null), isNull);
+    },
+  );
 
   test('parseCalendarDate reads a date as local midnight on that day', () {
     final date = parseCalendarDate('2026-09-25')!;

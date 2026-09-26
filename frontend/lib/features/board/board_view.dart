@@ -130,7 +130,10 @@ class _BoardViewState extends State<BoardView>
   /// [WorkItemCard] in hand, e.g. tapping a swimlane's own label or a
   /// Hierarchy row.
   Future<void> _openDetailsById(String workItemId) async {
-    final changed = await showWorkItemDetailDialog(context, workItemId: workItemId);
+    final changed = await showWorkItemDetailDialog(
+      context,
+      workItemId: workItemId,
+    );
     if (changed) _refreshAfterDetailEdits();
   }
 
