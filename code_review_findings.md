@@ -299,6 +299,7 @@ The most important problems cluster in four areas:
 - [ ] **F-L10. `pubspec_overrides.yaml`** pins `flutter_secure_storage` to 10.3.4 while `pubspec.yaml` declares `^11.2.0`. It was committed without explanation in `9cf3167`. Pin the version in `pubspec.yaml` with a reason, and delete the override.
 - [ ] *(Formatting is now enforced in CI (`feature/ci-hardening`); the rest is still open.)* **F-L11. `analysis_options.yaml`** excludes `pubspec.yaml`, so `sort_pub_dependencies` never runs (and the dependencies are unsorted). Several rule comments are wrong. `flutter_lints` is one major version behind. Formatting isn't enforced in CI.
 - [ ] **F-L12.** The `ViewModel` base class has no `isDisposed` for long operations to check, and there is no test for `notifyIfActive` after dispose.
+- [ ] **F-L13. The tag filter is case-sensitive across items** *(found 2026-09-26 during the docs restructure)*. `availableTags` merges spellings case-insensitively ("Urgent" and "urgent" show as one chip), but `BoardViewModel.matchesTagFilter` uses exact `Set.contains`, so picking the chip hides items that use the other casing. Normalise both sides (e.g. compare lower-cased) and add a test.
 
 ---
 
@@ -338,7 +339,7 @@ The most important problems cluster in four areas:
 ### Low
 
 - [x] *(Resolved in `feature/rename-claude-md`.)* **I-L1.** The root rules file is committed as `claude.md` (lower-case). That works on Windows and macOS but not on case-sensitive tooling that looks for `CLAUDE.md`.
-- [ ] **I-L2.** `agent_notes.md` (50 KB) and `project_design.md` mix durable architecture decisions with milestone history and "open decisions" that have since been settled. Consider a lean `docs/architecture.md` (or ADRs) plus a changelog, and a top-level `README.md`; only `frontend/README.md` exists today.
+- [x] *(Resolved in `feature/docs-restructure`: new top-level `README.md` and `CHANGELOG.md`, plus `docs/architecture.md`, `docs/development.md` and `docs/open-questions.md`. `project_design.md` is trimmed to the design rules, and `agent_notes.md` is retired into these files.)* **I-L2.** `agent_notes.md` (50 KB) and `project_design.md` mix durable architecture decisions with milestone history and "open decisions" that have since been settled. Consider a lean `docs/architecture.md` (or ADRs) plus a changelog, and a top-level `README.md`; only `frontend/README.md` exists today.
 - [x] *(Resolved in `bugfix/deploy-exposure-and-tls`.)* **I-L3.** `compose.yaml` defaults to `ghcr.io/OWNER/...`, so a bare `docker compose pull` fails with an unclear error. Make it a required variable (`${BACKEND_IMAGE:?…}`) like the others.
 - [x] *(Resolved in `feature/nginx-hardening`: `nginx-unprivileged` (uid 101), CSP and other security headers, CanvasKit served locally, and `no-cache` revalidation for app files. Flutter's web output isn't content-hashed, so no long-lived caching is safe. Verified with a UI login in headless Chromium.)* **I-L4.** The nginx runtime image runs as root and sets no security headers (CSP, `X-Content-Type-Options`), and there is no cache policy distinguishing the hashed Flutter assets from `index.html`.
 
