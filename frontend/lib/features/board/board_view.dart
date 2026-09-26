@@ -105,7 +105,7 @@ class _BoardViewState extends State<BoardView>
   }
 
   void _onWorkItemDeleted() {
-    unawaited(_viewModel.retry());
+    unawaited(_viewModel.refreshCurrentScope());
     unawaited(_viewModel.refreshHierarchyIfLoaded());
   }
 
@@ -226,10 +226,15 @@ class _BoardViewState extends State<BoardView>
     final showAddButton = _tabController.index == BoardTab.swimLanes.index;
     return Scaffold(
       floatingActionButton: showAddButton
-          ? FloatingActionButton(
-              onPressed: () => unawaited(_openCreateWorkItemDialog()),
-              tooltip: 'Add work item',
-              child: const Icon(Icons.add),
+          ? ListenableBuilder(
+              listenable: _viewModel,
+              builder: (context, _) => _viewModel.canCreateWorkItem
+                  ? FloatingActionButton(
+                      onPressed: () => unawaited(_openCreateWorkItemDialog()),
+                      tooltip: 'Add work item',
+                      child: const Icon(Icons.add),
+                    )
+                  : const SizedBox.shrink(),
             )
           : null,
       body: ListenableBuilder(

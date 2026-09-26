@@ -349,13 +349,17 @@ whoever (human or agent) next touches this area.
   round trip is needed to know a breadcrumb's title — it's just the
   card's own `title`, captured at drill-in time.
 - **`BoardViewModel` funnels every scope change (`load`, `drillInto`,
-  `navigateToBreadcrumb`) through one private `_changeScope` helper** that
-  sets `isLoading`, clears `loadError`, records a `_retry` closure, and
-  catches failures into `loadError` with an action-specific message. This
-  is what makes a single generic `retry()` correct regardless of which
-  navigation failed — same shape as `moveCard`/`reparentCard` sharing an
-  optimistic-apply-then-rollback pattern for the same reason (one place to
-  get the error handling right, reused by every mutating/loading action).
+  `navigateToBreadcrumb`, `refreshCurrentScope`) through one private
+  `_changeScope` helper** that sets `isLoading`, clears `loadError`, and
+  catches failures into `loadError` with an action-specific message. It
+  records a `_retry` closure **only when the action fails**, so `retry()`
+  re-attempts the failed navigation and is a no-op otherwise. It used to
+  record every call, and `retry()` was also used as "refresh", which
+  replayed whatever ran last (a successful drill-in pushed its breadcrumb
+  again). Use `refreshCurrentScope()` to reload what's shown.
+  `createWorkItem` is deliberately *not* a `_changeScope` action: a failed
+  create reports through `moveError` and keeps the board, and a create
+  must never become the retry target, since retrying would POST it again.
 - **`WorkItemCard.movedToParent` is a separate method from `copyWith`**,
   deliberately not a `copyWith(parentId: ...)` overload. `copyWith`'s own
   doc comment already promises it never touches `parentId` — reusing it

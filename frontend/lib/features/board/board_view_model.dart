@@ -53,15 +53,18 @@ class BoardViewModel extends ViewModel {
 
   bool get isLoading => _isLoading;
 
+  /// Creating needs a loaded scope to create into and to reload afterwards.
+  bool get canCreateWorkItem => !_isLoading && _loadError == null && _breadcrumbs.isNotEmpty;
+
   /// Set when the current scope failed to load; the view replaces the
   /// board with a retry prompt while this is non-null. [retry] re-attempts
   /// whichever navigation caused the failure.
   String? get loadError => _loadError;
 
-  /// Set when a [moveCard], [reparentCard], or [rescheduleCard] call fails
-  /// after already having applied its optimistic UI update. Meant to be
-  /// surfaced once (e.g. as a SnackBar) and then cleared via
-  /// [clearMoveError].
+  /// Set when a board mutation ([moveCard], [reparentCard], [rescheduleCard],
+  /// [assign], [setTags], [createWorkItem]) fails. Unlike [loadError] it
+  /// leaves the board in place: it's meant to be surfaced once (e.g. as a
+  /// SnackBar) and then cleared via [clearMoveError].
   String? get moveError => _moveError;
 
   DateTime? get filterStart => _filterStart;
@@ -249,7 +252,21 @@ class BoardViewModel extends ViewModel {
         'Could not load the board. Check your connection and try again.',
   );
 
+  /// Re-attempts the scope load that last failed. A no-op once a load has
+  /// succeeded; use [refreshCurrentScope] to reload what's shown.
   Future<void> retry() => _retry();
+
+  /// Reloads the scope currently shown, e.g. after an item was deleted from
+  /// the detail dialog. Keeps the breadcrumb trail as it is.
+  Future<void> refreshCurrentScope() {
+    if (_breadcrumbs.isEmpty) return load();
+
+    final current = _breadcrumbs.last;
+    return _changeScope(
+      () async => _applyScope(await _repository.loadBoard(current.id)),
+      errorMessage: 'Could not refresh the board. Check your connection and try again.',
+    );
+  }
 
   /// Re-scopes the board to [card]'s own children — they become the new
   /// swimlanes. Pushes [card] onto the breadcrumb trail.
@@ -460,21 +477,34 @@ class BoardViewModel extends ViewModel {
   /// item) with [statusId], then reloads the current scope to pick it up —
   /// there's no optimistic add, since the created item's id isn't known
   /// until the repository call returns.
+  ///
+  /// Deliberately not routed through [_changeScope]: a failed create keeps
+  /// the board on screen (reported via [moveError]), and it must never
+  /// become the [retry] target, since retrying would POST the item again.
   Future<void> createWorkItem({
     required String title,
     String? description,
     required String? parentId,
     required String statusId,
-  }) => _changeScope(() async {
-    await _repository.createWorkItem(
-      title: title,
-      description: description,
-      parentId: parentId,
-      statusId: statusId,
-    );
-    final data = await _repository.loadBoard(_breadcrumbs.last.id);
-    _applyScope(data);
-  }, errorMessage: 'Could not create "$title". Try again.');
+  }) async {
+    final scopeId = _breadcrumbs.last.id;
+    try {
+      await _repository.createWorkItem(
+        title: title,
+        description: description,
+        parentId: parentId,
+        statusId: statusId,
+      );
+    } catch (_) {
+      _moveError = 'Could not create "$title". Try again.';
+      notifyIfActive();
+      return;
+    }
+
+    // If the user navigated elsewhere while the create was in flight, that
+    // navigation already loaded the scope they're now looking at.
+    if (_breadcrumbs.last.id == scopeId) await refreshCurrentScope();
+  }
 
   /// Sets the board's time-frame filter. Either bound may be null (open on
   /// that side); passing both null is equivalent to [clearTimeFilter].
@@ -651,13 +681,16 @@ class BoardViewModel extends ViewModel {
   }) async {
     _isLoading = true;
     _loadError = null;
-    _retry = () => _changeScope(action, errorMessage: errorMessage);
     notifyIfActive();
 
     try {
       await action();
+      _retry = _noRetry;
     } catch (_) {
       _loadError = errorMessage;
+      // Only a failure is retryable: replaying a successful drill-in would
+      // push its breadcrumb a second time.
+      _retry = () => _changeScope(action, errorMessage: errorMessage);
     } finally {
       _isLoading = false;
       notifyIfActive();
