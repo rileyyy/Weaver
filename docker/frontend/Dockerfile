@@ -2,7 +2,10 @@
 # SDK, then ship only the static output behind nginx. The Flutter/Dart
 # toolchain never reaches the final image.
 
-FROM ghcr.io/cirruslabs/flutter:stable AS build
+# Keep in step with FLUTTER_VERSION in .github/workflows/docker-publish.yml
+# (CI passes it in, so the default only matters for local builds).
+ARG FLUTTER_VERSION=3.44.0
+FROM ghcr.io/cirruslabs/flutter:${FLUTTER_VERSION} AS build
 WORKDIR /app
 
 COPY frontend/pubspec.yaml frontend/pubspec.lock ./

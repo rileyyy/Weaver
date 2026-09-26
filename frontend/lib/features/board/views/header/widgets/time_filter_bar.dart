@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:weaver/features/board/views/header/widgets/date_filter_button.dart';
 
 class TimeFilterBar extends StatelessWidget {
-  const TimeFilterBar({super.key, 
+  const TimeFilterBar({
+    super.key,
     required this.start,
     required this.end,
     required this.onChanged,

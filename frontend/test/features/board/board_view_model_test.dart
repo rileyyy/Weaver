@@ -328,14 +328,17 @@ void main() {
     expect(viewModel.breadcrumbs.map((b) => b.title), ['Board', 'Card 1']);
   });
 
-  test('drillInto sets loadError and leaves the breadcrumb unchanged on failure', () async {
-    final cardWithNoFixture = viewModel.swimlanes[1].cards.single;
+  test(
+    'drillInto sets loadError and leaves the breadcrumb unchanged on failure',
+    () async {
+      final cardWithNoFixture = viewModel.swimlanes[1].cards.single;
 
-    await viewModel.drillInto(cardWithNoFixture);
+      await viewModel.drillInto(cardWithNoFixture);
 
-    expect(viewModel.loadError, isNotNull);
-    expect(viewModel.breadcrumbs, hasLength(1));
-  });
+      expect(viewModel.loadError, isNotNull);
+      expect(viewModel.breadcrumbs, hasLength(1));
+    },
+  );
 
   test('navigateToBreadcrumb returns to a previous scope', () async {
     final card = viewModel.swimlanes[0].cards.single;
@@ -344,7 +347,10 @@ void main() {
     await viewModel.navigateToBreadcrumb(0);
 
     expect(viewModel.breadcrumbs, hasLength(1));
-    expect(viewModel.swimlanes.any((lane) => lane.parentId == 'lane-a'), isTrue);
+    expect(
+      viewModel.swimlanes.any((lane) => lane.parentId == 'lane-a'),
+      isTrue,
+    );
   });
 
   test('navigateToBreadcrumb is a no-op for the current scope', () async {
@@ -379,8 +385,9 @@ void main() {
       await viewModel.reparentCard(card, 'lane-b');
 
       expect(viewModel.swimlanes[0].cards, isEmpty);
-      final movedCard = viewModel.swimlanes[1].cards
-          .firstWhere((c) => c.id == 'card-1');
+      final movedCard = viewModel.swimlanes[1].cards.firstWhere(
+        (c) => c.id == 'card-1',
+      );
       expect(movedCard.parentId, 'lane-b');
       expect(movedCard.statusId, 'todo');
       expect(viewModel.swimlanes[1].cards, hasLength(2));
@@ -473,13 +480,16 @@ void main() {
     expect(viewModel.swimlanes[0].cards.single.assignedToUserId, 'user-1');
   });
 
-  test("assign sets a swimlane's own assignee when the id is its parent item", () async {
-    await viewModel.assign('lane-a', 'user-1');
+  test(
+    "assign sets a swimlane's own assignee when the id is its parent item",
+    () async {
+      await viewModel.assign('lane-a', 'user-1');
 
-    expect(viewModel.swimlanes[0].assignedToUserId, 'user-1');
-    // The lane's cards are untouched — only the lane's own assignee changed.
-    expect(viewModel.swimlanes[0].cards.single.assignedToUserId, isNull);
-  });
+      expect(viewModel.swimlanes[0].assignedToUserId, 'user-1');
+      // The lane's cards are untouched — only the lane's own assignee changed.
+      expect(viewModel.swimlanes[0].cards.single.assignedToUserId, isNull);
+    },
+  );
 
   test('assign clears an assignee when passed null', () async {
     final card = viewModel.swimlanes[0].cards.single;
@@ -501,7 +511,13 @@ void main() {
   test('assign updates a matching Hierarchy item too', () async {
     final repository = _TestBoardRepository(
       hierarchyItems: const [
-        HierarchyItem(id: 'root-1', number: 1, parentId: null, title: 'Root', statusId: 'todo'),
+        HierarchyItem(
+          id: 'root-1',
+          number: 1,
+          parentId: null,
+          title: 'Root',
+          statusId: 'todo',
+        ),
       ],
     );
     final hierarchyViewModel = BoardViewModel(repository);
@@ -510,7 +526,10 @@ void main() {
 
     await hierarchyViewModel.assign('root-1', 'user-1');
 
-    expect(hierarchyViewModel.hierarchyRoots.single.item.assignedToUserId, 'user-1');
+    expect(
+      hierarchyViewModel.hierarchyRoots.single.item.assignedToUserId,
+      'user-1',
+    );
   });
 
   test(
@@ -525,7 +544,10 @@ void main() {
 
       await failingViewModel.assign(card.id, 'user-1');
 
-      expect(failingViewModel.swimlanes[0].cards.single.assignedToUserId, isNull);
+      expect(
+        failingViewModel.swimlanes[0].cards.single.assignedToUserId,
+        isNull,
+      );
       expect(failingViewModel.moveError, isNotNull);
     },
   );
@@ -535,7 +557,10 @@ void main() {
 
     await viewModel.setTags(card.id, ['urgent', 'needs review']);
 
-    expect(viewModel.swimlanes[0].cards.single.tags, ['urgent', 'needs review']);
+    expect(viewModel.swimlanes[0].cards.single.tags, [
+      'urgent',
+      'needs review',
+    ]);
   });
 
   test('setTags persists the change through the repository', () async {
@@ -549,7 +574,13 @@ void main() {
   test('setTags updates a matching Hierarchy item too', () async {
     final repository = _TestBoardRepository(
       hierarchyItems: const [
-        HierarchyItem(id: 'root-1', number: 1, parentId: null, title: 'Root', statusId: 'todo'),
+        HierarchyItem(
+          id: 'root-1',
+          number: 1,
+          parentId: null,
+          title: 'Root',
+          statusId: 'todo',
+        ),
       ],
     );
     final hierarchyViewModel = BoardViewModel(repository);
@@ -578,84 +609,113 @@ void main() {
     },
   );
 
-  test('createWorkItem persists the new item and reloads the current scope', () async {
-    await viewModel.createWorkItem(
-      title: 'New card',
-      parentId: 'lane-a',
-      statusId: 'todo',
-    );
+  test(
+    'createWorkItem persists the new item and reloads the current scope',
+    () async {
+      await viewModel.createWorkItem(
+        title: 'New card',
+        parentId: 'lane-a',
+        statusId: 'todo',
+      );
 
-    expect(repository.creates, ['New card->lane-a/todo']);
-    expect(repository.requestedScopes, [null, null]);
-    expect(viewModel.loadError, isNull);
-  });
+      expect(repository.creates, ['New card->lane-a/todo']);
+      expect(repository.requestedScopes, [null, null]);
+      expect(viewModel.loadError, isNull);
+    },
+  );
 
-  test('createWorkItem failure keeps the board and reports a transient error', () async {
-    final failingRepository = _TestBoardRepository(
-      createError: Exception('boom'),
-    );
-    final failingViewModel = BoardViewModel(failingRepository);
-    await failingViewModel.load();
+  test(
+    'createWorkItem failure keeps the board and reports a transient error',
+    () async {
+      final failingRepository = _TestBoardRepository(
+        createError: Exception('boom'),
+      );
+      final failingViewModel = BoardViewModel(failingRepository);
+      await failingViewModel.load();
 
-    await failingViewModel.createWorkItem(
-      title: 'New card',
-      parentId: 'lane-a',
-      statusId: 'todo',
-    );
+      await failingViewModel.createWorkItem(
+        title: 'New card',
+        parentId: 'lane-a',
+        statusId: 'todo',
+      );
 
-    expect(failingViewModel.loadError, isNull);
-    expect(failingViewModel.moveError, isNotNull);
-    expect(failingViewModel.swimlanes, isNotEmpty);
-  });
+      expect(failingViewModel.loadError, isNull);
+      expect(failingViewModel.moveError, isNotNull);
+      expect(failingViewModel.swimlanes, isNotEmpty);
+    },
+  );
 
-  test('retry after a successful create never creates the item again', () async {
-    await viewModel.createWorkItem(title: 'New card', parentId: 'lane-a', statusId: 'todo');
+  test(
+    'retry after a successful create never creates the item again',
+    () async {
+      await viewModel.createWorkItem(
+        title: 'New card',
+        parentId: 'lane-a',
+        statusId: 'todo',
+      );
 
-    await viewModel.retry();
+      await viewModel.retry();
 
-    expect(repository.creates, ['New card->lane-a/todo']);
-  });
+      expect(repository.creates, ['New card->lane-a/todo']);
+    },
+  );
 
-  test('retry after a successful drillInto does not push the breadcrumb again', () async {
-    await viewModel.drillInto(viewModel.swimlanes[0].cards.single);
-    final crumbs = viewModel.breadcrumbs.length;
+  test(
+    'retry after a successful drillInto does not push the breadcrumb again',
+    () async {
+      await viewModel.drillInto(viewModel.swimlanes[0].cards.single);
+      final crumbs = viewModel.breadcrumbs.length;
 
-    await viewModel.retry();
+      await viewModel.retry();
 
-    expect(viewModel.breadcrumbs, hasLength(crumbs));
-  });
+      expect(viewModel.breadcrumbs, hasLength(crumbs));
+    },
+  );
 
-  test('refreshCurrentScope reloads the scope shown and keeps the breadcrumbs', () async {
-    await viewModel.drillInto(viewModel.swimlanes[0].cards.single);
-    repository.requestedScopes.clear();
+  test(
+    'refreshCurrentScope reloads the scope shown and keeps the breadcrumbs',
+    () async {
+      await viewModel.drillInto(viewModel.swimlanes[0].cards.single);
+      repository.requestedScopes.clear();
 
-    await viewModel.refreshCurrentScope();
+      await viewModel.refreshCurrentScope();
 
-    expect(repository.requestedScopes, ['card-1']);
-    expect(viewModel.breadcrumbs.map((c) => c.id), [null, 'card-1']);
-  });
+      expect(repository.requestedScopes, ['card-1']);
+      expect(viewModel.breadcrumbs.map((c) => c.id), [null, 'card-1']);
+    },
+  );
 
-  test('createWorkItem does not reload if the user navigated away while it was in flight', () async {
-    repository.createGate = Completer<void>();
-    final create = viewModel.createWorkItem(title: 'New card', parentId: 'lane-a', statusId: 'todo');
-    await viewModel.drillInto(viewModel.swimlanes[0].cards.single);
-    repository.requestedScopes.clear();
+  test(
+    'createWorkItem does not reload if the user navigated away while it was in flight',
+    () async {
+      repository.createGate = Completer<void>();
+      final create = viewModel.createWorkItem(
+        title: 'New card',
+        parentId: 'lane-a',
+        statusId: 'todo',
+      );
+      await viewModel.drillInto(viewModel.swimlanes[0].cards.single);
+      repository.requestedScopes.clear();
 
-    repository.createGate!.complete();
-    await create;
+      repository.createGate!.complete();
+      await create;
 
-    expect(repository.requestedScopes, isEmpty);
-  });
+      expect(repository.requestedScopes, isEmpty);
+    },
+  );
 
-  test('canCreateWorkItem is false while loading and after a failed load', () async {
-    final failingViewModel = BoardViewModel(_FailingLoadRepository());
-    expect(failingViewModel.canCreateWorkItem, isFalse);
+  test(
+    'canCreateWorkItem is false while loading and after a failed load',
+    () async {
+      final failingViewModel = BoardViewModel(_FailingLoadRepository());
+      expect(failingViewModel.canCreateWorkItem, isFalse);
 
-    await failingViewModel.load();
+      await failingViewModel.load();
 
-    expect(failingViewModel.canCreateWorkItem, isFalse);
-    expect(viewModel.canCreateWorkItem, isTrue);
-  });
+      expect(failingViewModel.canCreateWorkItem, isFalse);
+      expect(viewModel.canCreateWorkItem, isTrue);
+    },
+  );
 
   test('matchesTimeFilter is true for every card when no filter is set', () {
     const card = WorkItemCard(
@@ -669,41 +729,47 @@ void main() {
     expect(viewModel.matchesTimeFilter(card), isTrue);
   });
 
-  test("matchesTimeFilter is true when the card's window overlaps the filter", () {
-    viewModel.setTimeFilter(
-      start: DateTime(2026, 1, 10),
-      end: DateTime(2026, 1, 20),
-    );
-    final card = WorkItemCard(
-      id: 'x',
-      number: 5,
-      title: 'X',
-      parentId: 'lane-a',
-      statusId: 'todo',
-      startDate: DateTime(2026, 1, 15),
-      endDate: DateTime(2026, 1, 16),
-    );
+  test(
+    "matchesTimeFilter is true when the card's window overlaps the filter",
+    () {
+      viewModel.setTimeFilter(
+        start: DateTime(2026, 1, 10),
+        end: DateTime(2026, 1, 20),
+      );
+      final card = WorkItemCard(
+        id: 'x',
+        number: 5,
+        title: 'X',
+        parentId: 'lane-a',
+        statusId: 'todo',
+        startDate: DateTime(2026, 1, 15),
+        endDate: DateTime(2026, 1, 16),
+      );
 
-    expect(viewModel.matchesTimeFilter(card), isTrue);
-  });
+      expect(viewModel.matchesTimeFilter(card), isTrue);
+    },
+  );
 
-  test("matchesTimeFilter is false when the card's window is entirely before the filter", () {
-    viewModel.setTimeFilter(
-      start: DateTime(2026, 1, 10),
-      end: DateTime(2026, 1, 20),
-    );
-    final card = WorkItemCard(
-      id: 'x',
-      number: 6,
-      title: 'X',
-      parentId: 'lane-a',
-      statusId: 'todo',
-      startDate: DateTime(2026, 1, 1),
-      endDate: DateTime(2026, 1, 5),
-    );
+  test(
+    "matchesTimeFilter is false when the card's window is entirely before the filter",
+    () {
+      viewModel.setTimeFilter(
+        start: DateTime(2026, 1, 10),
+        end: DateTime(2026, 1, 20),
+      );
+      final card = WorkItemCard(
+        id: 'x',
+        number: 6,
+        title: 'X',
+        parentId: 'lane-a',
+        statusId: 'todo',
+        startDate: DateTime(2026, 1, 1),
+        endDate: DateTime(2026, 1, 5),
+      );
 
-    expect(viewModel.matchesTimeFilter(card), isFalse);
-  });
+      expect(viewModel.matchesTimeFilter(card), isFalse);
+    },
+  );
 
   test('matchesTimeFilter treats a missing start as open toward the past', () {
     viewModel.setTimeFilter(
@@ -801,20 +867,23 @@ void main() {
     expect(viewModel.matchesSearch(card), isFalse);
   });
 
-  test('matchesSearch matches a tag when neither title nor description match', () {
-    viewModel.setSearchQuery('urgent');
-    const card = WorkItemCard(
-      id: 'x',
-      number: 15,
-      title: 'Fix red button',
-      description: 'Unrelated',
-      parentId: 'lane-a',
-      statusId: 'todo',
-      tags: ['Urgent', 'design'],
-    );
+  test(
+    'matchesSearch matches a tag when neither title nor description match',
+    () {
+      viewModel.setSearchQuery('urgent');
+      const card = WorkItemCard(
+        id: 'x',
+        number: 15,
+        title: 'Fix red button',
+        description: 'Unrelated',
+        parentId: 'lane-a',
+        statusId: 'todo',
+        tags: ['Urgent', 'design'],
+      );
 
-    expect(viewModel.matchesSearch(card), isTrue);
-  });
+      expect(viewModel.matchesSearch(card), isTrue);
+    },
+  );
 
   test('clearSearchQuery resets the query', () {
     viewModel
@@ -824,32 +893,38 @@ void main() {
     expect(viewModel.searchQuery, isEmpty);
   });
 
-  test('cardVisible requires both the time filter and the search query to match', () {
-    viewModel
-      ..setTimeFilter(start: DateTime(2026, 1, 10), end: DateTime(2026, 1, 20))
-      ..setSearchQuery('red');
-    const inWindowWrongTitle = WorkItemCard(
-      id: 'a',
-      number: 13,
-      title: 'Blue button',
-      parentId: 'lane-a',
-      statusId: 'todo',
-      startDate: null,
-      endDate: null,
-    );
-    const outOfWindowRightTitle = WorkItemCard(
-      id: 'b',
-      number: 14,
-      title: 'Red button',
-      parentId: 'lane-a',
-      statusId: 'todo',
-      startDate: null,
-      endDate: null,
-    );
+  test(
+    'cardVisible requires both the time filter and the search query to match',
+    () {
+      viewModel
+        ..setTimeFilter(
+          start: DateTime(2026, 1, 10),
+          end: DateTime(2026, 1, 20),
+        )
+        ..setSearchQuery('red');
+      const inWindowWrongTitle = WorkItemCard(
+        id: 'a',
+        number: 13,
+        title: 'Blue button',
+        parentId: 'lane-a',
+        statusId: 'todo',
+        startDate: null,
+        endDate: null,
+      );
+      const outOfWindowRightTitle = WorkItemCard(
+        id: 'b',
+        number: 14,
+        title: 'Red button',
+        parentId: 'lane-a',
+        statusId: 'todo',
+        startDate: null,
+        endDate: null,
+      );
 
-    expect(viewModel.cardVisible(inWindowWrongTitle), isFalse);
-    expect(viewModel.cardVisible(outOfWindowRightTitle), isTrue);
-  });
+      expect(viewModel.cardVisible(inWindowWrongTitle), isFalse);
+      expect(viewModel.cardVisible(outOfWindowRightTitle), isTrue);
+    },
+  );
 
   test('statusColorFor returns the matching status color', () {
     expect(viewModel.statusColorFor('todo'), _todoColor);
@@ -859,16 +934,21 @@ void main() {
     expect(viewModel.statusColorFor('unknown'), isNull);
   });
 
-  test('assigneeInitialFor returns the uppercased first letter of the matching username', () async {
-    final withUsers = BoardViewModel(
-      _TestBoardRepository(
-        users: const [AuthUser(id: 'user-1', username: 'riley', kind: UserKind.human)],
-      ),
-    );
-    await withUsers.load();
+  test(
+    'assigneeInitialFor returns the uppercased first letter of the matching username',
+    () async {
+      final withUsers = BoardViewModel(
+        _TestBoardRepository(
+          users: const [
+            AuthUser(id: 'user-1', username: 'riley', kind: UserKind.human),
+          ],
+        ),
+      );
+      await withUsers.load();
 
-    expect(withUsers.assigneeInitialFor('user-1'), 'R');
-  });
+      expect(withUsers.assigneeInitialFor('user-1'), 'R');
+    },
+  );
 
   test('assigneeInitialFor returns null for a null user id', () {
     expect(viewModel.assigneeInitialFor(null), isNull);
@@ -893,16 +973,19 @@ void main() {
     expect(viewModel.matchesTagFilter(const ['urgent']), isTrue);
   });
 
-  test('toggleTagFilter narrows matchesTagFilter to items with a selected tag', () {
-    viewModel.toggleTagFilter('urgent');
+  test(
+    'toggleTagFilter narrows matchesTagFilter to items with a selected tag',
+    () {
+      viewModel.toggleTagFilter('urgent');
 
-    expect(viewModel.matchesTagFilter(const ['urgent', 'design']), isTrue);
-    expect(viewModel.matchesTagFilter(const ['design']), isFalse);
-    expect(viewModel.selectedTagFilters, {'urgent'});
+      expect(viewModel.matchesTagFilter(const ['urgent', 'design']), isTrue);
+      expect(viewModel.matchesTagFilter(const ['design']), isFalse);
+      expect(viewModel.selectedTagFilters, {'urgent'});
 
-    viewModel.toggleTagFilter('urgent');
-    expect(viewModel.matchesTagFilter(const ['design']), isTrue);
-  });
+      viewModel.toggleTagFilter('urgent');
+      expect(viewModel.matchesTagFilter(const ['design']), isTrue);
+    },
+  );
 
   test('cardVisible respects the tag filter', () {
     viewModel.toggleTagFilter('urgent');
@@ -926,26 +1009,32 @@ void main() {
     expect(viewModel.cardVisible(untagged), isFalse);
   });
 
-  test('availableTags returns the distinct, sorted union of every card and hierarchy tag', () async {
-    final repository = _TestBoardRepository(
-      hierarchyItems: const [
-        HierarchyItem(
-          id: 'root-1',
-          number: 1,
-          parentId: null,
-          title: 'Root',
-          statusId: 'todo',
-          tags: ['Zebra', 'urgent'],
-        ),
-      ],
-    );
-    final withTags = BoardViewModel(repository);
-    await withTags.load();
-    await withTags.loadHierarchy();
-    await withTags.setTags(withTags.swimlanes[0].cards.single.id, ['bug', 'Urgent']);
+  test(
+    'availableTags returns the distinct, sorted union of every card and hierarchy tag',
+    () async {
+      final repository = _TestBoardRepository(
+        hierarchyItems: const [
+          HierarchyItem(
+            id: 'root-1',
+            number: 1,
+            parentId: null,
+            title: 'Root',
+            statusId: 'todo',
+            tags: ['Zebra', 'urgent'],
+          ),
+        ],
+      );
+      final withTags = BoardViewModel(repository);
+      await withTags.load();
+      await withTags.loadHierarchy();
+      await withTags.setTags(withTags.swimlanes[0].cards.single.id, [
+        'bug',
+        'Urgent',
+      ]);
 
-    expect(withTags.availableTags, ['bug', 'Urgent', 'Zebra']);
-  });
+      expect(withTags.availableTags, ['bug', 'Urgent', 'Zebra']);
+    },
+  );
 
   test('cardComparator is null for the default manual sort', () {
     expect(viewModel.sortOption, CardSortOption.manual);
@@ -1020,8 +1109,20 @@ void main() {
   test('loadHierarchy populates hierarchyRoots and hierarchyLoaded', () async {
     final repository = _TestBoardRepository(
       hierarchyItems: const [
-        HierarchyItem(id: 'root-1', number: 1, parentId: null, title: 'Root', statusId: 'todo'),
-        HierarchyItem(id: 'child-1', number: 2, parentId: 'root-1', title: 'Child', statusId: 'todo'),
+        HierarchyItem(
+          id: 'root-1',
+          number: 1,
+          parentId: null,
+          title: 'Root',
+          statusId: 'todo',
+        ),
+        HierarchyItem(
+          id: 'child-1',
+          number: 2,
+          parentId: 'root-1',
+          title: 'Child',
+          statusId: 'todo',
+        ),
       ],
     );
     final hierarchyViewModel = BoardViewModel(repository);
@@ -1037,24 +1138,41 @@ void main() {
     expect(root.children.single.item.id, 'child-1');
   });
 
-  test('loadHierarchy sets hierarchyLoadError when the repository throws', () async {
-    final repository = _TestBoardRepository(hierarchyError: Exception('network down'));
-    final hierarchyViewModel = BoardViewModel(repository);
-    await hierarchyViewModel.load();
+  test(
+    'loadHierarchy sets hierarchyLoadError when the repository throws',
+    () async {
+      final repository = _TestBoardRepository(
+        hierarchyError: Exception('network down'),
+      );
+      final hierarchyViewModel = BoardViewModel(repository);
+      await hierarchyViewModel.load();
 
-    await hierarchyViewModel.loadHierarchy();
+      await hierarchyViewModel.loadHierarchy();
 
-    expect(hierarchyViewModel.hierarchyLoadError, isNotNull);
-    expect(hierarchyViewModel.hierarchyLoaded, isTrue);
-  });
+      expect(hierarchyViewModel.hierarchyLoadError, isNotNull);
+      expect(hierarchyViewModel.hierarchyLoaded, isTrue);
+    },
+  );
 
   test(
     'hierarchyRoots keeps an ancestor visible when only a descendant matches the search',
     () async {
       final repository = _TestBoardRepository(
         hierarchyItems: const [
-          HierarchyItem(id: 'root-1', number: 1, parentId: null, title: 'Unrelated root', statusId: 'todo'),
-          HierarchyItem(id: 'child-1', number: 2, parentId: 'root-1', title: 'Fix red button', statusId: 'todo'),
+          HierarchyItem(
+            id: 'root-1',
+            number: 1,
+            parentId: null,
+            title: 'Unrelated root',
+            statusId: 'todo',
+          ),
+          HierarchyItem(
+            id: 'child-1',
+            number: 2,
+            parentId: 'root-1',
+            title: 'Fix red button',
+            statusId: 'todo',
+          ),
         ],
       );
       final hierarchyViewModel = BoardViewModel(repository);
@@ -1071,8 +1189,20 @@ void main() {
   test('hierarchyRoots excludes a subtree with no matching item', () async {
     final repository = _TestBoardRepository(
       hierarchyItems: const [
-        HierarchyItem(id: 'root-1', number: 1, parentId: null, title: 'Matches', statusId: 'todo'),
-        HierarchyItem(id: 'root-2', number: 2, parentId: null, title: 'Does not', statusId: 'todo'),
+        HierarchyItem(
+          id: 'root-1',
+          number: 1,
+          parentId: null,
+          title: 'Matches',
+          statusId: 'todo',
+        ),
+        HierarchyItem(
+          id: 'root-2',
+          number: 2,
+          parentId: null,
+          title: 'Does not',
+          statusId: 'todo',
+        ),
       ],
     );
     final hierarchyViewModel = BoardViewModel(repository);
@@ -1086,8 +1216,20 @@ void main() {
   test('hierarchyRoots excludes items in a hidden status column', () async {
     final repository = _TestBoardRepository(
       hierarchyItems: const [
-        HierarchyItem(id: 'root-1', number: 1, parentId: null, title: 'Todo item', statusId: 'todo'),
-        HierarchyItem(id: 'root-2', number: 2, parentId: null, title: 'Done item', statusId: 'done'),
+        HierarchyItem(
+          id: 'root-1',
+          number: 1,
+          parentId: null,
+          title: 'Todo item',
+          statusId: 'todo',
+        ),
+        HierarchyItem(
+          id: 'root-2',
+          number: 2,
+          parentId: null,
+          title: 'Done item',
+          statusId: 'done',
+        ),
       ],
     );
     final hierarchyViewModel = BoardViewModel(repository);
@@ -1109,7 +1251,13 @@ void main() {
           statusId: 'todo',
           tags: ['urgent'],
         ),
-        HierarchyItem(id: 'root-2', number: 2, parentId: null, title: 'Untagged', statusId: 'todo'),
+        HierarchyItem(
+          id: 'root-2',
+          number: 2,
+          parentId: null,
+          title: 'Untagged',
+          statusId: 'todo',
+        ),
       ],
     );
     final hierarchyViewModel = BoardViewModel(repository);
@@ -1120,53 +1268,85 @@ void main() {
     expect(hierarchyViewModel.hierarchyRoots.map((n) => n.item.id), ['root-1']);
   });
 
-  test('hierarchyComparator for title sorts siblings case-insensitively', () async {
-    final repository = _TestBoardRepository(
-      hierarchyItems: const [
-        HierarchyItem(id: 'a', number: 1, parentId: null, title: 'banana', statusId: 'todo'),
-        HierarchyItem(id: 'b', number: 2, parentId: null, title: 'Apple', statusId: 'todo'),
-      ],
-    );
-    final hierarchyViewModel = BoardViewModel(repository);
-    await hierarchyViewModel.load();
-    await hierarchyViewModel.loadHierarchy();
-    hierarchyViewModel.setSortOption(CardSortOption.title);
+  test(
+    'hierarchyComparator for title sorts siblings case-insensitively',
+    () async {
+      final repository = _TestBoardRepository(
+        hierarchyItems: const [
+          HierarchyItem(
+            id: 'a',
+            number: 1,
+            parentId: null,
+            title: 'banana',
+            statusId: 'todo',
+          ),
+          HierarchyItem(
+            id: 'b',
+            number: 2,
+            parentId: null,
+            title: 'Apple',
+            statusId: 'todo',
+          ),
+        ],
+      );
+      final hierarchyViewModel = BoardViewModel(repository);
+      await hierarchyViewModel.load();
+      await hierarchyViewModel.loadHierarchy();
+      hierarchyViewModel.setSortOption(CardSortOption.title);
 
-    expect(hierarchyViewModel.hierarchyRoots.map((n) => n.item.id), ['b', 'a']);
-  });
+      expect(hierarchyViewModel.hierarchyRoots.map((n) => n.item.id), [
+        'b',
+        'a',
+      ]);
+    },
+  );
 
-  test('refreshHierarchyIfLoaded is a no-op before the first loadHierarchy call', () async {
-    expect(repository.loadAllItemsCallCount, 0);
+  test(
+    'refreshHierarchyIfLoaded is a no-op before the first loadHierarchy call',
+    () async {
+      expect(repository.loadAllItemsCallCount, 0);
 
-    await viewModel.refreshHierarchyIfLoaded();
+      await viewModel.refreshHierarchyIfLoaded();
 
-    expect(repository.loadAllItemsCallCount, 0);
-  });
+      expect(repository.loadAllItemsCallCount, 0);
+    },
+  );
 
-  test('refreshHierarchyIfLoaded reloads once hierarchy has already been loaded', () async {
-    await viewModel.loadHierarchy();
-    expect(repository.loadAllItemsCallCount, 1);
+  test(
+    'refreshHierarchyIfLoaded reloads once hierarchy has already been loaded',
+    () async {
+      await viewModel.loadHierarchy();
+      expect(repository.loadAllItemsCallCount, 1);
 
-    await viewModel.refreshHierarchyIfLoaded();
+      await viewModel.refreshHierarchyIfLoaded();
 
-    expect(repository.loadAllItemsCallCount, 2);
-  });
+      expect(repository.loadAllItemsCallCount, 2);
+    },
+  );
 
   group('overlapping async work', () {
-    HierarchyItem hierarchyItem(String title) =>
-        HierarchyItem(id: 'x', number: 1, parentId: null, title: title, statusId: 'todo');
+    HierarchyItem hierarchyItem(String title) => HierarchyItem(
+      id: 'x',
+      number: 1,
+      parentId: null,
+      title: title,
+      statusId: 'todo',
+    );
 
-    test('an older scope load finishing last does not overwrite the newer scope', () async {
-      repository.loadGates[null] = Completer<void>();
-      final olderRefresh = viewModel.refreshCurrentScope();
-      await viewModel.drillInto(viewModel.swimlanes[0].cards.single);
+    test(
+      'an older scope load finishing last does not overwrite the newer scope',
+      () async {
+        repository.loadGates[null] = Completer<void>();
+        final olderRefresh = viewModel.refreshCurrentScope();
+        await viewModel.drillInto(viewModel.swimlanes[0].cards.single);
 
-      repository.loadGates[null]!.complete();
-      await olderRefresh;
+        repository.loadGates[null]!.complete();
+        await olderRefresh;
 
-      expect(viewModel.breadcrumbs.map((c) => c.id), [null, 'card-1']);
-      expect(viewModel.swimlanes.single.parentId, 'card-1');
-    });
+        expect(viewModel.breadcrumbs.map((c) => c.id), [null, 'card-1']);
+        expect(viewModel.swimlanes.single.parentId, 'card-1');
+      },
+    );
 
     test('the spinner stays up until the newest scope load finishes', () async {
       repository.loadGates[null] = Completer<void>();
@@ -1183,44 +1363,59 @@ void main() {
       expect(viewModel.isLoading, isFalse);
     });
 
-    test('an older hierarchy load finishing last does not overwrite the newer one', () async {
-      repository.pendingHierarchyLoads = [];
-      final older = viewModel.loadHierarchy();
-      final newer = viewModel.loadHierarchy();
+    test(
+      'an older hierarchy load finishing last does not overwrite the newer one',
+      () async {
+        repository.pendingHierarchyLoads = [];
+        final older = viewModel.loadHierarchy();
+        final newer = viewModel.loadHierarchy();
 
-      repository.pendingHierarchyLoads![1].complete([hierarchyItem('newer')]);
-      await newer;
-      repository.pendingHierarchyLoads![0].complete([hierarchyItem('older')]);
-      await older;
+        repository.pendingHierarchyLoads![1].complete([hierarchyItem('newer')]);
+        await newer;
+        repository.pendingHierarchyLoads![0].complete([hierarchyItem('older')]);
+        await older;
 
-      expect(viewModel.hierarchyRoots.single.item.title, 'newer');
-    });
+        expect(viewModel.hierarchyRoots.single.item.title, 'newer');
+      },
+    );
 
-    test('a failed move does not undo a different move that succeeded meanwhile', () async {
-      repository.statusGates['card-1'] = Completer<void>();
-      final failing = viewModel.moveCard(viewModel.swimlanes[0].cards.single, 'done');
-      await viewModel.moveCard(viewModel.swimlanes[1].cards.single, 'done');
+    test(
+      'a failed move does not undo a different move that succeeded meanwhile',
+      () async {
+        repository.statusGates['card-1'] = Completer<void>();
+        final failing = viewModel.moveCard(
+          viewModel.swimlanes[0].cards.single,
+          'done',
+        );
+        await viewModel.moveCard(viewModel.swimlanes[1].cards.single, 'done');
 
-      repository.statusGates['card-1']!.completeError(Exception('rejected'));
-      await failing;
+        repository.statusGates['card-1']!.completeError(Exception('rejected'));
+        await failing;
 
-      expect(viewModel.swimlanes[0].cards.single.statusId, 'todo');
-      expect(viewModel.swimlanes[1].cards.single.statusId, 'done');
-      expect(viewModel.moveError, isNotNull);
-    });
+        expect(viewModel.swimlanes[0].cards.single.statusId, 'todo');
+        expect(viewModel.swimlanes[1].cards.single.statusId, 'done');
+        expect(viewModel.moveError, isNotNull);
+      },
+    );
 
-    test('a failed move after a scope change leaves the new scope alone', () async {
-      repository.statusGates['card-1'] = Completer<void>();
-      final failing = viewModel.moveCard(viewModel.swimlanes[0].cards.single, 'done');
-      await viewModel.drillInto(viewModel.swimlanes[0].cards.single);
+    test(
+      'a failed move after a scope change leaves the new scope alone',
+      () async {
+        repository.statusGates['card-1'] = Completer<void>();
+        final failing = viewModel.moveCard(
+          viewModel.swimlanes[0].cards.single,
+          'done',
+        );
+        await viewModel.drillInto(viewModel.swimlanes[0].cards.single);
 
-      repository.statusGates['card-1']!.completeError(Exception('rejected'));
-      await failing;
+        repository.statusGates['card-1']!.completeError(Exception('rejected'));
+        await failing;
 
-      expect(viewModel.swimlanes.single.parentId, 'card-1');
-      expect(viewModel.swimlanes.single.cards.single.id, 'grandchild-1');
-      expect(viewModel.moveError, isNotNull);
-    });
+        expect(viewModel.swimlanes.single.parentId, 'card-1');
+        expect(viewModel.swimlanes.single.cards.single.id, 'grandchild-1');
+        expect(viewModel.moveError, isNotNull);
+      },
+    );
   });
 
   group('hierarchy stays in step with board mutations', () {
@@ -1230,9 +1425,27 @@ void main() {
     setUp(() async {
       hierarchyRepository = _TestBoardRepository(
         hierarchyItems: const [
-          HierarchyItem(id: 'lane-a', number: 10, parentId: null, title: 'Lane A', statusId: 'todo'),
-          HierarchyItem(id: 'lane-b', number: 11, parentId: null, title: 'Lane B', statusId: 'todo'),
-          HierarchyItem(id: 'card-1', number: 1, parentId: 'lane-a', title: 'Card 1', statusId: 'todo'),
+          HierarchyItem(
+            id: 'lane-a',
+            number: 10,
+            parentId: null,
+            title: 'Lane A',
+            statusId: 'todo',
+          ),
+          HierarchyItem(
+            id: 'lane-b',
+            number: 11,
+            parentId: null,
+            title: 'Lane B',
+            statusId: 'todo',
+          ),
+          HierarchyItem(
+            id: 'card-1',
+            number: 1,
+            parentId: 'lane-a',
+            title: 'Card 1',
+            statusId: 'todo',
+          ),
         ],
       );
       hierarchyViewModel = BoardViewModel(hierarchyRepository);
@@ -1244,22 +1457,37 @@ void main() {
         hierarchyViewModel.hierarchyRoots.expand((n) => n.children).single.item;
 
     test('moveCard also moves the Hierarchy item to the new status', () async {
-      await hierarchyViewModel.moveCard(hierarchyViewModel.swimlanes[0].cards.single, 'done');
+      await hierarchyViewModel.moveCard(
+        hierarchyViewModel.swimlanes[0].cards.single,
+        'done',
+      );
 
       expect(card1().statusId, 'done');
     });
 
-    test('reparentCard also moves the Hierarchy item under its new parent', () async {
-      await hierarchyViewModel.reparentCard(hierarchyViewModel.swimlanes[0].cards.single, 'lane-b');
+    test(
+      'reparentCard also moves the Hierarchy item under its new parent',
+      () async {
+        await hierarchyViewModel.reparentCard(
+          hierarchyViewModel.swimlanes[0].cards.single,
+          'lane-b',
+        );
 
-      final laneB = hierarchyViewModel.hierarchyRoots.singleWhere((n) => n.item.id == 'lane-b');
-      expect(laneB.children.single.item.id, 'card-1');
-    });
+        final laneB = hierarchyViewModel.hierarchyRoots.singleWhere(
+          (n) => n.item.id == 'lane-b',
+        );
+        expect(laneB.children.single.item.id, 'card-1');
+      },
+    );
 
     test('rescheduleCard also reschedules the Hierarchy item', () async {
       final start = DateTime(2026, 9, 25);
 
-      await hierarchyViewModel.rescheduleCard(hierarchyViewModel.swimlanes[0].cards.single, start, null);
+      await hierarchyViewModel.rescheduleCard(
+        hierarchyViewModel.swimlanes[0].cards.single,
+        start,
+        null,
+      );
 
       expect(card1().startDate, start);
     });
@@ -1273,7 +1501,10 @@ void main() {
       await hierarchyViewModel.load();
       await hierarchyViewModel.loadHierarchy();
 
-      await hierarchyViewModel.moveCard(hierarchyViewModel.swimlanes[0].cards.single, 'done');
+      await hierarchyViewModel.moveCard(
+        hierarchyViewModel.swimlanes[0].cards.single,
+        'done',
+      );
 
       expect(card1().statusId, 'todo');
     });

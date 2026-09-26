@@ -96,7 +96,8 @@ class WorkItemDetailViewModel extends ViewModel {
       _links = results[5] as List<WorkItemLink>;
       _children = results[6] as List<WorkItemChildSummary>;
     } catch (_) {
-      _loadError = 'Could not load this work item. Check your connection and try again.';
+      _loadError =
+          'Could not load this work item. Check your connection and try again.';
     } finally {
       _isLoading = false;
       notifyIfActive();
@@ -108,73 +109,74 @@ class WorkItemDetailViewModel extends ViewModel {
     required String? description,
     required String? layerId,
     required WorkItemPriority priority,
-  }) => _save(() => _repository.updateDetails(
-        _item!.id,
-        title: title,
-        description: description,
-        layerId: layerId,
-        priority: priority,
-        expectedVersion: _item!.version,
-      ));
+  }) => _save(
+    () => _repository.updateDetails(
+      _item!.id,
+      title: title,
+      description: description,
+      layerId: layerId,
+      priority: priority,
+      expectedVersion: _item!.version,
+    ),
+  );
 
-  Future<bool> saveAssignee(String? userId) => _save(() => _repository.assign(_item!.id, userId));
+  Future<bool> saveAssignee(String? userId) =>
+      _save(() => _repository.assign(_item!.id, userId));
 
   /// Deletes this work item and any sub-items — the confirmation dialog
   /// already warns the user about the subtree, so this always cascades
   /// rather than asking a second time.
-  Future<bool> deleteItem() => _mutate(
-        () async {
-          await _repository.deleteItem(_item!.id, cascade: true);
-          _hasChanges = true;
-        },
-        errorMessage: 'Could not delete this work item. Try again.',
-      );
+  Future<bool> deleteItem() => _mutate(() async {
+    await _repository.deleteItem(_item!.id, cascade: true);
+    _hasChanges = true;
+  }, errorMessage: 'Could not delete this work item. Try again.');
 
-  Future<bool> saveTags(List<String> tags) =>
-      _save(() => _repository.updateTags(_item!.id, tags, expectedVersion: _item!.version));
+  Future<bool> saveTags(List<String> tags) => _save(
+    () => _repository.updateTags(
+      _item!.id,
+      tags,
+      expectedVersion: _item!.version,
+    ),
+  );
 
-  Future<bool> saveSchedule(DateTime? startDate, DateTime? endDate) =>
-      _save(() => _repository.reschedule(_item!.id, startDate, endDate, expectedVersion: _item!.version));
+  Future<bool> saveSchedule(DateTime? startDate, DateTime? endDate) => _save(
+    () => _repository.reschedule(
+      _item!.id,
+      startDate,
+      endDate,
+      expectedVersion: _item!.version,
+    ),
+  );
 
-  Future<bool> addComment(String body) => _mutate(
-        () async {
-          await _repository.addComment(_item!.id, body);
-          _comments = await _repository.loadComments(_item!.id);
-        },
-        errorMessage: 'Could not add your comment. Try again.',
-      );
+  Future<bool> addComment(String body) => _mutate(() async {
+    await _repository.addComment(_item!.id, body);
+    _comments = await _repository.loadComments(_item!.id);
+  }, errorMessage: 'Could not add your comment. Try again.');
 
-  Future<bool> updateComment(String commentId, String body) => _mutate(
-        () async {
-          await _repository.updateComment(commentId, body);
-          _comments = await _repository.loadComments(_item!.id);
-        },
-        errorMessage: 'Could not update your comment. Try again.',
-      );
+  Future<bool> updateComment(String commentId, String body) =>
+      _mutate(() async {
+        await _repository.updateComment(commentId, body);
+        _comments = await _repository.loadComments(_item!.id);
+      }, errorMessage: 'Could not update your comment. Try again.');
 
-  Future<bool> deleteComment(String commentId) => _mutate(
-        () async {
-          await _repository.deleteComment(commentId);
-          _comments = await _repository.loadComments(_item!.id);
-        },
-        errorMessage: 'Could not delete this comment. Try again.',
-      );
+  Future<bool> deleteComment(String commentId) => _mutate(() async {
+    await _repository.deleteComment(commentId);
+    _comments = await _repository.loadComments(_item!.id);
+  }, errorMessage: 'Could not delete this comment. Try again.');
 
   Future<bool> addLink(String targetWorkItemId) => _mutate(
-        () async {
-          await _repository.addLink(_item!.id, targetWorkItemId);
-          _links = await _repository.loadLinks(_item!.id);
-        },
-        errorMessage: 'Could not add this link. Check the work item id and try again.',
-      );
+    () async {
+      await _repository.addLink(_item!.id, targetWorkItemId);
+      _links = await _repository.loadLinks(_item!.id);
+    },
+    errorMessage:
+        'Could not add this link. Check the work item id and try again.',
+  );
 
-  Future<bool> deleteLink(String linkId) => _mutate(
-        () async {
-          await _repository.deleteLink(linkId);
-          _links = await _repository.loadLinks(_item!.id);
-        },
-        errorMessage: 'Could not remove this link. Try again.',
-      );
+  Future<bool> deleteLink(String linkId) => _mutate(() async {
+    await _repository.deleteLink(linkId);
+    _links = await _repository.loadLinks(_item!.id);
+  }, errorMessage: 'Could not remove this link. Try again.');
 
   /// Called when a sub-item's own dialog reports a change (e.g. it was
   /// deleted): reloads the Sub-Items list and marks this dialog as changed.
@@ -189,16 +191,17 @@ class WorkItemDetailViewModel extends ViewModel {
   }
 
   Future<bool> _save(Future<WorkItemDetail> Function() action) => _mutate(
-        () async {
-          _item = await action();
-          _hasChanges = true;
-        },
-        errorMessage: 'Could not save your change. Try again.',
-        onConflict: _reloadAfterConflict,
-      );
+    () async {
+      _item = await action();
+      _hasChanges = true;
+    },
+    errorMessage: 'Could not save your change. Try again.',
+    onConflict: _reloadAfterConflict,
+  );
 
   Future<void> _reloadAfterConflict() async {
-    const notSaved = 'Someone else changed this work item, so your change was not saved.';
+    const notSaved =
+        'Someone else changed this work item, so your change was not saved.';
     try {
       _item = await _repository.getItem(_item!.id);
       _reloadGeneration++;

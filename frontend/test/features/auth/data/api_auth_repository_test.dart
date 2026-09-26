@@ -8,7 +8,11 @@ import 'package:weaver/features/auth/data/api_auth_repository.dart';
 import 'package:weaver/features/auth/models/auth_user.dart';
 
 http.Response _jsonResponse(Object body, {int statusCode = 200}) =>
-    http.Response(jsonEncode(body), statusCode, headers: {'content-type': 'application/json'});
+    http.Response(
+      jsonEncode(body),
+      statusCode,
+      headers: {'content-type': 'application/json'},
+    );
 
 Map<String, dynamic> _authBody({String kind = 'Human'}) => {
   'accessToken': 'access-123',
@@ -31,23 +35,37 @@ void main() {
     final session = await repository.login('alice', 'a valid password');
 
     expect(sentRequest!.url.path, '/api/auth/login');
-    expect(jsonDecode(sentRequest!.body), {'username': 'alice', 'password': 'a valid password'});
+    expect(jsonDecode(sentRequest!.body), {
+      'username': 'alice',
+      'password': 'a valid password',
+    });
     expect(session.accessToken, 'access-123');
     expect(session.refreshToken, 'refresh-456');
     expect(session.user.username, 'alice');
   });
 
-  test('login throws an ApiException with the problem detail on failure', () async {
-    final client = MockClient((request) async {
-      return _jsonResponse({'detail': 'Invalid username or password.'}, statusCode: 401);
-    });
-    final repository = ApiAuthRepository(client, baseUrl);
+  test(
+    'login throws an ApiException with the problem detail on failure',
+    () async {
+      final client = MockClient((request) async {
+        return _jsonResponse({
+          'detail': 'Invalid username or password.',
+        }, statusCode: 401);
+      });
+      final repository = ApiAuthRepository(client, baseUrl);
 
-    await expectLater(
-      repository.login('alice', 'wrong'),
-      throwsA(isA<ApiException>().having((e) => e.message, 'message', contains('Invalid username or password.'))),
-    );
-  });
+      await expectLater(
+        repository.login('alice', 'wrong'),
+        throwsA(
+          isA<ApiException>().having(
+            (e) => e.message,
+            'message',
+            contains('Invalid username or password.'),
+          ),
+        ),
+      );
+    },
+  );
 
   test('register posts credentials to the register endpoint', () async {
     http.Request? sentRequest;
@@ -73,7 +91,9 @@ void main() {
     await repository.refresh('old-refresh-token');
 
     expect(sentRequest!.url.path, '/api/auth/refresh');
-    expect(jsonDecode(sentRequest!.body), {'refreshToken': 'old-refresh-token'});
+    expect(jsonDecode(sentRequest!.body), {
+      'refreshToken': 'old-refresh-token',
+    });
   });
 
   test('logout posts the refresh token to the logout endpoint', () async {
@@ -91,7 +111,9 @@ void main() {
   });
 
   test('parses an Agent user kind', () async {
-    final client = MockClient((request) async => _jsonResponse(_authBody(kind: 'Agent')));
+    final client = MockClient(
+      (request) async => _jsonResponse(_authBody(kind: 'Agent')),
+    );
     final repository = ApiAuthRepository(client, baseUrl);
 
     final session = await repository.login('bot', 'a valid password');

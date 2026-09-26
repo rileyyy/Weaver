@@ -14,10 +14,12 @@ class _FakeAuthRepository implements AuthRepository {
   final List<String> refreshCalls = [];
 
   @override
-  Future<AuthSession> login(String username, String password) => throw UnimplementedError();
+  Future<AuthSession> login(String username, String password) =>
+      throw UnimplementedError();
 
   @override
-  Future<AuthSession> register(String username, String password) => throw UnimplementedError();
+  Future<AuthSession> register(String username, String password) =>
+      throw UnimplementedError();
 
   @override
   Future<AuthSession> refresh(String refreshToken) async {
@@ -38,10 +40,12 @@ class _GatedAuthRepository implements AuthRepository {
   final List<String> refreshCalls = [];
 
   @override
-  Future<AuthSession> login(String username, String password) => throw UnimplementedError();
+  Future<AuthSession> login(String username, String password) =>
+      throw UnimplementedError();
 
   @override
-  Future<AuthSession> register(String username, String password) => throw UnimplementedError();
+  Future<AuthSession> register(String username, String password) =>
+      throw UnimplementedError();
 
   @override
   Future<AuthSession> refresh(String refreshToken) {
@@ -62,7 +66,8 @@ class _ThrowingTokenStore implements SecureTokenStore {
       throw Exception('MissingPluginException (simulated)');
 
   @override
-  Future<void> clear() async => throw Exception('MissingPluginException (simulated)');
+  Future<void> clear() async =>
+      throw Exception('MissingPluginException (simulated)');
 }
 
 class _InMemoryTokenStore implements SecureTokenStore {
@@ -84,7 +89,8 @@ AuthSession _session(
   DateTime? expiresAtUtc,
 }) => AuthSession(
   accessToken: accessToken,
-  accessTokenExpiresAtUtc: expiresAtUtc ?? DateTime.now().toUtc().add(const Duration(hours: 1)),
+  accessTokenExpiresAtUtc:
+      expiresAtUtc ?? DateTime.now().toUtc().add(const Duration(hours: 1)),
   refreshToken: refreshToken,
   user: const AuthUser(id: 'user-1', username: 'alice', kind: UserKind.human),
 );
@@ -100,18 +106,27 @@ void main() {
     store = AuthSessionStore(repository, tokenStore);
   });
 
-  test('ensureValidSession with a non-expired session does not call refresh', () async {
-    await store.setSession(_session('access', 'refresh'));
+  test(
+    'ensureValidSession with a non-expired session does not call refresh',
+    () async {
+      await store.setSession(_session('access', 'refresh'));
 
-    final result = await store.ensureValidSession();
+      final result = await store.ensureValidSession();
 
-    expect(result, isTrue);
-    expect(repository.refreshCalls, isEmpty);
-  });
+      expect(result, isTrue);
+      expect(repository.refreshCalls, isEmpty);
+    },
+  );
 
   test('ensureValidSession with an expired session refreshes it', () async {
     await store.setSession(
-      _session('access', 'refresh', expiresAtUtc: DateTime.now().toUtc().subtract(const Duration(minutes: 1))),
+      _session(
+        'access',
+        'refresh',
+        expiresAtUtc: DateTime.now().toUtc().subtract(
+          const Duration(minutes: 1),
+        ),
+      ),
     );
 
     final result = await store.ensureValidSession();
@@ -121,14 +136,17 @@ void main() {
     expect(repository.refreshCalls, ['refresh']);
   });
 
-  test('ensureValidSession with no session but a cached refresh token restores one', () async {
-    tokenStore.token = 'cached-refresh';
+  test(
+    'ensureValidSession with no session but a cached refresh token restores one',
+    () async {
+      tokenStore.token = 'cached-refresh';
 
-    final result = await store.ensureValidSession();
+      final result = await store.ensureValidSession();
 
-    expect(result, isTrue);
-    expect(store.current!.accessToken, 'refreshed-access');
-  });
+      expect(result, isTrue);
+      expect(store.current!.accessToken, 'refreshed-access');
+    },
+  );
 
   test('ensureValidSession with nothing cached returns false', () async {
     final result = await store.ensureValidSession();
@@ -137,18 +155,30 @@ void main() {
     expect(store.isAuthenticated, isFalse);
   });
 
-  test('ensureValidSession clears the session when the refresh call fails', () async {
-    store = AuthSessionStore(_FakeAuthRepository(refreshError: Exception('expired')), tokenStore);
-    await store.setSession(
-      _session('access', 'refresh', expiresAtUtc: DateTime.now().toUtc().subtract(const Duration(minutes: 1))),
-    );
+  test(
+    'ensureValidSession clears the session when the refresh call fails',
+    () async {
+      store = AuthSessionStore(
+        _FakeAuthRepository(refreshError: Exception('expired')),
+        tokenStore,
+      );
+      await store.setSession(
+        _session(
+          'access',
+          'refresh',
+          expiresAtUtc: DateTime.now().toUtc().subtract(
+            const Duration(minutes: 1),
+          ),
+        ),
+      );
 
-    final result = await store.ensureValidSession();
+      final result = await store.ensureValidSession();
 
-    expect(result, isFalse);
-    expect(store.isAuthenticated, isFalse);
-    expect(tokenStore.token, isNull);
-  });
+      expect(result, isFalse);
+      expect(store.isAuthenticated, isFalse);
+      expect(tokenStore.token, isNull);
+    },
+  );
 
   test('setSession persists the refresh token to the token store', () async {
     await store.setSession(_session('access', 'a-refresh-token'));
@@ -165,30 +195,36 @@ void main() {
     expect(tokenStore.token, isNull);
   });
 
-  test('setSession still updates in-memory state and notifies when persistence throws', () async {
-    final failingTokenStore = _ThrowingTokenStore();
-    store = AuthSessionStore(repository, failingTokenStore);
-    var notified = false;
-    store.addListener(() => notified = true);
+  test(
+    'setSession still updates in-memory state and notifies when persistence throws',
+    () async {
+      final failingTokenStore = _ThrowingTokenStore();
+      store = AuthSessionStore(repository, failingTokenStore);
+      var notified = false;
+      store.addListener(() => notified = true);
 
-    await store.setSession(_session('access', 'refresh'));
+      await store.setSession(_session('access', 'refresh'));
 
-    expect(store.isAuthenticated, isTrue);
-    expect(notified, isTrue);
-  });
+      expect(store.isAuthenticated, isTrue);
+      expect(notified, isTrue);
+    },
+  );
 
-  test('clear still updates in-memory state and notifies when persistence throws', () async {
-    final failingTokenStore = _ThrowingTokenStore();
-    store = AuthSessionStore(repository, failingTokenStore);
-    await store.setSession(_session('access', 'refresh'));
-    var notified = false;
-    store.addListener(() => notified = true);
+  test(
+    'clear still updates in-memory state and notifies when persistence throws',
+    () async {
+      final failingTokenStore = _ThrowingTokenStore();
+      store = AuthSessionStore(repository, failingTokenStore);
+      await store.setSession(_session('access', 'refresh'));
+      var notified = false;
+      store.addListener(() => notified = true);
 
-    await store.clear();
+      await store.clear();
 
-    expect(store.isAuthenticated, isFalse);
-    expect(notified, isTrue);
-  });
+      expect(store.isAuthenticated, isFalse);
+      expect(notified, isTrue);
+    },
+  );
 
   test('setSession notifies listeners', () async {
     var notified = false;
@@ -210,7 +246,9 @@ void main() {
     store = AuthSessionStore(gated, tokenStore);
     await store.setSession(expiredSession());
 
-    final results = Future.wait([for (var i = 0; i < 7; i++) store.ensureValidSession()]);
+    final results = Future.wait([
+      for (var i = 0; i < 7; i++) store.ensureValidSession(),
+    ]);
     gated.gate.complete(_session('refreshed-access', 'refreshed-refresh'));
 
     expect(await results, everyElement(isTrue));
@@ -218,33 +256,43 @@ void main() {
     expect(store.current!.accessToken, 'refreshed-access');
   });
 
-  test('a later expiry starts a new refresh once the previous one has finished', () async {
-    await store.setSession(expiredSession());
-    await store.ensureValidSession();
-    await store.setSession(expiredSession());
+  test(
+    'a later expiry starts a new refresh once the previous one has finished',
+    () async {
+      await store.setSession(expiredSession());
+      await store.ensureValidSession();
+      await store.setSession(expiredSession());
 
-    await store.ensureValidSession();
+      await store.ensureValidSession();
 
-    expect(repository.refreshCalls, ['refresh', 'refresh']);
-  });
+      expect(repository.refreshCalls, ['refresh', 'refresh']);
+    },
+  );
 
-  test('a failed refresh does not clear a session that replaced it while in flight', () async {
-    final gated = _GatedAuthRepository();
-    store = AuthSessionStore(gated, tokenStore);
-    await store.setSession(expiredSession());
+  test(
+    'a failed refresh does not clear a session that replaced it while in flight',
+    () async {
+      final gated = _GatedAuthRepository();
+      store = AuthSessionStore(gated, tokenStore);
+      await store.setSession(expiredSession());
 
-    final result = store.ensureValidSession();
-    await store.setSession(_session('logged-in-again', 'new-refresh'));
-    gated.gate.completeError(Exception('refresh token already rotated'));
+      final result = store.ensureValidSession();
+      await store.setSession(_session('logged-in-again', 'new-refresh'));
+      gated.gate.completeError(Exception('refresh token already rotated'));
 
-    expect(await result, isTrue);
-    expect(store.current!.accessToken, 'logged-in-again');
-    expect(tokenStore.token, 'new-refresh');
-  });
+      expect(await result, isTrue);
+      expect(store.current!.accessToken, 'logged-in-again');
+      expect(tokenStore.token, 'new-refresh');
+    },
+  );
 
   test('a token within the expiry leeway is refreshed before use', () async {
     await store.setSession(
-      _session('access', 'refresh', expiresAtUtc: DateTime.now().toUtc().add(const Duration(seconds: 10))),
+      _session(
+        'access',
+        'refresh',
+        expiresAtUtc: DateTime.now().toUtc().add(const Duration(seconds: 10)),
+      ),
     );
 
     await store.ensureValidSession();

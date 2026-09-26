@@ -43,50 +43,58 @@ void main() {
     expect(await repository.loadRootScopeItemId(), isNull);
   });
 
-  test('loadBoard builds swimlanes from the given scope and its children', () async {
-    final client = MockClient((request) async {
-      if (request.url.path == '/api/statuses') {
-        return _jsonResponse([
-          {'id': 'status-todo', 'name': 'To Do', 'order': 0, 'color': '#1E88E5'},
-        ]);
-      }
-      if (request.url.path == '/api/work-items' &&
-          request.url.queryParameters['parentId'] == 'epic-1') {
-        return _jsonResponse([
-          {
-            'id': 'lane-1',
-            'title': 'Lane One',
-            'parentId': 'epic-1',
-            'statusId': 'status-todo',
-          },
-        ]);
-      }
-      if (request.url.path == '/api/work-items' &&
-          request.url.queryParameters['parentId'] == 'lane-1') {
-        return _jsonResponse([
-          {
-            'id': 'card-1',
-            'number': 1,
-            'title': 'Card One',
-            'parentId': 'lane-1',
-            'statusId': 'status-todo',
-          },
-        ]);
-      }
+  test(
+    'loadBoard builds swimlanes from the given scope and its children',
+    () async {
+      final client = MockClient((request) async {
+        if (request.url.path == '/api/statuses') {
+          return _jsonResponse([
+            {
+              'id': 'status-todo',
+              'name': 'To Do',
+              'order': 0,
+              'color': '#1E88E5',
+            },
+          ]);
+        }
+        if (request.url.path == '/api/work-items' &&
+            request.url.queryParameters['parentId'] == 'epic-1') {
+          return _jsonResponse([
+            {
+              'id': 'lane-1',
+              'title': 'Lane One',
+              'parentId': 'epic-1',
+              'statusId': 'status-todo',
+            },
+          ]);
+        }
+        if (request.url.path == '/api/work-items' &&
+            request.url.queryParameters['parentId'] == 'lane-1') {
+          return _jsonResponse([
+            {
+              'id': 'card-1',
+              'number': 1,
+              'title': 'Card One',
+              'parentId': 'lane-1',
+              'statusId': 'status-todo',
+            },
+          ]);
+        }
 
-      throw StateError('Unexpected request: ${request.url}');
-    });
+        throw StateError('Unexpected request: ${request.url}');
+      });
 
-    final repository = ApiBoardRepository(client, baseUrl);
-    final board = await repository.loadBoard('epic-1');
+      final repository = ApiBoardRepository(client, baseUrl);
+      final board = await repository.loadBoard('epic-1');
 
-    expect(board.statuses.single.id, 'status-todo');
-    expect(board.statuses.single.color, const Color(0xFF1E88E5));
-    expect(board.swimlanes.single.parentId, 'lane-1');
-    expect(board.swimlanes.single.title, 'Lane One');
-    expect(board.swimlanes.single.cards.single.id, 'card-1');
-    expect(board.swimlanes.single.cards.single.number, 1);
-  });
+      expect(board.statuses.single.id, 'status-todo');
+      expect(board.statuses.single.color, const Color(0xFF1E88E5));
+      expect(board.swimlanes.single.parentId, 'lane-1');
+      expect(board.swimlanes.single.title, 'Lane One');
+      expect(board.swimlanes.single.cards.single.id, 'card-1');
+      expect(board.swimlanes.single.cards.single.number, 1);
+    },
+  );
 
   test('loadBoard treats a null scope as top-level', () async {
     final client = MockClient((request) async {
@@ -104,26 +112,29 @@ void main() {
     expect(board.swimlanes, isEmpty);
   });
 
-  test('loadBoard throws an ApiException with the problem detail on failure', () async {
-    final client = MockClient((request) async {
-      return _jsonResponse({
-        'detail': 'Something went wrong.',
-      }, statusCode: 500);
-    });
+  test(
+    'loadBoard throws an ApiException with the problem detail on failure',
+    () async {
+      final client = MockClient((request) async {
+        return _jsonResponse({
+          'detail': 'Something went wrong.',
+        }, statusCode: 500);
+      });
 
-    final repository = ApiBoardRepository(client, baseUrl);
+      final repository = ApiBoardRepository(client, baseUrl);
 
-    await expectLater(
-      repository.loadBoard(null),
-      throwsA(
-        isA<ApiException>().having(
-          (e) => e.message,
-          'message',
-          contains('Something went wrong.'),
+      await expectLater(
+        repository.loadBoard(null),
+        throwsA(
+          isA<ApiException>().having(
+            (e) => e.message,
+            'message',
+            contains('Something went wrong.'),
+          ),
         ),
-      ),
-    );
-  });
+      );
+    },
+  );
 
   test('changeStatus posts the new status and succeeds on 200', () async {
     http.Request? sentRequest;
@@ -289,46 +300,52 @@ void main() {
     final repository = ApiBoardRepository(client, baseUrl);
     final board = await repository.loadBoard('epic-1');
 
-    expect(board.swimlanes.single.cards.single.tags, ['urgent', 'needs review']);
+    expect(board.swimlanes.single.cards.single.tags, [
+      'urgent',
+      'needs review',
+    ]);
   });
 
-  test("loadBoard parses the assignee of both a lane's own item and its cards", () async {
-    final client = MockClient((request) async {
-      if (request.url.path == '/api/statuses') return _jsonResponse([]);
-      if (request.url.path == '/api/work-items' &&
-          request.url.queryParameters['parentId'] == 'epic-1') {
-        return _jsonResponse([
-          {
-            'id': 'lane-1',
-            'title': 'Lane One',
-            'parentId': 'epic-1',
-            'statusId': 'status-todo',
-            'assignedToUserId': 'user-lane',
-          },
-        ]);
-      }
-      if (request.url.path == '/api/work-items' &&
-          request.url.queryParameters['parentId'] == 'lane-1') {
-        return _jsonResponse([
-          {
-            'id': 'card-1',
-            'number': 1,
-            'title': 'Card One',
-            'parentId': 'lane-1',
-            'statusId': 'status-todo',
-            'assignedToUserId': 'user-card',
-          },
-        ]);
-      }
-      throw StateError('Unexpected request: ${request.url}');
-    });
+  test(
+    "loadBoard parses the assignee of both a lane's own item and its cards",
+    () async {
+      final client = MockClient((request) async {
+        if (request.url.path == '/api/statuses') return _jsonResponse([]);
+        if (request.url.path == '/api/work-items' &&
+            request.url.queryParameters['parentId'] == 'epic-1') {
+          return _jsonResponse([
+            {
+              'id': 'lane-1',
+              'title': 'Lane One',
+              'parentId': 'epic-1',
+              'statusId': 'status-todo',
+              'assignedToUserId': 'user-lane',
+            },
+          ]);
+        }
+        if (request.url.path == '/api/work-items' &&
+            request.url.queryParameters['parentId'] == 'lane-1') {
+          return _jsonResponse([
+            {
+              'id': 'card-1',
+              'number': 1,
+              'title': 'Card One',
+              'parentId': 'lane-1',
+              'statusId': 'status-todo',
+              'assignedToUserId': 'user-card',
+            },
+          ]);
+        }
+        throw StateError('Unexpected request: ${request.url}');
+      });
 
-    final repository = ApiBoardRepository(client, baseUrl);
-    final board = await repository.loadBoard('epic-1');
+      final repository = ApiBoardRepository(client, baseUrl);
+      final board = await repository.loadBoard('epic-1');
 
-    expect(board.swimlanes.single.assignedToUserId, 'user-lane');
-    expect(board.swimlanes.single.cards.single.assignedToUserId, 'user-card');
-  });
+      expect(board.swimlanes.single.assignedToUserId, 'user-lane');
+      expect(board.swimlanes.single.cards.single.assignedToUserId, 'user-card');
+    },
+  );
 
   test('loadUsers parses the user directory', () async {
     final client = MockClient((request) async {
@@ -347,48 +364,53 @@ void main() {
     expect(users.single.username, 'riley');
   });
 
-  test('loadAllItems parses the flat item list, including top-level items', () async {
-    final client = MockClient((request) async {
-      if (request.url.path == '/api/work-items/all') {
-        return _jsonResponse([
-          {
-            'id': 'root-1',
-            'number': 1,
-            'title': 'Root',
-            'parentId': null,
-            'statusId': 'status-todo',
-            'assignedToUserId': null,
-          },
-          {
-            'id': 'child-1',
-            'number': 2,
-            'title': 'Child',
-            'parentId': 'root-1',
-            'statusId': 'status-todo',
-            'assignedToUserId': 'user-1',
-            'tags': ['urgent'],
-          },
-        ]);
-      }
-      throw StateError('Unexpected request: ${request.url}');
-    });
+  test(
+    'loadAllItems parses the flat item list, including top-level items',
+    () async {
+      final client = MockClient((request) async {
+        if (request.url.path == '/api/work-items/all') {
+          return _jsonResponse([
+            {
+              'id': 'root-1',
+              'number': 1,
+              'title': 'Root',
+              'parentId': null,
+              'statusId': 'status-todo',
+              'assignedToUserId': null,
+            },
+            {
+              'id': 'child-1',
+              'number': 2,
+              'title': 'Child',
+              'parentId': 'root-1',
+              'statusId': 'status-todo',
+              'assignedToUserId': 'user-1',
+              'tags': ['urgent'],
+            },
+          ]);
+        }
+        throw StateError('Unexpected request: ${request.url}');
+      });
 
-    final repository = ApiBoardRepository(client, baseUrl);
-    final items = await repository.loadAllItems();
+      final repository = ApiBoardRepository(client, baseUrl);
+      final items = await repository.loadAllItems();
 
-    expect(items.map((i) => i.id), ['root-1', 'child-1']);
-    expect(items.first.number, 1);
-    expect(items.first.parentId, isNull);
-    expect(items.first.assignedToUserId, isNull);
-    expect(items.first.tags, isEmpty);
-    expect(items.last.parentId, 'root-1');
-    expect(items.last.assignedToUserId, 'user-1');
-    expect(items.last.tags, ['urgent']);
-  });
+      expect(items.map((i) => i.id), ['root-1', 'child-1']);
+      expect(items.first.number, 1);
+      expect(items.first.parentId, isNull);
+      expect(items.first.assignedToUserId, isNull);
+      expect(items.first.tags, isEmpty);
+      expect(items.last.parentId, 'root-1');
+      expect(items.last.assignedToUserId, 'user-1');
+      expect(items.last.tags, ['urgent']);
+    },
+  );
 
   test('loadAllItems throws an ApiException on failure', () async {
     final client = MockClient((request) async {
-      return _jsonResponse({'detail': 'Something went wrong.'}, statusCode: 500);
+      return _jsonResponse({
+        'detail': 'Something went wrong.',
+      }, statusCode: 500);
     });
 
     final repository = ApiBoardRepository(client, baseUrl);
@@ -494,7 +516,9 @@ void main() {
 
   test('setTags throws an ApiException on failure', () async {
     final client = MockClient((request) async {
-      return _jsonResponse({'detail': 'Tags must not be blank.'}, statusCode: 400);
+      return _jsonResponse({
+        'detail': 'Tags must not be blank.',
+      }, statusCode: 400);
     });
 
     final repository = ApiBoardRepository(client, baseUrl);

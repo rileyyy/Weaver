@@ -30,7 +30,9 @@ class AuthSessionStore extends ChangeNotifier {
   Future<void> setSession(AuthSession session) async {
     _session = session;
     notifyListeners();
-    await _persistBestEffort(() => _tokenStore.writeRefreshToken(session.refreshToken));
+    await _persistBestEffort(
+      () => _tokenStore.writeRefreshToken(session.refreshToken),
+    );
   }
 
   Future<void> clear() async {
@@ -67,14 +69,19 @@ class AuthSessionStore extends ChangeNotifier {
   /// the session the winner had just stored.
   Future<bool> ensureValidSession() {
     final session = _session;
-    if (session != null && !session.isAccessTokenExpired) return Future.value(true);
+    if (session != null && !session.isAccessTokenExpired) {
+      return Future.value(true);
+    }
 
-    return _refreshInFlight ??= _refresh().whenComplete(() => _refreshInFlight = null);
+    return _refreshInFlight ??= _refresh().whenComplete(
+      () => _refreshInFlight = null,
+    );
   }
 
   Future<bool> _refresh() async {
     final startedFrom = _session;
-    final refreshToken = startedFrom?.refreshToken ?? await _tokenStore.readRefreshToken();
+    final refreshToken =
+        startedFrom?.refreshToken ?? await _tokenStore.readRefreshToken();
     if (refreshToken == null) return false;
 
     try {

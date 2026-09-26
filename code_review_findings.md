@@ -297,7 +297,7 @@ The most important problems cluster in four areas:
 - [ ] **F-L8.** `hiddenStatusIds` and `selectedTagFilters` expose mutable internal sets. Return `UnmodifiableSetView`.
 - [x] *(Resolved in `bugfix/board-retry-replays-create`.)* **F-L9.** The FAB and create dialog stay available while the board is loading or has failed. `createWorkItem` reloads whatever scope is current when it *completes*, not the scope the item was created in.
 - [ ] **F-L10. `pubspec_overrides.yaml`** pins `flutter_secure_storage` to 10.3.4 while `pubspec.yaml` declares `^11.2.0`. It was committed without explanation in `9cf3167`. Pin the version in `pubspec.yaml` with a reason, and delete the override.
-- [ ] **F-L11. `analysis_options.yaml`** excludes `pubspec.yaml`, so `sort_pub_dependencies` never runs (and the dependencies are unsorted). Several rule comments are wrong. `flutter_lints` is one major version behind. Formatting isn't enforced in CI.
+- [ ] *(Formatting is now enforced in CI (`feature/ci-hardening`); the rest is still open.)* **F-L11. `analysis_options.yaml`** excludes `pubspec.yaml`, so `sort_pub_dependencies` never runs (and the dependencies are unsorted). Several rule comments are wrong. `flutter_lints` is one major version behind. Formatting isn't enforced in CI.
 - [ ] **F-L12.** The `ViewModel` base class has no `isDisposed` for long operations to check, and there is no test for `notifyIfActive` after dispose.
 
 ---
@@ -327,7 +327,7 @@ The most important problems cluster in four areas:
 ### Medium
 
 - [x] *(Resolved in `feature/health-checks`: `/health` with a DB check; compose healthchecks on the backend and frontend; db → backend → frontend → caddy each wait for `service_healthy`.)* **I-M1. No health-based startup ordering.** `frontend` depends on `backend` without a health condition, and the backend has no healthcheck (B-M8).
-- [ ] **I-M2. CI gaps.**
+- [x] *(Resolved in `feature/ci-hardening`: format check, `flutter analyze`, coverage artifacts for both stacks, image builds on PRs without pushing, and Flutter pinned to 3.44.0 in CI and both Dockerfiles. The frontend was reformatted in its own commit.)* **I-M2. CI gaps.**
   - The workflow doesn't run `flutter analyze` or `dart format --set-exit-if-changed`, doesn't build the Docker images on PRs (a broken Dockerfile is only found after merging to master), and doesn't pin the Flutter version (`channel: stable` floats).
   - The build image `ghcr.io/cirruslabs/flutter:stable` also floats, so CI tests and the shipped build can use different SDKs.
   - No coverage is reported even though `coverlet` is referenced.

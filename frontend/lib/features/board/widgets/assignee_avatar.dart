@@ -52,7 +52,9 @@ class AssigneeAvatar extends StatelessWidget {
             foregroundColor: colorScheme.onPrimaryContainer,
             child: Text(
               initial,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(fontSize: size * 0.5),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(fontSize: size * 0.5),
             ),
           );
 

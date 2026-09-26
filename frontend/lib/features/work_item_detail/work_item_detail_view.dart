@@ -331,8 +331,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
           onPick: () => unawaited(_pickEndDate(item)),
           onClear: item.endDate == null
               ? null
-              : () =>
-                    unawaited(_viewModel.saveSchedule(item.startDate, null)),
+              : () => unawaited(_viewModel.saveSchedule(item.startDate, null)),
         ),
         const SizedBox(height: 16),
         Text(
@@ -351,10 +350,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
       children: [
         const FieldLabel('Sub-Items'),
         if (_viewModel.children.isEmpty)
-          Text(
-            'No sub-items',
-            style: Theme.of(context).textTheme.bodySmall,
-          )
+          Text('No sub-items', style: Theme.of(context).textTheme.bodySmall)
         else
           for (final child in _viewModel.children)
             _buildSubItemTile(context, child),
@@ -375,7 +371,10 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
           shape: BoxShape.circle,
         ),
       ),
-      title: Text('#${child.number} ${child.title}', overflow: TextOverflow.ellipsis),
+      title: Text(
+        '#${child.number} ${child.title}',
+        overflow: TextOverflow.ellipsis,
+      ),
       onTap: () => unawaited(_openSubItem(child.id)),
     );
   }
@@ -607,7 +606,10 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
   }
 
   Future<void> _openSubItem(String subItemId) async {
-    final changed = await showWorkItemDetailDialog(context, workItemId: subItemId);
+    final changed = await showWorkItemDetailDialog(
+      context,
+      workItemId: subItemId,
+    );
     if (changed) await _viewModel.onSubItemChanged();
   }
 }

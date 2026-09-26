@@ -29,7 +29,8 @@ class _FakeAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<AuthSession> refresh(String refreshToken) async => throw UnimplementedError();
+  Future<AuthSession> refresh(String refreshToken) async =>
+      throw UnimplementedError();
 
   @override
   Future<void> logout(String refreshToken) async {}
@@ -80,14 +81,20 @@ void main() {
     expect(viewModel.isSubmitting, isFalse);
   });
 
-  test('login on failure sets an error message and stays unauthenticated', () async {
-    viewModel = AuthViewModel(_FakeAuthRepository(loginError: Exception('bad creds')), sessionStore);
+  test(
+    'login on failure sets an error message and stays unauthenticated',
+    () async {
+      viewModel = AuthViewModel(
+        _FakeAuthRepository(loginError: Exception('bad creds')),
+        sessionStore,
+      );
 
-    await viewModel.login('alice', 'wrong password');
+      await viewModel.login('alice', 'wrong password');
 
-    expect(viewModel.isAuthenticated, isFalse);
-    expect(viewModel.errorMessage, isNotNull);
-  });
+      expect(viewModel.isAuthenticated, isFalse);
+      expect(viewModel.errorMessage, isNotNull);
+    },
+  );
 
   test('register on success authenticates the same as login', () async {
     await viewModel.register('newuser', 'a valid password');
@@ -97,7 +104,10 @@ void main() {
   });
 
   test('register on failure sets an error message', () async {
-    viewModel = AuthViewModel(_FakeAuthRepository(registerError: Exception('taken')), sessionStore);
+    viewModel = AuthViewModel(
+      _FakeAuthRepository(registerError: Exception('taken')),
+      sessionStore,
+    );
 
     await viewModel.register('alice', 'a valid password');
 
@@ -123,13 +133,16 @@ void main() {
     expect(viewModel.isAuthenticated, isFalse);
   });
 
-  test('reacts to session changes made outside of its own login/register/logout', () async {
-    var notified = false;
-    viewModel.addListener(() => notified = true);
+  test(
+    'reacts to session changes made outside of its own login/register/logout',
+    () async {
+      var notified = false;
+      viewModel.addListener(() => notified = true);
 
-    await sessionStore.setSession(_session('external'));
+      await sessionStore.setSession(_session('external'));
 
-    expect(notified, isTrue);
-    expect(viewModel.isAuthenticated, isTrue);
-  });
+      expect(notified, isTrue);
+      expect(viewModel.isAuthenticated, isTrue);
+    },
+  );
 }

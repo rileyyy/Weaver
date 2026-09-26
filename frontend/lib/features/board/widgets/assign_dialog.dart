@@ -29,7 +29,9 @@ Future<void> showAssignDialog(
         ),
         for (final user in users)
           _AssignOption(
-            initial: user.username.isEmpty ? null : user.username[0].toUpperCase(),
+            initial: user.username.isEmpty
+                ? null
+                : user.username[0].toUpperCase(),
             label: user.username,
             selected: user.id == currentAssigneeId,
             onSelected: () {

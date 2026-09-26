@@ -22,6 +22,7 @@ class AuthSession {
   /// this check and the server receiving the request.
   static const expiryLeeway = Duration(seconds: 30);
 
-  bool get isAccessTokenExpired =>
-      DateTime.now().toUtc().isAfter(accessTokenExpiresAtUtc.subtract(expiryLeeway));
+  bool get isAccessTokenExpired => DateTime.now().toUtc().isAfter(
+    accessTokenExpiresAtUtc.subtract(expiryLeeway),
+  );
 }

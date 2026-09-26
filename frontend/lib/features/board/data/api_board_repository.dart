@@ -198,7 +198,6 @@ class ApiBoardRepository implements BoardRepository {
     tags: _toTags(item),
   );
 
-
   Future<List<Map<String, dynamic>>> _getJsonList(
     String path, [
     Map<String, String>? query,

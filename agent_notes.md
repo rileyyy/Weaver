@@ -231,12 +231,20 @@ whoever (human or agent) next touches this area.
 
 ## CI
 
-- `.github/workflows/docker-publish.yml` runs backend (`dotnet test`) and
-  frontend (`flutter test`) test jobs on every push and PR to `master`;
-  the two image-publish jobs each depend on their own component's test job
-  and are additionally gated on `github.event_name != 'pull_request'`, so
-  PRs get test feedback but never push images (this also avoids needing
-  package-write permissions on PR runs from forks).
+- `.github/workflows/docker-publish.yml` runs the backend tests (with
+  coverage) and, for the frontend, `dart format --set-exit-if-changed`,
+  `flutter analyze` and `flutter test --coverage` on every push and PR to
+  `master`. Coverage reports are uploaded as artifacts. The image jobs
+  *build* on every run, so a broken Dockerfile fails the PR, but only log
+  in and push when the event isn't a pull request.
+- **Flutter is pinned in one place per file, to the same version:**
+  `FLUTTER_VERSION` in the workflow, passed to the production
+  Dockerfile's `ARG`, and the matching `ARG` default in `Dockerfile.dev`.
+  It used to float on `stable` in CI and on `cirruslabs/flutter:stable`
+  in the images, so tests and the shipped build could use different
+  SDKs. The formatter's output also depends on the SDK version, which is
+  another reason the format check needs a pinned one. Bump all three
+  together.
 - Images are tagged `latest` (default branch only), by semver on a `v*`
   tag push, and by commit SHA on every push — via `docker/metadata-action`,
   not hand-rolled tag logic.

@@ -60,7 +60,8 @@ class BoardViewModel extends ViewModel {
   bool get isLoading => _isLoading;
 
   /// Creating needs a loaded scope to create into and to reload afterwards.
-  bool get canCreateWorkItem => !_isLoading && _loadError == null && _breadcrumbs.isNotEmpty;
+  bool get canCreateWorkItem =>
+      !_isLoading && _loadError == null && _breadcrumbs.isNotEmpty;
 
   /// Set when the current scope failed to load; the view replaces the
   /// board with a retry prompt while this is non-null. [retry] re-attempts
@@ -283,7 +284,8 @@ class BoardViewModel extends ViewModel {
         final data = await _repository.loadBoard(current.id);
         return () => _applyScope(data);
       },
-      errorMessage: 'Could not refresh the board. Check your connection and try again.',
+      errorMessage:
+          'Could not refresh the board. Check your connection and try again.',
     );
   }
 
@@ -332,14 +334,24 @@ class BoardViewModel extends ViewModel {
 
     return _optimistic(
       apply: () {
-        _swimlanes = _withCard(card.id, (c) => c.copyWith(statusId: newStatusId));
-        _hierarchyItems = _withHierarchyItem(card.id, (item) => item.withStatus(newStatusId));
+        _swimlanes = _withCard(
+          card.id,
+          (c) => c.copyWith(statusId: newStatusId),
+        );
+        _hierarchyItems = _withHierarchyItem(
+          card.id,
+          (item) => item.withStatus(newStatusId),
+        );
       },
       persist: () => _repository.changeStatus(card.id, newStatusId),
-      revertLanes: () =>
-          _swimlanes = _withCard(card.id, (c) => c.copyWith(statusId: card.statusId)),
-      revertHierarchy: () =>
-          _hierarchyItems = _withHierarchyItem(card.id, (item) => item.withStatus(card.statusId)),
+      revertLanes: () => _swimlanes = _withCard(
+        card.id,
+        (c) => c.copyWith(statusId: card.statusId),
+      ),
+      revertHierarchy: () => _hierarchyItems = _withHierarchyItem(
+        card.id,
+        (item) => item.withStatus(card.statusId),
+      ),
       errorMessage: 'Could not move "${card.title}". Try again.',
     );
   }
@@ -349,7 +361,9 @@ class BoardViewModel extends ViewModel {
   /// `Reparent`. Applies the move optimistically, then rolls it back if
   /// the backend rejects it.
   Future<void> reparentCard(WorkItemCard card, String newParentId) {
-    if (card.parentId == newParentId || !_hasLane(card.parentId) || !_hasLane(newParentId)) {
+    if (card.parentId == newParentId ||
+        !_hasLane(card.parentId) ||
+        !_hasLane(newParentId)) {
       return Future.value();
     }
 
@@ -361,13 +375,22 @@ class BoardViewModel extends ViewModel {
     return _optimistic(
       apply: () {
         _swimlanes = _withCardMovedToLane(card.id, card.parentId, newParentId);
-        _hierarchyItems = _withHierarchyItem(card.id, (item) => item.movedToParent(newParentId));
+        _hierarchyItems = _withHierarchyItem(
+          card.id,
+          (item) => item.movedToParent(newParentId),
+        );
       },
       persist: () => _repository.reparentItem(card.id, newParentId),
-      revertLanes: () => _swimlanes =
-          _withCardMovedToLane(card.id, newParentId, card.parentId, atIndex: originalIndex),
-      revertHierarchy: () =>
-          _hierarchyItems = _withHierarchyItem(card.id, (item) => item.movedToParent(card.parentId)),
+      revertLanes: () => _swimlanes = _withCardMovedToLane(
+        card.id,
+        newParentId,
+        card.parentId,
+        atIndex: originalIndex,
+      ),
+      revertHierarchy: () => _hierarchyItems = _withHierarchyItem(
+        card.id,
+        (item) => item.movedToParent(card.parentId),
+      ),
       errorMessage: 'Could not move "${card.title}". Try again.',
     );
   }
@@ -384,15 +407,24 @@ class BoardViewModel extends ViewModel {
 
     return _optimistic(
       apply: () {
-        _swimlanes = _withCard(card.id, (c) => c.rescheduled(startDate, endDate));
-        _hierarchyItems =
-            _withHierarchyItem(card.id, (item) => item.rescheduled(startDate, endDate));
+        _swimlanes = _withCard(
+          card.id,
+          (c) => c.rescheduled(startDate, endDate),
+        );
+        _hierarchyItems = _withHierarchyItem(
+          card.id,
+          (item) => item.rescheduled(startDate, endDate),
+        );
       },
       persist: () => _repository.rescheduleItem(card.id, startDate, endDate),
-      revertLanes: () =>
-          _swimlanes = _withCard(card.id, (c) => c.rescheduled(card.startDate, card.endDate)),
-      revertHierarchy: () => _hierarchyItems =
-          _withHierarchyItem(card.id, (item) => item.rescheduled(card.startDate, card.endDate)),
+      revertLanes: () => _swimlanes = _withCard(
+        card.id,
+        (c) => c.rescheduled(card.startDate, card.endDate),
+      ),
+      revertHierarchy: () => _hierarchyItems = _withHierarchyItem(
+        card.id,
+        (item) => item.rescheduled(card.startDate, card.endDate),
+      ),
       errorMessage: 'Could not reschedule "${card.title}". Try again.',
     );
   }
@@ -409,12 +441,18 @@ class BoardViewModel extends ViewModel {
     return _optimistic(
       apply: () {
         _swimlanes = _assignedInSwimlanes(workItemId, userId);
-        _hierarchyItems = _withHierarchyItem(workItemId, (item) => item.assigned(userId));
+        _hierarchyItems = _withHierarchyItem(
+          workItemId,
+          (item) => item.assigned(userId),
+        );
       },
       persist: () => _repository.assign(workItemId, userId),
-      revertLanes: () => _swimlanes = _assignedInSwimlanes(workItemId, previousUserId),
-      revertHierarchy: () =>
-          _hierarchyItems = _withHierarchyItem(workItemId, (item) => item.assigned(previousUserId)),
+      revertLanes: () =>
+          _swimlanes = _assignedInSwimlanes(workItemId, previousUserId),
+      revertHierarchy: () => _hierarchyItems = _withHierarchyItem(
+        workItemId,
+        (item) => item.assigned(previousUserId),
+      ),
       errorMessage: 'Could not update the assignee. Try again.',
     );
   }
@@ -448,15 +486,23 @@ class BoardViewModel extends ViewModel {
     return _optimistic(
       apply: () {
         _swimlanes = _withCard(workItemId, (c) => c.tagged(tags));
-        _hierarchyItems = _withHierarchyItem(workItemId, (item) => item.tagged(tags));
+        _hierarchyItems = _withHierarchyItem(
+          workItemId,
+          (item) => item.tagged(tags),
+        );
       },
       persist: () => _repository.setTags(workItemId, tags),
       revertLanes: () {
-        if (previousTags != null) _swimlanes = _withCard(workItemId, (c) => c.tagged(previousTags));
+        if (previousTags != null) {
+          _swimlanes = _withCard(workItemId, (c) => c.tagged(previousTags));
+        }
       },
       revertHierarchy: () {
         if (previousTags != null) {
-          _hierarchyItems = _withHierarchyItem(workItemId, (item) => item.tagged(previousTags));
+          _hierarchyItems = _withHierarchyItem(
+            workItemId,
+            (item) => item.tagged(previousTags),
+          );
         }
       },
       errorMessage: 'Could not update the tags. Try again.',
@@ -659,7 +705,7 @@ class BoardViewModel extends ViewModel {
     if (a == null) {
       return b == null ? 0 : 1;
     }
-    
+
     if (b == null) {
       return -1;
     }
@@ -732,9 +778,13 @@ class BoardViewModel extends ViewModel {
     _swimlanes = data.swimlanes;
   }
 
-  bool _hasLane(String parentId) => _swimlanes.any((lane) => lane.parentId == parentId);
+  bool _hasLane(String parentId) =>
+      _swimlanes.any((lane) => lane.parentId == parentId);
 
-  List<Swimlane> _withCard(String cardId, WorkItemCard Function(WorkItemCard) update) => [
+  List<Swimlane> _withCard(
+    String cardId,
+    WorkItemCard Function(WorkItemCard) update,
+  ) => [
     for (final lane in _swimlanes)
       lane.copyWithCards([
         for (final c in lane.cards)
@@ -759,7 +809,9 @@ class BoardViewModel extends ViewModel {
     String toParentId, {
     int? atIndex,
   }) {
-    final fromLane = _swimlanes.where((lane) => lane.parentId == fromParentId).firstOrNull;
+    final fromLane = _swimlanes
+        .where((lane) => lane.parentId == fromParentId)
+        .firstOrNull;
     final card = fromLane?.cards.where((c) => c.id == cardId).firstOrNull;
     if (card == null) return _swimlanes;
 
@@ -790,7 +842,10 @@ class BoardViewModel extends ViewModel {
         if (card.id == workItemId) return card.assignedToUserId;
       }
     }
-    return _hierarchyItems.where((item) => item.id == workItemId).firstOrNull?.assignedToUserId;
+    return _hierarchyItems
+        .where((item) => item.id == workItemId)
+        .firstOrNull
+        ?.assignedToUserId;
   }
 
   List<String>? _currentTagsOf(String workItemId) {
@@ -799,6 +854,9 @@ class BoardViewModel extends ViewModel {
         if (card.id == workItemId) return card.tags;
       }
     }
-    return _hierarchyItems.where((item) => item.id == workItemId).firstOrNull?.tags;
+    return _hierarchyItems
+        .where((item) => item.id == workItemId)
+        .firstOrNull
+        ?.tags;
   }
 }

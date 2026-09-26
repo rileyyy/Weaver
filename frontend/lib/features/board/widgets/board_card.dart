@@ -113,7 +113,11 @@ class BoardCard extends StatelessWidget {
                               // column row), so a longer title needs the
                               // extra lines.
                               Expanded(
-                                child: Text(card.title, softWrap: true, style: titleStyle),
+                                child: Text(
+                                  card.title,
+                                  softWrap: true,
+                                  style: titleStyle,
+                                ),
                               ),
                             ],
                           ),

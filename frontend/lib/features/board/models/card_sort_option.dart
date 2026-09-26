@@ -6,9 +6,9 @@ enum CardSortOption { manual, title, startDate, dueDate }
 
 extension CardSortOptionLabel on CardSortOption {
   String get label => switch (this) {
-        CardSortOption.manual => 'Manual',
-        CardSortOption.title => 'Title (A–Z)',
-        CardSortOption.startDate => 'Start date',
-        CardSortOption.dueDate => 'Due date',
-      };
+    CardSortOption.manual => 'Manual',
+    CardSortOption.title => 'Title (A–Z)',
+    CardSortOption.startDate => 'Start date',
+    CardSortOption.dueDate => 'Due date',
+  };
 }

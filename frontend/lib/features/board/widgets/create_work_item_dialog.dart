@@ -49,8 +49,9 @@ class _CreateWorkItemDialogState extends State<_CreateWorkItemDialog> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   late bool _asNewSwimlane = widget.swimlanes.isEmpty;
-  late String? _selectedSwimlaneParentId =
-      widget.swimlanes.isEmpty ? null : widget.swimlanes.first.parentId;
+  late String? _selectedSwimlaneParentId = widget.swimlanes.isEmpty
+      ? null
+      : widget.swimlanes.first.parentId;
 
   @override
   void dispose() {
@@ -88,7 +89,8 @@ class _CreateWorkItemDialogState extends State<_CreateWorkItemDialog> {
             const SizedBox(height: 16),
             RadioGroup<bool>(
               groupValue: _asNewSwimlane,
-              onChanged: (value) => setState(() => _asNewSwimlane = value ?? true),
+              onChanged: (value) =>
+                  setState(() => _asNewSwimlane = value ?? true),
               child: Column(
                 children: [
                   const RadioListTile<bool>(
@@ -113,9 +115,13 @@ class _CreateWorkItemDialogState extends State<_CreateWorkItemDialog> {
                   decoration: const InputDecoration(labelText: 'Swimlane'),
                   items: [
                     for (final lane in widget.swimlanes)
-                      DropdownMenuItem(value: lane.parentId, child: Text(lane.title)),
+                      DropdownMenuItem(
+                        value: lane.parentId,
+                        child: Text(lane.title),
+                      ),
                   ],
-                  onChanged: (value) => setState(() => _selectedSwimlaneParentId = value),
+                  onChanged: (value) =>
+                      setState(() => _selectedSwimlaneParentId = value),
                 ),
               ),
           ],
@@ -129,15 +135,16 @@ class _CreateWorkItemDialogState extends State<_CreateWorkItemDialog> {
         FilledButton(
           onPressed: _canCreate
               ? () => Navigator.of(context).pop(
-                    CreateWorkItemResult(
-                      title: _titleController.text.trim(),
-                      description: _descriptionController.text.trim().isEmpty
-                          ? null
-                          : _descriptionController.text.trim(),
-                      parentId:
-                          _asNewSwimlane ? widget.scopeParentId : _selectedSwimlaneParentId,
-                    ),
-                  )
+                  CreateWorkItemResult(
+                    title: _titleController.text.trim(),
+                    description: _descriptionController.text.trim().isEmpty
+                        ? null
+                        : _descriptionController.text.trim(),
+                    parentId: _asNewSwimlane
+                        ? widget.scopeParentId
+                        : _selectedSwimlaneParentId,
+                  ),
+                )
               : null,
           child: const Text('Create'),
         ),

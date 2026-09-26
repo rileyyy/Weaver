@@ -37,64 +37,65 @@ class HierarchyItem {
   /// Sets this item's assignee, keeping everything else — the model-level
   /// mirror of the backend's `Assign`.
   HierarchyItem assigned(String? userId) => HierarchyItem(
-        id: id,
-        number: number,
-        parentId: parentId,
-        title: title,
-        statusId: statusId,
-        description: description,
-        startDate: startDate,
-        endDate: endDate,
-        assignedToUserId: userId,
-        tags: tags,
-      );
+    id: id,
+    number: number,
+    parentId: parentId,
+    title: title,
+    statusId: statusId,
+    description: description,
+    startDate: startDate,
+    endDate: endDate,
+    assignedToUserId: userId,
+    tags: tags,
+  );
 
   /// Sets this item's tags (the full replacement list), keeping everything
   /// else — the model-level mirror of the backend's `SetTags`.
   HierarchyItem tagged(List<String> tags) => HierarchyItem(
-        id: id,
-        number: number,
-        parentId: parentId,
-        title: title,
-        statusId: statusId,
-        description: description,
-        startDate: startDate,
-        endDate: endDate,
-        assignedToUserId: assignedToUserId,
-        tags: tags,
-      );
+    id: id,
+    number: number,
+    parentId: parentId,
+    title: title,
+    statusId: statusId,
+    description: description,
+    startDate: startDate,
+    endDate: endDate,
+    assignedToUserId: assignedToUserId,
+    tags: tags,
+  );
 
   /// Moves this item to another status column — mirrors the backend's
   /// `ChangeStatus`, so the Hierarchy/Roadmap views follow board drags.
   HierarchyItem withStatus(String statusId) => HierarchyItem(
-        id: id,
-        number: number,
-        parentId: parentId,
-        title: title,
-        statusId: statusId,
-        description: description,
-        startDate: startDate,
-        endDate: endDate,
-        assignedToUserId: assignedToUserId,
-        tags: tags,
-      );
+    id: id,
+    number: number,
+    parentId: parentId,
+    title: title,
+    statusId: statusId,
+    description: description,
+    startDate: startDate,
+    endDate: endDate,
+    assignedToUserId: assignedToUserId,
+    tags: tags,
+  );
 
   /// Mirrors the backend's `Reparent`.
   HierarchyItem movedToParent(String? parentId) => HierarchyItem(
-        id: id,
-        number: number,
-        parentId: parentId,
-        title: title,
-        statusId: statusId,
-        description: description,
-        startDate: startDate,
-        endDate: endDate,
-        assignedToUserId: assignedToUserId,
-        tags: tags,
-      );
+    id: id,
+    number: number,
+    parentId: parentId,
+    title: title,
+    statusId: statusId,
+    description: description,
+    startDate: startDate,
+    endDate: endDate,
+    assignedToUserId: assignedToUserId,
+    tags: tags,
+  );
 
   /// Mirrors the backend's `Reschedule`.
-  HierarchyItem rescheduled(DateTime? startDate, DateTime? endDate) => HierarchyItem(
+  HierarchyItem rescheduled(DateTime? startDate, DateTime? endDate) =>
+      HierarchyItem(
         id: id,
         number: number,
         parentId: parentId,

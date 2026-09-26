@@ -49,7 +49,11 @@ abstract class WorkItemDetailRepository {
   });
 
   /// Replaces this work item's full tag list.
-  Future<WorkItemDetail> updateTags(String id, List<String> tags, {required int expectedVersion});
+  Future<WorkItemDetail> updateTags(
+    String id,
+    List<String> tags, {
+    required int expectedVersion,
+  });
 
   Future<List<WorkItemComment>> loadComments(String workItemId);
 

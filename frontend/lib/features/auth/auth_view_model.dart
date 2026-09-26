@@ -41,14 +41,14 @@ class AuthViewModel extends ViewModel {
   }
 
   Future<void> login(String username, String password) => _submit(
-        () => _repository.login(username, password),
-        errorMessage: 'Could not sign in. Check your username and password.',
-      );
+    () => _repository.login(username, password),
+    errorMessage: 'Could not sign in. Check your username and password.',
+  );
 
   Future<void> register(String username, String password) => _submit(
-        () => _repository.register(username, password),
-        errorMessage: 'Could not create an account. Try a different username.',
-      );
+    () => _repository.register(username, password),
+    errorMessage: 'Could not create an account. Try a different username.',
+  );
 
   Future<void> logout() async {
     final refreshToken = _sessionStore.current?.refreshToken;

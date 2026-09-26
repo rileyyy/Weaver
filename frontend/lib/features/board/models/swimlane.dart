@@ -19,17 +19,17 @@ class Swimlane {
   final String? assignedToUserId;
 
   Swimlane copyWithCards(List<WorkItemCard> cards) => Swimlane(
-        parentId: parentId,
-        title: title,
-        cards: cards,
-        assignedToUserId: assignedToUserId,
-      );
+    parentId: parentId,
+    title: title,
+    cards: cards,
+    assignedToUserId: assignedToUserId,
+  );
 
   /// Sets this lane's own work item's assignee, keeping its cards.
   Swimlane assigned(String? userId) => Swimlane(
-        parentId: parentId,
-        title: title,
-        cards: cards,
-        assignedToUserId: userId,
-      );
+    parentId: parentId,
+    title: title,
+    cards: cards,
+    assignedToUserId: userId,
+  );
 }
