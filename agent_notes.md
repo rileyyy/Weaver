@@ -66,6 +66,19 @@ whoever (human or agent) next touches this area.
   `IBoardService`/`IStatusService` for them now would be abstraction
   without a current reason.
 
+## Input validation
+
+- **Field rules live in the services, not the controllers**, via
+  `TextValidation` in `Weaver.Domain`, so REST and MCP share them. A
+  broken rule throws `DomainValidationException`, which both
+  `ApiExceptionMiddleware` and `McpExceptionTranslation` map to 400. Use
+  it for any new field rule instead of adding a new exception type.
+- **Max lengths are constants on the entities** (`WorkItem.TitleMaxLength`,
+  `Comment.BodyMaxLength`, `Board.NameMaxLength`) and the EF
+  configurations use the same constants, so the validation limit and the
+  column limit can't drift apart. Before this, oversized input reached
+  the database and came back as an unmapped `DbUpdateException` (500).
+
 ## Testing
 
 - NUnit + Moq, per explicit preference (originally scaffolded with xUnit).
@@ -668,7 +681,10 @@ whoever (human or agent) next touches this area.
   (`InvalidWorkItemTagException`, 400), and the list is de-duplicated
   case-insensitively (first occurrence's casing wins) — this runs
   server-side rather than trusting the frontend, the same reasoning as
-  `RescheduleAsync` validating its own dates itself.
+  `RescheduleAsync` validating its own dates itself. A work item can
+  have at most 20 tags (counted after de-duplication) of at most 50
+  characters each (`WorkItem.MaxTags`/`TagMaxLength`); `text[]` has no
+  limit of its own, so without these there was no bound at all.
 - **The generated migration (`AddWorkItemTags`) needed a hand-added
   `defaultValueSql: "ARRAY[]::text[]"`.** EF's `dotnet ef migrations add`
   left the new `NOT NULL text[]` column with no default at all, which would

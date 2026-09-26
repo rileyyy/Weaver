@@ -8,7 +8,7 @@ public class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
 {
     public void Configure(EntityTypeBuilder<WorkItem> builder)
     {
-        builder.Property(w => w.Title).IsRequired().HasMaxLength(500);
+        builder.Property(w => w.Title).IsRequired().HasMaxLength(WorkItem.TitleMaxLength);
 
         // Database-generated (Postgres identity column), never set by
         // application code — see WorkItem.Number's own doc comment. Also

@@ -37,6 +37,8 @@ public class WorkItemService : IWorkItemService
         WorkItemPriority priority = WorkItemPriority.Medium,
         CancellationToken ct = default)
     {
+        TextValidation.RequireText(title, "Title", WorkItem.TitleMaxLength);
+
         if (parentId is not null && !await _db.WorkItems.AnyAsync(w => w.Id == parentId, ct))
         {
             throw new EntityNotFoundException(nameof(WorkItem), parentId.Value);
@@ -158,6 +160,8 @@ public class WorkItemService : IWorkItemService
         uint? expectedVersion = null,
         CancellationToken ct = default)
     {
+        TextValidation.RequireText(title, "Title", WorkItem.TitleMaxLength);
+
         if (layerId is not null && !await _db.WorkItemLayers.AnyAsync(l => l.Id == layerId, ct))
         {
             throw new EntityNotFoundException(nameof(WorkItemLayer), layerId.Value);
@@ -211,10 +215,17 @@ public class WorkItemService : IWorkItemService
                 throw new InvalidWorkItemTagException(id);
             }
 
+            TextValidation.RequireMaxLength(trimmed, "Each tag", WorkItem.TagMaxLength);
+
             if (seen.Add(trimmed))
             {
                 normalized.Add(trimmed);
             }
+        }
+
+        if (normalized.Count > WorkItem.MaxTags)
+        {
+            throw new DomainValidationException($"A work item can have at most {WorkItem.MaxTags} tags.");
         }
 
         var item = await _db.WorkItems.FindAsync([id], ct)

@@ -10,6 +10,10 @@ public enum WorkItemPriority
 
 public class WorkItem
 {
+    public const int TitleMaxLength = 500;
+    public const int MaxTags = 20;
+    public const int TagMaxLength = 50;
+
     public Guid Id { get; set; }
 
     /// <summary>
