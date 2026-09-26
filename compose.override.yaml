@@ -28,6 +28,9 @@ services:
       # CORS_ALLOWED_ORIGIN in .env.example).
       Jwt__SigningKey: insecure-development-only-signing-key-do-not-use-in-production
       Cors__AllowedOrigins__0: http://localhost:8082
+    # compose.yaml keeps the API off the host; dev talks to it directly.
+    ports:
+      - "8080:8080"
     volumes:
       - ./backend:/src
       - backend-nuget-cache:/root/.nuget/packages
@@ -45,6 +48,11 @@ services:
       API_BASE_URL: http://localhost:8080
     volumes:
       - ./frontend:/app
+
+  # Dev serves the app straight from the Flutter dev server on :8082, so
+  # the TLS proxy isn't needed. A profile nobody activates keeps it off.
+  caddy:
+    profiles: ["production-only"]
 
 volumes:
   backend-nuget-cache:

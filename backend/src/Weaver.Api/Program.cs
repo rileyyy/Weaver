@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -13,8 +14,6 @@ using Weaver.Infrastructure.Auth;
 using Weaver.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
-
-// Add services to the container.
 
 // Enums serialize as their string name (e.g. "Human"), not the underlying
 // int — self-describing on the wire, and this is what UserDto.Kind's
@@ -59,6 +58,13 @@ if (string.IsNullOrWhiteSpace(jwtOptions?.SigningKey))
     throw new InvalidOperationException(
         "Jwt:SigningKey is not configured. Set it via the Jwt__SigningKey environment variable (see .env.example).");
 }
+// HS256 needs a key of at least 256 bits. A shorter one (e.g. a placeholder
+// copied from .env.example) would otherwise only fail at the first login.
+if (Encoding.UTF8.GetByteCount(jwtOptions.SigningKey) < 32)
+{
+    throw new InvalidOperationException(
+        "Jwt:SigningKey must be at least 32 bytes. Generate one with `openssl rand -base64 48`.");
+}
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 
 builder.Services
@@ -102,6 +108,17 @@ builder.Services.AddCors(options =>
     options.AddPolicy(corsPolicy, policy =>
         policy.WithOrigins(allowedOrigins).AllowAnyMethod().AllowAnyHeader()));
 
+// In production the API is only reachable through Caddy -> nginx on the
+// compose network (no published port), whose container IPs aren't fixed, so
+// the proxies are trusted by position rather than by address.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = 2;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -109,15 +126,14 @@ using (var scope = app.Services.CreateScope())
     await scope.ServiceProvider.GetRequiredService<WeaverDbContext>().Database.MigrateAsync();
 }
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
-app.UseMiddleware<ApiExceptionMiddleware>();
+app.UseForwardedHeaders();
 
-app.UseHttpsRedirection();
+app.UseMiddleware<ApiExceptionMiddleware>();
 
 app.UseCors(corsPolicy);
 
