@@ -1,3 +1,6 @@
+import 'package:weaver/core/network/api_dates.dart';
+import 'package:weaver/core/network/json_fields.dart';
+
 /// One work item as shown in the Hierarchy view: enough fields to render a
 /// row and to nest it under its parent. A richer, unscoped sibling of
 /// [WorkItemCard] — [parentId] is nullable here because, unlike the board
@@ -16,6 +19,19 @@ class HierarchyItem {
     this.assignedToUserId,
     this.tags = const [],
   });
+
+  factory HierarchyItem.fromJson(Map<String, dynamic> json) => HierarchyItem(
+    id: json['id'] as String,
+    number: json['number'] as int,
+    parentId: json['parentId'] as String?,
+    title: json['title'] as String,
+    statusId: json['statusId'] as String,
+    description: json['description'] as String?,
+    startDate: parseCalendarDate(json['startDate']),
+    endDate: parseCalendarDate(json['endDate']),
+    assignedToUserId: json['assignedToUserId'] as String?,
+    tags: stringList(json['tags']),
+  );
 
   final String id;
 

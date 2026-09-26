@@ -1,9 +1,7 @@
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
 import 'package:weaver/core/network/api_dates.dart';
-import 'package:weaver/core/network/api_exception.dart';
+import 'package:weaver/core/network/json_api_client.dart';
 import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
@@ -19,21 +17,25 @@ import 'package:weaver/features/board/models/work_item_card.dart';
 /// backend.
 @LazySingleton(as: BoardRepository)
 class ApiBoardRepository implements BoardRepository {
-  ApiBoardRepository(this._client, @Named('apiBaseUrl') this._baseUrl);
+  ApiBoardRepository(http.Client client, @Named('apiBaseUrl') String baseUrl)
+    : _api = JsonApiClient(client, baseUrl);
 
-  final http.Client _client;
-  final String _baseUrl;
+  final JsonApiClient _api;
 
   @override
-  Future<String?> loadRootScopeItemId() async {
-    final boards = await _getJsonList('/boards');
+  Future<String?> loadRootScopeItemId() => _api.get('/boards', (json) {
+    final boards = json as List<dynamic>;
     if (boards.isEmpty) return null;
-    return boards.first['scopeItemId'] as String?;
-  }
+    return (boards.first as Map<String, dynamic>)['scopeItemId'] as String?;
+  }, failureMessage: 'Failed to load boards');
 
   @override
   Future<BoardData> loadBoard(String? scopeItemId) async {
-    final statuses = await _loadStatuses();
+    final statuses = await _api.get(
+      '/statuses',
+      (json) => JsonApiClient.listOf(json, BoardStatus.fromJson),
+      failureMessage: 'Failed to load statuses',
+    );
     final swimlaneItems = await _loadChildren(scopeItemId);
 
     final swimlanes = await Future.wait([
@@ -44,60 +46,40 @@ class ApiBoardRepository implements BoardRepository {
   }
 
   @override
-  Future<List<HierarchyItem>> loadAllItems() async {
-    final json = await _getJsonList('/work-items/all');
-    return [for (final item in json) _toHierarchyItem(item)];
-  }
+  Future<List<HierarchyItem>> loadAllItems() => _api.get(
+    '/work-items/all',
+    (json) => JsonApiClient.listOf(json, HierarchyItem.fromJson),
+    failureMessage: 'Failed to load work items',
+  );
 
   @override
-  Future<List<AuthUser>> loadUsers() async {
-    final json = await _getJsonList('/users');
-    return [
-      for (final item in json)
-        AuthUser(
-          id: item['id'] as String,
-          username: item['username'] as String,
-          kind: userKindFromWire(item['kind'] as String),
-        ),
-    ];
-  }
+  Future<List<AuthUser>> loadUsers() => _api.get(
+    '/users',
+    (json) => JsonApiClient.listOf(json, AuthUser.fromJson),
+    failureMessage: 'Failed to load users',
+  );
 
   @override
-  Future<void> changeStatus(String cardId, String newStatusId) async {
-    final response = await _client.post(
-      _uri('/work-items/$cardId/status'),
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({'statusId': newStatusId}),
-    );
-    _checkOk(response, 'Failed to change status');
-  }
+  Future<void> changeStatus(String cardId, String newStatusId) =>
+      _api.postIgnoringBody('/work-items/$cardId/status', {
+        'statusId': newStatusId,
+      }, failureMessage: 'Failed to change status');
 
   @override
-  Future<void> reparentItem(String itemId, String newParentId) async {
-    final response = await _client.post(
-      _uri('/work-items/$itemId/parent'),
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({'parentId': newParentId}),
-    );
-    _checkOk(response, 'Failed to move item');
-  }
+  Future<void> reparentItem(String itemId, String newParentId) =>
+      _api.postIgnoringBody('/work-items/$itemId/parent', {
+        'parentId': newParentId,
+      }, failureMessage: 'Failed to move item');
 
   @override
   Future<void> rescheduleItem(
     String itemId,
     DateTime? startDate,
     DateTime? endDate,
-  ) async {
-    final response = await _client.post(
-      _uri('/work-items/$itemId/schedule'),
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'startDate': formatCalendarDate(startDate),
-        'endDate': formatCalendarDate(endDate),
-      }),
-    );
-    _checkOk(response, 'Failed to reschedule item');
-  }
+  ) => _api.postIgnoringBody('/work-items/$itemId/schedule', {
+    'startDate': formatCalendarDate(startDate),
+    'endDate': formatCalendarDate(endDate),
+  }, failureMessage: 'Failed to reschedule item');
 
   @override
   Future<void> createWorkItem({
@@ -105,127 +87,48 @@ class ApiBoardRepository implements BoardRepository {
     String? description,
     required String? parentId,
     required String statusId,
-  }) async {
-    final response = await _client.post(
-      _uri('/work-items'),
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'title': title,
-        'description': description,
-        'parentId': parentId,
-        'statusId': statusId,
-      }),
-    );
-    _checkOk(response, 'Failed to create work item');
-  }
+  }) => _api.postIgnoringBody('/work-items', {
+    'title': title,
+    'description': description,
+    'parentId': parentId,
+    'statusId': statusId,
+  }, failureMessage: 'Failed to create work item');
 
   @override
-  Future<void> assign(String workItemId, String? userId) async {
-    final response = await _client.post(
-      _uri('/work-items/$workItemId/assignee'),
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({'userId': userId}),
-    );
-    _checkOk(response, 'Failed to assign work item');
-  }
+  Future<void> assign(String workItemId, String? userId) =>
+      _api.postIgnoringBody(
+        '/work-items/$workItemId/assignee',
+        {'userId': userId},
+        failureMessage: 'Failed to assign work item',
+      );
 
   @override
-  Future<void> setTags(String workItemId, List<String> tags) async {
-    final response = await _client.post(
-      _uri('/work-items/$workItemId/tags'),
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({'tags': tags}),
-    );
-    _checkOk(response, 'Failed to set tags');
-  }
-
-  Future<List<BoardStatus>> _loadStatuses() async {
-    final json = await _getJsonList('/statuses');
-    return [
-      for (final item in json)
-        BoardStatus(
-          id: item['id'] as String,
-          name: item['name'] as String,
-          order: item['order'] as int,
-          color: parseStatusColor(item['color'] as String),
-        ),
-    ];
-  }
+  Future<void> setTags(String workItemId, List<String> tags) =>
+      _api.postIgnoringBody('/work-items/$workItemId/tags', {
+        'tags': tags,
+      }, failureMessage: 'Failed to set tags');
 
   Future<Swimlane> _loadSwimlane(Map<String, dynamic> parent) async {
     final parentId = parent['id'] as String;
-    final cardItems = await _loadChildren(parentId);
+    final cards = await _api.get(
+      '/work-items',
+      (json) => JsonApiClient.listOf(json, WorkItemCard.fromJson),
+      query: {'parentId': parentId},
+      failureMessage: 'Failed to load work items',
+    );
     return Swimlane(
       parentId: parentId,
       title: parent['title'] as String,
-      cards: [for (final item in cardItems) _toCard(item)],
+      cards: cards,
       assignedToUserId: parent['assignedToUserId'] as String?,
     );
   }
 
-  List<String> _toTags(Map<String, dynamic> item) =>
-      (item['tags'] as List<dynamic>?)?.cast<String>() ?? const [];
-
   Future<List<Map<String, dynamic>>> _loadChildren(String? parentId) =>
-      _getJsonList(
+      _api.get(
         '/work-items',
-        parentId == null ? null : {'parentId': parentId},
+        (json) => JsonApiClient.listOf(json, (item) => item),
+        query: parentId == null ? null : {'parentId': parentId},
+        failureMessage: 'Failed to load work items',
       );
-
-  WorkItemCard _toCard(Map<String, dynamic> item) => WorkItemCard(
-    id: item['id'] as String,
-    number: item['number'] as int,
-    title: item['title'] as String,
-    parentId: item['parentId'] as String,
-    statusId: item['statusId'] as String,
-    description: item['description'] as String?,
-    startDate: parseCalendarDate(item['startDate']),
-    endDate: parseCalendarDate(item['endDate']),
-    assignedToUserId: item['assignedToUserId'] as String?,
-    tags: _toTags(item),
-  );
-
-  HierarchyItem _toHierarchyItem(Map<String, dynamic> item) => HierarchyItem(
-    id: item['id'] as String,
-    number: item['number'] as int,
-    parentId: item['parentId'] as String?,
-    title: item['title'] as String,
-    statusId: item['statusId'] as String,
-    description: item['description'] as String?,
-    startDate: parseCalendarDate(item['startDate']),
-    endDate: parseCalendarDate(item['endDate']),
-    assignedToUserId: item['assignedToUserId'] as String?,
-    tags: _toTags(item),
-  );
-
-  Future<List<Map<String, dynamic>>> _getJsonList(
-    String path, [
-    Map<String, String>? query,
-  ]) async {
-    final response = await _client.get(_uri(path, query));
-    _checkOk(response, 'Failed to load $path');
-    final decoded = jsonDecode(response.body) as List<dynamic>;
-    return decoded.cast<Map<String, dynamic>>();
-  }
-
-  Uri _uri(String path, [Map<String, String>? query]) {
-    final uri = Uri.parse('$_baseUrl$path');
-    return query == null ? uri : uri.replace(queryParameters: query);
-  }
-
-  void _checkOk(http.Response response, String fallbackMessage) {
-    if (response.statusCode >= 200 && response.statusCode < 300) return;
-    throw ApiException(
-      '${_problemDetail(response) ?? fallbackMessage} (${response.statusCode}).',
-    );
-  }
-
-  String? _problemDetail(http.Response response) {
-    try {
-      final body = jsonDecode(response.body);
-      return body is Map<String, dynamic> ? body['detail'] as String? : null;
-    } on FormatException {
-      return null;
-    }
-  }
 }

@@ -13,6 +13,15 @@ class AuthSession {
     required this.user,
   });
 
+  factory AuthSession.fromJson(Map<String, dynamic> json) => AuthSession(
+    accessToken: json['accessToken'] as String,
+    accessTokenExpiresAtUtc: DateTime.parse(
+      json['accessTokenExpiresAtUtc'] as String,
+    ),
+    refreshToken: json['refreshToken'] as String,
+    user: AuthUser.fromJson(json['user'] as Map<String, dynamic>),
+  );
+
   final String accessToken;
   final DateTime accessTokenExpiresAtUtc;
   final String refreshToken;

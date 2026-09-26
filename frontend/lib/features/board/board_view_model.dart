@@ -2,6 +2,7 @@ import 'dart:ui' show Color;
 
 import 'package:injectable/injectable.dart';
 import 'package:weaver/core/dates/calendar_days.dart';
+import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
@@ -180,7 +181,7 @@ class BoardViewModel extends ViewModel {
       final items = await _repository.loadAllItems();
       if (generation != _hierarchyGeneration) return;
       _hierarchyItems = items;
-    } catch (_) {
+    } on ApiException {
       if (generation != _hierarchyGeneration) return;
       _hierarchyLoadError =
           'Could not load the hierarchy view. Check your connection and try again.';
@@ -260,7 +261,7 @@ class BoardViewModel extends ViewModel {
       List<AuthUser> users;
       try {
         users = await _repository.loadUsers();
-      } catch (_) {
+      } on ApiException {
         users = const [];
       }
       return () {
@@ -537,7 +538,7 @@ class BoardViewModel extends ViewModel {
         parentId: parentId,
         statusId: statusId,
       );
-    } catch (_) {
+    } on ApiException {
       _moveError = 'Could not create "$title". Try again.';
       notifyIfActive();
       return;
@@ -743,7 +744,7 @@ class BoardViewModel extends ViewModel {
       if (generation != _scopeGeneration) return;
       apply();
       _retry = _noRetry;
-    } catch (_) {
+    } on ApiException {
       if (generation != _scopeGeneration) return;
       _loadError = errorMessage;
       // Only a failure is retryable: replaying a successful drill-in would
@@ -776,7 +777,7 @@ class BoardViewModel extends ViewModel {
 
     try {
       await persist();
-    } catch (_) {
+    } on ApiException {
       if (scopeGeneration == _scopeGeneration) revertLanes();
       if (hierarchyGeneration == _hierarchyGeneration) revertHierarchy?.call();
       _moveError = errorMessage;

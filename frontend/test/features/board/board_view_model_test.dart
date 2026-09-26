@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' show Color;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
@@ -128,7 +129,7 @@ class _TestBoardRepository implements BoardRepository {
     await loadGates[scopeItemId]?.future;
     if (scopeItemId == null) return _rootBoard;
     if (scopeItemId == 'card-1') return _card1Children;
-    throw StateError('No fixture for scope $scopeItemId');
+    throw ApiException('No fixture for scope $scopeItemId', statusCode: 404);
   }
 
   @override
@@ -205,15 +206,15 @@ class _TestBoardRepository implements BoardRepository {
 class _FailingLoadRepository implements BoardRepository {
   @override
   Future<String?> loadRootScopeItemId() =>
-      Future.error(Exception('network down'));
+      Future.error(const ApiException('network down'));
 
   @override
   Future<BoardData> loadBoard(String? scopeItemId) =>
-      Future.error(Exception('network down'));
+      Future.error(const ApiException('network down'));
 
   @override
   Future<List<HierarchyItem>> loadAllItems() =>
-      Future.error(Exception('network down'));
+      Future.error(const ApiException('network down'));
 
   @override
   Future<List<AuthUser>> loadUsers() => Future.value(const []);
@@ -305,7 +306,7 @@ void main() {
     'moveCard rolls back the optimistic update when the repository call fails',
     () async {
       final failingRepository = _TestBoardRepository(
-        changeStatusError: Exception('conflict'),
+        changeStatusError: const ApiException('conflict'),
       );
       final failingViewModel = BoardViewModel(failingRepository);
       await failingViewModel.load();
@@ -417,7 +418,7 @@ void main() {
     'reparentCard rolls back the optimistic update when the repository call fails',
     () async {
       final failingRepository = _TestBoardRepository(
-        reparentError: Exception('cycle'),
+        reparentError: const ApiException('cycle'),
       );
       final failingViewModel = BoardViewModel(failingRepository);
       await failingViewModel.load();
@@ -459,7 +460,7 @@ void main() {
     'rescheduleCard rolls back the optimistic update when the repository call fails',
     () async {
       final failingRepository = _TestBoardRepository(
-        rescheduleError: Exception('boom'),
+        rescheduleError: const ApiException('boom'),
       );
       final failingViewModel = BoardViewModel(failingRepository);
       await failingViewModel.load();
@@ -536,7 +537,7 @@ void main() {
     'assign rolls back the optimistic update when the repository call fails',
     () async {
       final failingRepository = _TestBoardRepository(
-        assignError: Exception('boom'),
+        assignError: const ApiException('boom'),
       );
       final failingViewModel = BoardViewModel(failingRepository);
       await failingViewModel.load();
@@ -596,7 +597,7 @@ void main() {
     'setTags rolls back the optimistic update when the repository call fails',
     () async {
       final failingRepository = _TestBoardRepository(
-        tagsError: Exception('boom'),
+        tagsError: const ApiException('boom'),
       );
       final failingViewModel = BoardViewModel(failingRepository);
       await failingViewModel.load();
@@ -628,7 +629,7 @@ void main() {
     'createWorkItem failure keeps the board and reports a transient error',
     () async {
       final failingRepository = _TestBoardRepository(
-        createError: Exception('boom'),
+        createError: const ApiException('boom'),
       );
       final failingViewModel = BoardViewModel(failingRepository);
       await failingViewModel.load();
@@ -1142,7 +1143,7 @@ void main() {
     'loadHierarchy sets hierarchyLoadError when the repository throws',
     () async {
       final repository = _TestBoardRepository(
-        hierarchyError: Exception('network down'),
+        hierarchyError: const ApiException('network down'),
       );
       final hierarchyViewModel = BoardViewModel(repository);
       await hierarchyViewModel.load();
@@ -1389,7 +1390,9 @@ void main() {
         );
         await viewModel.moveCard(viewModel.swimlanes[1].cards.single, 'done');
 
-        repository.statusGates['card-1']!.completeError(Exception('rejected'));
+        repository.statusGates['card-1']!.completeError(
+          const ApiException('rejected'),
+        );
         await failing;
 
         expect(viewModel.swimlanes[0].cards.single.statusId, 'todo');
@@ -1408,7 +1411,9 @@ void main() {
         );
         await viewModel.drillInto(viewModel.swimlanes[0].cards.single);
 
-        repository.statusGates['card-1']!.completeError(Exception('rejected'));
+        repository.statusGates['card-1']!.completeError(
+          const ApiException('rejected'),
+        );
         await failing;
 
         expect(viewModel.swimlanes.single.parentId, 'card-1');
@@ -1494,7 +1499,7 @@ void main() {
 
     test('a failed move reverts the Hierarchy item too', () async {
       final failing = _TestBoardRepository(
-        changeStatusError: Exception('rejected'),
+        changeStatusError: const ApiException('rejected'),
         hierarchyItems: hierarchyRepository.hierarchyItems,
       );
       hierarchyViewModel = BoardViewModel(failing);

@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:weaver/core/network/api_exception.dart';
+import 'package:weaver/core/network/network_exception.dart';
 import 'package:weaver/features/auth/auth_view_model.dart';
 import 'package:weaver/features/auth/data/auth_repository.dart';
 import 'package:weaver/features/auth/data/auth_session_store.dart';
@@ -89,7 +91,9 @@ void main() {
     'login on failure sets an error message and stays unauthenticated',
     () async {
       viewModel = AuthViewModel(
-        _FakeAuthRepository(loginError: Exception('bad creds')),
+        _FakeAuthRepository(
+          loginError: const ApiException('bad creds', statusCode: 401),
+        ),
         sessionStore,
       );
 
@@ -109,7 +113,9 @@ void main() {
 
   test('register on failure sets an error message', () async {
     viewModel = AuthViewModel(
-      _FakeAuthRepository(registerError: Exception('taken')),
+      _FakeAuthRepository(
+        registerError: const ApiException('taken', statusCode: 409),
+      ),
       sessionStore,
     );
 
@@ -153,7 +159,9 @@ void main() {
   test(
     'logout still signs out, without an unhandled error, when the server call fails',
     () async {
-      final failing = _FakeAuthRepository(logoutError: Exception('offline'));
+      final failing = _FakeAuthRepository(
+        logoutError: const NetworkException(),
+      );
       viewModel = AuthViewModel(
         failing,
         AuthSessionStore(failing, _InMemoryTokenStore()),
