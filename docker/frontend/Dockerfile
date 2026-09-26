@@ -12,9 +12,14 @@ COPY frontend/pubspec.yaml frontend/pubspec.lock ./
 RUN flutter pub get
 
 COPY frontend .
-RUN flutter build web --release
+# CanvasKit is bundled into build/web anyway; this makes the app load it
+# from there instead of Google's CDN, so a LAN server works without that
+# dependency and the CSP can keep scripts to 'self'.
+RUN flutter build web --release --no-web-resources-cdn
 
-FROM nginx:1.27-alpine AS runtime
+# Official NGINX image variant that runs as an unprivileged user (uid 101)
+# and listens on 8080, instead of starting as root.
+FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 COPY docker/frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/build/web /usr/share/nginx/html
 
