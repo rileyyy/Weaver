@@ -53,9 +53,17 @@ class AuthViewModel extends ViewModel {
   Future<void> logout() async {
     final refreshToken = _sessionStore.current?.refreshToken;
     await _sessionStore.clear();
-    if (refreshToken != null) {
-      // Best-effort — the session is already cleared client-side either way.
-      unawaited(_repository.logout(refreshToken));
+    if (refreshToken != null) unawaited(_revokeBestEffort(refreshToken));
+  }
+
+  /// The session is already cleared client-side, so a failed server-side
+  /// revoke only means the refresh token lives until it expires; it must
+  /// not surface as an unhandled async error.
+  Future<void> _revokeBestEffort(String refreshToken) async {
+    try {
+      await _repository.logout(refreshToken);
+    } on Exception {
+      // See doc comment.
     }
   }
 

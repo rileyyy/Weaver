@@ -28,7 +28,9 @@ class WorkItemDetailViewModel extends ViewModel {
   List<WorkItemChildSummary> _children = const [];
   bool _isLoading = true;
   String? _loadError;
-  bool _isSaving = false;
+  // A count, not a bool: saves can overlap, and the first one to finish
+  // mustn't clear the flag while another is still in flight.
+  int _pendingSaves = 0;
   String? _saveError;
   int _reloadGeneration = 0;
   bool _hasChanges = false;
@@ -42,7 +44,7 @@ class WorkItemDetailViewModel extends ViewModel {
   List<WorkItemChildSummary> get children => _children;
   bool get isLoading => _isLoading;
   String? get loadError => _loadError;
-  bool get isSaving => _isSaving;
+  bool get isSaving => _pendingSaves > 0;
   String? get saveError => _saveError;
 
   /// Increments whenever [item] is replaced by a fresh server copy that
@@ -79,7 +81,7 @@ class WorkItemDetailViewModel extends ViewModel {
     notifyIfActive();
 
     try {
-      final results = await Future.wait([
+      final (item, statuses, layers, users, comments, links, children) = await (
         _repository.getItem(id),
         _repository.loadStatuses(),
         _repository.loadLayers(),
@@ -87,14 +89,14 @@ class WorkItemDetailViewModel extends ViewModel {
         _repository.loadComments(id),
         _repository.loadLinks(id),
         _repository.loadChildren(id),
-      ]);
-      _item = results[0] as WorkItemDetail;
-      _statuses = results[1] as List<BoardStatus>;
-      _layers = results[2] as List<WorkItemLayer>;
-      _users = results[3] as List<AuthUser>;
-      _comments = results[4] as List<WorkItemComment>;
-      _links = results[5] as List<WorkItemLink>;
-      _children = results[6] as List<WorkItemChildSummary>;
+      ).wait;
+      _item = item;
+      _statuses = statuses;
+      _layers = layers;
+      _users = users;
+      _comments = comments;
+      _links = links;
+      _children = children;
     } catch (_) {
       _loadError =
           'Could not load this work item. Check your connection and try again.';
@@ -148,26 +150,35 @@ class WorkItemDetailViewModel extends ViewModel {
     ),
   );
 
+  // Comment and link mutations apply the server's response locally instead
+  // of reloading the list: a reload that failed after a successful POST
+  // used to be reported as a failure, and retrying created a duplicate.
+
   Future<bool> addComment(String body) => _mutate(() async {
-    await _repository.addComment(_item!.id, body);
-    _comments = await _repository.loadComments(_item!.id);
+    final created = await _repository.addComment(_item!.id, body);
+    _comments = [..._comments, created];
   }, errorMessage: 'Could not add your comment. Try again.');
 
-  Future<bool> updateComment(String commentId, String body) =>
-      _mutate(() async {
-        await _repository.updateComment(commentId, body);
-        _comments = await _repository.loadComments(_item!.id);
-      }, errorMessage: 'Could not update your comment. Try again.');
+  Future<bool> updateComment(String commentId, String body) => _mutate(
+    () async {
+      final updated = await _repository.updateComment(commentId, body);
+      _comments = [for (final c in _comments) c.id == commentId ? updated : c];
+    },
+    errorMessage: 'Could not update your comment. Try again.',
+  );
 
   Future<bool> deleteComment(String commentId) => _mutate(() async {
     await _repository.deleteComment(commentId);
-    _comments = await _repository.loadComments(_item!.id);
+    _comments = [
+      for (final c in _comments)
+        if (c.id != commentId) c,
+    ];
   }, errorMessage: 'Could not delete this comment. Try again.');
 
   Future<bool> addLink(String targetWorkItemId) => _mutate(
     () async {
-      await _repository.addLink(_item!.id, targetWorkItemId);
-      _links = await _repository.loadLinks(_item!.id);
+      final created = await _repository.addLink(_item!.id, targetWorkItemId);
+      _links = [..._links, created];
     },
     errorMessage:
         'Could not add this link. Check the work item id and try again.',
@@ -175,7 +186,10 @@ class WorkItemDetailViewModel extends ViewModel {
 
   Future<bool> deleteLink(String linkId) => _mutate(() async {
     await _repository.deleteLink(linkId);
-    _links = await _repository.loadLinks(_item!.id);
+    _links = [
+      for (final l in _links)
+        if (l.id != linkId) l,
+    ];
   }, errorMessage: 'Could not remove this link. Try again.');
 
   /// Called when a sub-item's own dialog reports a change (e.g. it was
@@ -216,7 +230,7 @@ class WorkItemDetailViewModel extends ViewModel {
     required String errorMessage,
     Future<void> Function()? onConflict,
   }) async {
-    _isSaving = true;
+    _pendingSaves++;
     _saveError = null;
     notifyIfActive();
 
@@ -234,7 +248,7 @@ class WorkItemDetailViewModel extends ViewModel {
       _saveError = errorMessage;
       return false;
     } finally {
-      _isSaving = false;
+      _pendingSaves--;
       notifyIfActive();
     }
   }

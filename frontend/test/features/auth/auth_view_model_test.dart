@@ -7,10 +7,11 @@ import 'package:weaver/features/auth/models/auth_session.dart';
 import 'package:weaver/features/auth/models/auth_user.dart';
 
 class _FakeAuthRepository implements AuthRepository {
-  _FakeAuthRepository({this.loginError, this.registerError});
+  _FakeAuthRepository({this.loginError, this.registerError, this.logoutError});
 
   final Exception? loginError;
   final Exception? registerError;
+  final Exception? logoutError;
   final List<String> loginCalls = [];
 
   @override
@@ -33,7 +34,10 @@ class _FakeAuthRepository implements AuthRepository {
       throw UnimplementedError();
 
   @override
-  Future<void> logout(String refreshToken) async {}
+  Future<void> logout(String refreshToken) async {
+    final error = logoutError;
+    if (error != null) throw error;
+  }
 }
 
 class _InMemoryTokenStore implements SecureTokenStore {
@@ -143,6 +147,24 @@ void main() {
 
       expect(notified, isTrue);
       expect(viewModel.isAuthenticated, isTrue);
+    },
+  );
+
+  test(
+    'logout still signs out, without an unhandled error, when the server call fails',
+    () async {
+      final failing = _FakeAuthRepository(logoutError: Exception('offline'));
+      viewModel = AuthViewModel(
+        failing,
+        AuthSessionStore(failing, _InMemoryTokenStore()),
+      );
+      await viewModel.login('alice', 'a valid password');
+
+      await viewModel.logout();
+      // Let the fire-and-forget revoke run; an uncaught error would fail the test.
+      await pumpEventQueue();
+
+      expect(viewModel.isAuthenticated, isFalse);
     },
   );
 }

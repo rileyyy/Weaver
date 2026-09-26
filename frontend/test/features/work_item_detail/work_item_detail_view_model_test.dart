@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show Color;
 
 import 'package:flutter_test/flutter_test.dart';
@@ -54,6 +55,11 @@ class _FakeRepository implements WorkItemDetailRepository {
   final List<WorkItemComment> commentsList = [];
   final List<WorkItemLink> linksList = [];
   List<WorkItemChildSummary> childrenList = [];
+  int loadCommentsCalls = 0;
+  int loadLinksCalls = 0;
+
+  /// When set, [assign] waits on it, so a test can overlap two saves.
+  Completer<void>? assignGate;
 
   @override
   Future<WorkItemDetail> getItem(String id) async {
@@ -114,6 +120,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   @override
   Future<WorkItemDetail> assign(String id, String? userId) async {
     assignCalls.add(userId);
+    await assignGate?.future;
     final error = saveError;
     if (error != null) throw error;
     return item = _item(
@@ -151,8 +158,10 @@ class _FakeRepository implements WorkItemDetailRepository {
   }
 
   @override
-  Future<List<WorkItemComment>> loadComments(String workItemId) async =>
-      List.of(commentsList);
+  Future<List<WorkItemComment>> loadComments(String workItemId) async {
+    loadCommentsCalls++;
+    return List.of(commentsList);
+  }
 
   @override
   Future<WorkItemComment> addComment(String workItemId, String body) async {
@@ -603,4 +612,41 @@ void main() {
       },
     );
   });
+
+  test(
+    'isSaving stays true until every overlapping save has finished',
+    () async {
+      final gate = Completer<void>();
+      final repository = _FakeRepository()..assignGate = gate;
+      final viewModel = WorkItemDetailViewModel(repository);
+      await viewModel.load('item-1');
+
+      final slowSave = viewModel.saveAssignee('user-1');
+      await viewModel.saveTags(['urgent']);
+      expect(viewModel.isSaving, isTrue);
+
+      gate.complete();
+      await slowSave;
+      expect(viewModel.isSaving, isFalse);
+    },
+  );
+
+  test(
+    'comment mutations apply the server response instead of reloading',
+    () async {
+      final repository = _FakeRepository();
+      final viewModel = WorkItemDetailViewModel(repository);
+      await viewModel.load('item-1');
+      final loadsAfterOpen = repository.loadCommentsCalls;
+
+      await viewModel.addComment('First');
+      final id = viewModel.comments.single.id;
+      await viewModel.updateComment(id, 'Edited');
+      expect(viewModel.comments.single.body, 'Edited');
+      await viewModel.deleteComment(id);
+
+      expect(viewModel.comments, isEmpty);
+      expect(repository.loadCommentsCalls, loadsAfterOpen);
+    },
+  );
 }

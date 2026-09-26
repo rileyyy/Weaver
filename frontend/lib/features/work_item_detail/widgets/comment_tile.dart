@@ -22,7 +22,21 @@ class CommentTile extends StatefulWidget {
 
 class _CommentTileState extends State<CommentTile> {
   bool _isEditing = false;
-  late final _editController = TextEditingController(text: widget.comment.body);
+  final TextEditingController _editController = TextEditingController();
+
+  @override
+  void didUpdateWidget(CommentTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If this State is ever reused for a different comment (e.g. an
+    // unkeyed list after a deletion), an open editor holds the old
+    // comment's text; saving it would overwrite the new comment.
+    if (oldWidget.comment.id != widget.comment.id) _isEditing = false;
+  }
+
+  void _startEditing() {
+    _editController.text = widget.comment.body;
+    setState(() => _isEditing = true);
+  }
 
   @override
   void dispose() {
@@ -51,7 +65,7 @@ class _CommentTileState extends State<CommentTile> {
                 IconButton(
                   icon: const Icon(Icons.edit, size: 16),
                   tooltip: 'Edit comment',
-                  onPressed: () => setState(() => _isEditing = true),
+                  onPressed: _startEditing,
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline, size: 16),

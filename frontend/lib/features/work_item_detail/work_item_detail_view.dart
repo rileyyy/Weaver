@@ -469,6 +469,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
         const FieldLabel('Comments'),
         for (final comment in _viewModel.comments)
           CommentTile(
+            key: ValueKey(comment.id),
             comment: comment,
             isOwnComment: comment.authorUserId == _currentUserId,
             onDelete: () => unawaited(_viewModel.deleteComment(comment.id)),
