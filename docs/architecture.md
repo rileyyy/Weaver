@@ -418,6 +418,19 @@ and it is what allows MCP tools to reuse the same business logic (see
 
 ### Board view model
 
+- **The view model orchestrates; the logic is in pure units** under
+  `board/state/`: `BoardFilters` (an immutable value holding the time
+  range, search, hidden statuses, tags and sort, with every visibility
+  predicate), `sortComparator` (one comparator for cards and Hierarchy
+  items), `buildHierarchyTree`, `SwimlaneEdits` (id-based lane edits for
+  optimistic updates) and `UserDirectory` (id lookups). Each is tested on
+  its own.
+- **Derived values are memoized.** `hierarchyRoots`, `visibleStatuses`
+  and `availableTags` are cached until the next `notifyIfActive` (every
+  state change notifies), and status and user lookups are map lookups, so
+  a rebuild doesn't redo the tree or scan the user list per card. Search
+  input is debounced by 200 ms in `BoardView`.
+
 - **`BoardViewModel.moveCard(card, newStatusId)` takes no lane
   parameter**; it uses the card's own `parentId`, so a status move can't
   cross lanes. The UI adds a second layer: the `StatusColumn` drag target
