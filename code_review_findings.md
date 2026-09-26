@@ -383,7 +383,7 @@ There are no `Completer`-based tests, so none of these are covered: parallel ref
 `test/widget_test.dart` is a DI smoke test, and it is the only widget test. There is none for `BoardView`, `LoginView`, `AuthGate`, `WorkItemDetailView`, `CommentTile` (which would have caught F-M11), `CreateWorkItemDialog`, or drag/drop acceptance in `StatusColumn`/`SwimlaneLabel`.
 
 #### T-4. Pure logic without unit tests
-- [ ] **Resolved**
+- [ ] **Resolved** — *partly: the frontend list is covered (`ApiConfig`, `parseStatusColor`, `formatDate` and `RoadmapTimeframe` in `feature/frontend-review-cleanup`; the roadmap bar and the hierarchy time window in earlier branches). The backend domain rules wait on B-M2.*
 - **Frontend:** `ApiConfig.baseUrl`, `parseStatusColor`, `formatDate`, `RoadmapTimeframe`, the roadmap bar computation (private in a widget, so extract it first), and the hierarchy time-window filter.
 - **Backend:** domain rules, once they move onto the entities (B-M2).
 
