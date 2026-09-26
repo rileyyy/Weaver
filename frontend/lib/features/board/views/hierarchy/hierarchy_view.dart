@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
-import 'package:weaver/features/board/views/heirarchy/heirarchy_column.dart';
-import 'package:weaver/features/board/views/heirarchy/hierarchy_column_widths.dart';
-import 'package:weaver/features/board/views/heirarchy/widgets/heirarchy_header_row.dart';
-import 'package:weaver/features/board/views/heirarchy/widgets/heirarchy_item_tile.dart';
-import 'package:weaver/features/board/views/heirarchy/widgets/heirarchy_row.dart';
+import 'package:weaver/features/board/views/hierarchy/hierarchy_column.dart';
+import 'package:weaver/features/board/views/hierarchy/hierarchy_column_widths.dart';
+import 'package:weaver/features/board/views/hierarchy/widgets/hierarchy_header_row.dart';
+import 'package:weaver/features/board/views/hierarchy/widgets/hierarchy_item_tile.dart';
+import 'package:weaver/features/board/views/hierarchy/widgets/hierarchy_row.dart';
 import 'package:weaver/features/board/widgets/load_error_view.dart';
 
 /// Every work item nested under its parent, respecting the same time/search/

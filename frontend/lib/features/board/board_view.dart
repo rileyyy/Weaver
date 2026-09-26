@@ -10,7 +10,7 @@ import 'package:weaver/features/board/views/header/header_bar.dart';
 import 'package:weaver/features/board/views/header/sort_bar.dart';
 import 'package:weaver/features/board/views/header/status_filter_bar.dart';
 import 'package:weaver/features/board/views/header/tag_filter_bar.dart';
-import 'package:weaver/features/board/views/heirarchy/hierarchy_view.dart';
+import 'package:weaver/features/board/views/hierarchy/hierarchy_view.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_view.dart';
 import 'package:weaver/features/board/views/swimlane/swimlane_view.dart';
 import 'package:weaver/features/board/widgets/assign_dialog.dart';

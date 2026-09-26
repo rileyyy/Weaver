@@ -4,7 +4,7 @@ import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
-import 'package:weaver/features/board/views/heirarchy/hierarchy_view.dart';
+import 'package:weaver/features/board/views/hierarchy/hierarchy_view.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 

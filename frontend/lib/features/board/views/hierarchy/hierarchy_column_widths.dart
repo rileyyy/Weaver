@@ -1,5 +1,5 @@
-import 'package:weaver/features/board/views/heirarchy/heirarchy_column.dart';
-import 'package:weaver/features/board/views/heirarchy/hierarchy_layout.dart';
+import 'package:weaver/features/board/views/hierarchy/hierarchy_column.dart';
+import 'package:weaver/features/board/views/hierarchy/hierarchy_layout.dart';
 
 /// Current width of every Hierarchy column. Immutable; resizing returns a
 /// new value. Pure view state, not persisted.
