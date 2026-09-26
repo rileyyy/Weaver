@@ -2,15 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:weaver/core/dates/calendar_days.dart';
 import 'package:weaver/core/dates/date_format.dart';
 import 'package:weaver/features/board/board_view_model.dart';
-import 'package:weaver/features/board/models/hierarchy_item.dart';
+import 'package:weaver/features/board/state/flatten_tree.dart';
+import 'package:weaver/features/board/views/roadmap/roadmap_layout.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_timeframe.dart';
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_header_row.dart';
-import 'package:weaver/features/board/views/roadmap/widgets/roadmap_row.dart';
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_row_tile.dart';
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_toolbar.dart';
 import 'package:weaver/features/board/widgets/load_error_view.dart';
-
-const double leftColumnWidth = 260;
 
 /// A Gantt-style view of the same work-item tree the Hierarchy view shows
 /// (see [BoardViewModel.hierarchyRoots] for the shared filter/sort/tree
@@ -60,17 +58,10 @@ class _RoadmapViewState extends State<RoadmapView> {
       return LoadErrorView(message: error, onRetry: viewModel.loadHierarchy);
     }
 
-    final rows = <RoadmapRow>[];
-    void flatten(List<HierarchyNode> nodes, int depth) {
-      for (final node in nodes) {
-        rows.add(RoadmapRow(node: node, depth: depth));
-        if (node.children.isNotEmpty && !_collapsedIds.contains(node.item.id)) {
-          flatten(node.children, depth + 1);
-        }
-      }
-    }
-
-    flatten(viewModel.hierarchyRoots, 0);
+    final rows = flattenTree(
+      viewModel.hierarchyRoots,
+      collapsedIds: _collapsedIds,
+    );
 
     final windowEnd = addDays(_windowStart, _timeframe.totalDays);
     final rangeLabel = '${formatDate(_windowStart)} → ${formatDate(windowEnd)}';

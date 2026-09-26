@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
-import 'package:weaver/features/board/views/swimlane/swimlane_view.dart';
+import 'package:weaver/features/board/views/swimlane/swimlane_layout.dart';
 import 'package:weaver/features/board/widgets/board_card.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
@@ -92,8 +92,8 @@ class StatusColumn extends StatelessWidget {
           // this cell's card count actually needs — so this Wrap never
           // needs to scroll internally, it just fills the space given.
           child: Wrap(
-            spacing: SwimlaneView.cardGridSpacing,
-            runSpacing: SwimlaneView.cardGridSpacing,
+            spacing: cardGridSpacing,
+            runSpacing: cardGridSpacing,
             children: [
               for (final card in cards)
                 SizedBox(

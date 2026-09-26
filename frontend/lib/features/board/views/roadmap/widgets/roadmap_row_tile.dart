@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:weaver/features/board/models/flattened_tree_row.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_bar.dart';
+import 'package:weaver/features/board/views/roadmap/roadmap_layout.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_timeframe.dart';
-import 'package:weaver/features/board/views/roadmap/roadmap_view.dart';
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_grid.dart';
-import 'package:weaver/features/board/views/roadmap/widgets/roadmap_row.dart';
 import 'package:weaver/features/board/widgets/tag_badge.dart';
 
 class RoadmapRowTile extends StatelessWidget {
@@ -26,7 +26,7 @@ class RoadmapRowTile extends StatelessWidget {
     required this.statusColorFor,
   });
 
-  final RoadmapRow row;
+  final FlattenedTreeRow row;
   final RoadmapTimeframe timeframe;
   final DateTime windowStart;
   final double timelineWidth;
