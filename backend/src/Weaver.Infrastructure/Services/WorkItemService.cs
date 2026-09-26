@@ -90,7 +90,7 @@ public class WorkItemService : IWorkItemService
         item.StatusId = newStatusId;
         item.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
-        await _db.SaveChangesAsync(ct);
+        await SaveWorkItemChangesAsync(id, ct);
         return item;
     }
 
@@ -120,7 +120,7 @@ public class WorkItemService : IWorkItemService
         item.ParentId = newParentId;
         item.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
-        await _db.SaveChangesAsync(ct);
+        await SaveWorkItemChangesAsync(id, ct);
         return item;
     }
 
@@ -128,6 +128,7 @@ public class WorkItemService : IWorkItemService
         Guid id,
         DateTimeOffset? startDate,
         DateTimeOffset? endDate,
+        uint? expectedVersion = null,
         CancellationToken ct = default)
     {
         if (startDate is not null && endDate is not null && startDate > endDate)
@@ -138,11 +139,13 @@ public class WorkItemService : IWorkItemService
         var item = await _db.WorkItems.FindAsync([id], ct)
             ?? throw new EntityNotFoundException(nameof(WorkItem), id);
 
+        EnsureVersion(item, expectedVersion);
+
         item.StartDate = startDate;
         item.EndDate = endDate;
         item.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
-        await _db.SaveChangesAsync(ct);
+        await SaveWorkItemChangesAsync(id, ct);
         return item;
     }
 
@@ -152,6 +155,7 @@ public class WorkItemService : IWorkItemService
         string? description,
         Guid? layerId,
         WorkItemPriority priority,
+        uint? expectedVersion = null,
         CancellationToken ct = default)
     {
         if (layerId is not null && !await _db.WorkItemLayers.AnyAsync(l => l.Id == layerId, ct))
@@ -162,13 +166,15 @@ public class WorkItemService : IWorkItemService
         var item = await _db.WorkItems.FindAsync([id], ct)
             ?? throw new EntityNotFoundException(nameof(WorkItem), id);
 
+        EnsureVersion(item, expectedVersion);
+
         item.Title = title;
         item.Description = description;
         item.LayerId = layerId;
         item.Priority = priority;
         item.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
-        await _db.SaveChangesAsync(ct);
+        await SaveWorkItemChangesAsync(id, ct);
         return item;
     }
 
@@ -185,11 +191,15 @@ public class WorkItemService : IWorkItemService
         item.AssignedToUserId = userId;
         item.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
-        await _db.SaveChangesAsync(ct);
+        await SaveWorkItemChangesAsync(id, ct);
         return item;
     }
 
-    public async Task<WorkItem> SetTagsAsync(Guid id, IReadOnlyList<string> tags, CancellationToken ct = default)
+    public async Task<WorkItem> SetTagsAsync(
+        Guid id,
+        IReadOnlyList<string> tags,
+        uint? expectedVersion = null,
+        CancellationToken ct = default)
     {
         var normalized = new List<string>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -210,10 +220,12 @@ public class WorkItemService : IWorkItemService
         var item = await _db.WorkItems.FindAsync([id], ct)
             ?? throw new EntityNotFoundException(nameof(WorkItem), id);
 
+        EnsureVersion(item, expectedVersion);
+
         item.Tags = normalized;
         item.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
-        await _db.SaveChangesAsync(ct);
+        await SaveWorkItemChangesAsync(id, ct);
         return item;
     }
 
@@ -258,6 +270,31 @@ public class WorkItemService : IWorkItemService
         if (scopedBoardId is not null)
         {
             throw new WorkItemIsBoardScopeException(rootId, scopedBoardId.Value);
+        }
+    }
+
+    /// <summary>
+    /// Rejects an overwrite based on a stale read. <c>xmin</c> alone only guards the few
+    /// milliseconds inside one request; comparing against the version the client last saw
+    /// is what stops one user's save from silently discarding another's.
+    /// </summary>
+    private static void EnsureVersion(WorkItem item, uint? expectedVersion)
+    {
+        if (expectedVersion is not null && item.Version != expectedVersion)
+        {
+            throw new WorkItemVersionConflictException(item.Id);
+        }
+    }
+
+    private async Task SaveWorkItemChangesAsync(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new WorkItemVersionConflictException(id, ex);
         }
     }
 

@@ -90,10 +90,11 @@ public class WorkItemTools
         [Description("The work item's id.")] Guid id,
         [Description("New start date. Omit to leave it open-ended on this side.")] DateTimeOffset? startDate = null,
         [Description("New end date. Omit to leave it open-ended on this side.")] DateTimeOffset? endDate = null,
+        [Description("The work item's Version from your last read. If given and the item has changed since, the update is rejected instead of overwriting someone else's change.")] uint? expectedVersion = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
-            var item = await _workItems.RescheduleAsync(id, startDate, endDate, ct);
+            var item = await _workItems.RescheduleAsync(id, startDate, endDate, expectedVersion, ct);
             return WorkItemDto.FromEntity(item);
         });
 
@@ -106,10 +107,11 @@ public class WorkItemTools
         [Description("New description. Optional.")] string? description = null,
         [Description("Id of the work item layer. Omit to clear it.")] Guid? layerId = null,
         [Description("New priority. Defaults to Medium.")] WorkItemPriority priority = WorkItemPriority.Medium,
+        [Description("The work item's Version from your last read. If given and the item has changed since, the update is rejected instead of overwriting someone else's change.")] uint? expectedVersion = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
-            var item = await _workItems.UpdateDetailsAsync(id, title, description, layerId, priority, ct);
+            var item = await _workItems.UpdateDetailsAsync(id, title, description, layerId, priority, expectedVersion, ct);
             return WorkItemDto.FromEntity(item);
         });
 
@@ -131,10 +133,11 @@ public class WorkItemTools
     public Task<WorkItemDto> SetWorkItemTags(
         [Description("The work item's id.")] Guid id,
         [Description("The complete new list of tags — replaces the existing list entirely.")] IReadOnlyList<string> tags,
+        [Description("The work item's Version from your last read. If given and the item has changed since, the update is rejected instead of overwriting someone else's change.")] uint? expectedVersion = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
-            var item = await _workItems.SetTagsAsync(id, tags, ct);
+            var item = await _workItems.SetTagsAsync(id, tags, expectedVersion, ct);
             return WorkItemDto.FromEntity(item);
         });
 

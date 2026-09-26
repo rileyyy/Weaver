@@ -142,9 +142,9 @@ public class WorkItemToolsTests
     {
         var item = MakeWorkItem();
         var tags = new List<string> { "urgent", "needs review" };
-        _workItems.Setup(w => w.SetTagsAsync(item.Id, tags, It.IsAny<CancellationToken>())).ReturnsAsync(item);
+        _workItems.Setup(w => w.SetTagsAsync(item.Id, tags, 7u, It.IsAny<CancellationToken>())).ReturnsAsync(item);
 
-        var result = await _tools.SetWorkItemTags(item.Id, tags, ct: CancellationToken.None);
+        var result = await _tools.SetWorkItemTags(item.Id, tags, expectedVersion: 7u, ct: CancellationToken.None);
 
         Assert.That(result.Id, Is.EqualTo(item.Id));
         _workItems.VerifyAll();
@@ -156,7 +156,7 @@ public class WorkItemToolsTests
         var id = Guid.NewGuid();
         var tags = new List<string> { "  " };
         var domainException = new InvalidWorkItemTagException(id);
-        _workItems.Setup(w => w.SetTagsAsync(id, tags, It.IsAny<CancellationToken>())).ThrowsAsync(domainException);
+        _workItems.Setup(w => w.SetTagsAsync(id, tags, null, It.IsAny<CancellationToken>())).ThrowsAsync(domainException);
 
         var thrown = Assert.ThrowsAsync<McpException>(() =>
             _tools.SetWorkItemTags(id, tags, ct: CancellationToken.None));

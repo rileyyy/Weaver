@@ -89,7 +89,7 @@ public class WorkItemsController : ControllerBase
     [HttpPost("{id:guid}/schedule")]
     public async Task<ActionResult<WorkItemDto>> Reschedule(Guid id, RescheduleWorkItemRequest request)
     {
-        var item = await _workItems.RescheduleAsync(id, request.StartDate, request.EndDate);
+        var item = await _workItems.RescheduleAsync(id, request.StartDate, request.EndDate, request.ExpectedVersion);
         return Ok(WorkItemDto.FromEntity(item));
     }
 
@@ -105,7 +105,8 @@ public class WorkItemsController : ControllerBase
             request.Title,
             request.Description,
             request.LayerId,
-            request.Priority);
+            request.Priority,
+            request.ExpectedVersion);
         return Ok(WorkItemDto.FromEntity(item));
     }
 
@@ -127,7 +128,7 @@ public class WorkItemsController : ControllerBase
     [HttpPost("{id:guid}/tags")]
     public async Task<ActionResult<WorkItemDto>> SetTags(Guid id, SetTagsWorkItemRequest request)
     {
-        var item = await _workItems.SetTagsAsync(id, request.Tags);
+        var item = await _workItems.SetTagsAsync(id, request.Tags, request.ExpectedVersion);
         return Ok(WorkItemDto.FromEntity(item));
     }
 

@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Weaver.Domain.Exceptions;
 
 namespace Weaver.Api.Middleware;
@@ -79,12 +78,9 @@ public class ApiExceptionMiddleware
         {
             await WriteProblemAsync(context, StatusCodes.Status409Conflict, ex.Message);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (WorkItemVersionConflictException ex)
         {
-            await WriteProblemAsync(
-                context,
-                StatusCodes.Status409Conflict,
-                "This work item was changed by someone else. Refresh and try again.");
+            await WriteProblemAsync(context, StatusCodes.Status409Conflict, ex.Message);
         }
     }
 
