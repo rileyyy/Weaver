@@ -38,16 +38,16 @@ class ApiBoardRepository implements BoardRepository {
 
   @override
   Future<BoardData> loadBoard(String? scopeItemId) async {
-    // Sequential on purpose: a record .wait would wrap a failure in
-    // ParallelWaitError instead of the ApiException callers handle, and
-    // statuses are cached after the first load anyway.
+    // Two requests at most (statuses are cached after the first load):
+    // /swimlanes returns every lane with its cards, instead of one request
+    // per lane.
     final statuses = await _statuses.loadStatuses();
-    final swimlaneItems = await _loadChildren(scopeItemId);
-
-    final swimlanes = await Future.wait([
-      for (final parent in swimlaneItems) _loadSwimlane(parent),
-    ]);
-
+    final swimlanes = await _api.get(
+      '/work-items/swimlanes',
+      (json) => JsonApiClient.listOf(json, _toSwimlane),
+      query: scopeItemId == null ? null : {'scopeItemId': scopeItemId},
+      failureMessage: 'Failed to load the board',
+    );
     return BoardData(statuses: statuses, swimlanes: swimlanes);
   }
 
@@ -110,27 +110,13 @@ class ApiBoardRepository implements BoardRepository {
         'tags': tags,
       }, failureMessage: 'Failed to set tags');
 
-  Future<Swimlane> _loadSwimlane(Map<String, dynamic> parent) async {
-    final parentId = parent['id'] as String;
-    final cards = await _api.get(
-      '/work-items',
-      (json) => JsonApiClient.listOf(json, WorkItemCard.fromJson),
-      query: {'parentId': parentId},
-      failureMessage: 'Failed to load work items',
-    );
+  static Swimlane _toSwimlane(Map<String, dynamic> json) {
+    final lane = json['lane'] as Map<String, dynamic>;
     return Swimlane(
-      parentId: parentId,
-      title: parent['title'] as String,
-      cards: cards,
-      assignedToUserId: parent['assignedToUserId'] as String?,
+      parentId: lane['id'] as String,
+      title: lane['title'] as String,
+      cards: JsonApiClient.listOf(json['cards'], WorkItemCard.fromJson),
+      assignedToUserId: lane['assignedToUserId'] as String?,
     );
   }
-
-  Future<List<Map<String, dynamic>>> _loadChildren(String? parentId) =>
-      _api.get(
-        '/work-items',
-        (json) => JsonApiClient.listOf(json, (item) => item),
-        query: parentId == null ? null : {'parentId': parentId},
-        failureMessage: 'Failed to load work items',
-      );
 }

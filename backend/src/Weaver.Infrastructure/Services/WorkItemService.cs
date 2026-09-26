@@ -20,11 +20,34 @@ public class WorkItemService : IWorkItemService
         await _db.WorkItems
             .Where(w => w.ParentId == parentId)
             .OrderBy(w => w.Rank)
+            .ThenBy(w => w.Number)
             .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Swimlane>> GetSwimlanesAsync(Guid? scopeItemId, CancellationToken ct = default)
+    {
+        var lanes = await _db.WorkItems
+            .AsNoTracking()
+            .Where(w => w.ParentId == scopeItemId)
+            .OrderBy(w => w.Rank)
+            .ThenBy(w => w.Number)
+            .ToListAsync(ct);
+
+        var laneIds = lanes.Select(l => l.Id).ToList();
+        var cardsByLane = (await _db.WorkItems
+                .AsNoTracking()
+                .Where(w => w.ParentId != null && laneIds.Contains(w.ParentId.Value))
+                .OrderBy(w => w.Rank)
+                .ThenBy(w => w.Number)
+                .ToListAsync(ct))
+            .ToLookup(w => w.ParentId!.Value);
+
+        return lanes.Select(lane => new Swimlane(lane, cardsByLane[lane.Id].ToList())).ToList();
+    }
 
     public async Task<IReadOnlyList<WorkItem>> GetAllAsync(CancellationToken ct = default) =>
         await _db.WorkItems
             .OrderBy(w => w.Rank)
+            .ThenBy(w => w.Number)
             .ToListAsync(ct);
 
     public async Task<WorkItem> CreateAsync(

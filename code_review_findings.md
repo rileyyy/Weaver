@@ -147,7 +147,7 @@ The most important problems cluster in four areas:
   - Plan an API-key or service-account flow for agents.
 
 #### B-M7. Unbounded and N+1 queries
-- [ ] **Resolved**
+- [ ] **Resolved** — *partly: the board's per-lane N+1 is gone (F-M9), and the child/all/swimlane queries have a deterministic `Rank, Number` order. Paging, `AsNoTracking` elsewhere and the ancestor/descendant walks are still open.*
 - **Where:** [WorkItemService.cs:25-28](backend/src/Weaver.Infrastructure/Services/WorkItemService.cs#L25-L28) (`GetAllAsync`, no paging), [WorkItemService.cs:245-286](backend/src/Weaver.Infrastructure/Services/WorkItemService.cs#L245-L286) (one query per ancestor level / descendant level), [WorkItemService.cs:301](backend/src/Weaver.Infrastructure/Services/WorkItemService.cs#L301) (whole cell loaded to compute one rank), [BoardService.cs:16-17](backend/src/Weaver.Infrastructure/Services/BoardService.cs#L16-L17) (no ordering)
 - **Issue:** Fine at today's scale, but the frontend fetches `/work-items/all` for Hierarchy and Roadmap. The code comment "revisit if item counts grow" has no metric attached.
 - **Fix:**
@@ -277,7 +277,7 @@ The most important problems cluster in four areas:
   - `IntrinsicHeight` wraps every card.
   - `GridRowBox` has a fixed height, but a card with a long title can grow past it and paint into the next lane.
   - (`swimlane_view.dart:136-306`, `status_column.dart`, `tag_badge.dart`)
-- [ ] **F-M9. N+1 board load.** The client fetches `/statuses`, then children, *sequentially*, then one request per swimlane: 32 requests for a 30-lane board. This fan-out is also what triggers F-H1. **Fix:** add a backend endpoint that returns two levels at once, and at minimum run the first two requests in parallel.
+- [x] *(Resolved in `feature/single-request-board-load`: `GET /api/work-items/swimlanes` returns every lane with its cards using two queries. With statuses cached, a board load is one request. Verified on the dev database: same lanes, cards and order as the per-lane requests, 1 request instead of 8.)* **F-M9. N+1 board load.** The client fetches `/statuses`, then children, *sequentially*, then one request per swimlane: 32 requests for a 30-lane board. This fan-out is also what triggers F-H1. **Fix:** add a backend endpoint that returns two levels at once, and at minimum run the first two requests in parallel.
 - [ ] **F-M10. `WorkItemDetailView` is 608 lines.**
   - Seven `_buildXxx` methods should be widget classes.
   - The widget calls `getIt<AuthSessionStore>()` directly, bypassing the VM.

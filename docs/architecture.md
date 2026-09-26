@@ -464,6 +464,12 @@ and it is what allows MCP tools to reuse the same business logic (see
 
 ### Board, filters and views
 
+- **A board loads in one request.** `GET /api/work-items/swimlanes`
+  (`IWorkItemService.GetSwimlanesAsync`) returns the scope's lanes, each
+  with its cards, using two queries whatever the lane count; statuses come
+  from the cached `StatusRepository`. It replaced one request per lane.
+  Rank is only unique within a (parent, status) cell, so the read queries
+  order by `Rank, Number` to stay deterministic across columns.
 - **Search, status filter, tag filter, sort and the time-frame filter are
   client-side.** The board already fetches each lane's full child list,
   and the Hierarchy/Roadmap views fetch `GET /work-items/all`, so these are

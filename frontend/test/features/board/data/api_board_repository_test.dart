@@ -55,84 +55,138 @@ void main() {
     expect(await repository.loadRootScopeItemId(), isNull);
   });
 
-  test(
-    'loadBoard builds swimlanes from the given scope and its children',
-    () async {
-      final client = MockClient((request) async {
-        if (request.url.path == '/api/statuses') {
-          return _jsonResponse([
-            {
-              'id': 'status-todo',
-              'name': 'To Do',
-              'order': 0,
-              'color': '#1E88E5',
-            },
-          ]);
-        }
-        if (request.url.path == '/api/work-items' &&
-            request.url.queryParameters['parentId'] == 'epic-1') {
-          return _jsonResponse([
-            {
-              'id': 'lane-1',
-              'title': 'Lane One',
-              'parentId': 'epic-1',
-              'statusId': 'status-todo',
-            },
-          ]);
-        }
-        if (request.url.path == '/api/work-items' &&
-            request.url.queryParameters['parentId'] == 'lane-1') {
-          return _jsonResponse([
+  /// Serves /statuses and /work-items/swimlanes for scope `epic-1` with
+  /// one lane (`lane-1`) holding one card with the given extra fields.
+  MockClient boardClient({
+    Map<String, dynamic> laneFields = const {},
+    Map<String, dynamic> cardFields = const {},
+    List<Map<String, dynamic>> statuses = const [],
+    List<String>? requestLog,
+  }) => MockClient((request) async {
+    requestLog?.add(request.url.toString());
+    if (request.url.path == '/api/statuses') return _jsonResponse(statuses);
+    if (request.url.path == '/api/work-items/swimlanes' &&
+        request.url.queryParameters['scopeItemId'] == 'epic-1') {
+      return _jsonResponse([
+        {
+          'lane': {
+            'id': 'lane-1',
+            'number': 10,
+            'title': 'Lane One',
+            'parentId': 'epic-1',
+            'statusId': 'status-todo',
+            ...laneFields,
+          },
+          'cards': [
             {
               'id': 'card-1',
               'number': 1,
               'title': 'Card One',
               'parentId': 'lane-1',
               'statusId': 'status-todo',
+              ...cardFields,
             },
-          ]);
-        }
+          ],
+        },
+      ]);
+    }
+    throw StateError('Unexpected request: ${request.url}');
+  });
 
-        throw StateError('Unexpected request: ${request.url}');
-      });
-
-      final repository = ApiBoardRepository(
-        client,
-        baseUrl,
-        ApiStatusRepository(client, baseUrl),
-        ApiUserDirectoryRepository(client, baseUrl),
-      );
-      final board = await repository.loadBoard('epic-1');
-
-      expect(board.statuses.single.id, 'status-todo');
-      expect(board.statuses.single.color, const Color(0xFF1E88E5));
-      expect(board.swimlanes.single.parentId, 'lane-1');
-      expect(board.swimlanes.single.title, 'Lane One');
-      expect(board.swimlanes.single.cards.single.id, 'card-1');
-      expect(board.swimlanes.single.cards.single.number, 1);
-    },
+  ApiBoardRepository repositoryFor(http.Client client) => ApiBoardRepository(
+    client,
+    baseUrl,
+    ApiStatusRepository(client, baseUrl),
+    ApiUserDirectoryRepository(client, baseUrl),
   );
+
+  test('loadBoard builds swimlanes from one swimlanes request', () async {
+    final requests = <String>[];
+    final client = boardClient(
+      statuses: [
+        {'id': 'status-todo', 'name': 'To Do', 'order': 0, 'color': '#1E88E5'},
+      ],
+      requestLog: requests,
+    );
+
+    final board = await repositoryFor(client).loadBoard('epic-1');
+
+    expect(board.statuses.single.id, 'status-todo');
+    expect(board.statuses.single.color, const Color(0xFF1E88E5));
+    expect(board.swimlanes.single.parentId, 'lane-1');
+    expect(board.swimlanes.single.title, 'Lane One');
+    expect(board.swimlanes.single.cards.single.id, 'card-1');
+    expect(board.swimlanes.single.cards.single.number, 1);
+    expect(requests, [
+      '$baseUrl/statuses',
+      '$baseUrl/work-items/swimlanes?scopeItemId=epic-1',
+    ]);
+  });
 
   test('loadBoard treats a null scope as top-level', () async {
     final client = MockClient((request) async {
       if (request.url.path == '/api/statuses') return _jsonResponse([]);
-      if (request.url.path == '/api/work-items') {
+      if (request.url.path == '/api/work-items/swimlanes') {
         expect(request.url.queryParameters, isEmpty);
         return _jsonResponse([]);
       }
       throw StateError('Unexpected request: ${request.url}');
     });
 
-    final repository = ApiBoardRepository(
-      client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
-    );
-    final board = await repository.loadBoard(null);
+    final board = await repositoryFor(client).loadBoard(null);
 
     expect(board.swimlanes, isEmpty);
   });
+
+  test("loadBoard parses each card's start and end date", () async {
+    final client = boardClient(
+      cardFields: {'startDate': '2026-01-10', 'endDate': null},
+    );
+
+    final board = await repositoryFor(client).loadBoard('epic-1');
+
+    final card = board.swimlanes.single.cards.single;
+    expect(card.startDate, DateTime(2026, 1, 10));
+    expect(card.endDate, isNull);
+  });
+
+  test("loadBoard parses each card's description", () async {
+    final client = boardClient(cardFields: {'description': 'Some detail'});
+
+    final board = await repositoryFor(client).loadBoard('epic-1');
+
+    expect(board.swimlanes.single.cards.single.description, 'Some detail');
+  });
+
+  test("loadBoard parses each card's tags", () async {
+    final client = boardClient(
+      cardFields: {
+        'tags': ['urgent', 'needs review'],
+      },
+    );
+
+    final board = await repositoryFor(client).loadBoard('epic-1');
+
+    expect(board.swimlanes.single.cards.single.tags, [
+      'urgent',
+      'needs review',
+    ]);
+  });
+
+  test(
+    "loadBoard parses the assignee of both a lane's own item and its cards",
+    () async {
+      final client = boardClient(
+        laneFields: {'assignedToUserId': 'user-lane'},
+        cardFields: {'assignedToUserId': 'user-card'},
+      );
+
+      final board = await repositoryFor(client).loadBoard('epic-1');
+
+      expect(board.swimlanes.single.assignedToUserId, 'user-lane');
+      expect(board.swimlanes.single.cards.single.assignedToUserId, 'user-card');
+    },
+  );
 
   test(
     'loadBoard throws an ApiException with the problem detail on failure',
@@ -238,181 +292,6 @@ void main() {
       throwsA(isA<ApiException>()),
     );
   });
-
-  test("loadBoard parses each card's start and end date", () async {
-    final client = MockClient((request) async {
-      if (request.url.path == '/api/statuses') return _jsonResponse([]);
-      if (request.url.path == '/api/work-items' &&
-          request.url.queryParameters['parentId'] == 'epic-1') {
-        return _jsonResponse([
-          {
-            'id': 'lane-1',
-            'title': 'Lane One',
-            'parentId': 'epic-1',
-            'statusId': 'status-todo',
-          },
-        ]);
-      }
-      if (request.url.path == '/api/work-items' &&
-          request.url.queryParameters['parentId'] == 'lane-1') {
-        return _jsonResponse([
-          {
-            'id': 'card-1',
-            'number': 1,
-            'title': 'Card One',
-            'parentId': 'lane-1',
-            'statusId': 'status-todo',
-            'startDate': '2026-01-10',
-            'endDate': null,
-          },
-        ]);
-      }
-      throw StateError('Unexpected request: ${request.url}');
-    });
-
-    final repository = ApiBoardRepository(
-      client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
-    );
-    final board = await repository.loadBoard('epic-1');
-
-    final card = board.swimlanes.single.cards.single;
-    expect(card.startDate, DateTime(2026, 1, 10));
-    expect(card.endDate, isNull);
-  });
-
-  test("loadBoard parses each card's description", () async {
-    final client = MockClient((request) async {
-      if (request.url.path == '/api/statuses') return _jsonResponse([]);
-      if (request.url.path == '/api/work-items' &&
-          request.url.queryParameters['parentId'] == 'epic-1') {
-        return _jsonResponse([
-          {
-            'id': 'lane-1',
-            'title': 'Lane One',
-            'parentId': 'epic-1',
-            'statusId': 'status-todo',
-          },
-        ]);
-      }
-      if (request.url.path == '/api/work-items' &&
-          request.url.queryParameters['parentId'] == 'lane-1') {
-        return _jsonResponse([
-          {
-            'id': 'card-1',
-            'number': 1,
-            'title': 'Card One',
-            'parentId': 'lane-1',
-            'statusId': 'status-todo',
-            'description': 'Some detail',
-          },
-        ]);
-      }
-      throw StateError('Unexpected request: ${request.url}');
-    });
-
-    final repository = ApiBoardRepository(
-      client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
-    );
-    final board = await repository.loadBoard('epic-1');
-
-    expect(board.swimlanes.single.cards.single.description, 'Some detail');
-  });
-
-  test("loadBoard parses each card's tags", () async {
-    final client = MockClient((request) async {
-      if (request.url.path == '/api/statuses') return _jsonResponse([]);
-      if (request.url.path == '/api/work-items' &&
-          request.url.queryParameters['parentId'] == 'epic-1') {
-        return _jsonResponse([
-          {
-            'id': 'lane-1',
-            'title': 'Lane One',
-            'parentId': 'epic-1',
-            'statusId': 'status-todo',
-          },
-        ]);
-      }
-      if (request.url.path == '/api/work-items' &&
-          request.url.queryParameters['parentId'] == 'lane-1') {
-        return _jsonResponse([
-          {
-            'id': 'card-1',
-            'number': 1,
-            'title': 'Card One',
-            'parentId': 'lane-1',
-            'statusId': 'status-todo',
-            'tags': ['urgent', 'needs review'],
-          },
-        ]);
-      }
-      throw StateError('Unexpected request: ${request.url}');
-    });
-
-    final repository = ApiBoardRepository(
-      client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
-    );
-    final board = await repository.loadBoard('epic-1');
-
-    expect(board.swimlanes.single.cards.single.tags, [
-      'urgent',
-      'needs review',
-    ]);
-  });
-
-  test(
-    "loadBoard parses the assignee of both a lane's own item and its cards",
-    () async {
-      final client = MockClient((request) async {
-        if (request.url.path == '/api/statuses') return _jsonResponse([]);
-        if (request.url.path == '/api/work-items' &&
-            request.url.queryParameters['parentId'] == 'epic-1') {
-          return _jsonResponse([
-            {
-              'id': 'lane-1',
-              'title': 'Lane One',
-              'parentId': 'epic-1',
-              'statusId': 'status-todo',
-              'assignedToUserId': 'user-lane',
-            },
-          ]);
-        }
-        if (request.url.path == '/api/work-items' &&
-            request.url.queryParameters['parentId'] == 'lane-1') {
-          return _jsonResponse([
-            {
-              'id': 'card-1',
-              'number': 1,
-              'title': 'Card One',
-              'parentId': 'lane-1',
-              'statusId': 'status-todo',
-              'assignedToUserId': 'user-card',
-            },
-          ]);
-        }
-        throw StateError('Unexpected request: ${request.url}');
-      });
-
-      final repository = ApiBoardRepository(
-        client,
-        baseUrl,
-        ApiStatusRepository(client, baseUrl),
-        ApiUserDirectoryRepository(client, baseUrl),
-      );
-      final board = await repository.loadBoard('epic-1');
-
-      expect(board.swimlanes.single.assignedToUserId, 'user-lane');
-      expect(board.swimlanes.single.cards.single.assignedToUserId, 'user-card');
-    },
-  );
 
   test('loadUsers parses the user directory', () async {
     final client = MockClient((request) async {

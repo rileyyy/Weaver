@@ -8,10 +8,17 @@ public interface IWorkItemService
 
     /// <summary>
     /// Direct children of <paramref name="parentId"/> (or top-level items when null),
-    /// ordered by board-cell rank. The board uses this twice: once for swimlanes
-    /// (children of the board's scope item), once per swimlane for its cards.
+    /// ordered by board-cell rank.
     /// </summary>
     Task<IReadOnlyList<WorkItem>> GetChildrenAsync(Guid? parentId, CancellationToken ct = default);
+
+    /// <summary>
+    /// A board's two levels in one call: the direct children of
+    /// <paramref name="scopeItemId"/> (or top-level items when null) as lanes, each with its
+    /// own direct children as cards. Two queries regardless of lane count, instead of one
+    /// request per lane.
+    /// </summary>
+    Task<IReadOnlyList<Swimlane>> GetSwimlanesAsync(Guid? scopeItemId, CancellationToken ct = default);
 
     /// <summary>
     /// Every work item in the system, flat and unscoped, ordered by rank.
