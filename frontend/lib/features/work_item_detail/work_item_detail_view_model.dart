@@ -31,6 +31,7 @@ class WorkItemDetailViewModel extends ViewModel {
   bool _isSaving = false;
   String? _saveError;
   int _reloadGeneration = 0;
+  bool _hasChanges = false;
 
   WorkItemDetail? get item => _item;
   List<BoardStatus> get statuses => _statuses;
@@ -49,6 +50,11 @@ class WorkItemDetailViewModel extends ViewModel {
   /// The view re-seeds its form fields when this changes; otherwise its
   /// stale values would overwrite the other person's change on the next save.
   int get reloadGeneration => _reloadGeneration;
+
+  /// True once anything that other views show (fields, tags, schedule,
+  /// assignee, deletion, or a sub-item) was changed from this dialog, so
+  /// the caller knows to refresh when it closes.
+  bool get hasChanges => _hasChanges;
 
   String? get statusName {
     for (final status in _statuses) {
@@ -117,7 +123,10 @@ class WorkItemDetailViewModel extends ViewModel {
   /// already warns the user about the subtree, so this always cascades
   /// rather than asking a second time.
   Future<bool> deleteItem() => _mutate(
-        () => _repository.deleteItem(_item!.id, cascade: true),
+        () async {
+          await _repository.deleteItem(_item!.id, cascade: true);
+          _hasChanges = true;
+        },
         errorMessage: 'Could not delete this work item. Try again.',
       );
 
@@ -167,8 +176,23 @@ class WorkItemDetailViewModel extends ViewModel {
         errorMessage: 'Could not remove this link. Try again.',
       );
 
+  /// Called when a sub-item's own dialog reports a change (e.g. it was
+  /// deleted): reloads the Sub-Items list and marks this dialog as changed.
+  Future<void> onSubItemChanged() async {
+    _hasChanges = true;
+    try {
+      _children = await _repository.loadChildren(_item!.id);
+    } on Exception {
+      // Keep the current list; the caller's refresh still picks up the change.
+    }
+    notifyIfActive();
+  }
+
   Future<bool> _save(Future<WorkItemDetail> Function() action) => _mutate(
-        () async => _item = await action(),
+        () async {
+          _item = await action();
+          _hasChanges = true;
+        },
         errorMessage: 'Could not save your change. Try again.',
         onConflict: _reloadAfterConflict,
       );

@@ -63,6 +63,49 @@ class HierarchyItem {
         assignedToUserId: assignedToUserId,
         tags: tags,
       );
+
+  /// Moves this item to another status column — mirrors the backend's
+  /// `ChangeStatus`, so the Hierarchy/Roadmap views follow board drags.
+  HierarchyItem withStatus(String statusId) => HierarchyItem(
+        id: id,
+        number: number,
+        parentId: parentId,
+        title: title,
+        statusId: statusId,
+        description: description,
+        startDate: startDate,
+        endDate: endDate,
+        assignedToUserId: assignedToUserId,
+        tags: tags,
+      );
+
+  /// Mirrors the backend's `Reparent`.
+  HierarchyItem movedToParent(String? parentId) => HierarchyItem(
+        id: id,
+        number: number,
+        parentId: parentId,
+        title: title,
+        statusId: statusId,
+        description: description,
+        startDate: startDate,
+        endDate: endDate,
+        assignedToUserId: assignedToUserId,
+        tags: tags,
+      );
+
+  /// Mirrors the backend's `Reschedule`.
+  HierarchyItem rescheduled(DateTime? startDate, DateTime? endDate) => HierarchyItem(
+        id: id,
+        number: number,
+        parentId: parentId,
+        title: title,
+        statusId: statusId,
+        description: description,
+        startDate: startDate,
+        endDate: endDate,
+        assignedToUserId: assignedToUserId,
+        tags: tags,
+      );
 }
 
 /// A [HierarchyItem] together with its own children, already filtered and

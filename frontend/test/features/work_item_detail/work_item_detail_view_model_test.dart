@@ -504,4 +504,54 @@ void main() {
     expect(ok, isTrue);
     expect(viewModel.links, isEmpty);
   });
+
+  group('hasChanges', () {
+    test('is false after just loading', () async {
+      final viewModel = WorkItemDetailViewModel(_FakeRepository());
+      await viewModel.load('item-1');
+
+      expect(viewModel.hasChanges, isFalse);
+    });
+
+    test('becomes true after a successful save', () async {
+      final viewModel = WorkItemDetailViewModel(_FakeRepository());
+      await viewModel.load('item-1');
+
+      await viewModel.saveAssignee('user-1');
+
+      expect(viewModel.hasChanges, isTrue);
+    });
+
+    test('stays false after a failed save', () async {
+      final viewModel = WorkItemDetailViewModel(_FakeRepository(saveError: Exception('boom')));
+      await viewModel.load('item-1');
+
+      await viewModel.saveTags(['urgent']);
+
+      expect(viewModel.hasChanges, isFalse);
+    });
+
+    test('becomes true after deleting the item', () async {
+      final viewModel = WorkItemDetailViewModel(_FakeRepository());
+      await viewModel.load('item-1');
+
+      await viewModel.deleteItem();
+
+      expect(viewModel.hasChanges, isTrue);
+    });
+
+    test('onSubItemChanged reloads the Sub-Items list and marks the dialog changed', () async {
+      final repository = _FakeRepository();
+      final viewModel = WorkItemDetailViewModel(repository);
+      await viewModel.load('item-1');
+      repository.childrenList = [
+        const WorkItemChildSummary(id: 'child-2', number: 7, title: 'Remaining', statusId: 'todo'),
+      ];
+
+      await viewModel.onSubItemChanged();
+
+      expect(viewModel.children.single.id, 'child-2');
+      expect(viewModel.hasChanges, isTrue);
+    });
+  });
 }

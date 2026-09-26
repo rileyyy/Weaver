@@ -331,10 +331,15 @@ class BoardViewModel extends ViewModel {
     }
 
     return _optimistic(
-      apply: () => _swimlanes = _withCard(card.id, (c) => c.copyWith(statusId: newStatusId)),
+      apply: () {
+        _swimlanes = _withCard(card.id, (c) => c.copyWith(statusId: newStatusId));
+        _hierarchyItems = _withHierarchyItem(card.id, (item) => item.withStatus(newStatusId));
+      },
       persist: () => _repository.changeStatus(card.id, newStatusId),
       revertLanes: () =>
           _swimlanes = _withCard(card.id, (c) => c.copyWith(statusId: card.statusId)),
+      revertHierarchy: () =>
+          _hierarchyItems = _withHierarchyItem(card.id, (item) => item.withStatus(card.statusId)),
       errorMessage: 'Could not move "${card.title}". Try again.',
     );
   }
@@ -354,10 +359,15 @@ class BoardViewModel extends ViewModel {
         .indexWhere((c) => c.id == card.id);
 
     return _optimistic(
-      apply: () => _swimlanes = _withCardMovedToLane(card.id, card.parentId, newParentId),
+      apply: () {
+        _swimlanes = _withCardMovedToLane(card.id, card.parentId, newParentId);
+        _hierarchyItems = _withHierarchyItem(card.id, (item) => item.movedToParent(newParentId));
+      },
       persist: () => _repository.reparentItem(card.id, newParentId),
       revertLanes: () => _swimlanes =
           _withCardMovedToLane(card.id, newParentId, card.parentId, atIndex: originalIndex),
+      revertHierarchy: () =>
+          _hierarchyItems = _withHierarchyItem(card.id, (item) => item.movedToParent(card.parentId)),
       errorMessage: 'Could not move "${card.title}". Try again.',
     );
   }
@@ -373,10 +383,16 @@ class BoardViewModel extends ViewModel {
     if (!_hasLane(card.parentId)) return Future.value();
 
     return _optimistic(
-      apply: () => _swimlanes = _withCard(card.id, (c) => c.rescheduled(startDate, endDate)),
+      apply: () {
+        _swimlanes = _withCard(card.id, (c) => c.rescheduled(startDate, endDate));
+        _hierarchyItems =
+            _withHierarchyItem(card.id, (item) => item.rescheduled(startDate, endDate));
+      },
       persist: () => _repository.rescheduleItem(card.id, startDate, endDate),
       revertLanes: () =>
           _swimlanes = _withCard(card.id, (c) => c.rescheduled(card.startDate, card.endDate)),
+      revertHierarchy: () => _hierarchyItems =
+          _withHierarchyItem(card.id, (item) => item.rescheduled(card.startDate, card.endDate)),
       errorMessage: 'Could not reschedule "${card.title}". Try again.',
     );
   }

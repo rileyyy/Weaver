@@ -230,7 +230,7 @@ The most important problems cluster in four areas:
 - **Fix:** Choose a convention. The recommendation is to treat schedule dates as calendar dates: send `yyyy-MM-dd` and make the backend `StartDate`/`EndDate` a `DateOnly`. Parse and display all other timestamps through a single `parseApiDate(...).toLocal()`. Add a round-trip test in a non-UTC zone.
 
 #### F-H6. Board, Hierarchy and Roadmap go stale after edits
-- [ ] **Resolved**
+- [x] **Resolved** (short-term fix) in `bugfix/board-stale-after-edits`: `showWorkItemDetailDialog` now returns whether anything changed, including in nested sub-item dialogs, and the board then refreshes the scope and hierarchy. `moveCard`/`reparentCard`/`rescheduleCard` update the Hierarchy/Roadmap items too. The long-term shared per-item store is still open; the B-H3 gap (board saves without a version) belongs there.
 - **Where:** `board_view.dart:112-134`, `board_view_model.dart:287-370`, `work_item_detail_view.dart:376-378`
 - **Issue:**
   - Edits in the detail dialog (title, assignee, tags, dates, layer, priority) never reach `BoardViewModel`.

@@ -360,6 +360,17 @@ whoever (human or agent) next touches this area.
   `createWorkItem` is deliberately *not* a `_changeScope` action: a failed
   create reports through `moveError` and keeps the board, and a create
   must never become the retry target, since retrying would POST it again.
+- **The detail dialog reports whether it changed anything.**
+  `showWorkItemDetailDialog` completes with `true` if a field, tag,
+  schedule or assignee was saved, the item was deleted, or a sub-item
+  dialog opened from it reported a change. The board then refreshes the
+  current scope and (if loaded) the hierarchy. Edits in the dialog go
+  straight through `WorkItemDetailRepository`, never `BoardViewModel`, so
+  without this the board kept showing stale data. After "View sub-items"
+  only the hierarchy is refreshed: the drill-in already loads the new
+  scope, and a refresh of the old scope would be the newer load and
+  cancel it. The longer-term fix is a shared per-item store both
+  features read from.
 - **Board async work is guarded against overlap.** Every scope load
   (`_changeScope`) and hierarchy load bumps a generation counter. A load's
   `fetch` returns a closure that applies its result, and that closure only
