@@ -578,4 +578,34 @@ public class WorkItemServiceTests
 
         Assert.That(tagged.Tags, Has.Count.EqualTo(WorkItem.MaxTags));
     }
+
+    [Test]
+    public async Task GetSwimlanesAsync_ReturnsEachLaneWithItsOwnCardsInRankOrder()
+    {
+        var scope = await _service.CreateAsync("Scope", null, null, StatusConfiguration.ToDoId);
+        var laneA = await _service.CreateAsync("Lane A", null, scope.Id, StatusConfiguration.ToDoId);
+        var laneB = await _service.CreateAsync("Lane B", null, scope.Id, StatusConfiguration.ToDoId, afterId: laneA.Id);
+        var a1 = await _service.CreateAsync("A1", null, laneA.Id, StatusConfiguration.ToDoId);
+        var a2 = await _service.CreateAsync("A2", null, laneA.Id, StatusConfiguration.ToDoId, afterId: a1.Id);
+        var grandchild = await _service.CreateAsync("Too deep", null, a1.Id, StatusConfiguration.ToDoId);
+
+        var swimlanes = await _service.GetSwimlanesAsync(scope.Id);
+
+        Assert.That(swimlanes.Select(s => s.Lane.Id), Is.EqualTo(new[] { laneA.Id, laneB.Id }));
+        Assert.That(swimlanes[0].Cards.Select(c => c.Id), Is.EqualTo(new[] { a1.Id, a2.Id }));
+        Assert.That(swimlanes[1].Cards, Is.Empty);
+        Assert.That(swimlanes.SelectMany(s => s.Cards).Select(c => c.Id), Does.Not.Contain(grandchild.Id));
+    }
+
+    [Test]
+    public async Task GetSwimlanesAsync_WithNoScope_UsesTopLevelItemsAsLanes()
+    {
+        var top = await _service.CreateAsync("Top", null, null, StatusConfiguration.ToDoId);
+        var card = await _service.CreateAsync("Card", null, top.Id, StatusConfiguration.ToDoId);
+
+        var swimlanes = await _service.GetSwimlanesAsync(null);
+
+        Assert.That(swimlanes.Single().Lane.Id, Is.EqualTo(top.Id));
+        Assert.That(swimlanes.Single().Cards.Single().Id, Is.EqualTo(card.Id));
+    }
 }

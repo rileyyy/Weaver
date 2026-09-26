@@ -190,4 +190,20 @@ public class WorkItemsControllerTests
         Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(WorkItemDto.FromEntity(item)));
         _workItems.VerifyAll();
     }
+
+    [Test]
+    public async Task GetSwimlanes_MapsLanesAndCardsToDtos()
+    {
+        var lane = MakeWorkItem();
+        var card = MakeWorkItem();
+        var scopeId = Guid.NewGuid();
+        _workItems.Setup(s => s.GetSwimlanesAsync(scopeId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { new Swimlane(lane, new[] { card }) });
+
+        var result = await _controller.GetSwimlanes(scopeId);
+
+        var dtos = ((result.Result as OkObjectResult)!.Value as IEnumerable<SwimlaneDto>)!.ToList();
+        Assert.That(dtos.Single().Lane, Is.EqualTo(WorkItemDto.FromEntity(lane)));
+        Assert.That(dtos.Single().Cards.Single(), Is.EqualTo(WorkItemDto.FromEntity(card)));
+    }
 }

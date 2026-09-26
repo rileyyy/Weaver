@@ -17,14 +17,23 @@ public class WorkItemsController : ControllerBase
 
     /// <summary>
     /// Direct children of <paramref name="parentId"/> (or top-level items when omitted).
-    /// The board uses this twice: once for swimlanes (children of the board's scope item),
-    /// once per swimlane for its cards (children of that swimlane item).
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<WorkItemDto>>> GetChildren([FromQuery] Guid? parentId)
     {
         var items = await _workItems.GetChildrenAsync(parentId);
         return Ok(items.Select(WorkItemDto.FromEntity));
+    }
+
+    /// <summary>
+    /// A board's lanes (children of <paramref name="scopeItemId"/>, or top-level items when
+    /// omitted) with each lane's cards, in one request.
+    /// </summary>
+    [HttpGet("swimlanes")]
+    public async Task<ActionResult<IReadOnlyList<SwimlaneDto>>> GetSwimlanes([FromQuery] Guid? scopeItemId)
+    {
+        var swimlanes = await _workItems.GetSwimlanesAsync(scopeItemId);
+        return Ok(swimlanes.Select(SwimlaneDto.FromSwimlane));
     }
 
     /// <summary>
