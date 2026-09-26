@@ -1,7 +1,6 @@
 import 'dart:ui' show Color;
 
 import 'package:injectable/injectable.dart';
-import 'package:weaver/core/dates/calendar_days.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
@@ -11,11 +10,19 @@ import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/scope_crumb.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
+import 'package:weaver/features/board/state/board_filters.dart';
+import 'package:weaver/features/board/state/hierarchy_tree_builder.dart';
+import 'package:weaver/features/board/state/swimlane_edits.dart';
+import 'package:weaver/features/board/state/user_directory.dart';
+import 'package:weaver/features/board/state/work_item_sorting.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
 Future<void> _noRetry() => Future.value();
 
+/// Orchestrates the board: which scope is shown (loading, drill-down,
+/// breadcrumbs, retry) and optimistic mutations. Filtering, sorting, tree
+/// building, lane edits and user lookups live in `state/` as pure units.
 @injectable
 class BoardViewModel extends ViewModel {
   BoardViewModel(this._repository);
@@ -23,25 +30,19 @@ class BoardViewModel extends ViewModel {
   final BoardRepository _repository;
 
   List<WorkItemStatus> _statuses = const [];
+  Map<String, WorkItemStatus> _statusById = const {};
   List<Swimlane> _swimlanes = const [];
   List<ScopeCrumb> _breadcrumbs = const [];
   bool _isLoading = true;
   String? _loadError;
   String? _moveError;
   Future<void> Function() _retry = _noRetry;
-  DateTime? _filterStart;
-  DateTime? _filterEnd;
-  String _searchQuery = '';
-  final Set<String> _hiddenStatusIds = {};
-  CardSortOption _sortOption = CardSortOption.manual;
-  // Lower-cased: tags are matched case-insensitively, the same way
-  // availableTags merges "Urgent" and "urgent" into one chip.
-  final Set<String> _selectedTagFilters = {};
+  BoardFilters _filters = const BoardFilters();
   List<HierarchyItem> _hierarchyItems = const [];
   bool _isHierarchyLoading = false;
   String? _hierarchyLoadError;
   bool _hierarchyLoaded = false;
-  List<User> _users = const [];
+  UserDirectory _users = UserDirectory.empty;
 
   // Bumped by every scope/hierarchy load so a slower, older response can't
   // overwrite a newer one, and so optimistic rollbacks know when the data
@@ -49,12 +50,26 @@ class BoardViewModel extends ViewModel {
   int _scopeGeneration = 0;
   int _hierarchyGeneration = 0;
 
+  // Derived values the views read many times per frame. Every state change
+  // notifies, so they're cached until the next notification.
+  List<HierarchyNode>? _hierarchyRootsCache;
+  List<WorkItemStatus>? _visibleStatusesCache;
+  List<String>? _availableTagsCache;
+
+  @override
+  void notifyIfActive() {
+    _hierarchyRootsCache = null;
+    _visibleStatusesCache = null;
+    _availableTagsCache = null;
+    super.notifyIfActive();
+  }
+
   List<WorkItemStatus> get statuses => _statuses;
   List<Swimlane> get swimlanes => _swimlanes;
 
   /// Every registered user, for building an assignee picker. Empty until
   /// [load] resolves the user directory (best-effort — see [load]).
-  List<User> get users => _users;
+  List<User> get users => _users.users;
 
   /// The path from the board's root scope down to what's currently shown,
   /// for breadcrumb navigation. Always has at least one entry once [load]
@@ -78,50 +93,43 @@ class BoardViewModel extends ViewModel {
   /// SnackBar) and then cleared via [clearMoveError].
   String? get moveError => _moveError;
 
-  DateTime? get filterStart => _filterStart;
-  DateTime? get filterEnd => _filterEnd;
+  DateTime? get filterStart => _filters.start;
+  DateTime? get filterEnd => _filters.end;
+  String get searchQuery => _filters.searchQuery;
+  CardSortOption get sortOption => _filters.sortOption;
 
-  String get searchQuery => _searchQuery;
-
-  /// Status ids whose column is currently hidden. Checked against every
-  /// status, not just [visibleStatuses], so a toggle control can always
-  /// show every status as a candidate to re-enable.
-  Set<String> get hiddenStatusIds => _hiddenStatusIds;
+  /// Status ids whose column is currently hidden (read-only). Checked
+  /// against every status, not just [visibleStatuses], so a toggle control
+  /// can always show every status as a candidate to re-enable.
+  Set<String> get hiddenStatusIds => _filters.hiddenStatusIds;
 
   /// [statuses], excluding any hidden via [toggleStatusVisibility].
-  List<WorkItemStatus> get visibleStatuses =>
-      _statuses.where((s) => !_hiddenStatusIds.contains(s.id)).toList();
-
-  CardSortOption get sortOption => _sortOption;
+  List<WorkItemStatus> get visibleStatuses => _visibleStatusesCache ??= [
+    for (final status in _statuses)
+      if (!_filters.hiddenStatusIds.contains(status.id)) status,
+  ];
 
   /// Whether [tag] (any casing) is selected in the Filters dialog. With
   /// nothing selected no tag filter is applied — unlike [hiddenStatusIds],
   /// this is a filter you opt into, not out of.
-  bool isTagFilterSelected(String tag) =>
-      _selectedTagFilters.contains(tag.toLowerCase());
+  bool isTagFilterSelected(String tag) => _filters.isTagSelected(tag);
 
   /// Every distinct tag currently seen across loaded swimlane cards and
   /// Hierarchy items, sorted case-insensitively — for populating the
   /// Filters dialog's tag chip list.
-  List<String> get availableTags {
+  List<String> get availableTags => _availableTagsCache ??= () {
     final seen = <String, String>{};
-    for (final lane in _swimlanes) {
-      for (final card in lane.cards) {
-        for (final tag in card.tags) {
-          seen.putIfAbsent(tag.toLowerCase(), () => tag);
-        }
-      }
+    final allTags = [
+      for (final lane in _swimlanes)
+        for (final card in lane.cards) ...card.tags,
+      for (final item in _hierarchyItems) ...item.tags,
+    ];
+    for (final tag in allTags) {
+      seen.putIfAbsent(tag.toLowerCase(), () => tag);
     }
-
-    for (final item in _hierarchyItems) {
-      for (final tag in item.tags) {
-        seen.putIfAbsent(tag.toLowerCase(), () => tag);
-      }
-    }
-
     return seen.values.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-  }
+  }();
 
   bool get isHierarchyLoading => _isHierarchyLoading;
 
@@ -134,39 +142,14 @@ class BoardViewModel extends ViewModel {
   /// the board) know whether refreshing the Hierarchy view is worthwhile.
   bool get hierarchyLoaded => _hierarchyLoaded;
 
-  /// The Hierarchy view's root nodes: every top-level work item, each with
-  /// its descendants nested underneath. Built fresh from [_hierarchyItems]
-  /// on every access — grouped by parent, filtered by the same time/search/
-  /// status-visibility predicates the swim-lane board applies (see
-  /// [hierarchyItemVisible]), and each sibling group ordered by
-  /// [hierarchyComparator]. A node whose own fields don't match the current
-  /// filters is still included if any descendant does, so a matching item's
-  /// ancestors stay visible to show where it sits in the tree.
-  List<HierarchyNode> get hierarchyRoots {
-    final byParent = <String?, List<HierarchyItem>>{};
-    for (final item in _hierarchyItems) {
-      (byParent[item.parentId] ??= []).add(item);
-    }
-
-    List<HierarchyNode> buildLevel(String? parentId) {
-      final children = byParent[parentId] ?? const [];
-      final comparator = hierarchyComparator;
-      final ordered = comparator == null
-          ? children
-          : ([...children]..sort(comparator));
-
-      final nodes = <HierarchyNode>[];
-      for (final item in ordered) {
-        final childNodes = buildLevel(item.id);
-        if (!hierarchyItemVisible(item) && childNodes.isEmpty) continue;
-        nodes.add(HierarchyNode(item: item, children: childNodes));
-      }
-
-      return nodes;
-    }
-
-    return buildLevel(null);
-  }
+  /// The Hierarchy (and Roadmap) view's root nodes, filtered and sorted with
+  /// the same filters as the board — see [buildHierarchyTree].
+  List<HierarchyNode> get hierarchyRoots =>
+      _hierarchyRootsCache ??= buildHierarchyTree(
+        _hierarchyItems,
+        isVisible: _filters.hierarchyItemVisible,
+        comparator: hierarchyComparator,
+      );
 
   /// Loads every work item for the Hierarchy view. Independent of the
   /// swim-lane board's current drill-down scope — the Hierarchy view always
@@ -200,57 +183,18 @@ class BoardViewModel extends ViewModel {
   Future<void> refreshHierarchyIfLoaded() =>
       _hierarchyLoaded ? loadHierarchy() : Future.value();
 
-  String? statusNameFor(String statusId) {
-    for (final status in _statuses) {
-      if (status.id == statusId) {
-        return status.name;
-      }
-    }
+  String? statusNameFor(String statusId) => _statusById[statusId]?.name;
 
-    return null;
-  }
-
-  Color? statusColorFor(String statusId) {
-    for (final status in _statuses) {
-      if (status.id == statusId) return status.color;
-    }
-
-    return null;
-  }
+  Color? statusColorFor(String statusId) => _statusById[statusId]?.color;
 
   /// The uppercased first letter of the assigned user's username, for a
   /// small avatar — null if [userId] is null or unresolved (e.g. the user
   /// directory hasn't loaded yet).
-  String? assigneeInitialFor(String? userId) {
-    if (userId == null) {
-      return null;
-    }
+  String? assigneeInitialFor(String? userId) => _users.initialFor(userId);
 
-    for (final user in _users) {
-      if (user.id == userId) {
-        return user.username.isEmpty ? null : user.username[0].toUpperCase();
-      }
-    }
-
-    return null;
-  }
-
-  /// The assigned user's full username, for a picker/column with room to
-  /// show more than just an initial — null on the same terms as
+  /// The assigned user's full username — null on the same terms as
   /// [assigneeInitialFor].
-  String? usernameFor(String? userId) {
-    if (userId == null) {
-      return null;
-    }
-
-    for (final user in _users) {
-      if (user.id == userId) {
-        return user.username;
-      }
-    }
-
-    return null;
-  }
+  String? usernameFor(String? userId) => _users.usernameFor(userId);
 
   Future<void> load() => _changeScope(
     () async {
@@ -267,7 +211,7 @@ class BoardViewModel extends ViewModel {
       return () {
         _applyScope(data);
         _breadcrumbs = [ScopeCrumb(id: rootScopeId, title: 'Board')];
-        _users = users;
+        _users = UserDirectory(users);
       };
     },
     errorMessage:
@@ -333,13 +277,13 @@ class BoardViewModel extends ViewModel {
   /// ever touching `ParentId`. Applies the move optimistically, then rolls
   /// it back if the backend rejects it.
   Future<void> moveCard(WorkItemCard card, String newStatusId) {
-    if (card.statusId == newStatusId || !_hasLane(card.parentId)) {
+    if (card.statusId == newStatusId || !_swimlanes.hasLane(card.parentId)) {
       return Future.value();
     }
 
     return _optimistic(
       apply: () {
-        _swimlanes = _withCard(
+        _swimlanes = _swimlanes.withCard(
           card.id,
           (c) => c.copyWith(statusId: newStatusId),
         );
@@ -349,7 +293,7 @@ class BoardViewModel extends ViewModel {
         );
       },
       persist: () => _repository.changeStatus(card.id, newStatusId),
-      revertLanes: () => _swimlanes = _withCard(
+      revertLanes: () => _swimlanes = _swimlanes.withCard(
         card.id,
         (c) => c.copyWith(statusId: card.statusId),
       ),
@@ -367,8 +311,8 @@ class BoardViewModel extends ViewModel {
   /// the backend rejects it.
   Future<void> reparentCard(WorkItemCard card, String newParentId) {
     if (card.parentId == newParentId ||
-        !_hasLane(card.parentId) ||
-        !_hasLane(newParentId)) {
+        !_swimlanes.hasLane(card.parentId) ||
+        !_swimlanes.hasLane(newParentId)) {
       return Future.value();
     }
 
@@ -379,14 +323,18 @@ class BoardViewModel extends ViewModel {
 
     return _optimistic(
       apply: () {
-        _swimlanes = _withCardMovedToLane(card.id, card.parentId, newParentId);
+        _swimlanes = _swimlanes.withCardMovedToLane(
+          card.id,
+          card.parentId,
+          newParentId,
+        );
         _hierarchyItems = _withHierarchyItem(
           card.id,
           (item) => item.movedToParent(newParentId),
         );
       },
       persist: () => _repository.reparentItem(card.id, newParentId),
-      revertLanes: () => _swimlanes = _withCardMovedToLane(
+      revertLanes: () => _swimlanes = _swimlanes.withCardMovedToLane(
         card.id,
         newParentId,
         card.parentId,
@@ -408,11 +356,11 @@ class BoardViewModel extends ViewModel {
     DateTime? startDate,
     DateTime? endDate,
   ) {
-    if (!_hasLane(card.parentId)) return Future.value();
+    if (!_swimlanes.hasLane(card.parentId)) return Future.value();
 
     return _optimistic(
       apply: () {
-        _swimlanes = _withCard(
+        _swimlanes = _swimlanes.withCard(
           card.id,
           (c) => c.rescheduled(startDate, endDate),
         );
@@ -422,7 +370,7 @@ class BoardViewModel extends ViewModel {
         );
       },
       persist: () => _repository.rescheduleItem(card.id, startDate, endDate),
-      revertLanes: () => _swimlanes = _withCard(
+      revertLanes: () => _swimlanes = _swimlanes.withCard(
         card.id,
         (c) => c.rescheduled(card.startDate, card.endDate),
       ),
@@ -445,7 +393,7 @@ class BoardViewModel extends ViewModel {
 
     return _optimistic(
       apply: () {
-        _swimlanes = _assignedInSwimlanes(workItemId, userId);
+        _swimlanes = _swimlanes.withAssignee(workItemId, userId);
         _hierarchyItems = _withHierarchyItem(
           workItemId,
           (item) => item.assigned(userId),
@@ -453,7 +401,7 @@ class BoardViewModel extends ViewModel {
       },
       persist: () => _repository.assign(workItemId, userId),
       revertLanes: () =>
-          _swimlanes = _assignedInSwimlanes(workItemId, previousUserId),
+          _swimlanes = _swimlanes.withAssignee(workItemId, previousUserId),
       revertHierarchy: () => _hierarchyItems = _withHierarchyItem(
         workItemId,
         (item) => item.assigned(previousUserId),
@@ -461,25 +409,6 @@ class BoardViewModel extends ViewModel {
       errorMessage: 'Could not update the assignee. Try again.',
     );
   }
-
-  List<Swimlane> _assignedInSwimlanes(String workItemId, String? userId) => [
-    for (final lane in _swimlanes)
-      if (lane.parentId == workItemId)
-        lane
-            .assigned(userId)
-            .copyWithCards(_assignedInCards(lane.cards, workItemId, userId))
-      else
-        lane.copyWithCards(_assignedInCards(lane.cards, workItemId, userId)),
-  ];
-
-  List<WorkItemCard> _assignedInCards(
-    List<WorkItemCard> cards,
-    String workItemId,
-    String? userId,
-  ) => [
-    for (final card in cards)
-      if (card.id == workItemId) card.assigned(userId) else card,
-  ];
 
   /// Replaces the tag list of the work item identified by [workItemId] —
   /// the view-model mirror of [assign], same dual-update-then-rollback
@@ -490,7 +419,7 @@ class BoardViewModel extends ViewModel {
 
     return _optimistic(
       apply: () {
-        _swimlanes = _withCard(workItemId, (c) => c.tagged(tags));
+        _swimlanes = _swimlanes.withCard(workItemId, (c) => c.tagged(tags));
         _hierarchyItems = _withHierarchyItem(
           workItemId,
           (item) => item.tagged(tags),
@@ -499,7 +428,10 @@ class BoardViewModel extends ViewModel {
       persist: () => _repository.setTags(workItemId, tags),
       revertLanes: () {
         if (previousTags != null) {
-          _swimlanes = _withCard(workItemId, (c) => c.tagged(previousTags));
+          _swimlanes = _swimlanes.withCard(
+            workItemId,
+            (c) => c.tagged(previousTags),
+          );
         }
       },
       revertHierarchy: () {
@@ -550,179 +482,71 @@ class BoardViewModel extends ViewModel {
   }
 
   /// Sets the board's time-frame filter. Either bound may be null (open on
-  /// that side); passing both null is equivalent to [clearTimeFilter].
-  void setTimeFilter({DateTime? start, DateTime? end}) {
-    // The pickers prevent an inverted range; swap rather than silently
-    // match nothing if one arrives anyway.
-    final inverted = start != null && end != null && start.isAfter(end);
-    _filterStart = inverted ? end : start;
-    _filterEnd = inverted ? start : end;
-    notifyIfActive();
-  }
+  /// that side); an inverted range is swapped.
+  void setTimeFilter({DateTime? start, DateTime? end}) =>
+      _setFilters(_filters.withTimeRange(start: start, end: end));
 
   void clearTimeFilter() => setTimeFilter();
 
-  /// True if [card] should be visible under the current time-frame filter:
-  /// its own scheduled window overlaps the filter's, treating either
-  /// side's missing bound (the card's or the filter's) as open-ended
-  /// rather than excluding the card.
+  /// True if [card]'s schedule overlaps the time-frame filter; a missing
+  /// bound on either side is open-ended.
   bool matchesTimeFilter(WorkItemCard card) =>
-      _matchesTimeWindow(card.startDate, card.endDate);
+      _filters.matchesTimeWindow(card.startDate, card.endDate);
 
-  /// Core of [matchesTimeFilter], generalized to a bare start/end pair so
-  /// [hierarchyItemVisible] can share it without needing a [WorkItemCard].
-  bool _matchesTimeWindow(DateTime? itemStart, DateTime? itemEnd) {
-    if (_filterStart == null && _filterEnd == null) {
-      return true;
-    }
-
-    // Compared by calendar day, so both bounds include their whole day
-    // whatever the time part of either side.
-    final startsInTime =
-        _filterEnd == null ||
-        itemStart == null ||
-        daysBetween(_filterEnd!, itemStart) <= 0;
-
-    final endsInTime =
-        _filterStart == null ||
-        itemEnd == null ||
-        daysBetween(_filterStart!, itemEnd) >= 0;
-
-    return startsInTime && endsInTime;
-  }
-
-  void setSearchQuery(String query) {
-    _searchQuery = query;
-    notifyIfActive();
-  }
+  void setSearchQuery(String query) =>
+      _setFilters(_filters.withSearchQuery(query));
 
   void clearSearchQuery() => setSearchQuery('');
 
   /// True if [card]'s title, description, or any tag contains [searchQuery]
   /// (case-insensitive). Always true when the query is empty.
   bool matchesSearch(WorkItemCard card) =>
-      _matchesSearchText(card.title, card.description, card.tags);
-
-  /// Core of [matchesSearch], generalized to bare title/description/tags so
-  /// [hierarchyItemVisible] can share it without needing a [WorkItemCard].
-  bool _matchesSearchText(
-    String title,
-    String? description,
-    List<String> tags,
-  ) {
-    final query = _searchQuery.trim().toLowerCase();
-    if (query.isEmpty) {
-      return true;
-    }
-
-    return title.toLowerCase().contains(query) ||
-        (description?.toLowerCase().contains(query) ?? false) ||
-        tags.any((tag) => tag.toLowerCase().contains(query));
-  }
+      _filters.matchesSearchText(card.title, card.description, card.tags);
 
   /// Shows or hides [tag] from the current tag filter. An empty selection
   /// means no tag filter is applied.
-  void toggleTagFilter(String tag) {
-    final key = tag.toLowerCase();
-    if (!_selectedTagFilters.remove(key)) {
-      _selectedTagFilters.add(key);
-    }
-
-    notifyIfActive();
-  }
+  void toggleTagFilter(String tag) => _setFilters(_filters.withTagToggled(tag));
 
   /// True if no tag filter is selected, or [tags] contains at least one
   /// selected tag, ignoring case.
-  bool matchesTagFilter(List<String> tags) =>
-      _selectedTagFilters.isEmpty ||
-      tags.any((tag) => _selectedTagFilters.contains(tag.toLowerCase()));
+  bool matchesTagFilter(List<String> tags) => _filters.matchesTags(tags);
 
   /// Whether [card] should be shown on the board under the current
   /// time-frame filter, search query, and tag filter together.
-  bool cardVisible(WorkItemCard card) =>
-      matchesTimeFilter(card) &&
-      matchesSearch(card) &&
-      matchesTagFilter(card.tags);
+  bool cardVisible(WorkItemCard card) => _filters.cardVisible(card);
 
-  /// Whether [item] should be shown in the Hierarchy view under the current
-  /// time-frame filter, search query, tag filter, and hidden-status columns
-  /// together. Unlike [cardVisible], this also checks [hiddenStatusIds]
-  /// directly — the swim-lane board gets that for free by only ever
-  /// iterating [visibleStatuses], but the Hierarchy view isn't organized by
-  /// column.
+  /// Whether [item] should be shown in the Hierarchy view; unlike
+  /// [cardVisible] this also checks [hiddenStatusIds].
   bool hierarchyItemVisible(HierarchyItem item) =>
-      !_hiddenStatusIds.contains(item.statusId) &&
-      _matchesTimeWindow(item.startDate, item.endDate) &&
-      _matchesSearchText(item.title, item.description, item.tags) &&
-      matchesTagFilter(item.tags);
+      _filters.hierarchyItemVisible(item);
 
-  /// Shows or hides [statusId]'s column. Hiding a status doesn't move or
-  /// otherwise change any work item in it — it's purely a display toggle.
-  void toggleStatusVisibility(String statusId) {
-    if (!_hiddenStatusIds.remove(statusId)) {
-      _hiddenStatusIds.add(statusId);
-    }
+  /// Shows or hides [statusId]'s column. Purely a display toggle.
+  void toggleStatusVisibility(String statusId) =>
+      _setFilters(_filters.withStatusToggled(statusId));
 
+  void setSortOption(CardSortOption option) =>
+      _setFilters(_filters.withSortOption(option));
+
+  /// Null for [CardSortOption.manual] — see [sortComparator].
+  Comparator<WorkItemCard>? get cardComparator => sortComparator(
+    _filters.sortOption,
+    title: (card) => card.title,
+    startDate: (card) => card.startDate,
+    endDate: (card) => card.endDate,
+  );
+
+  /// The Hierarchy view's mirror of [cardComparator], applied within each
+  /// sibling group.
+  Comparator<HierarchyItem>? get hierarchyComparator => sortComparator(
+    _filters.sortOption,
+    title: (item) => item.title,
+    startDate: (item) => item.startDate,
+    endDate: (item) => item.endDate,
+  );
+
+  void _setFilters(BoardFilters filters) {
+    _filters = filters;
     notifyIfActive();
-  }
-
-  void setSortOption(CardSortOption option) {
-    _sortOption = option;
-    notifyIfActive();
-  }
-
-  /// Null for [CardSortOption.manual]: cards stay in the order the backend
-  /// returned them (by `Rank`). Any other option returns a comparator the
-  /// view applies on top of that order — sorting is display-only and never
-  /// changes `Rank` or persists anywhere.
-  Comparator<WorkItemCard>? get cardComparator => switch (_sortOption) {
-    CardSortOption.manual => null,
-    CardSortOption.title => (a, b) => a.title.toLowerCase().compareTo(
-      b.title.toLowerCase(),
-    ),
-    CardSortOption.startDate => (a, b) => _compareOpenEndedDates(
-      a.startDate,
-      b.startDate,
-    ),
-    CardSortOption.dueDate => (a, b) => _compareOpenEndedDates(
-      a.endDate,
-      b.endDate,
-    ),
-  };
-
-  /// The Hierarchy view's mirror of [cardComparator]: null for
-  /// [CardSortOption.manual] (each sibling group keeps the backend's
-  /// order), otherwise a comparator applied within each sibling group by
-  /// [hierarchyRoots] — sorting the whole flat list at once would destroy
-  /// the nesting a tree view depends on.
-  Comparator<HierarchyItem>? get hierarchyComparator => switch (_sortOption) {
-    CardSortOption.manual => null,
-    CardSortOption.title => (a, b) => a.title.toLowerCase().compareTo(
-      b.title.toLowerCase(),
-    ),
-    CardSortOption.startDate => (a, b) => _compareOpenEndedDates(
-      a.startDate,
-      b.startDate,
-    ),
-    CardSortOption.dueDate => (a, b) => _compareOpenEndedDates(
-      a.endDate,
-      b.endDate,
-    ),
-  };
-
-  /// Ascending, with a missing date sorted after every present date — an
-  /// unscheduled item has no position to sort by, so it falls to the end
-  /// rather than being treated as earliest.
-  int _compareOpenEndedDates(DateTime? a, DateTime? b) {
-    if (a == null) {
-      return b == null ? 0 : 1;
-    }
-
-    if (b == null) {
-      return -1;
-    }
-
-    return a.compareTo(b);
   }
 
   /// Runs a scope load. [fetch] does the network work and returns a
@@ -787,22 +611,9 @@ class BoardViewModel extends ViewModel {
 
   void _applyScope(BoardData data) {
     _statuses = [...data.statuses]..sort((a, b) => a.order.compareTo(b.order));
+    _statusById = {for (final status in _statuses) status.id: status};
     _swimlanes = data.swimlanes;
   }
-
-  bool _hasLane(String parentId) =>
-      _swimlanes.any((lane) => lane.parentId == parentId);
-
-  List<Swimlane> _withCard(
-    String cardId,
-    WorkItemCard Function(WorkItemCard) update,
-  ) => [
-    for (final lane in _swimlanes)
-      lane.copyWithCards([
-        for (final c in lane.cards)
-          if (c.id == cardId) update(c) else c,
-      ]),
-  ];
 
   List<HierarchyItem> _withHierarchyItem(
     String id,
@@ -812,63 +623,14 @@ class BoardViewModel extends ViewModel {
       if (item.id == id) update(item) else item,
   ];
 
-  /// Moves the card from [fromParentId]'s lane to [toParentId]'s, appended
-  /// unless [atIndex] is given. A no-op if the card isn't in the source lane
-  /// (e.g. a later move already took it elsewhere).
-  List<Swimlane> _withCardMovedToLane(
-    String cardId,
-    String fromParentId,
-    String toParentId, {
-    int? atIndex,
-  }) {
-    final fromLane = _swimlanes
-        .where((lane) => lane.parentId == fromParentId)
-        .firstOrNull;
-    final card = fromLane?.cards.where((c) => c.id == cardId).firstOrNull;
-    if (card == null) return _swimlanes;
+  String? _currentAssigneeOf(String workItemId) =>
+      _swimlanes.assigneeOf(workItemId) ??
+      _hierarchyItems
+          .where((item) => item.id == workItemId)
+          .firstOrNull
+          ?.assignedToUserId;
 
-    final moved = card.movedToParent(toParentId);
-    List<WorkItemCard> insertedInto(List<WorkItemCard> cards) {
-      final index = (atIndex ?? cards.length).clamp(0, cards.length);
-      return [...cards]..insert(index, moved);
-    }
-
-    return [
-      for (final lane in _swimlanes)
-        if (lane.parentId == fromParentId)
-          lane.copyWithCards([
-            for (final c in lane.cards)
-              if (c.id != cardId) c,
-          ])
-        else if (lane.parentId == toParentId)
-          lane.copyWithCards(insertedInto(lane.cards))
-        else
-          lane,
-    ];
-  }
-
-  String? _currentAssigneeOf(String workItemId) {
-    for (final lane in _swimlanes) {
-      if (lane.parentId == workItemId) return lane.assignedToUserId;
-      for (final card in lane.cards) {
-        if (card.id == workItemId) return card.assignedToUserId;
-      }
-    }
-    return _hierarchyItems
-        .where((item) => item.id == workItemId)
-        .firstOrNull
-        ?.assignedToUserId;
-  }
-
-  List<String>? _currentTagsOf(String workItemId) {
-    for (final lane in _swimlanes) {
-      for (final card in lane.cards) {
-        if (card.id == workItemId) return card.tags;
-      }
-    }
-    return _hierarchyItems
-        .where((item) => item.id == workItemId)
-        .firstOrNull
-        ?.tags;
-  }
+  List<String>? _currentTagsOf(String workItemId) =>
+      _swimlanes.tagsOf(workItemId) ??
+      _hierarchyItems.where((item) => item.id == workItemId).firstOrNull?.tags;
 }

@@ -24,6 +24,8 @@ import 'package:weaver/shared/navigation/work_item_detail_opener.dart';
 /// place — rather than stretching to fill the available width.
 const double _narrowLayoutBreakpoint = 760;
 
+const Duration _searchDebounceDelay = Duration(milliseconds: 200);
+
 class BoardView extends StatefulWidget {
   const BoardView({
     required this.onLogout,
@@ -42,6 +44,7 @@ class _BoardViewState extends State<BoardView>
     with SingleTickerProviderStateMixin {
   final BoardViewModel _viewModel = getIt<BoardViewModel>();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
   late final TabController _tabController = TabController(
     length: BoardTab.values.length,
     vsync: this,
@@ -92,11 +95,26 @@ class _BoardViewState extends State<BoardView>
     _viewModel
       ..removeListener(_showMoveErrorIfAny)
       ..dispose();
+    _searchDebounce?.cancel();
     _searchController.dispose();
     _tabController
       ..removeListener(_onTabChanged)
       ..dispose();
     super.dispose();
+  }
+
+  /// Filtering rebuilds every lane, so wait for a pause in typing. Clearing
+  /// the box applies at once.
+  void _onSearchChanged(String query) {
+    _searchDebounce?.cancel();
+    if (query.isEmpty) {
+      _viewModel.setSearchQuery(query);
+      return;
+    }
+    _searchDebounce = Timer(
+      _searchDebounceDelay,
+      () => _viewModel.setSearchQuery(query),
+    );
   }
 
   void _onTabChanged() {
@@ -259,7 +277,7 @@ class _BoardViewState extends State<BoardView>
                     breadcrumbs: _viewModel.breadcrumbs,
                     onSelectBreadcrumb: _viewModel.navigateToBreadcrumb,
                     searchController: _searchController,
-                    onSearchChanged: _viewModel.setSearchQuery,
+                    onSearchChanged: _onSearchChanged,
                     filterStart: _viewModel.filterStart,
                     filterEnd: _viewModel.filterEnd,
                     onTimeFilterChanged: _viewModel.setTimeFilter,

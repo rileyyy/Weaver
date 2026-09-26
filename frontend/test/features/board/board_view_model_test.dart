@@ -1582,4 +1582,23 @@ void main() {
       );
     });
   });
+
+  test('derived values are reused until something changes', () {
+    final roots = viewModel.hierarchyRoots;
+    final statuses = viewModel.visibleStatuses;
+
+    expect(viewModel.hierarchyRoots, same(roots));
+    expect(viewModel.visibleStatuses, same(statuses));
+
+    viewModel.toggleStatusVisibility('done');
+
+    expect(viewModel.visibleStatuses, isNot(same(statuses)));
+    expect(viewModel.visibleStatuses.map((s) => s.id), ['todo']);
+  });
+
+  test('hiddenStatusIds is read-only', () {
+    viewModel.toggleStatusVisibility('done');
+
+    expect(() => viewModel.hiddenStatusIds.add('todo'), throwsUnsupportedError);
+  });
 }
