@@ -141,6 +141,22 @@ whoever (human or agent) next touches this area.
   serves a frontend whose API is still migrating. The dev override
   relaxes the frontend's wait to `service_started`, because the first
   `dotnet watch` build can outlast the backend healthcheck.
+- **Backups are a `backup` service on the official `postgres:16-alpine`
+  image** (it already has `pg_dump`), running an inline loop: one dump at
+  startup, then nightly at `BACKUP_HOUR_UTC`, into `$BACKUP_DIR/daily`,
+  with Sunday copies in `weekly/` (retention `BACKUP_KEEP_DAYS` /
+  `BACKUP_KEEP_WEEKS`). A third-party backup image was avoided so the DB
+  password isn't handed to it, and inline so the server still needs only
+  `compose.yaml` + `.env`. Dumps are written as `.partial` and renamed on
+  success. Restore (verified end to end):
+
+      docker compose stop backend
+      docker compose exec backup pg_restore --clean --if-exists --no-owner \
+          --dbname=weaver /backups/daily/<file>.dump
+      docker compose start backend
+
+  Copy `$BACKUP_DIR` off the server as well; a dump on the same disk
+  doesn't survive losing that disk.
 - **`.env.example` ships empty values** so a copy used unchanged fails
   compose validation instead of running with publicly known secrets, and
   the API refuses to start with a signing key under 32 bytes (HS256's

@@ -333,7 +333,7 @@ The most important problems cluster in four areas:
   - No coverage is reported even though `coverlet` is referenced.
   - **Fix:** add the analyze/format steps, run `docker build` without push on PRs, and pin one Flutter version for both CI and the Dockerfile.
 - [x] *(Resolved in `bugfix/deploy-exposure-and-tls`: `.env.example` values are empty, so an unedited copy fails compose validation, and the API refuses signing keys under 32 bytes.)* **I-M3. Placeholder values that pass validation.** `.env.example` uses `changeme` for `POSTGRES_PASSWORD` and `JWT_SIGNING_KEY`, and `compose.yaml` only checks that they are non-empty. Copying the example unchanged produces a running deployment with an 8-byte, publicly known signing key. The B-H1 key-strength check would also catch this.
-- [ ] **I-M4. No backups.** The `pgdata` volume has no backup or restore procedure or container for a self-hosted deployment.
+- [x] *(Resolved in `feature/database-backups`: a `backup` service (official postgres image) dumps nightly plus at startup, keeping 7 daily and 4 weekly dumps. A restore was verified end to end.)* **I-M4. No backups.** The `pgdata` volume has no backup or restore procedure or container for a self-hosted deployment.
 
 ### Low
 
