@@ -14,7 +14,11 @@ dependencies:
   get_it: ^9.2.1
   injectable: ^2.5.0
   http: ^1.6.0
-  flutter_secure_storage: ^11.2.0
+  # Held on v10, which the app has always resolved to (a stray override
+  # masked the ^11 constraint). v11 is a breaking major: it drops the
+  # pre-v10 storage migration, raises Android minSdk to 24, and shifts about
+  # 15 transitive packages. Upgrade on its own branch with native testing.
+  flutter_secure_storage: ^10.3.4
 
 dev_dependencies:
   build_runner: ^2.15.1
