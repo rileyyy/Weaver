@@ -5,13 +5,13 @@ import 'package:weaver/features/auth/data/auth_repository.dart';
 import 'package:weaver/features/auth/data/auth_session_store.dart';
 import 'package:weaver/features/auth/data/secure_token_store.dart';
 import 'package:weaver/features/auth/models/auth_session.dart';
-import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
-import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
+import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item_status.dart';
 
 /// Stands in for the real, network-backed [BoardRepository] so this smoke
 /// test never makes an HTTP call.
@@ -22,7 +22,7 @@ class _StubBoardRepository implements BoardRepository {
   @override
   Future<BoardData> loadBoard(String? scopeItemId) => Future.value(
     const BoardData(
-      statuses: [BoardStatus(id: 'todo', name: 'To Do', order: 0)],
+      statuses: [WorkItemStatus(id: 'todo', name: 'To Do', order: 0)],
       swimlanes: [
         Swimlane(
           parentId: 'epic-board',
@@ -45,7 +45,7 @@ class _StubBoardRepository implements BoardRepository {
   Future<List<HierarchyItem>> loadAllItems() => Future.value(const []);
 
   @override
-  Future<List<AuthUser>> loadUsers() => Future.value(const []);
+  Future<List<User>> loadUsers() => Future.value(const []);
 
   @override
   Future<void> changeStatus(String cardId, String newStatusId) =>
@@ -132,7 +132,7 @@ void main() {
           const Duration(hours: 1),
         ),
         refreshToken: 'test-refresh-token',
-        user: const AuthUser(
+        user: const User(
           id: 'user-1',
           username: 'tester',
           kind: UserKind.human,

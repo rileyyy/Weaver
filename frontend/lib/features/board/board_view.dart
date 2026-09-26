@@ -16,7 +16,7 @@ import 'package:weaver/features/board/views/swimlane/swimlane_view.dart';
 import 'package:weaver/features/board/widgets/assign_dialog.dart';
 import 'package:weaver/features/board/widgets/create_work_item_dialog.dart';
 import 'package:weaver/features/board/widgets/load_error_view.dart';
-import 'package:weaver/features/work_item_detail/work_item_detail_view.dart';
+import 'package:weaver/shared/navigation/work_item_detail_opener.dart';
 
 /// Below this width, the header collapses to a column (app name on its own
 /// row) and the swimlane board's status columns become individually
@@ -25,9 +25,14 @@ import 'package:weaver/features/work_item_detail/work_item_detail_view.dart';
 const double _narrowLayoutBreakpoint = 760;
 
 class BoardView extends StatefulWidget {
-  const BoardView({required this.onLogout, super.key});
+  const BoardView({
+    required this.onLogout,
+    required this.openWorkItemDetails,
+    super.key,
+  });
 
   final Future<void> Function() onLogout;
+  final WorkItemDetailOpener openWorkItemDetails;
 
   @override
   State<BoardView> createState() => _BoardViewState();
@@ -113,7 +118,7 @@ class _BoardViewState extends State<BoardView>
 
   Future<void> _openDetails(WorkItemCard card) async {
     var drilledIn = false;
-    final changed = await showWorkItemDetailDialog(
+    final changed = await widget.openWorkItemDetails(
       context,
       workItemId: card.id,
       onDrillInto: () {
@@ -130,7 +135,7 @@ class _BoardViewState extends State<BoardView>
   /// [WorkItemCard] in hand, e.g. tapping a swimlane's own label or a
   /// Hierarchy row.
   Future<void> _openDetailsById(String workItemId) async {
-    final changed = await showWorkItemDetailDialog(
+    final changed = await widget.openWorkItemDetails(
       context,
       workItemId: workItemId,
     );

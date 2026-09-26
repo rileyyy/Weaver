@@ -1,4 +1,4 @@
-import 'package:weaver/features/auth/models/auth_user.dart';
+import 'package:weaver/shared/models/user.dart';
 
 /// The result of a successful login/register/refresh: a short-lived access
 /// token to send with API calls, and a longer-lived refresh token used to
@@ -19,13 +19,13 @@ class AuthSession {
       json['accessTokenExpiresAtUtc'] as String,
     ),
     refreshToken: json['refreshToken'] as String,
-    user: AuthUser.fromJson(json['user'] as Map<String, dynamic>),
+    user: User.fromJson(json['user'] as Map<String, dynamic>),
   );
 
   final String accessToken;
   final DateTime accessTokenExpiresAtUtc;
   final String refreshToken;
-  final AuthUser user;
+  final User user;
 
   /// Treats the token as expired slightly early so it can't expire between
   /// this check and the server receiving the request.

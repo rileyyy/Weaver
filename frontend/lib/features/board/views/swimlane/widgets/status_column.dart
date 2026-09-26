@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/views/swimlane/swimlane_view.dart';
 import 'package:weaver/features/board/widgets/board_card.dart';
+import 'package:weaver/shared/models/work_item_status.dart';
 
 class StatusColumn extends StatelessWidget {
   const StatusColumn({
@@ -24,7 +24,7 @@ class StatusColumn extends StatelessWidget {
   });
 
   final Swimlane swimlane;
-  final BoardStatus status;
+  final WorkItemStatus status;
 
   /// Precomputed by [SwimlaneBoard] (shared across every column so a
   /// swimlane's row height, also computed there, matches what actually

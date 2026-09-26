@@ -5,14 +5,10 @@ UserKind userKindFromWire(String value) => switch (value) {
   _ => UserKind.human,
 };
 
-class AuthUser {
-  const AuthUser({
-    required this.id,
-    required this.username,
-    required this.kind,
-  });
+class User {
+  const User({required this.id, required this.username, required this.kind});
 
-  factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
+  factory User.fromJson(Map<String, dynamic> json) => User(
     id: json['id'] as String,
     username: json['username'] as String,
     kind: userKindFromWire(json['kind'] as String),

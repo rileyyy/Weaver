@@ -1,6 +1,6 @@
-import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
+import 'package:weaver/shared/models/user.dart';
 
 /// Source of board data and the operations [BoardViewModel] can perform on
 /// it. [BoardViewModel] depends on this interface, not a concrete source.
@@ -20,7 +20,7 @@ abstract class BoardRepository {
 
   /// Every registered user, for resolving a work item's assignee to a
   /// display name/initial on the board.
-  Future<List<AuthUser>> loadUsers();
+  Future<List<User>> loadUsers();
 
   /// Moves the work item identified by [cardId] to [newStatusId], within
   /// whichever parent already owns it. Throws on failure.

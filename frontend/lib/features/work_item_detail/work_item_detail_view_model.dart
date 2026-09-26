@@ -5,8 +5,6 @@ import 'package:injectable/injectable.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/core/network/parallel_api_errors.dart';
 import 'package:weaver/core/presentation/view_model.dart';
-import 'package:weaver/features/auth/models/auth_user.dart';
-import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
@@ -14,17 +12,21 @@ import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_layer.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
+import 'package:weaver/shared/data/current_user.dart';
+import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item_status.dart';
 
 @injectable
 class WorkItemDetailViewModel extends ViewModel {
-  WorkItemDetailViewModel(this._repository);
+  WorkItemDetailViewModel(this._repository, this._currentUser);
 
   final WorkItemDetailRepository _repository;
+  final CurrentUser _currentUser;
 
   WorkItemDetail? _item;
-  List<BoardStatus> _statuses = const [];
+  List<WorkItemStatus> _statuses = const [];
   List<WorkItemLayer> _layers = const [];
-  List<AuthUser> _users = const [];
+  List<User> _users = const [];
   List<WorkItemComment> _comments = const [];
   List<WorkItemLink> _links = const [];
   List<WorkItemChildSummary> _children = const [];
@@ -38,9 +40,9 @@ class WorkItemDetailViewModel extends ViewModel {
   bool _hasChanges = false;
 
   WorkItemDetail? get item => _item;
-  List<BoardStatus> get statuses => _statuses;
+  List<WorkItemStatus> get statuses => _statuses;
   List<WorkItemLayer> get layers => _layers;
-  List<AuthUser> get users => _users;
+  List<User> get users => _users;
   List<WorkItemComment> get comments => _comments;
   List<WorkItemLink> get links => _links;
   List<WorkItemChildSummary> get children => _children;
@@ -59,6 +61,11 @@ class WorkItemDetailViewModel extends ViewModel {
   /// assignee, deletion, or a sub-item) was changed from this dialog, so
   /// the caller knows to refresh when it closes.
   bool get hasChanges => _hasChanges;
+
+  /// Only the author may edit or delete a comment (the server enforces it
+  /// too); this decides whether to offer the controls.
+  bool isOwnComment(WorkItemComment comment) =>
+      comment.authorUserId == _currentUser.currentUserId;
 
   String? get statusName {
     for (final status in _statuses) {

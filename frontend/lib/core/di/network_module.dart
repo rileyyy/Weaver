@@ -3,6 +3,7 @@ import 'package:injectable/injectable.dart';
 import 'package:weaver/core/network/api_config.dart';
 import 'package:weaver/features/auth/data/auth_http_client.dart';
 import 'package:weaver/features/auth/data/auth_session_store.dart';
+import 'package:weaver/shared/data/current_user.dart';
 
 @module
 abstract class NetworkModule {
@@ -23,4 +24,6 @@ abstract class NetworkModule {
 
   @Named('apiBaseUrl')
   String get apiBaseUrl => ApiConfig.baseUrl;
+
+  CurrentUser currentUser(AuthSessionStore sessionStore) => sessionStore;
 }

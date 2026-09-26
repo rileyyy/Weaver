@@ -1,15 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/widgets/assignee_avatar.dart';
+import 'package:weaver/shared/models/user.dart';
 
 /// Lists every user plus "Unassigned"; tapping an option assigns
 /// immediately and closes the dialog. There is no separate OK/Cancel step
 /// — picking an option *is* the action.
 Future<void> showAssignDialog(
   BuildContext context, {
-  required List<AuthUser> users,
+  required List<User> users,
   required String? currentAssigneeId,
   required Future<void> Function(String? userId) onAssign,
 }) {

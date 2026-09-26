@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:weaver/features/board/widgets/date_format.dart';
+import 'package:weaver/core/dates/date_format.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 
 class CommentTile extends StatefulWidget {

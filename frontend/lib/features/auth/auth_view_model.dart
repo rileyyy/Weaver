@@ -6,7 +6,7 @@ import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/auth/data/auth_repository.dart';
 import 'package:weaver/features/auth/data/auth_session_store.dart';
 import 'package:weaver/features/auth/models/auth_session.dart';
-import 'package:weaver/features/auth/models/auth_user.dart';
+import 'package:weaver/shared/models/user.dart';
 
 @injectable
 class AuthViewModel extends ViewModel {
@@ -28,7 +28,7 @@ class AuthViewModel extends ViewModel {
   String? errorMessage;
 
   bool get isAuthenticated => _sessionStore.isAuthenticated;
-  AuthUser? get currentUser => _sessionStore.current?.user;
+  User? get currentUser => _sessionStore.current?.user;
 
   @override
   void dispose() {

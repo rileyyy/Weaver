@@ -253,7 +253,13 @@ The most important problems cluster in four areas:
   - Status, user and tag parsing is duplicated.
   - The copies are already drifting: one uses `queryParameters`, the other concatenates `?parentId=$id`.
   - **Fix:** a shared `core/network/json_api_client.dart` plus `fromJson` factories on the models.
-- [ ] **F-M5. Features are tangled.**
+- [x] *(Resolved in `feature/untangle-features`:
+  - Shared models (`WorkItemStatus`, `User`) live in `lib/shared`, and `formatDate` is in `lib/core/dates`.
+  - Cached `StatusRepository`/`UserDirectoryRepository` serve both features.
+  - The board gets a `WorkItemDetailOpener` from the composition root (`app.dart`), and the detail view model gets a `CurrentUser`.
+  - No feature imports another.)*
+
+  **F-M5. Features are tangled.**
   - `board` imports the `work_item_detail` view.
   - `work_item_detail` imports `board/models/board_status.dart` and `board/widgets/date_format.dart`.
   - `AuthUser` doubles as the general user-directory model.

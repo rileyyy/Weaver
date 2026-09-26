@@ -2,13 +2,14 @@ import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
 import 'package:weaver/core/network/api_dates.dart';
 import 'package:weaver/core/network/json_api_client.dart';
-import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
-import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
+import 'package:weaver/shared/data/status_repository.dart';
+import 'package:weaver/shared/data/user_directory_repository.dart';
+import 'package:weaver/shared/models/user.dart';
 
 /// Board data backed by the REST API. Swimlanes are the direct children of
 /// whichever scope item [loadBoard] is asked for (the first board's scope
@@ -17,10 +18,16 @@ import 'package:weaver/features/board/models/work_item_card.dart';
 /// backend.
 @LazySingleton(as: BoardRepository)
 class ApiBoardRepository implements BoardRepository {
-  ApiBoardRepository(http.Client client, @Named('apiBaseUrl') String baseUrl)
-    : _api = JsonApiClient(client, baseUrl);
+  ApiBoardRepository(
+    http.Client client,
+    @Named('apiBaseUrl') String baseUrl,
+    this._statuses,
+    this._users,
+  ) : _api = JsonApiClient(client, baseUrl);
 
   final JsonApiClient _api;
+  final StatusRepository _statuses;
+  final UserDirectoryRepository _users;
 
   @override
   Future<String?> loadRootScopeItemId() => _api.get('/boards', (json) {
@@ -31,11 +38,10 @@ class ApiBoardRepository implements BoardRepository {
 
   @override
   Future<BoardData> loadBoard(String? scopeItemId) async {
-    final statuses = await _api.get(
-      '/statuses',
-      (json) => JsonApiClient.listOf(json, BoardStatus.fromJson),
-      failureMessage: 'Failed to load statuses',
-    );
+    // Sequential on purpose: a record .wait would wrap a failure in
+    // ParallelWaitError instead of the ApiException callers handle, and
+    // statuses are cached after the first load anyway.
+    final statuses = await _statuses.loadStatuses();
     final swimlaneItems = await _loadChildren(scopeItemId);
 
     final swimlanes = await Future.wait([
@@ -53,11 +59,7 @@ class ApiBoardRepository implements BoardRepository {
   );
 
   @override
-  Future<List<AuthUser>> loadUsers() => _api.get(
-    '/users',
-    (json) => JsonApiClient.listOf(json, AuthUser.fromJson),
-    failureMessage: 'Failed to load users',
-  );
+  Future<List<User>> loadUsers() => _users.loadUsers();
 
   @override
   Future<void> changeStatus(String cardId, String newStatusId) =>

@@ -1,12 +1,12 @@
 import 'package:weaver/core/network/api_exception.dart';
-import 'package:weaver/features/auth/models/auth_user.dart';
-import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_layer.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
+import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item_status.dart';
 
 abstract class WorkItemDetailRepository {
   Future<WorkItemDetail> getItem(String id);
@@ -21,11 +21,11 @@ abstract class WorkItemDetailRepository {
   /// is never silently dropped.
   Future<void> deleteItem(String id, {bool cascade = false});
 
-  Future<List<BoardStatus>> loadStatuses();
+  Future<List<WorkItemStatus>> loadStatuses();
 
   Future<List<WorkItemLayer>> loadLayers();
 
-  Future<List<AuthUser>> loadUsers();
+  Future<List<User>> loadUsers();
 
   /// [expectedVersion] is the [WorkItemDetail.version] the edit was based
   /// on; the save fails with a 409 [ApiException] if the item has changed

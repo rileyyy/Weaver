@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:weaver/features/auth/models/auth_user.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
-import 'package:weaver/features/board/models/board_status.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/views/heirarchy/hierarchy_view.dart';
+import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item_status.dart';
 
 class _HierarchyOnlyRepository implements BoardRepository {
   @override
@@ -14,7 +14,7 @@ class _HierarchyOnlyRepository implements BoardRepository {
 
   @override
   Future<BoardData> loadBoard(String? scopeItemId) async => const BoardData(
-    statuses: [BoardStatus(id: 'todo', name: 'To Do', order: 0)],
+    statuses: [WorkItemStatus(id: 'todo', name: 'To Do', order: 0)],
     swimlanes: [],
   );
 
@@ -38,7 +38,7 @@ class _HierarchyOnlyRepository implements BoardRepository {
   ];
 
   @override
-  Future<List<AuthUser>> loadUsers() async => const [];
+  Future<List<User>> loadUsers() async => const [];
 
   @override
   dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();

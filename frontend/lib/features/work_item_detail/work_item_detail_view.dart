@@ -2,9 +2,8 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:weaver/core/dates/date_format.dart';
 import 'package:weaver/core/di/injection.dart';
-import 'package:weaver/features/auth/data/auth_session_store.dart';
-import 'package:weaver/features/board/widgets/date_format.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
@@ -95,8 +94,6 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
   WorkItemPriority _selectedPriority = WorkItemPriority.medium;
   String? _selectedAssigneeId;
   List<String> _tags = [];
-
-  String? get _currentUserId => getIt<AuthSessionStore>().current?.user.id;
 
   @override
   void initState() {
@@ -471,7 +468,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
           CommentTile(
             key: ValueKey(comment.id),
             comment: comment,
-            isOwnComment: comment.authorUserId == _currentUserId,
+            isOwnComment: _viewModel.isOwnComment(comment),
             onDelete: () => unawaited(_viewModel.deleteComment(comment.id)),
             onEdit: (body) =>
                 unawaited(_viewModel.updateComment(comment.id, body)),
