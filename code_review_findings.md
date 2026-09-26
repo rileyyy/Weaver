@@ -375,7 +375,7 @@ The most important problems cluster in four areas:
 - **Fix:** Add a `Weaver.Api.IntegrationTests` project using `WebApplicationFactory<Program>` + Testcontainers PostgreSQL. A handful of tests covering login → authorized call, 401 without a token, delete-with-links, and a concurrent-update 409 would cover the riskiest gaps.
 
 #### T-2. No concurrency tests on the client
-- [ ] **Resolved**
+- [x] **Resolved** by the fixing branches: `Completer`-based tests cover parallel refresh (`bugfix/token-refresh-stampede`), overlapping mutations and rollbacks and racing scope/hierarchy loads (`bugfix/board-state-races`), and overlapping detail saves (`bugfix/detail-dialog-fixes`). Retry after a successful create or drill-in is covered in `bugfix/board-retry-replays-create`. Verified in `feature/frontend-review-cleanup`.
 There are no `Completer`-based tests, so none of these are covered: parallel refresh (F-H1), overlapping mutations and rollbacks (F-H3), racing scope loads (F-H4), or concurrent detail saves (F-M12). There is also no test of `retry()` after a *successful* action (F-H2).
 
 #### T-3. Almost no widget tests
