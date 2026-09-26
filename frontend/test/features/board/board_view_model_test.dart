@@ -1521,4 +1521,60 @@ void main() {
 
     expect(viewModel.isTagFilterSelected('Urgent'), isFalse);
   });
+
+  group('time filter bounds', () {
+    WorkItemCard card({DateTime? start, DateTime? end}) => WorkItemCard(
+      id: 'x',
+      number: 1,
+      title: 'X',
+      parentId: 'lane-a',
+      statusId: 'todo',
+      startDate: start,
+      endDate: end,
+    );
+
+    test('the "to" bound includes its whole day', () {
+      viewModel.setTimeFilter(end: DateTime(2026, 9, 25));
+
+      expect(
+        viewModel.matchesTimeFilter(card(start: DateTime(2026, 9, 25))),
+        isTrue,
+      );
+      expect(
+        viewModel.matchesTimeFilter(card(start: DateTime(2026, 9, 25, 18))),
+        isTrue,
+      );
+      expect(
+        viewModel.matchesTimeFilter(card(start: DateTime(2026, 9, 26))),
+        isFalse,
+      );
+    });
+
+    test('the "from" bound includes its whole day', () {
+      viewModel.setTimeFilter(start: DateTime(2026, 9, 25, 12));
+
+      expect(
+        viewModel.matchesTimeFilter(card(end: DateTime(2026, 9, 25))),
+        isTrue,
+      );
+      expect(
+        viewModel.matchesTimeFilter(card(end: DateTime(2026, 9, 24))),
+        isFalse,
+      );
+    });
+
+    test('an inverted range is swapped rather than matching nothing', () {
+      viewModel.setTimeFilter(
+        start: DateTime(2026, 9, 30),
+        end: DateTime(2026, 9, 1),
+      );
+
+      expect(viewModel.filterStart, DateTime(2026, 9, 1));
+      expect(viewModel.filterEnd, DateTime(2026, 9, 30));
+      expect(
+        viewModel.matchesTimeFilter(card(start: DateTime(2026, 9, 15))),
+        isTrue,
+      );
+    });
+  });
 }

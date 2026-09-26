@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:weaver/core/dates/calendar_days.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_timeframe.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_view.dart';
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_grid.dart';
@@ -52,9 +53,7 @@ class RoadmapHeaderRow extends StatelessWidget {
                       child: Center(
                         child: Text(
                           timeframe.unitLabel(
-                            windowStart.add(
-                              Duration(days: i * timeframe.daysPerUnit),
-                            ),
+                            addDays(windowStart, i * timeframe.daysPerUnit),
                           ),
                           style: Theme.of(context).textTheme.bodySmall,
                           overflow: TextOverflow.ellipsis,
