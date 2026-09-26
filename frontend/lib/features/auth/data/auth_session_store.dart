@@ -23,6 +23,8 @@ class AuthSessionStore extends ChangeNotifier {
   AuthSession? _session;
   AuthSession? get current => _session;
 
+  Future<bool>? _refreshInFlight;
+
   bool get isAuthenticated => _session != null;
 
   Future<void> setSession(AuthSession session) async {
@@ -57,17 +59,31 @@ class AuthSessionStore extends ChangeNotifier {
   /// false if there's no usable session at all — expired refresh token,
   /// none cached, or the refresh call itself failed — in which case the
   /// session is cleared.
-  Future<bool> ensureValidSession() async {
+  ///
+  /// Concurrent callers share one refresh. The backend rotates the refresh
+  /// token on every use, so a second refresh with the same token is
+  /// rejected; before this, parallel requests (a board load, a detail
+  /// open) each refreshed, all but one failed, and the failures cleared
+  /// the session the winner had just stored.
+  Future<bool> ensureValidSession() {
     final session = _session;
-    if (session != null && !session.isAccessTokenExpired) return true;
+    if (session != null && !session.isAccessTokenExpired) return Future.value(true);
 
-    final refreshToken = session?.refreshToken ?? await _tokenStore.readRefreshToken();
+    return _refreshInFlight ??= _refresh().whenComplete(() => _refreshInFlight = null);
+  }
+
+  Future<bool> _refresh() async {
+    final startedFrom = _session;
+    final refreshToken = startedFrom?.refreshToken ?? await _tokenStore.readRefreshToken();
     if (refreshToken == null) return false;
 
     try {
       await setSession(await _authRepository.refresh(refreshToken));
       return true;
     } catch (_) {
+      // A login may have replaced the session while this refresh was in
+      // flight; that newer session isn't this failure's to discard.
+      if (!identical(_session, startedFrom)) return isAuthenticated;
       await clear();
       return false;
     }

@@ -8,7 +8,8 @@ import 'package:weaver/features/auth/data/auth_session_store.dart';
 ///
 /// A definitive 401 (the token was valid at send time but the server
 /// rejected it anyway — e.g. revoked mid-flight) clears the session rather
-/// than retrying: the failed call still surfaces as an [ApiException] to its
+/// than retrying — but only if the rejected token is still the current one,
+/// since a parallel request may already have refreshed it. The failed call still surfaces as an [ApiException] to its
 /// caller, and the app's top-level auth gate reacts to the now-signed-out
 /// session by returning to the login screen. A full "rebuild and replay the
 /// original request" retry was considered and skipped as more complexity
@@ -28,7 +29,7 @@ class AuthHttpClient extends http.BaseClient {
     }
 
     final response = await _inner.send(request);
-    if (response.statusCode == 401) {
+    if (response.statusCode == 401 && _sessionStore.current?.accessToken == token) {
       await _sessionStore.clear();
     }
     return response;

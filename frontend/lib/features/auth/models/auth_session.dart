@@ -18,5 +18,10 @@ class AuthSession {
   final String refreshToken;
   final AuthUser user;
 
-  bool get isAccessTokenExpired => DateTime.now().toUtc().isAfter(accessTokenExpiresAtUtc);
+  /// Treats the token as expired slightly early so it can't expire between
+  /// this check and the server receiving the request.
+  static const expiryLeeway = Duration(seconds: 30);
+
+  bool get isAccessTokenExpired =>
+      DateTime.now().toUtc().isAfter(accessTokenExpiresAtUtc.subtract(expiryLeeway));
 }

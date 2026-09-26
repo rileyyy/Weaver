@@ -197,7 +197,7 @@ The most important problems cluster in four areas:
 ### High
 
 #### F-H1. Parallel requests trigger concurrent token refreshes and log the user out
-- [ ] **Resolved**
+- [x] **Resolved** in `bugfix/token-refresh-stampede`: concurrent callers share one in-flight refresh. A failed refresh only clears the session if it's still the one the refresh started from. Covered by `Completer`-based tests.
 - **Where:** [auth_session_store.dart:60-74](frontend/lib/features/auth/data/auth_session_store.dart#L60-L74), `auth_http_client.dart:24`
 - **Issue:** `ensureValidSession()` has no in-flight guard. `WorkItemDetailViewModel.load` sends 7 requests in parallel, and `loadBoard` sends one per swimlane. When the access token has expired, every request calls `refresh(sameToken)`. The backend rotates the token, so the first call succeeds and the rest get 401. Each failure then runs `clear()`, which wipes the session the first call just stored. In practice, the first board load or detail open after the access token expires (15 minutes) sends the user back to the login screen.
 - **Fix:** Share one refresh `Future` (`_refreshing ??= _doRefresh().whenComplete(() => _refreshing = null)`). Only `clear()` if the session is still the one the failed refresh started from. Add a test where concurrent sends produce exactly one `refresh` call.
@@ -240,7 +240,7 @@ The most important problems cluster in four areas:
 
 ### Medium
 
-- [ ] **F-M1. Near-expiry tokens and blanket 401 handling.** `isAccessTokenExpired` has no leeway, so a token with 1 s left expires in flight. Any 401 then clears the session without trying a refresh, even when a newer session already exists. **Fix:** treat the token as expired 30–60 s early, and only clear if the token that was sent is still the current one. (`auth_session.dart:21`, `auth_http_client.dart:31-33`)
+- [x] *(Resolved in `bugfix/token-refresh-stampede`.)* **F-M1. Near-expiry tokens and blanket 401 handling.** `isAccessTokenExpired` has no leeway, so a token with 1 s left expires in flight. Any 401 then clears the session without trying a refresh, even when a newer session already exists. **Fix:** treat the token as expired 30–60 s early, and only clear if the token that was sent is still the current one. (`auth_session.dart:21`, `auth_http_client.dart:31-33`)
 - [ ] **F-M2. `unawaited(_repository.logout(...))` has no error handler**, so a network failure becomes an unhandled async error. (`auth_view_model.dart:58`)
 - [ ] **F-M3. `catch (_)` everywhere** (about 12 sites) swallows `TypeError`/`StateError` from JSON casts and `!`. A backend contract change looks like "check your connection", and in `auth_session_store.dart:70` any parsing bug logs the user out. **Fix:** catch `ApiException` and network exceptions only, and wrap parse failures in a typed exception.
 - [ ] **F-M4. HTTP/JSON plumbing is copied across three repositories.**

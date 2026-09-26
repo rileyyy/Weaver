@@ -16,8 +16,8 @@ public partial class AuthService : IAuthService
     private const int MaxFailedLoginAttempts = 5;
     private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
 
-    // Until the client stops firing parallel refreshes with the same token
-    // (F-H1), a rotated token legitimately comes back within milliseconds.
+    // Legitimate clients can still present a just-rotated token: two browser
+    // tabs share the cached refresh token and both refresh on startup.
     // Inside this window reuse is still rejected, just not treated as theft.
     private static readonly TimeSpan RotationGracePeriod = TimeSpan.FromSeconds(30);
 
