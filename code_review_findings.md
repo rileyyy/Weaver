@@ -272,7 +272,7 @@ The most important problems cluster in four areas:
   - Per-card lookups are linear scans (O(cards × users)).
   - Search has no debounce.
   - **Fix:** memoise derived values, build id→entity maps once, narrow listeners, and debounce search by about 200 ms.
-- [ ] **F-M8. Swimlane layout does repeated work and can overflow.**
+- [x] *(Resolved in `bugfix/swimlane-layout`: cards have an exact height, at least what their content needs, measured once per build. Titles are capped at 2 lines with a tooltip, and `IntrinsicHeight` is gone. Row heights and label measurements are computed once per lane and every `TextPainter` is disposed. A widget test at narrow, wide and 1.5× text scale fails on the old layout and passes now.)* **F-M8. Swimlane layout does repeated work and can overflow.**
   - `_rowHeightFor` is called twice per lane and creates a new `TextPainter` each time; no painter is ever disposed.
   - `IntrinsicHeight` wraps every card.
   - `GridRowBox` has a fixed height, but a card with a long title can grow past it and paint into the next lane.

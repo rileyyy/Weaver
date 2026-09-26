@@ -97,10 +97,20 @@ class SwimlaneView extends StatelessWidget {
         : minColumnWidth;
     final cardWidth =
         (columnOuterWidth - statusColumnChrome - cardGridSpacing) / 2;
-    // Half of cardWidth, not cardWidth itself — cards no longer need to be
-    // square; fitting more information per card matters more than the
-    // shape, so they're shorter and squatter instead.
-    final cardHeight = cardWidth * 0.5;
+    // Half of cardWidth (cards are short and squat so each shows more),
+    // but never less than the card's content needs: cards have an exact
+    // height so these lane heights always match what renders.
+    final minCardHeight = _minCardHeight(context);
+    final cardHeight = cardWidth * 0.5 > minCardHeight
+        ? cardWidth * 0.5
+        : minCardHeight;
+
+    // Each lane's height is needed by both the label column and the
+    // columns area; measure it once.
+    final rowHeights = {
+      for (final lane in swimlanes)
+        lane.parentId: _rowHeightFor(context, lane, cardHeight),
+    };
 
     final baseHeaderStyle = Theme.of(context).textTheme.titleMedium;
     final headerTextStyle = baseHeaderStyle?.copyWith(
@@ -135,7 +145,7 @@ class SwimlaneView extends StatelessWidget {
         ),
         for (final lane in swimlanes)
           GridRowBox(
-            height: _rowHeightFor(context, lane, cardHeight),
+            height: rowHeights[lane.parentId]!,
             showBottomBorder: true,
             child: SwimlaneLabel(
               swimlane: lane,
@@ -176,7 +186,7 @@ class SwimlaneView extends StatelessWidget {
     final laneRows = [
       for (final lane in swimlanes)
         GridRowBox(
-          height: _rowHeightFor(context, lane, cardHeight),
+          height: rowHeights[lane.parentId]!,
           showBottomBorder: true,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -287,6 +297,8 @@ class SwimlaneView extends StatelessWidget {
       textDirection: TextDirection.ltr,
       textScaler: MediaQuery.textScalerOf(context),
     )..layout(maxWidth: laneLabelWidth - swimlaneLabelChrome);
+    final textHeight = textPainter.height;
+    textPainter.dispose();
 
     const topPadding = 16;
     const bottomPadding = 8;
@@ -297,12 +309,40 @@ class SwimlaneView extends StatelessWidget {
     // a floor other content must never clip against.
     const measurementSafetyMargin = 4;
     var height =
-        topPadding +
-        textPainter.height +
-        measurementSafetyMargin +
-        bottomPadding;
+        topPadding + textHeight + measurementSafetyMargin + bottomPadding;
     if (showsAvatar) height += gapBeforeAvatar + AssigneeAvatar.cardSize;
     return height;
+  }
+
+  /// What a card's content needs: its vertical margin and padding, two
+  /// title lines, one schedule line, a gap and the avatar row (see
+  /// `BoardCard`). Measured with the current text scale rather than guessed.
+  double _minCardHeight(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final baseTitle = textTheme.bodyMedium;
+    final titleStyle = baseTitle?.copyWith(
+      fontSize: (baseTitle.fontSize ?? 14) + 2,
+    );
+    double lineHeight(TextStyle? style) {
+      final painter = TextPainter(
+        text: TextSpan(text: 'Ag', style: style),
+        textDirection: TextDirection.ltr,
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout();
+      final height = painter.height;
+      painter.dispose();
+      return height;
+    }
+
+    const cardMargin = 8;
+    const cardPadding = 16;
+    const gapBeforeAvatarRow = 4;
+    return cardMargin +
+        cardPadding +
+        2 * lineHeight(titleStyle) +
+        lineHeight(textTheme.bodySmall) +
+        gapBeforeAvatarRow +
+        AssigneeAvatar.cardSize;
   }
 
   Widget _columnWrapper({

@@ -96,16 +96,11 @@ class StatusColumn extends StatelessWidget {
             runSpacing: SwimlaneView.cardGridSpacing,
             children: [
               for (final card in cards)
-                ConstrainedBox(
-                  // minHeight (not a fixed height) so a card can still grow
-                  // for a long, wrapped title instead of clipping it.
-                  constraints: BoxConstraints(
-                    minWidth: cardWidth,
-                    maxWidth: cardWidth,
-                    minHeight: cardHeight,
-                  ),
+                SizedBox(
+                  width: cardWidth,
                   child: BoardCard(
                     card: card,
+                    height: cardHeight,
                     assigneeInitial: assigneeInitialFor(card.assignedToUserId),
                     onOpenDetails: () => onCardDetailsOpened(card),
                     onAssignTapped: () =>

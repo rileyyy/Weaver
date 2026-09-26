@@ -501,6 +501,12 @@ and it is what allows MCP tools to reuse the same business logic (see
   skips sorting entirely in that case. Dart's `List.sort` isn't stable, so
   an always-0 comparator could reshuffle the rank order. Sorting never
   touches the backend `Rank`.
+- **Board cards have an exact height**, so the lane heights the board
+  computes from card counts always match what renders (the label column
+  and the columns area are separate widgets and must line up). The height
+  is at least what a card's content needs, measured with the current
+  text scale; titles show at most two lines, with the full title in a
+  tooltip and the detail dialog.
 - **Tapping a card opens its detail dialog**; drilling in is the dialog's
   "View sub-items" action. Any item can be drilled into, even without
   children: there's no `hasChildren` flag, and computing one only to grey
