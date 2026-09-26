@@ -11,6 +11,7 @@ import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
 /// Stands in for the real, network-backed [BoardRepository] so this smoke

@@ -8,6 +8,7 @@ import 'package:weaver/features/auth/data/auth_session_store.dart';
 import 'package:weaver/features/auth/data/secure_token_store.dart';
 import 'package:weaver/features/auth/models/auth_session.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/user_kind.dart';
 
 class _FakeAuthRepository implements AuthRepository {
   _FakeAuthRepository({this.refreshError});

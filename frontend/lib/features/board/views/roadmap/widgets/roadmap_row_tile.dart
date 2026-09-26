@@ -5,7 +5,7 @@ import 'package:weaver/features/board/views/roadmap/roadmap_bar.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_layout.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_timeframe.dart';
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_grid.dart';
-import 'package:weaver/features/board/widgets/tag_badge.dart';
+import 'package:weaver/features/board/widgets/tag_badge_row.dart';
 
 class RoadmapRowTile extends StatelessWidget {
   static const double _indentPerLevel = 24;

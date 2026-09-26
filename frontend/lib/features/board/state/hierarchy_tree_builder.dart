@@ -1,4 +1,5 @@
 import 'package:weaver/features/board/models/hierarchy_item.dart';
+import 'package:weaver/features/board/models/hierarchy_node.dart';
 
 /// Nests a flat item list under each item's parent, top-level items first.
 /// Each sibling group is sorted by [comparator] (sorting the flat list would

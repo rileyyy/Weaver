@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
+import 'package:weaver/features/board/models/hierarchy_node.dart';
 import 'package:weaver/features/board/state/flatten_tree.dart';
 
 HierarchyNode _node(String id, [List<HierarchyNode> children = const []]) =>

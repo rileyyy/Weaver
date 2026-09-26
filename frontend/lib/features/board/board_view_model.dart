@@ -7,6 +7,7 @@ import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/card_sort_option.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
+import 'package:weaver/features/board/models/hierarchy_node.dart';
 import 'package:weaver/features/board/models/scope_crumb.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';

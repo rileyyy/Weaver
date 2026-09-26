@@ -303,7 +303,7 @@ The most important problems cluster in four areas:
 ### Low
 
 - [x] *(Resolved in `feature/frontend-review-cleanup`.)* **F-L1.** The `heirarchy` misspelling in the folder and 4 file names sits next to the correctly spelled `hierarchy_view.dart`. Fix with a dedicated `git mv` commit.
-- [ ] **F-L2. One-class-per-file violations:** `tag_badge.dart`, `hierarchy_item.dart`, `create_work_item_dialog.dart` (+ result class), `assign_dialog.dart`, `secure_token_store.dart`, `auth_user.dart`.
+- [x] *(Resolved in `feature/frontend-review-cleanup`: `HierarchyNode`, `TagBadgeRow`, `CreateWorkItemResult`, `FlutterSecureTokenStore` and `UserKind` each have their own file. `assign_dialog.dart` and `auth_user.dart` (now `user.dart`) had already come down to one class.)* **F-L2. One-class-per-file violations:** `tag_badge.dart`, `hierarchy_item.dart`, `create_work_item_dialog.dart` (+ result class), `assign_dialog.dart`, `secure_token_store.dart`, `auth_user.dart`.
 - [x] *(Resolved in `feature/frontend-review-cleanup`: `FlattenedTreeRow` in `models/` and a tested `flattenTree()` in `state/` replace both row classes and both local `flatten`s. Roadmap and swim-lane constants moved to `roadmap_layout.dart` and `swimlane_layout.dart`, so no child widget imports its parent view.)* **F-L3. Duplicated view structure.** `roadmap_row.dart` and `heirarchy_row.dart` are identical, and `flatten` is duplicated. Child widgets import their parent views just for constants, which creates circular imports. **Fix:** a shared `FlattenedTreeRow` + `flattenTree()` in `models/`, and per-view `*_layout.dart` constants.
 - [ ] **F-L4. Stale or "what" comments** (CLAUDE.md §2.5).
   - References to types that no longer exist (`[SwimlaneBoard]`, `_StatusColumn`, `_SwimlaneLabel`).

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:weaver/features/board/board_view_model.dart';
-import 'package:weaver/features/board/models/hierarchy_item.dart';
+import 'package:weaver/features/board/models/hierarchy_node.dart';
 import 'package:weaver/features/board/views/hierarchy/hierarchy_column.dart';
 import 'package:weaver/features/board/views/hierarchy/hierarchy_column_widths.dart';
 import 'package:weaver/features/board/views/hierarchy/hierarchy_layout.dart';

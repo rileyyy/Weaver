@@ -13,6 +13,7 @@ import 'package:weaver/features/work_item_detail/models/work_item_priority.dart'
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
 import 'package:weaver/shared/data/current_user.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
 WorkItemDetail _item({

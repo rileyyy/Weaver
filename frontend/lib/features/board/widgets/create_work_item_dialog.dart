@@ -1,19 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:weaver/features/board/models/create_work_item_result.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
-
-class CreateWorkItemResult {
-  const CreateWorkItemResult({
-    required this.title,
-    this.description,
-    required this.parentId,
-  });
-
-  final String title;
-  final String? description;
-
-  /// Null makes the new item a top-level item with no parent at all.
-  final String? parentId;
-}
 
 /// Prompts for a new work item's title/description and where it belongs:
 /// either a new swimlane under [scopeParentId], or a card inside one of

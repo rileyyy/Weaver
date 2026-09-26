@@ -17,6 +17,8 @@ import 'package:weaver/features/auth/auth_view_model.dart' as _i6;
 import 'package:weaver/features/auth/data/api_auth_repository.dart' as _i461;
 import 'package:weaver/features/auth/data/auth_repository.dart' as _i899;
 import 'package:weaver/features/auth/data/auth_session_store.dart' as _i605;
+import 'package:weaver/features/auth/data/flutter_secure_token_store.dart'
+    as _i347;
 import 'package:weaver/features/auth/data/secure_token_store.dart' as _i54;
 import 'package:weaver/features/board/board_view_model.dart' as _i314;
 import 'package:weaver/features/board/data/api_board_repository.dart' as _i436;
@@ -42,7 +44,7 @@ extension GetItInjectableX on _i174.GetIt {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
     final networkModule = _$NetworkModule();
     gh.lazySingleton<_i54.SecureTokenStore>(
-      () => _i54.FlutterSecureTokenStore(),
+      () => _i347.FlutterSecureTokenStore(),
     );
     gh.lazySingleton<_i519.Client>(
       () => networkModule.rawHttpClient,

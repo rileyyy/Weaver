@@ -1,5 +1,5 @@
 import 'package:weaver/features/board/models/flattened_tree_row.dart';
-import 'package:weaver/features/board/models/hierarchy_item.dart';
+import 'package:weaver/features/board/models/hierarchy_node.dart';
 
 /// Depth-first rows for [roots], skipping the children of any node whose id
 /// is in [collapsedIds]. Shared by the Hierarchy and Roadmap views so their
