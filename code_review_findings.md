@@ -379,7 +379,7 @@ The most important problems cluster in four areas:
 There are no `Completer`-based tests, so none of these are covered: parallel refresh (F-H1), overlapping mutations and rollbacks (F-H3), racing scope loads (F-H4), or concurrent detail saves (F-M12). There is also no test of `retry()` after a *successful* action (F-H2).
 
 #### T-3. Almost no widget tests
-- [ ] **Resolved**
+- [x] **Resolved** in `feature/frontend-review-cleanup`: widget tests for `LoginView`, `AuthGate`, `CreateWorkItemDialog`, and drag/drop acceptance into status cells and lane labels. `WorkItemDetailView` and `CommentTile` were covered in earlier branches, and `widget_test.dart` renders the `BoardView`. The auth fakes are shared under `test/features/auth/fakes/`.
 `test/widget_test.dart` is a DI smoke test, and it is the only widget test. There is none for `BoardView`, `LoginView`, `AuthGate`, `WorkItemDetailView`, `CommentTile` (which would have caught F-M11), `CreateWorkItemDialog`, or drag/drop acceptance in `StatusColumn`/`SwimlaneLabel`.
 
 #### T-4. Pure logic without unit tests
