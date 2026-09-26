@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:weaver/features/board/views/heirarchy/hierarchy_layout.dart';
 
 /// A narrow draggable divider between two header cells. Only the header
-/// carries resize handles — body rows read the same [columnWidths] map, so
+/// carries resize handles — body rows read the same column widths, so
 /// dragging a header divider resizes every row's cell in that column at
 /// once.
 class ResizeHandle extends StatelessWidget {
-  static const double width = 8;
+  static const double width = hierarchyResizeHandleWidth;
 
   const ResizeHandle({super.key, required this.onDrag});
 

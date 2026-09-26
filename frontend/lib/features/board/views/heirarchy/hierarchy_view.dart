@@ -2,19 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/views/heirarchy/heirarchy_column.dart';
+import 'package:weaver/features/board/views/heirarchy/hierarchy_column_widths.dart';
 import 'package:weaver/features/board/views/heirarchy/widgets/heirarchy_header_row.dart';
 import 'package:weaver/features/board/views/heirarchy/widgets/heirarchy_item_tile.dart';
 import 'package:weaver/features/board/views/heirarchy/widgets/heirarchy_row.dart';
 import 'package:weaver/features/board/widgets/load_error_view.dart';
-
-const double _minColumnWidth = 56;
-const double _maxColumnWidth = 640;
-
-const List<HierarchyColumn> trailingColumns = [
-  HierarchyColumn.status,
-  HierarchyColumn.assignedTo,
-  HierarchyColumn.tags,
-];
 
 /// Every work item nested under its parent, respecting the same time/search/
 /// status filters and sort order as the swim-lane board (see
@@ -26,7 +18,8 @@ const List<HierarchyColumn> trailingColumns = [
 /// fixed gutter before it), then Status and Assigned To — every column
 /// (other than the caret gutter) independently resizable by dragging the
 /// header dividers. Column widths are pure view state, like the collapse
-/// set below — not persisted.
+/// set below — not persisted. When the columns are wider than the screen,
+/// header and rows scroll horizontally together.
 class HierarchyView extends StatefulWidget {
   const HierarchyView({
     super.key,
@@ -45,25 +38,11 @@ class HierarchyView extends StatefulWidget {
 }
 
 class _HierarchyViewState extends State<HierarchyView> {
-  static const Map<String, double> _defaultColumnWidths = {
-    'number': 64,
-    'title': 280,
-    'status': 140,
-    'assignedTo': 160,
-    'tags': 200,
-  };
-
   final Set<String> _collapsedIds = {};
-  final Map<String, double> _columnWidths = {..._defaultColumnWidths};
+  HierarchyColumnWidths _columnWidths = HierarchyColumnWidths();
 
-  void _resizeColumn(String key, double deltaX) {
-    setState(() {
-      final current = _columnWidths[key] ?? _minColumnWidth;
-      _columnWidths[key] = (current + deltaX).clamp(
-        _minColumnWidth,
-        _maxColumnWidth,
-      );
-    });
+  void _resizeColumn(HierarchyColumn column, double deltaX) {
+    setState(() => _columnWidths = _columnWidths.resized(column, deltaX));
   }
 
   @override
@@ -91,7 +70,7 @@ class _HierarchyViewState extends State<HierarchyView> {
 
     flatten(viewModel.hierarchyRoots, 0);
 
-    return Column(
+    final table = Column(
       children: [
         HierarchyHeaderRow(
           columnWidths: _columnWidths,
@@ -128,6 +107,18 @@ class _HierarchyViewState extends State<HierarchyView> {
                 ),
         ),
       ],
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth > _columnWidths.rowWidth
+            ? constraints.maxWidth
+            : _columnWidths.rowWidth;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(width: width, child: table),
+        );
+      },
     );
   }
 }
