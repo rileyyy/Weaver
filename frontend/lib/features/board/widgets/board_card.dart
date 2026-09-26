@@ -16,12 +16,18 @@ class BoardCard extends StatelessWidget {
   const BoardCard({
     super.key,
     required this.card,
+    required this.height,
     required this.assigneeInitial,
     required this.onOpenDetails,
     required this.onAssignTapped,
   });
 
   final WorkItemCard card;
+
+  /// Exact height, set by the swimlane board so its lane heights (computed
+  /// from the card count) always match what renders. Content that doesn't
+  /// fit is ellipsized rather than growing the card into the next lane.
+  final double height;
 
   /// The assigned user's initial, resolved by the view model — null shows
   /// no avatar at all, whether because there's no assignee or the user
@@ -54,30 +60,27 @@ class BoardCard extends StatelessWidget {
       fontWeight: FontWeight.bold,
     );
 
-    final content = Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      // Lighter than the status column it sits on (surfaceContainerLow) so a
-      // card still stands out from its cell, but not as starkly as a full
-      // 20% lightening — a little darker/closer to the column's own tone.
-      color: Theme.of(context).colorScheme.surfaceContainerLow.lightenedBy(0.1),
-      elevation: 2,
-      // Square corners, not rounded — no shape override needed since
-      // RoundedRectangleBorder defaults to zero radius.
-      shape: const RoundedRectangleBorder(),
-      // IntrinsicHeight, not just Row's own CrossAxisAlignment.stretch: the
-      // card's own height constraint is a bare minHeight with an unbounded
-      // max (see the ConstrainedBox in _StatusColumn, which lets a card grow
-      // for a long title) — stretch alone needs a bounded cross axis to
-      // stretch into, which an unbounded max doesn't give it. IntrinsicHeight
-      // measures the row's natural height first and feeds that back in as a
-      // tight constraint, which stretch can then use safely.
-      child: IntrinsicHeight(
+    // The fixed height wraps the Card, margin included, so the card is
+    // exactly the height the lane-height maths assumes.
+    final content = SizedBox(
+      height: height,
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        // Lighter than the status column it sits on (surfaceContainerLow) so a
+        // card still stands out from its cell, but not as starkly as a full
+        // 20% lightening — a little darker/closer to the column's own tone.
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerLow.lightenedBy(0.1),
+        elevation: 2,
+        // Square corners, not rounded — no shape override needed since
+        // RoundedRectangleBorder defaults to zero radius.
+        shape: const RoundedRectangleBorder(),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // A full-height color handle flush with the card's own left
-            // edge — stretch (above) is what makes it span the card's
-            // actual height rather than needing one of its own.
+            // edge; the card's fixed height gives stretch a bound.
             Container(width: _handleWidth, color: _handleColor),
             Expanded(
               child: InkWell(
@@ -94,40 +97,47 @@ class BoardCard extends StatelessWidget {
                     // pinning the avatar to the bottom.
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Sized to match the id/title text next to it.
-                              Icon(Icons.emoji_events, size: titleFontSize),
-                              const SizedBox(width: 4),
-                              Text('#${card.number}', style: idStyle),
-                              const SizedBox(width: 6),
-                              // Underlined to signal the title is an
-                              // editable field, opened via onOpenDetails —
-                              // not just a label. Soft-wraps rather than
-                              // truncating: cards are narrow (two per
-                              // column row), so a longer title needs the
-                              // extra lines.
-                              Expanded(
-                                child: Text(
-                                  card.title,
-                                  softWrap: true,
-                                  style: titleStyle,
-                                ),
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Sized to match the id/title text next to it.
+                                  Icon(Icons.emoji_events, size: titleFontSize),
+                                  const SizedBox(width: 4),
+                                  Text('#${card.number}', style: idStyle),
+                                  const SizedBox(width: 6),
+                                  // Underlined to signal the title is an
+                                  // editable field, opened via onOpenDetails —
+                                  // not just a label. Two lines at most; the
+                                  // tooltip and the detail dialog show the rest.
+                                  Expanded(
+                                    child: Tooltip(
+                                      message: card.title,
+                                      child: Text(
+                                        card.title,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: titleStyle,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          if (card.startDate != null || card.endDate != null)
-                            Text(
-                              _scheduleLabel(),
-                              softWrap: true,
-                              style: Theme.of(context).textTheme.bodySmall,
                             ),
-                        ],
+                            if (card.startDate != null || card.endDate != null)
+                              Text(
+                                _scheduleLabel(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                          ],
+                        ),
                       ),
                       Row(
                         children: [
