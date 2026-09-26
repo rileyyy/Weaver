@@ -12,6 +12,13 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
 
         builder.HasIndex(t => t.TokenHash).IsUnique();
 
+        // Two parallel refreshes with the same token must not both mint a
+        // new pair: the second SaveChanges fails on the stale xmin.
+        builder.Property(t => t.Version)
+            .IsRowVersion()
+            .HasColumnName("xmin")
+            .HasColumnType("xid");
+
         builder.HasOne(t => t.User)
             .WithMany()
             .HasForeignKey(t => t.UserId)
