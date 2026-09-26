@@ -20,6 +20,11 @@ API
 Business rules belong in the Application/Domain layers and must not
 be implemented separately in controllers, Flutter widgets, or MCP tools.
 
+There is no separate `Weaver.Application` project yet: the Application
+services (`IWorkItemService` etc.) currently live in
+`Weaver.Infrastructure/Services`. Treat that folder as the Application
+layer until it's split out (see B-M3 in `code_review_findings.md`).
+
 ## Work Items
 
 Work items form a tree using ParentId.
@@ -316,8 +321,9 @@ and `POST /work-items/{id}/assignee` already existed (Milestone 9) and
   relative to what this project's `pubspec.yaml` and two pre-existing
   files need** — `flutter pub get` fails outright as committed
   (`flutter_secure_storage` ^11.2.0's `win32` dependency needs Dart
-  ≥3.10), and even after a local-only `pubspec_overrides.yaml` workaround
-  (never committed), `flutter analyze` surfaces real errors in
+  ≥3.10), and even after a `pubspec_overrides.yaml` workaround (meant to
+  stay local, but later committed in `9cf3167`; see F-L10 in
+  `code_review_findings.md`), `flutter analyze` surfaces real errors in
   `create_work_item_dialog.dart` and `work_item_detail_view.dart` from
   newer Material APIs (`RadioGroup`, `DropdownButtonFormField
 .initialValue`) that don't exist in this older SDK — both pre-existing

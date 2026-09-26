@@ -471,9 +471,14 @@ whoever (human or agent) next touches this area.
   Only the refresh token's SHA-256 hash is ever stored (`RefreshToken
   .TokenHash`) — a database read alone can never yield a usable
   credential. Every `RefreshAsync` call revokes the token it was given and
-  issues a new one (`ReplacedByTokenHash` records the chain), so a stolen-
-  then-reused refresh token fails outright rather than just eventually
-  expiring.
+  issues a new one (`ReplacedByTokenHash` records the chain), so presenting
+  an already-rotated token again gets a 401. This is *not* full reuse
+  detection yet: `ReplacedByTokenHash` is never read, so a reused token
+  doesn't revoke the rest of its chain, and two simultaneous refreshes
+  with the same token can both succeed (no concurrency token on
+  `RefreshToken`). The 30-day lifetime is also hard-coded in
+  `AuthService` rather than read from `JwtOptions.RefreshTokenLifetime`.
+  See B-H4 in `code_review_findings.md`.
 - **Passwords are hashed with `Microsoft.AspNetCore.Identity`'s
   `PasswordHasher<User>`** (PBKDF2-HMAC-SHA256, framework-managed
   iteration count) via the standalone `Microsoft.Extensions.Identity.Core`
@@ -709,14 +714,14 @@ whoever (human or agent) next touches this area.
   (`ModelContextProtocol.AspNetCore`) resolves a fresh tool instance per
   call from the same per-request DI scope a controller gets, so a
   `WeaverDbContext`-backed service behaves identically either way.
-- **`list_all_work_items` was deliberately not added as an MCP tool.**
-  `IWorkItemService` has no `GetAllAsync` on this branch (that's a
-  `feature/board-ui-improvements`-only addition for the Hierarchy view,
-  not yet on `master`) — adding one just for MCP would mean MCP tools
-  calling business logic REST doesn't have, which is exactly what "the
-  same Application services used by the REST API" rules out.
+- **`list_all_work_items` was not added as an MCP tool.** When MCP was
+  built, `IWorkItemService` had no `GetAllAsync` (it arrived later with
+  the Hierarchy view), and adding one just for MCP would have meant MCP
+  calling business logic REST doesn't have. `GetAllAsync` and
+  `GET /work-items/all` are on `master` now, so that reason no longer
+  holds; the tool just hasn't been added. Until it is,
   `list_work_item_children` (with `parentId` omitted for top-level) is
-  what MCP exposes instead, same as REST.
+  what MCP exposes.
 - **Tool-level auth is entirely "reuse the REST API's."**
   `app.MapMcp("/mcp")` is mapped in the same `Program.cs` pipeline as
   `app.MapControllers()`, after `UseAuthentication()`/`UseAuthorization()`,

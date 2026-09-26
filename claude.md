@@ -9,8 +9,8 @@ applies to every directory in this repo unless a more deeply nested
 Rule resolution follows the same nearest-file-wins model as `.gitignore`:
 
 - A `CLAUDE.md` closer to the file(s) you are editing takes precedence over
-  one further up the tree (e.g. `libipr_dart_bindings/.claude/CLAUDE.md`
-  outranks this file for anything inside `libipr_dart_bindings/`).
+  one further up the tree (e.g. a `frontend/CLAUDE.md` would outrank this
+  file for anything inside `frontend/`).
 - Precedence is **per-rule, not per-file**. If a nested `CLAUDE.md` overrides
   one rule (e.g. comment style) but says nothing about another (e.g. branch
   naming), the unaddressed rule here still applies in full.
