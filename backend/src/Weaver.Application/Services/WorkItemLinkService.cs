@@ -1,14 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using Weaver.Application.Persistence;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
 
-namespace Weaver.Infrastructure.Services;
+namespace Weaver.Application.Services;
 
 public class WorkItemLinkService : IWorkItemLinkService
 {
-    private readonly WeaverDbContext _db;
+    private readonly IWeaverDbContext _db;
 
-    public WorkItemLinkService(WeaverDbContext db)
+    public WorkItemLinkService(IWeaverDbContext db)
     {
         _db = db;
     }

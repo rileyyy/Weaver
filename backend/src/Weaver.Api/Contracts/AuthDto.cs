@@ -9,7 +9,7 @@ public record UserDto(Guid Id, string Username, UserKind Kind)
 
 public record AuthResponse(string AccessToken, DateTimeOffset AccessTokenExpiresAtUtc, string RefreshToken, UserDto User)
 {
-    public static AuthResponse FromResult(Weaver.Infrastructure.Services.AuthResult result) => new(
+    public static AuthResponse FromResult(Weaver.Application.Services.AuthResult result) => new(
         result.AccessToken.Value,
         result.AccessToken.ExpiresAtUtc,
         result.RefreshToken,

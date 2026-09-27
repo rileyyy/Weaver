@@ -1,14 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using Weaver.Application.Persistence;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
 
-namespace Weaver.Infrastructure.Services;
+namespace Weaver.Application.Services;
 
 public class BoardService : IBoardService
 {
-    private readonly WeaverDbContext _db;
+    private readonly IWeaverDbContext _db;
 
-    public BoardService(WeaverDbContext db)
+    public BoardService(IWeaverDbContext db)
     {
         _db = db;
     }

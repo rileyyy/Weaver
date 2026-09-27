@@ -3,11 +3,12 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Weaver.Application.Auth;
+using Weaver.Application.Persistence;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
-using Weaver.Infrastructure.Auth;
 
-namespace Weaver.Infrastructure.Services;
+namespace Weaver.Application.Services;
 
 public partial class AuthService : IAuthService
 {
@@ -21,13 +22,13 @@ public partial class AuthService : IAuthService
     // Inside this window reuse is still rejected, just not treated as theft.
     private static readonly TimeSpan RotationGracePeriod = TimeSpan.FromSeconds(30);
 
-    private readonly WeaverDbContext _db;
+    private readonly IWeaverDbContext _db;
     private readonly IJwtTokenService _tokenService;
     private readonly IPasswordHasher<User> _passwordHasher;
     private readonly JwtOptions _jwtOptions;
 
     public AuthService(
-        WeaverDbContext db,
+        IWeaverDbContext db,
         IJwtTokenService tokenService,
         IPasswordHasher<User> passwordHasher,
         IOptions<JwtOptions> jwtOptions)

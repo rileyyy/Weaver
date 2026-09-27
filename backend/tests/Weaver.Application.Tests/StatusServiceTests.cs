@@ -1,13 +1,14 @@
 using Microsoft.EntityFrameworkCore;
-using Weaver.Infrastructure.Services;
+using Weaver.Application.Services;
+using Weaver.Infrastructure;
 
-namespace Weaver.Infrastructure.Tests;
+namespace Weaver.Application.Tests;
 
 [TestFixture]
-public class WorkItemLayerServiceTests
+public class StatusServiceTests
 {
     private WeaverDbContext _db = null!;
-    private WorkItemLayerService _layers = null!;
+    private StatusService _statuses = null!;
 
     [SetUp]
     public void SetUp()
@@ -18,17 +19,17 @@ public class WorkItemLayerServiceTests
 
         _db = new WeaverDbContext(options);
         _db.Database.EnsureCreated();
-        _layers = new WorkItemLayerService(_db);
+        _statuses = new StatusService(_db);
     }
 
     [TearDown]
     public void TearDown() => _db.Dispose();
 
     [Test]
-    public async Task GetAllAsync_ReturnsSeededLayersOrderedByOrder()
+    public async Task GetAllAsync_ReturnsSeededStatusesOrderedByOrder()
     {
-        var layers = await _layers.GetAllAsync();
+        var statuses = await _statuses.GetAllAsync();
 
-        Assert.That(layers.Select(l => l.Name), Is.EqualTo(new[] { "Project", "Goal", "Task" }));
+        Assert.That(statuses.Select(s => s.Name), Is.EqualTo(new[] { "To Do", "Doing", "Done" }));
     }
 }

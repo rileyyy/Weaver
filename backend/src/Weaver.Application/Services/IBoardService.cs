@@ -1,6 +1,6 @@
 using Weaver.Domain;
 
-namespace Weaver.Infrastructure.Services;
+namespace Weaver.Application.Services;
 
 public interface IBoardService
 {

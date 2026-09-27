@@ -1,14 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using Weaver.Application.Persistence;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
 
-namespace Weaver.Infrastructure.Services;
+namespace Weaver.Application.Services;
 
 public class CommentService : ICommentService
 {
-    private readonly WeaverDbContext _db;
+    private readonly IWeaverDbContext _db;
 
-    public CommentService(WeaverDbContext db)
+    public CommentService(IWeaverDbContext db)
     {
         _db = db;
     }

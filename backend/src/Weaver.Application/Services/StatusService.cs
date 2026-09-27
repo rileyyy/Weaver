@@ -1,13 +1,14 @@
 using Microsoft.EntityFrameworkCore;
+using Weaver.Application.Persistence;
 using Weaver.Domain;
 
-namespace Weaver.Infrastructure.Services;
+namespace Weaver.Application.Services;
 
 public class StatusService : IStatusService
 {
-    private readonly WeaverDbContext _db;
+    private readonly IWeaverDbContext _db;
 
-    public StatusService(WeaverDbContext db)
+    public StatusService(IWeaverDbContext db)
     {
         _db = db;
     }

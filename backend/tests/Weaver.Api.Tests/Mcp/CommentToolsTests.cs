@@ -3,9 +3,9 @@ using Microsoft.AspNetCore.Http;
 using ModelContextProtocol;
 using Moq;
 using Weaver.Api.Mcp;
+using Weaver.Application.Services;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
-using Weaver.Infrastructure.Services;
 
 namespace Weaver.Api.Tests.Mcp;
 

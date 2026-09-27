@@ -1,7 +1,7 @@
+using Weaver.Application.Auth;
 using Weaver.Domain;
-using Weaver.Infrastructure.Auth;
 
-namespace Weaver.Infrastructure.Services;
+namespace Weaver.Application.Services;
 
 public record AuthResult(User User, AccessToken AccessToken, string RefreshToken);
 

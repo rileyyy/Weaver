@@ -3,15 +3,14 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Weaver.Api.Mcp;
 using Weaver.Api.Middleware;
-using Weaver.Domain;
+using Weaver.Application;
+using Weaver.Application.Auth;
 using Weaver.Infrastructure;
 using Weaver.Infrastructure.Auth;
-using Weaver.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,19 +28,11 @@ if (string.IsNullOrWhiteSpace(connectionString))
     throw new InvalidOperationException(
         "ConnectionStrings:Weaver is not configured. Set it via the ConnectionStrings__Weaver environment variable.");
 }
-builder.Services.AddDbContext<WeaverDbContext>(options => options.UseNpgsql(connectionString));
+builder.Services
+    .AddWeaverApplication()
+    .AddWeaverInfrastructure(connectionString);
 
 builder.Services.AddHealthChecks().AddDbContextCheck<WeaverDbContext>();
-
-builder.Services
-    .AddScoped<IWorkItemService, WorkItemService>()
-    .AddScoped<IAuthService, AuthService>()
-    .AddScoped<IUserService, UserService>()
-    .AddScoped<ICommentService, CommentService>()
-    .AddScoped<IWorkItemLinkService, WorkItemLinkService>()
-    .AddScoped<IBoardService, BoardService>()
-    .AddScoped<IStatusService, StatusService>()
-    .AddScoped<IWorkItemLayerService, WorkItemLayerService>();
 
 // CommentTools reads the calling user's id off the current request the same way
 // CommentsController does (User.GetUserId()) — MCP tools don't get a ControllerBase's
@@ -56,8 +47,6 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
     .WithToolsFromAssembly(serializerOptions: McpJsonSerializerOptions.Default);
-builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
-builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 JwtSigningKeyPolicy.EnsureUsable(jwtOptions.SigningKey, builder.Environment.IsDevelopment());

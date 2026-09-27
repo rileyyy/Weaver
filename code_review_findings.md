@@ -111,7 +111,7 @@ The most important problems cluster in four areas:
 - **Fix:** Move behaviour onto the entity (`item.Reschedule(start, end, clock)`, `item.SetTags(tags)`, `item.MoveTo(status, rank)`) with private setters. Services then orchestrate loading and saving, and the rules become plain unit tests in `Weaver.Domain.Tests`, which today only covers `RankCalculator`.
 
 #### B-M3. "Application" services live in Infrastructure and depend on the concrete `DbContext`
-- [ ] **Resolved**
+- [x] **Resolved** in `feature/backend-review-cleanup`: a new `Weaver.Application` project holds the services, `JwtOptions` and `IJwtTokenService`, and queries through `IWeaverDbContext` (EF Core's `DbSet` API, no provider). Infrastructure keeps `WeaverDbContext`, configurations, migrations and JWT signing. The service tests moved to `Weaver.Application.Tests`. Each layer registers itself with `AddWeaverApplication()` / `AddWeaverInfrastructure()`.
 - **Where:** `backend/src/Weaver.Infrastructure/Services/*`
 - **Issue:** Business orchestration (cycle detection, rank computation, auth lockout) is in the Infrastructure project and uses `WeaverDbContext` directly. `McpExceptionTranslation`'s doc even refers to "the Application services", a layer that doesn't exist. As a result, services can only be tested with an EF provider, and the provider in use (InMemory) behaves differently from Postgres ([T-1](#t-1-no-integration-tests-against-a-real-pipeline-or-database)).
 - **Fix (incremental):** Add a `Weaver.Application` project for services and interfaces, and keep Infrastructure for EF, JWT and configuration. The `IXxxService` interfaces already exist, so this is mostly a file move. Don't hide EF behind a generic repository unless there's a concrete need.

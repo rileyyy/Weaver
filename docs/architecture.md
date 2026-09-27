@@ -24,14 +24,16 @@ the history is in [CHANGELOG.md](../CHANGELOG.md).
 - **Deployment:** Docker Compose: `db`, `backend`, `frontend` (nginx),
   `caddy` (TLS), `backup`.
 
-**The Application layer lives in `Weaver.Infrastructure/Services`.**
-`project_design.md` describes a Domain / Application / Infrastructure / API
-split, but there is no `Weaver.Application` project. The service
-interfaces (`IWorkItemService`, `IBoardService`, …) and their
-implementations sit in `Weaver.Infrastructure/Services` and use
-`WeaverDbContext` directly. Treat that folder as the Application layer.
-Moving it out is tracked as B-M3 in
-[code_review_findings.md](../code_review_findings.md).
+**Projects follow the layers.** `Weaver.Domain` has the entities and
+domain exceptions. `Weaver.Application` has the service interfaces
+(`IWorkItemService`, `IBoardService`, …) and implementations, which query
+through `IWeaverDbContext`: EF Core's `DbSet` API without the Npgsql
+provider, model configuration or migrations. It is deliberately not a
+generic repository; services compose EF queries directly.
+`Weaver.Infrastructure` implements `IWeaverDbContext` with
+`WeaverDbContext` and owns JWT signing. Each layer registers itself
+(`AddWeaverApplication()`, `AddWeaverInfrastructure()`), so `Program.cs`
+only wires the HTTP pipeline.
 
 **Every controller depends only on a service interface**, never on
 `WeaverDbContext`. This lets controller tests mock the service with Moq,

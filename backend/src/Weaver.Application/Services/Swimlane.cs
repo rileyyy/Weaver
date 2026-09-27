@@ -1,6 +1,6 @@
 using Weaver.Domain;
 
-namespace Weaver.Infrastructure.Services;
+namespace Weaver.Application.Services;
 
 /// <summary>
 /// One board swimlane: a direct child of the board's scope and its own direct

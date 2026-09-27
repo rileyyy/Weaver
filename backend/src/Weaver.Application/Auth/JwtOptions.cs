@@ -1,4 +1,4 @@
-namespace Weaver.Infrastructure.Auth;
+namespace Weaver.Application.Auth;
 
 /// <summary>
 /// Bound from the "Jwt" configuration section. Only <see cref="SigningKey"/>

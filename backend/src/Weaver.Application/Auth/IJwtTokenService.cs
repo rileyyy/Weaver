@@ -1,6 +1,6 @@
 using Weaver.Domain;
 
-namespace Weaver.Infrastructure.Auth;
+namespace Weaver.Application.Auth;
 
 public record AccessToken(string Value, DateTimeOffset ExpiresAtUtc);
 

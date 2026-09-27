@@ -1,4 +1,4 @@
-using Weaver.Infrastructure.Services;
+using Weaver.Application.Services;
 
 namespace Weaver.Api.Contracts;
 

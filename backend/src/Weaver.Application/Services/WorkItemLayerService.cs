@@ -1,13 +1,14 @@
 using Microsoft.EntityFrameworkCore;
+using Weaver.Application.Persistence;
 using Weaver.Domain;
 
-namespace Weaver.Infrastructure.Services;
+namespace Weaver.Application.Services;
 
 public class WorkItemLayerService : IWorkItemLayerService
 {
-    private readonly WeaverDbContext _db;
+    private readonly IWeaverDbContext _db;
 
-    public WorkItemLayerService(WeaverDbContext db)
+    public WorkItemLayerService(IWeaverDbContext db)
     {
         _db = db;
     }

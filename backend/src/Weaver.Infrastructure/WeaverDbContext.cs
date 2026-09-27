@@ -1,10 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Weaver.Application.Persistence;
 using Weaver.Domain;
 using Weaver.Infrastructure.Configurations;
 
 namespace Weaver.Infrastructure;
 
-public class WeaverDbContext : DbContext
+public class WeaverDbContext : DbContext, IWeaverDbContext
 {
     public WeaverDbContext(DbContextOptions<WeaverDbContext> options) : base(options)
     {

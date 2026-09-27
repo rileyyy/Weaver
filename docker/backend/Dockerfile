@@ -9,6 +9,7 @@ WORKDIR /source
 
 COPY backend/Directory.Packages.props ./
 COPY backend/src/Weaver.Domain/Weaver.Domain.csproj src/Weaver.Domain/
+COPY backend/src/Weaver.Application/Weaver.Application.csproj src/Weaver.Application/
 COPY backend/src/Weaver.Infrastructure/Weaver.Infrastructure.csproj src/Weaver.Infrastructure/
 COPY backend/src/Weaver.Api/Weaver.Api.csproj src/Weaver.Api/
 RUN dotnet restore src/Weaver.Api/Weaver.Api.csproj

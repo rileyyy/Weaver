@@ -4,8 +4,8 @@ using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Weaver.Api.Contracts;
 using Weaver.Api.Controllers;
+using Weaver.Application.Services;
 using Weaver.Domain;
-using Weaver.Infrastructure.Services;
 
 namespace Weaver.Api.Tests;
 

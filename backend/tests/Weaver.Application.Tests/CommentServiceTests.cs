@@ -1,10 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Weaver.Application.Services;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
+using Weaver.Infrastructure;
 using Weaver.Infrastructure.Configurations;
-using Weaver.Infrastructure.Services;
 
-namespace Weaver.Infrastructure.Tests;
+namespace Weaver.Application.Tests;
 
 [TestFixture]
 public class CommentServiceTests
