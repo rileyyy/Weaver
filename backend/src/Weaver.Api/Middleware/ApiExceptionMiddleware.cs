@@ -1,14 +1,28 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Weaver.Domain.Exceptions;
 
 namespace Weaver.Api.Middleware;
 
 /// <summary>
-/// Translates domain invariant violations into HTTP responses in one place, so
-/// controller actions stay free of repeated try/catch blocks.
+/// Turns expected failures into <c>application/problem+json</c> responses in one place, so
+/// controller actions stay free of try/catch and a new <see cref="DomainException"/> needs no
+/// change here. Anything else propagates and becomes a 500.
 /// </summary>
+/// <remarks>
+/// A plain middleware rather than <c>IExceptionHandler</c>: in .NET 9 the exception handler
+/// middleware logs every exception as an unhandled error before a handler runs, which would
+/// turn each 404 and 409 into error-level log noise.
+/// </remarks>
 public class ApiExceptionMiddleware
 {
+    /// <summary>
+    /// Services translate concurrency failures they expect; one that still escapes means the
+    /// row changed during the request, which the client can resolve by reloading.
+    /// </summary>
+    public const string ConcurrencyConflictMessage =
+        "The data was changed by someone else while saving. Refresh and try again.";
+
     private readonly RequestDelegate _next;
 
     public ApiExceptionMiddleware(RequestDelegate next)
@@ -16,85 +30,33 @@ public class ApiExceptionMiddleware
         _next = next;
     }
 
-    public async Task InvokeAsync(HttpContext context)
+    public async Task InvokeAsync(HttpContext context, IProblemDetailsService problemDetails)
     {
         try
         {
             await _next(context);
         }
-        catch (EntityNotFoundException ex)
+        catch (DomainException ex)
         {
-            await WriteProblemAsync(context, StatusCodes.Status404NotFound, ex.Message);
+            await WriteProblemAsync(context, problemDetails, DomainErrorStatusCodes.For(ex.Kind), ex.Message);
         }
-        catch (CyclicParentException ex)
+        catch (DbUpdateConcurrencyException)
         {
-            await WriteProblemAsync(context, StatusCodes.Status409Conflict, ex.Message);
-        }
-        catch (WorkItemHasChildrenException ex)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status409Conflict, ex.Message);
-        }
-        catch (WorkItemIsBoardScopeException ex)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status409Conflict, ex.Message);
-        }
-        catch (DomainValidationException ex)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, ex.Message);
-        }
-        catch (InvalidWorkItemScheduleException ex)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, ex.Message);
-        }
-        catch (InvalidWorkItemTagException ex)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, ex.Message);
-        }
-        catch (InvalidCredentialsException ex)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status401Unauthorized, ex.Message);
-        }
-        catch (InvalidRefreshTokenException ex)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status401Unauthorized, ex.Message);
-        }
-        catch (UsernameTakenException ex)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status409Conflict, ex.Message);
-        }
-        catch (InvalidPasswordException ex)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, ex.Message);
-        }
-        catch (InvalidUsernameException ex)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, ex.Message);
-        }
-        catch (CommentAuthorMismatchException ex)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status403Forbidden, ex.Message);
-        }
-        catch (SelfWorkItemLinkException ex)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, ex.Message);
-        }
-        catch (DuplicateWorkItemLinkException ex)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status409Conflict, ex.Message);
-        }
-        catch (WorkItemVersionConflictException ex)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status409Conflict, ex.Message);
+            await WriteProblemAsync(context, problemDetails, StatusCodes.Status409Conflict, ConcurrencyConflictMessage);
         }
     }
 
-    private static Task WriteProblemAsync(HttpContext context, int statusCode, string detail)
+    private static async Task WriteProblemAsync(
+        HttpContext context,
+        IProblemDetailsService problemDetails,
+        int statusCode,
+        string detail)
     {
         context.Response.StatusCode = statusCode;
-        return context.Response.WriteAsJsonAsync(new ProblemDetails
+        await problemDetails.WriteAsync(new ProblemDetailsContext
         {
-            Status = statusCode,
-            Detail = detail,
+            HttpContext = context,
+            ProblemDetails = new ProblemDetails { Status = statusCode, Detail = detail },
         });
     }
 }

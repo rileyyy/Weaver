@@ -63,7 +63,15 @@ public partial class AuthService : IAuthService
         user.PasswordHash = _passwordHasher.HashPassword(user, password);
 
         _db.Users.Add(user);
-        await _db.SaveChangesAsync(ct);
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (UniqueConstraintViolationException ex)
+        {
+            // A concurrent registration took the name between the check above and this save.
+            throw new UsernameTakenException(username, ex);
+        }
 
         return await IssueTokensAsync(user, ct);
     }

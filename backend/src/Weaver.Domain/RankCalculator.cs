@@ -3,9 +3,9 @@ namespace Weaver.Domain;
 /// <summary>
 /// Computes fractional sort ranks so a card can be dropped between two siblings
 /// without rewriting every other row's rank. Ranks only need to be locally
-/// consistent within one board cell (parent + status); if repeated inserts at
-/// the same spot ever exhaust double precision, rebalancing the cell is a
-/// separate, infrequent maintenance operation, not part of this calculation.
+/// consistent within one board cell (parent + status). When two siblings end
+/// up with the same rank (concurrent inserts at one spot, or exhausted double
+/// precision), the caller respaces the cell with <see cref="EvenlySpaced"/>.
 /// </summary>
 public static class RankCalculator
 {
@@ -37,4 +37,8 @@ public static class RankCalculator
 
         return previous.Value + (next.Value - previous.Value) / 2;
     }
+
+    /// <summary>Fresh, strictly increasing ranks for a cell of <paramref name="count"/> items.</summary>
+    public static IReadOnlyList<double> EvenlySpaced(int count) =>
+        Enumerable.Range(1, count).Select(i => i * DefaultStep).ToList();
 }

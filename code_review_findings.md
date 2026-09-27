@@ -117,13 +117,13 @@ The most important problems cluster in four areas:
 - **Fix (incremental):** Add a `Weaver.Application` project for services and interfaces, and keep Infrastructure for EF, JWT and configuration. The `IXxxService` interfaces already exist, so this is mostly a file move. Don't hide EF behind a generic repository unless there's a concrete need.
 
 #### B-M4. The exception-to-status mapping is duplicated in two hand-maintained lists
-- [ ] **Resolved**
+- [x] **Resolved** in `feature/backend-review-cleanup`: every domain exception derives from `DomainException` with a `DomainErrorKind`. `DomainErrorStatusCodes` is the only kind-to-status map. The middleware has one `catch` and writes `application/problem+json` through `IProblemDetailsService`, and MCP translates every `DomainException` plus stray `DbUpdateConcurrencyException`s. `IExceptionHandler` was not used: in .NET 9 its middleware logs every handled exception at error level.
 - **Where:** [ApiExceptionMiddleware.cs:26-84](backend/src/Weaver.Api/Middleware/ApiExceptionMiddleware.cs#L26-L84), [McpExceptionTranslation.cs:40-48](backend/src/Weaver.Api/Mcp/McpExceptionTranslation.cs#L40-L48)
 - **Issue:** Adding a domain exception means editing a 14-branch `catch` chain *and* a separate `is … or …` list, and the two already differ (MCP lacks `DbUpdateConcurrencyException`). This violates Open/Closed.
 - **Fix:** Introduce an abstract `DomainException` with a `Kind` (NotFound, Conflict, Validation, Forbidden, Unauthorized). Map `Kind` to a status in one place, and translate all `DomainException`s in MCP. Consider `IExceptionHandler` + `AddProblemDetails()` (built into .NET 8+), which also sets `application/problem+json` correctly; the current `WriteAsJsonAsync` sends `application/json`.
 
 #### B-M5. Unmapped framework exceptions leak as 500
-- [ ] **Resolved**
+- [x] **Resolved** in `feature/backend-review-cleanup`: `GetUserId` uses `TryParse` and throws `InvalidAccessTokenException` (401). `WeaverDbContext` turns Postgres `23505` into `UniqueConstraintViolationException` (409), and registration reports a lost race as `UsernameTakenException`. A cell whose neighbours share a rank is respaced instead of throwing. Integration tests cover the translation and five concurrent registrations of one name (one 200, the rest 409).
 - **Issue:** Several ordinary failures surface as 500:
   - `ClaimsPrincipalExtensions.GetUserId` uses `Guid.Parse` and throws `FormatException` on a malformed `sub` ([ClaimsPrincipalExtensions.cs:16-18](backend/src/Weaver.Api/Auth/ClaimsPrincipalExtensions.cs#L16-L18)).
   - `RankCalculator` throws `ArgumentException` if two siblings share a rank, which concurrent inserts at the same position can produce ([RankCalculator.cs:31-36](backend/src/Weaver.Domain/RankCalculator.cs#L31-L36)).

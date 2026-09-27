@@ -225,6 +225,24 @@ public class WorkItemServiceTests
     }
 
     [Test]
+    public async Task CreateAsync_AfterASiblingThatSharesItsRank_RespacesTheCell()
+    {
+        var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId);
+        var first = await _service.CreateAsync("First", null, parent.Id, StatusConfiguration.ToDoId);
+        var second = await _service.CreateAsync("Second", null, parent.Id, StatusConfiguration.ToDoId, afterId: first.Id);
+        second.Rank = first.Rank;
+        await _db.SaveChangesAsync();
+
+        var inserted = await _service.CreateAsync("Inserted", null, parent.Id, StatusConfiguration.ToDoId, afterId: first.Id);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Rank, Is.LessThan(inserted.Rank));
+            Assert.That(inserted.Rank, Is.LessThan(second.Rank));
+        });
+    }
+
+    [Test]
     public async Task GetByIdAsync_WhenNotFound_ReturnsNull()
     {
         var result = await _service.GetByIdAsync(Guid.NewGuid());

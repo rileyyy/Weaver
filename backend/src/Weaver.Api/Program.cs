@@ -20,6 +20,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddOpenApi();
+builder.Services.AddProblemDetails();
 
 var connectionString = builder.Configuration.GetConnectionString("Weaver");
 if (string.IsNullOrWhiteSpace(connectionString))

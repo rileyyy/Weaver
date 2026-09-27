@@ -398,7 +398,7 @@ public class WorkItemService : IWorkItemService
             query = query.Where(w => w.Id != excludeItemId);
         }
 
-        var cellItems = await query.OrderBy(w => w.Rank).ToListAsync(ct);
+        var cellItems = await query.OrderBy(w => w.Rank).ThenBy(w => w.Number).ToListAsync(ct);
 
         if (afterId is null)
         {
@@ -412,6 +412,25 @@ public class WorkItemService : IWorkItemService
         }
 
         var next = afterIndex + 1 < cellItems.Count ? cellItems[afterIndex + 1] : null;
+        if (next is not null && next.Rank <= cellItems[afterIndex].Rank)
+        {
+            RespaceRanks(cellItems);
+        }
+
         return RankCalculator.GetRankBetween(cellItems[afterIndex].Rank, next?.Rank);
+    }
+
+    /// <summary>
+    /// Two siblings sharing a rank leave no gap to insert into. The cell is small and
+    /// already loaded (and tracked), so its new ranks are saved with the change that
+    /// needed them.
+    /// </summary>
+    private static void RespaceRanks(IReadOnlyList<WorkItem> orderedCell)
+    {
+        var ranks = RankCalculator.EvenlySpaced(orderedCell.Count);
+        for (var i = 0; i < orderedCell.Count; i++)
+        {
+            orderedCell[i].Rank = ranks[i];
+        }
     }
 }
