@@ -89,6 +89,14 @@ Backend:
 dotnet test backend/Weaver.sln
 ```
 
+`Weaver.Api.IntegrationTests` starts a throwaway `postgres:16-alpine`
+container through Testcontainers and runs the real HTTP pipeline against it,
+so Docker must be running. To run only the fast unit tests:
+
+```sh
+dotnet test backend/Weaver.sln --filter "FullyQualifiedName!~IntegrationTests"
+```
+
 Frontend (from `frontend/`, with Flutter 3.44.0):
 
 ```sh

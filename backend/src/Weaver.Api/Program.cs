@@ -154,3 +154,7 @@ app.MapHealthChecks("/health").AllowAnonymous();
 app.MapMcp("/mcp");
 
 app.Run();
+
+// Makes the entry point visible to WebApplicationFactory<Program> in the
+// integration tests.
+public partial class Program;

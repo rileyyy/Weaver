@@ -366,7 +366,7 @@ The most important problems cluster in four areas:
 ## 4. Testing
 
 #### T-1. No integration tests against a real pipeline or database
-- [ ] **Resolved**
+- [x] **Resolved** in `feature/backend-review-cleanup`: `Weaver.Api.IntegrationTests` (`WebApplicationFactory<Program>` + Testcontainers `postgres:16-alpine`, run in the `Production` environment). It covers the auth fallback policy, JWT rejection, register/login/refresh, CORS, enum serialization, identity `Number`, `text[]` tags, delete-with-links and board-scope deletes (B-H2), `xmin` conflicts (B-H3), problem-details 404s, and MCP over HTTP with and without a token. CI's existing `dotnet test` step picks it up.
 - **Issue:** Backend tests are controller tests with mocked services, service tests on **EF InMemory**, and one `RankCalculator` suite. So the following are never tested:
   - the auth fallback policy, JWT validation, CORS and `ApiExceptionMiddleware` (no tests at all)
   - JSON enum serialization end-to-end
