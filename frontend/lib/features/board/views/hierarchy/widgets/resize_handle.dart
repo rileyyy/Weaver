@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:weaver/features/board/views/heirarchy/hierarchy_layout.dart';
+import 'package:weaver/features/board/views/hierarchy/hierarchy_layout.dart';
 
 /// A narrow draggable divider between two header cells. Only the header
 /// carries resize handles — body rows read the same column widths, so

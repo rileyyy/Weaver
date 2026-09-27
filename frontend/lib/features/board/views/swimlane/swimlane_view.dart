@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
+import 'package:weaver/features/board/views/swimlane/swimlane_layout.dart';
 import 'package:weaver/features/board/views/swimlane/widgets/grid_row_box.dart';
 import 'package:weaver/features/board/views/swimlane/widgets/status_column.dart';
 import 'package:weaver/features/board/views/swimlane/widgets/swimlane_label.dart';
@@ -15,41 +16,6 @@ import 'package:weaver/shared/models/work_item_status.dart';
 /// only the columns area scrolls horizontally — the label column, being a
 /// sibling outside that scroll view, stays in view.
 class SwimlaneView extends StatelessWidget {
-  /// Grid lines for the swim-lane board's table/grid styling — a fixed, mid
-  /// contrast white rather than a theme-derived color, since the board's
-  /// background ([_BoardViewState._buildBoardArea]) is always dark regardless
-  /// of light/dark theme.
-  static const Color gridLineColor = Colors.white24;
-  static const Color onGridBackground = Colors.white;
-
-  static const double laneLabelWidth = 160;
-  static const double minColumnWidth = 240;
-  static const double headerRowHeight = 48;
-
-  /// A collapsed swimlane's row height — just enough for its label's single
-  /// line and the collapse toggle, matching the status header row's height.
-  static const double collapsedSwimlaneRowHeight = headerRowHeight;
-
-  /// How much larger the status column headers and swimlane ("project")
-  /// labels render than the theme's base title styles — the swim-lane grid's
-  /// row/column headers, so they read clearly against the grid's darker
-  /// background.
-  static const double gridHeaderFontScale = 1.2;
-
-  /// Gap between cards in a status column's two-per-row grid, both between
-  /// columns and between rows of cards.
-  static const double cardGridSpacing = 8;
-
-  /// A status column cell's own margin + padding (each `EdgeInsets.all(4)`),
-  /// subtracted from its outer width/height to get the space actually left
-  /// for cards.
-  static const double statusColumnChrome = 16;
-
-  /// Horizontal space [_SwimlaneLabel] gives to its collapse chevron and
-  /// padding before its title even starts wrapping: left+right padding
-  /// (4+8), the chevron's own width (24), and the gap after it (4).
-  static const double swimlaneLabelChrome = 40;
-
   const SwimlaneView({
     super.key,
     required this.width,
@@ -278,7 +244,7 @@ class SwimlaneView extends StatelessWidget {
     return cardBasedHeight > labelHeight ? cardBasedHeight : labelHeight;
   }
 
-  /// The [_SwimlaneLabel]'s own minimum height: its top/bottom padding, plus
+  /// The [SwimlaneLabel]'s own minimum height: its top/bottom padding, plus
   /// its (possibly multi-line, wrapped) title, plus — when [showsAvatar] —
   /// the fixed gap and assignee avatar below it. Measured directly rather
   /// than guessed, since the label and the status-columns row it sits

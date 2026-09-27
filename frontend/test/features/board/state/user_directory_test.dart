@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/features/board/state/user_directory.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/user_kind.dart';
 
 void main() {
   final directory = UserDirectory(const [

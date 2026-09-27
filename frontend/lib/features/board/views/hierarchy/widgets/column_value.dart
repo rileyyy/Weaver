@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
-import 'package:weaver/features/board/views/heirarchy/heirarchy_column.dart';
+import 'package:weaver/features/board/views/hierarchy/hierarchy_column.dart';
 import 'package:weaver/features/board/widgets/assignee_avatar.dart';
 import 'package:weaver/features/board/widgets/status_dot.dart';
-import 'package:weaver/features/board/widgets/tag_badge.dart';
+import 'package:weaver/features/board/widgets/tag_badge_row.dart';
 
 class ColumnValue extends StatelessWidget {
   const ColumnValue({

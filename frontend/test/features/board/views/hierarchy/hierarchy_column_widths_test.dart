@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:weaver/features/board/views/heirarchy/heirarchy_column.dart';
-import 'package:weaver/features/board/views/heirarchy/hierarchy_column_widths.dart';
+import 'package:weaver/features/board/views/hierarchy/hierarchy_column.dart';
+import 'package:weaver/features/board/views/hierarchy/hierarchy_column_widths.dart';
 
 void main() {
   test('every column starts at its default width', () {

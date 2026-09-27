@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
-import 'package:weaver/features/board/views/swimlane/swimlane_view.dart';
+import 'package:weaver/features/board/views/swimlane/swimlane_layout.dart';
 import 'package:weaver/features/board/widgets/assignee_avatar.dart';
 
 class SwimlaneLabel extends StatelessWidget {
@@ -44,10 +44,8 @@ class SwimlaneLabel extends StatelessWidget {
         final borderRadius = BorderRadius.circular(8);
         final baseLabelStyle = Theme.of(context).textTheme.titleSmall;
         final labelStyle = baseLabelStyle?.copyWith(
-          fontSize:
-              (baseLabelStyle.fontSize ?? 14) *
-              SwimlaneView.gridHeaderFontScale,
-          color: SwimlaneView.onGridBackground,
+          fontSize: (baseLabelStyle.fontSize ?? 14) * gridHeaderFontScale,
+          color: onGridBackground,
           fontWeight: FontWeight.w600,
           decoration: TextDecoration.underline,
         );
@@ -85,7 +83,7 @@ class SwimlaneLabel extends StatelessWidget {
                       iconSize: 18,
                       constraints: const BoxConstraints(),
                       visualDensity: VisualDensity.compact,
-                      color: SwimlaneView.onGridBackground,
+                      color: onGridBackground,
                       icon: Icon(
                         isCollapsed ? Icons.chevron_right : Icons.expand_more,
                       ),

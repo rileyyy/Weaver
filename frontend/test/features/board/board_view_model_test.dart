@@ -11,6 +11,7 @@ import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
 const _todoColor = Color(0xFF1E88E5);
@@ -704,6 +705,22 @@ void main() {
       expect(repository.requestedScopes, isEmpty);
     },
   );
+
+  test('createWorkItem skips the reload once the board is disposed', () async {
+    repository.createGate = Completer<void>();
+    final create = viewModel.createWorkItem(
+      title: 'New card',
+      parentId: 'lane-a',
+      statusId: 'todo',
+    );
+    viewModel.dispose();
+    repository.requestedScopes.clear();
+
+    repository.createGate!.complete();
+    await create;
+
+    expect(repository.requestedScopes, isEmpty);
+  });
 
   test(
     'canCreateWorkItem is false while loading and after a failed load',

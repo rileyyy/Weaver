@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/features/board/widgets/tag_badge.dart';
+import 'package:weaver/features/board/widgets/tag_badge_row.dart';
 
 Widget _wrap(double width, Widget child) => MaterialApp(
   home: Scaffold(

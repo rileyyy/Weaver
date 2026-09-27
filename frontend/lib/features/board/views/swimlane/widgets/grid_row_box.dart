@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:weaver/features/board/views/swimlane/swimlane_view.dart';
+import 'package:weaver/features/board/views/swimlane/swimlane_layout.dart';
 
 /// One row of the swim-lane grid (a status header row or a swimlane row),
 /// giving it the fixed [height] every row shares and, when [showBottomBorder]
@@ -24,9 +24,7 @@ class GridRowBox extends StatelessWidget {
       height: height,
       decoration: showBottomBorder
           ? const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: SwimlaneView.gridLineColor),
-              ),
+              border: Border(bottom: BorderSide(color: gridLineColor)),
             )
           : null,
       child: child,

@@ -74,7 +74,7 @@ class WorkItemDetailView extends StatefulWidget {
 
   /// When set, shown as an app-bar action that closes this view and hands
   /// control back to the caller to re-scope the board to this item's
-  /// children — the same navigation [BoardView.drillInto] performs, just
+  /// children — the same navigation [BoardViewModel.drillInto] performs, just
   /// reachable from the detail dialog instead of a tap on the card itself.
   final VoidCallback? onDrillInto;
 

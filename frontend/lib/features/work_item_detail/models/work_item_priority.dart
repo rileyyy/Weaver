@@ -1,19 +1,21 @@
-enum WorkItemPriority { low, medium, high, urgent }
+/// Mirrors the backend's `WorkItemPriority`. [wire] is the API contract and
+/// [label] the display text; keeping them separate lets the UI wording change
+/// without breaking requests.
+enum WorkItemPriority {
+  low(wire: 'Low', label: 'Low'),
+  medium(wire: 'Medium', label: 'Medium'),
+  high(wire: 'High', label: 'High'),
+  urgent(wire: 'Urgent', label: 'Urgent');
 
-WorkItemPriority workItemPriorityFromWire(String value) => switch (value) {
-  'Low' => WorkItemPriority.low,
-  'High' => WorkItemPriority.high,
-  'Urgent' => WorkItemPriority.urgent,
-  _ => WorkItemPriority.medium,
-};
+  const WorkItemPriority({required this.wire, required this.label});
 
-extension WorkItemPriorityWire on WorkItemPriority {
-  String get label => switch (this) {
-    WorkItemPriority.low => 'Low',
-    WorkItemPriority.medium => 'Medium',
-    WorkItemPriority.high => 'High',
-    WorkItemPriority.urgent => 'Urgent',
-  };
+  final String wire;
+  final String label;
 
-  String toWire() => label;
+  /// Throws a [FormatException] for an unknown value, which the API client
+  /// reports as an unexpected response instead of silently showing Medium.
+  static WorkItemPriority fromWire(String value) => values.firstWhere(
+    (priority) => priority.wire == value,
+    orElse: () => throw FormatException('Unknown work item priority', value),
+  );
 }

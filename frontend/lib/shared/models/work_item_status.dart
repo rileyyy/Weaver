@@ -14,7 +14,7 @@ class WorkItemStatus {
     id: json['id'] as String,
     name: json['name'] as String,
     order: json['order'] as int,
-    color: parseStatusColor(json['color'] as String),
+    color: parseStatusColor(json['color'] as String?),
   );
 
   final String id;
@@ -27,7 +27,14 @@ class WorkItemStatus {
   final Color? color;
 }
 
-/// Parses the backend's `#RRGGBB` hex string (see `Status.Color`) into a
-/// [Color]. Shared by every repository that maps a status from JSON.
-Color parseStatusColor(String hex) =>
-    Color(int.parse(hex.replaceFirst('#', 'FF'), radix: 16));
+final _hexColor = RegExp(r'^#?([0-9a-fA-F]{6})$');
+
+/// Parses the backend's `#RRGGBB` hex string (see `Status.Color`) into an
+/// opaque [Color], tolerating a missing `#`. Returns null for anything else,
+/// so one malformed status colour can't fail the whole board load; the
+/// status then renders with the default colour.
+Color? parseStatusColor(String? hex) {
+  final match = _hexColor.firstMatch(hex?.trim() ?? '');
+  if (match == null) return null;
+  return Color(0xFF000000 | int.parse(match.group(1)!, radix: 16));
+}

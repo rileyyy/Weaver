@@ -2,74 +2,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/core/network/network_exception.dart';
 import 'package:weaver/features/auth/auth_view_model.dart';
-import 'package:weaver/features/auth/data/auth_repository.dart';
 import 'package:weaver/features/auth/data/auth_session_store.dart';
-import 'package:weaver/features/auth/data/secure_token_store.dart';
-import 'package:weaver/features/auth/models/auth_session.dart';
-import 'package:weaver/shared/models/user.dart';
 
-class _FakeAuthRepository implements AuthRepository {
-  _FakeAuthRepository({this.loginError, this.registerError, this.logoutError});
-
-  final Exception? loginError;
-  final Exception? registerError;
-  final Exception? logoutError;
-  final List<String> loginCalls = [];
-
-  @override
-  Future<AuthSession> login(String username, String password) async {
-    loginCalls.add(username);
-    final error = loginError;
-    if (error != null) throw error;
-    return _session(username);
-  }
-
-  @override
-  Future<AuthSession> register(String username, String password) async {
-    final error = registerError;
-    if (error != null) throw error;
-    return _session(username);
-  }
-
-  @override
-  Future<AuthSession> refresh(String refreshToken) async =>
-      throw UnimplementedError();
-
-  @override
-  Future<void> logout(String refreshToken) async {
-    final error = logoutError;
-    if (error != null) throw error;
-  }
-}
-
-class _InMemoryTokenStore implements SecureTokenStore {
-  String? token;
-
-  @override
-  Future<String?> readRefreshToken() async => token;
-
-  @override
-  Future<void> writeRefreshToken(String value) async => token = value;
-
-  @override
-  Future<void> clear() async => token = null;
-}
-
-AuthSession _session(String username) => AuthSession(
-  accessToken: 'access-for-$username',
-  accessTokenExpiresAtUtc: DateTime.now().toUtc().add(const Duration(hours: 1)),
-  refreshToken: 'refresh-for-$username',
-  user: User(id: 'id-$username', username: username, kind: UserKind.human),
-);
+import 'fakes/fake_auth_repository.dart';
+import 'fakes/in_memory_token_store.dart';
 
 void main() {
-  late _FakeAuthRepository repository;
+  late FakeAuthRepository repository;
   late AuthSessionStore sessionStore;
   late AuthViewModel viewModel;
 
   setUp(() {
-    repository = _FakeAuthRepository();
-    sessionStore = AuthSessionStore(repository, _InMemoryTokenStore());
+    repository = FakeAuthRepository();
+    sessionStore = AuthSessionStore(repository, InMemoryTokenStore());
     viewModel = AuthViewModel(repository, sessionStore);
   });
 
@@ -91,7 +36,7 @@ void main() {
     'login on failure sets an error message and stays unauthenticated',
     () async {
       viewModel = AuthViewModel(
-        _FakeAuthRepository(
+        FakeAuthRepository(
           loginError: const ApiException('bad creds', statusCode: 401),
         ),
         sessionStore,
@@ -113,7 +58,7 @@ void main() {
 
   test('register on failure sets an error message', () async {
     viewModel = AuthViewModel(
-      _FakeAuthRepository(
+      FakeAuthRepository(
         registerError: const ApiException('taken', statusCode: 409),
       ),
       sessionStore,
@@ -149,7 +94,7 @@ void main() {
       var notified = false;
       viewModel.addListener(() => notified = true);
 
-      await sessionStore.setSession(_session('external'));
+      await sessionStore.setSession(fakeSession('external'));
 
       expect(notified, isTrue);
       expect(viewModel.isAuthenticated, isTrue);
@@ -159,12 +104,10 @@ void main() {
   test(
     'logout still signs out, without an unhandled error, when the server call fails',
     () async {
-      final failing = _FakeAuthRepository(
-        logoutError: const NetworkException(),
-      );
+      final failing = FakeAuthRepository(logoutError: const NetworkException());
       viewModel = AuthViewModel(
         failing,
-        AuthSessionStore(failing, _InMemoryTokenStore()),
+        AuthSessionStore(failing, InMemoryTokenStore()),
       );
       await viewModel.login('alice', 'a valid password');
 

@@ -69,9 +69,9 @@ class AuthSessionStore extends ChangeNotifier implements CurrentUser {
   ///
   /// Concurrent callers share one refresh. The backend rotates the refresh
   /// token on every use, so a second refresh with the same token is
-  /// rejected; before this, parallel requests (a board load, a detail
-  /// open) each refreshed, all but one failed, and the failures cleared
-  /// the session the winner had just stored.
+  /// rejected. Without sharing, parallel requests (a board load, a detail
+  /// open) would each refresh, all but one would fail, and those failures
+  /// would clear the session the winner had just stored.
   Future<bool> ensureValidSession() {
     final session = _session;
     if (session != null && !session.isAccessTokenExpired) {

@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/auth/data/api_auth_repository.dart';
-import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/user_kind.dart';
 
 http.Response _jsonResponse(Object body, {int statusCode = 200}) =>
     http.Response(

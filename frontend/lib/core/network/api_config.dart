@@ -16,16 +16,24 @@ class ApiConfig {
   // ignore: do_not_use_environment
   static const String _configured = String.fromEnvironment('API_BASE_URL');
 
-  static String get baseUrl {
-    if (kIsWeb) {
-      return _configured.isEmpty ? '/api' : '$_configured/api';
-    }
+  static final String baseUrl = resolveApiBaseUrl(
+    configured: _configured,
+    isWeb: kIsWeb,
+  );
 
-    if (_configured.isEmpty) {
-      throw StateError(
-        'API_BASE_URL must be provided via --dart-define for native builds.',
-      );
-    }
-    return '$_configured/api';
-  }
+  /// Resolves [baseUrl] now, so a missing native `API_BASE_URL` stops the app
+  /// at launch with a clear message instead of deep inside dependency setup.
+  static void validate() => baseUrl;
+}
+
+/// The pure rule behind [ApiConfig.baseUrl]. Throws a [StateError] when a
+/// native build has no configured origin.
+String resolveApiBaseUrl({required String configured, required bool isWeb}) {
+  final origin = configured.trim().replaceFirst(RegExp(r'/+$'), '');
+  if (origin.isNotEmpty) return '$origin/api';
+  if (isWeb) return '/api';
+
+  throw StateError(
+    'API_BASE_URL must be provided via --dart-define for native builds.',
+  );
 }

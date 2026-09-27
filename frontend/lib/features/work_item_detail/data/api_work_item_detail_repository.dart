@@ -79,7 +79,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
       'title': title,
       'description': description,
       'layerId': layerId,
-      'priority': priority.toWire(),
+      'priority': priority.wire,
       'expectedVersion': expectedVersion,
     },
     _detail,

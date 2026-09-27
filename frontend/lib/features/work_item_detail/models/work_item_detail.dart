@@ -29,7 +29,7 @@ class WorkItemDetail {
     description: json['description'] as String?,
     statusId: json['statusId'] as String,
     layerId: json['layerId'] as String?,
-    priority: workItemPriorityFromWire(json['priority'] as String),
+    priority: WorkItemPriority.fromWire(json['priority'] as String),
     assignedToUserId: json['assignedToUserId'] as String?,
     startDate: parseCalendarDate(json['startDate']),
     endDate: parseCalendarDate(json['endDate']),

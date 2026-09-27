@@ -3,7 +3,7 @@ import 'package:weaver/core/dates/date_format.dart';
 import 'package:weaver/core/theme/app_theme.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/widgets/assignee_avatar.dart';
-import 'package:weaver/features/board/widgets/tag_badge.dart';
+import 'package:weaver/features/board/widgets/tag_badge_row.dart';
 
 const double _feedbackWidth = 208;
 

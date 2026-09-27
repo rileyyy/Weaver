@@ -200,8 +200,9 @@ class WorkItemDetailViewModel extends ViewModel {
   }
 
   // Comment and link mutations apply the server's response locally instead
-  // of reloading the list: a reload that failed after a successful POST
-  // used to be reported as a failure, and retrying created a duplicate.
+  // of reloading the list: otherwise a reload failing after a successful
+  // POST would be reported as a failure, and a retry would create a
+  // duplicate.
 
   Future<bool> addComment(String body) => _mutate(() async {
     final created = await _repository.addComment(_item!.id, body);
@@ -265,6 +266,7 @@ class WorkItemDetailViewModel extends ViewModel {
   Future<void> _reloadAfterConflict() async {
     const notSaved =
         'Someone else changed this work item, so your change was not saved.';
+    if (isDisposed) return;
     try {
       _item = await _repository.getItem(_item!.id);
       _reloadGeneration++;

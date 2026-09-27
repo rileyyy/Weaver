@@ -7,6 +7,7 @@ import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/card_sort_option.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
+import 'package:weaver/features/board/models/hierarchy_node.dart';
 import 'package:weaver/features/board/models/scope_crumb.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
@@ -200,6 +201,7 @@ class BoardViewModel extends ViewModel {
     () async {
       final rootScopeId = await _repository.loadRootScopeItemId();
       final data = await _repository.loadBoard(rootScopeId);
+      if (isDisposed) return () {};
       // Best-effort: a user directory failure shouldn't block the board
       // itself from loading — assignee initials just won't show.
       List<User> users;
@@ -478,7 +480,9 @@ class BoardViewModel extends ViewModel {
 
     // If the user navigated elsewhere while the create was in flight, that
     // navigation already loaded the scope they're now looking at.
-    if (_breadcrumbs.last.id == scopeId) await refreshCurrentScope();
+    if (!isDisposed && _breadcrumbs.last.id == scopeId) {
+      await refreshCurrentScope();
+    }
   }
 
   /// Sets the board's time-frame filter. Either bound may be null (open on

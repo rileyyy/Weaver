@@ -1,7 +1,7 @@
 /// Schedule dates (a work item's start/end) are calendar days, not instants:
 /// the API sends and expects `yyyy-MM-dd`, and the client holds them as local
 /// midnight so they read back exactly as picked in any time zone. Sending a
-/// picked day as `toUtc()` used to shift it to the previous day east of UTC.
+/// picked day via `toUtc()` would shift it to the previous day east of UTC.
 DateTime? parseCalendarDate(Object? value) {
   if (value == null) return null;
   final parsed = DateTime.parse(value as String);
