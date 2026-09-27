@@ -2,7 +2,6 @@ using ModelContextProtocol;
 using Moq;
 using Weaver.Api.Mcp;
 using Weaver.Application.Services;
-using Weaver.Domain;
 using Weaver.Domain.Exceptions;
 
 namespace Weaver.Api.Tests.Mcp;
@@ -20,21 +19,13 @@ public class WorkItemLinkToolsTests
         _tools = new WorkItemLinkTools(_links.Object);
     }
 
-    private static WorkItemLink MakeLink(Guid workItemId, Guid linkedWorkItemId) => new()
-    {
-        Id = Guid.NewGuid(),
-        WorkItemId = workItemId,
-        LinkedWorkItemId = linkedWorkItemId,
-        CreatedAtUtc = DateTimeOffset.UtcNow,
-        WorkItem = new WorkItem { Id = workItemId, Title = "A", StatusId = Guid.NewGuid() },
-        LinkedWorkItem = new WorkItem { Id = linkedWorkItemId, Title = "B", StatusId = Guid.NewGuid() },
-    };
+    private static WorkItemLinkView MakeLink(Guid linkedWorkItemId) => new(Guid.NewGuid(), linkedWorkItemId, "B");
 
     [Test]
     public async Task ListWorkItemLinks_DelegatesToServiceAndMapsResults()
     {
         var workItemId = Guid.NewGuid();
-        var link = MakeLink(workItemId, Guid.NewGuid());
+        var link = MakeLink(Guid.NewGuid());
         _links.Setup(l => l.ListForWorkItemAsync(workItemId, It.IsAny<CancellationToken>())).ReturnsAsync([link]);
 
         var result = await _tools.ListWorkItemLinks(workItemId, CancellationToken.None);

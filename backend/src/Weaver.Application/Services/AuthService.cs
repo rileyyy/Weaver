@@ -14,8 +14,6 @@ public partial class AuthService : IAuthService
 {
     public const int MinPasswordLength = 12;
     public const int MaxPasswordLength = 200;
-    private const int MaxFailedLoginAttempts = 5;
-    private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
 
     // Legitimate clients can still present a just-rotated token: two browser
     // tabs share the cached refresh token and both refresh on startup.
@@ -52,15 +50,8 @@ public partial class AuthService : IAuthService
             throw new UsernameTakenException(username);
         }
 
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Username = username,
-            NormalizedUsername = normalized,
-            PasswordHash = string.Empty,
-            Kind = UserKind.Human,
-        };
-        user.PasswordHash = _passwordHasher.HashPassword(user, password);
+        var user = User.CreateHuman(username, normalized);
+        user.SetPasswordHash(_passwordHasher.HashPassword(user, password));
 
         _db.Users.Add(user);
         try
@@ -89,7 +80,7 @@ public partial class AuthService : IAuthService
             throw new InvalidCredentialsException();
         }
 
-        if (user.LockedUntilUtc is { } lockedUntil && lockedUntil > _clock.GetUtcNow())
+        if (user.IsLockedOutAt(_clock.GetUtcNow()))
         {
             throw new InvalidCredentialsException();
         }
@@ -101,11 +92,10 @@ public partial class AuthService : IAuthService
             throw new InvalidCredentialsException();
         }
 
-        user.FailedLoginAttempts = 0;
-        user.LockedUntilUtc = null;
+        user.RecordSuccessfulLogin();
         if (verification == PasswordVerificationResult.SuccessRehashNeeded)
         {
-            user.PasswordHash = _passwordHasher.HashPassword(user, password);
+            user.SetPasswordHash(_passwordHasher.HashPassword(user, password));
         }
         await _db.SaveChangesAsync(ct);
 
@@ -124,7 +114,11 @@ public partial class AuthService : IAuthService
             throw new InvalidRefreshTokenException();
         }
 
-        if (IsReuseOfRotatedToken(stored))
+        // A rotated token presented again after the grace period means two parties hold the
+        // same token, so one of them stole it. We can't tell which, so every token issued from
+        // it is revoked and both have to log in again. Logged-out tokens have no replacement
+        // and are simply rejected below.
+        if (stored.IsReplayedAt(_clock.GetUtcNow(), RotationGracePeriod))
         {
             await RevokeTokensIssuedFromAsync(stored, ct);
             throw new InvalidRefreshTokenException();
@@ -134,8 +128,6 @@ public partial class AuthService : IAuthService
         {
             throw new InvalidRefreshTokenException();
         }
-
-        stored.RevokedAtUtc = _clock.GetUtcNow();
 
         try
         {
@@ -158,20 +150,9 @@ public partial class AuthService : IAuthService
             return;
         }
 
-        stored.RevokedAtUtc = _clock.GetUtcNow();
+        stored.Revoke(_clock.GetUtcNow());
         await _db.SaveChangesAsync(ct);
     }
-
-    /// <summary>
-    /// A rotated token presented again after the grace period means two parties hold the same
-    /// token, so one of them stole it. We can't tell which, so every token issued from it is
-    /// revoked and both have to log in again. Logged-out tokens have no replacement and are
-    /// simply rejected.
-    /// </summary>
-    private bool IsReuseOfRotatedToken(RefreshToken token) =>
-        token.ReplacedByTokenHash is not null
-        && token.RevokedAtUtc is { } revokedAt
-        && _clock.GetUtcNow() - revokedAt > RotationGracePeriod;
 
     private async Task RevokeTokensIssuedFromAsync(RefreshToken token, CancellationToken ct)
     {
@@ -187,7 +168,7 @@ public partial class AuthService : IAuthService
                 break;
             }
 
-            next.RevokedAtUtc ??= now;
+            next.Revoke(now);
             nextHash = next.ReplacedByTokenHash;
         }
 
@@ -204,11 +185,7 @@ public partial class AuthService : IAuthService
 
     private async Task RegisterFailedLoginAsync(User user, CancellationToken ct)
     {
-        user.FailedLoginAttempts++;
-        if (user.FailedLoginAttempts >= MaxFailedLoginAttempts)
-        {
-            user.LockedUntilUtc = _clock.GetUtcNow().Add(LockoutDuration);
-        }
+        user.RecordFailedLogin(_clock.GetUtcNow());
         await _db.SaveChangesAsync(ct);
     }
 
@@ -218,20 +195,11 @@ public partial class AuthService : IAuthService
         var refreshTokenValue = GenerateRefreshTokenValue();
         var now = _clock.GetUtcNow();
 
-        var refreshToken = new RefreshToken
-        {
-            Id = Guid.NewGuid(),
-            UserId = user.Id,
-            TokenHash = HashToken(refreshTokenValue),
-            ExpiresAtUtc = now.Add(_jwtOptions.RefreshTokenLifetime),
-        };
+        var refreshToken = RefreshToken.Issue(user.Id, HashToken(refreshTokenValue), now.Add(_jwtOptions.RefreshTokenLifetime));
 
         await RemoveExpiredTokensAsync(user.Id, now, ct);
 
-        if (replacing is not null)
-        {
-            replacing.ReplacedByTokenHash = refreshToken.TokenHash;
-        }
+        replacing?.RotateTo(refreshToken.TokenHash, now);
 
         _db.RefreshTokens.Add(refreshToken);
         await _db.SaveChangesAsync(ct);

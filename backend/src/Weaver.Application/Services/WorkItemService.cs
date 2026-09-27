@@ -61,8 +61,6 @@ public class WorkItemService : IWorkItemService
         WorkItemPriority priority = WorkItemPriority.Medium,
         CancellationToken ct = default)
     {
-        TextValidation.RequireText(title, "Title", WorkItem.TitleMaxLength);
-
         if (parentId is not null && !await _db.WorkItems.AnyAsync(w => w.Id == parentId, ct))
         {
             throw new EntityNotFoundException(nameof(WorkItem), parentId.Value);
@@ -78,17 +76,8 @@ public class WorkItemService : IWorkItemService
             throw new EntityNotFoundException(nameof(WorkItemLayer), layerId.Value);
         }
 
-        var item = new WorkItem
-        {
-            Id = Guid.NewGuid(),
-            Title = title,
-            Description = description,
-            ParentId = parentId,
-            StatusId = statusId,
-            LayerId = layerId,
-            Priority = priority,
-            Rank = await ComputeRankAsync(parentId, statusId, afterId, excludeItemId: null, ct),
-        };
+        var rank = await ComputeRankAsync(parentId, statusId, afterId, excludeItemId: null, ct);
+        var item = WorkItem.Create(title, description, parentId, statusId, rank, layerId, priority);
 
         _db.WorkItems.Add(item);
         await _db.SaveChangesAsync(ct);
@@ -109,8 +98,7 @@ public class WorkItemService : IWorkItemService
             throw new EntityNotFoundException(nameof(Status), newStatusId);
         }
 
-        item.Rank = await ComputeRankAsync(item.ParentId, newStatusId, afterId, excludeItemId: id, ct);
-        item.StatusId = newStatusId;
+        item.MoveToStatus(newStatusId, await ComputeRankAsync(item.ParentId, newStatusId, afterId, excludeItemId: id, ct));
 
         await SaveWorkItemChangesAsync(id, ct);
         return item;
@@ -138,8 +126,7 @@ public class WorkItemService : IWorkItemService
             }
         }
 
-        item.Rank = await ComputeRankAsync(newParentId, item.StatusId, afterId, excludeItemId: id, ct);
-        item.ParentId = newParentId;
+        item.MoveToParent(newParentId, await ComputeRankAsync(newParentId, item.StatusId, afterId, excludeItemId: id, ct));
 
         await SaveWorkItemChangesAsync(id, ct);
         return item;
@@ -152,18 +139,12 @@ public class WorkItemService : IWorkItemService
         uint? expectedVersion = null,
         CancellationToken ct = default)
     {
-        if (startDate is not null && endDate is not null && startDate > endDate)
-        {
-            throw new InvalidWorkItemScheduleException(id);
-        }
-
         var item = await _db.WorkItems.FindAsync([id], ct)
             ?? throw new EntityNotFoundException(nameof(WorkItem), id);
 
         EnsureVersion(item, expectedVersion);
 
-        item.StartDate = startDate;
-        item.EndDate = endDate;
+        item.Reschedule(startDate, endDate);
 
         await SaveWorkItemChangesAsync(id, ct);
         return item;
@@ -178,8 +159,6 @@ public class WorkItemService : IWorkItemService
         uint? expectedVersion = null,
         CancellationToken ct = default)
     {
-        TextValidation.RequireText(title, "Title", WorkItem.TitleMaxLength);
-
         if (layerId is not null && !await _db.WorkItemLayers.AnyAsync(l => l.Id == layerId, ct))
         {
             throw new EntityNotFoundException(nameof(WorkItemLayer), layerId.Value);
@@ -190,10 +169,7 @@ public class WorkItemService : IWorkItemService
 
         EnsureVersion(item, expectedVersion);
 
-        item.Title = title;
-        item.Description = description;
-        item.LayerId = layerId;
-        item.Priority = priority;
+        item.UpdateDetails(title, description, layerId, priority);
 
         await SaveWorkItemChangesAsync(id, ct);
         return item;
@@ -209,7 +185,7 @@ public class WorkItemService : IWorkItemService
         var item = await _db.WorkItems.FindAsync([id], ct)
             ?? throw new EntityNotFoundException(nameof(WorkItem), id);
 
-        item.AssignedToUserId = userId;
+        item.AssignTo(userId);
 
         await SaveWorkItemChangesAsync(id, ct);
         return item;
@@ -221,35 +197,12 @@ public class WorkItemService : IWorkItemService
         uint? expectedVersion = null,
         CancellationToken ct = default)
     {
-        var normalized = new List<string>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var tag in tags)
-        {
-            var trimmed = tag.Trim();
-            if (trimmed.Length == 0)
-            {
-                throw new InvalidWorkItemTagException(id);
-            }
-
-            TextValidation.RequireMaxLength(trimmed, "Each tag", WorkItem.TagMaxLength);
-
-            if (seen.Add(trimmed))
-            {
-                normalized.Add(trimmed);
-            }
-        }
-
-        if (normalized.Count > WorkItem.MaxTags)
-        {
-            throw new DomainValidationException($"A work item can have at most {WorkItem.MaxTags} tags.");
-        }
-
         var item = await _db.WorkItems.FindAsync([id], ct)
             ?? throw new EntityNotFoundException(nameof(WorkItem), id);
 
         EnsureVersion(item, expectedVersion);
 
-        item.Tags = normalized;
+        item.SetTags(tags);
 
         await SaveWorkItemChangesAsync(id, ct);
         return item;
@@ -421,7 +374,7 @@ public class WorkItemService : IWorkItemService
         var ranks = RankCalculator.EvenlySpaced(orderedCell.Count);
         for (var i = 0; i < orderedCell.Count; i++)
         {
-            orderedCell[i].Rank = ranks[i];
+            orderedCell[i].Reposition(ranks[i]);
         }
     }
 }

@@ -9,11 +9,23 @@ public class Board
 {
     public const int NameMaxLength = 200;
 
-    public Guid Id { get; set; }
+    /// <summary>For EF Core.</summary>
+    private Board()
+    {
+        Name = string.Empty;
+    }
 
-    public required string Name { get; set; }
+    public Guid Id { get; private set; }
 
-    public Guid? ScopeItemId { get; set; }
+    public string Name { get; private set; }
 
-    public WorkItem? ScopeItem { get; set; }
+    public Guid? ScopeItemId { get; private set; }
+
+    public WorkItem? ScopeItem { get; private set; }
+
+    public static Board Create(string name, Guid? scopeItemId)
+    {
+        TextValidation.RequireText(name, "Board name", NameMaxLength);
+        return new Board { Id = Guid.NewGuid(), Name = name, ScopeItemId = scopeItemId };
+    }
 }

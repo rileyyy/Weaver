@@ -20,16 +20,8 @@ public class WorkItemsControllerTests
         _controller = new WorkItemsController(_workItems.Object);
     }
 
-    private static WorkItem MakeWorkItem(Guid? parentId = null, Guid statusId = default) => new()
-    {
-        Id = Guid.NewGuid(),
-        Title = "Task",
-        ParentId = parentId,
-        StatusId = statusId,
-        Rank = 1.0,
-        CreatedAtUtc = DateTimeOffset.UtcNow,
-        UpdatedAtUtc = DateTimeOffset.UtcNow,
-    };
+    private static WorkItem MakeWorkItem(Guid? parentId = null, Guid statusId = default) =>
+        WorkItem.Create("Task", null, parentId, statusId, rank: 1.0);
 
     [Test]
     public async Task GetById_WhenServiceReturnsNull_ReturnsNotFound()

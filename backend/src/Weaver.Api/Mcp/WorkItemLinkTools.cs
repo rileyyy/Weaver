@@ -22,7 +22,7 @@ public class WorkItemLinkTools
         CancellationToken ct)
     {
         var links = await _links.ListForWorkItemAsync(workItemId, ct);
-        return links.Select(l => WorkItemLinkDto.FromEntity(l, workItemId)).ToList();
+        return links.Select(WorkItemLinkDto.FromView).ToList();
     }
 
     [McpServerTool(Name = "create_work_item_link", Destructive = false)]
@@ -35,7 +35,7 @@ public class WorkItemLinkTools
         McpExceptionTranslation.TranslateAsync(async () =>
         {
             var link = await _links.CreateAsync(workItemId, targetWorkItemId, ct);
-            return WorkItemLinkDto.FromEntity(link, workItemId);
+            return WorkItemLinkDto.FromView(link);
         });
 
     [McpServerTool(Name = "delete_work_item_link", Destructive = true)]

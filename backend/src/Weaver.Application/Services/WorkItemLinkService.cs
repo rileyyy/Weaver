@@ -14,20 +14,17 @@ public class WorkItemLinkService : IWorkItemLinkService
         _db = db;
     }
 
-    public async Task<IReadOnlyList<WorkItemLink>> ListForWorkItemAsync(Guid workItemId, CancellationToken ct = default) =>
-        await _db.WorkItemLinks
-            .Include(l => l.WorkItem)
-            .Include(l => l.LinkedWorkItem)
-            .Where(l => l.WorkItemId == workItemId || l.LinkedWorkItemId == workItemId)
-            .OrderBy(l => l.CreatedAtUtc)
-            .ToListAsync(ct);
+    public Task<IReadOnlyList<WorkItemLinkView>> ListForWorkItemAsync(Guid workItemId, CancellationToken ct = default) =>
+        ProjectAsync(
+            _db.WorkItemLinks
+                .Where(l => l.WorkItemId == workItemId || l.LinkedWorkItemId == workItemId)
+                .OrderBy(l => l.CreatedAtUtc),
+            workItemId,
+            ct);
 
-    public async Task<WorkItemLink> CreateAsync(Guid workItemId, Guid targetWorkItemId, CancellationToken ct = default)
+    public async Task<WorkItemLinkView> CreateAsync(Guid workItemId, Guid targetWorkItemId, CancellationToken ct = default)
     {
-        if (workItemId == targetWorkItemId)
-        {
-            throw new SelfWorkItemLinkException(workItemId);
-        }
+        var link = WorkItemLink.Create(workItemId, targetWorkItemId);
 
         if (!await _db.WorkItems.AnyAsync(w => w.Id == workItemId, ct))
         {
@@ -48,18 +45,9 @@ public class WorkItemLinkService : IWorkItemLinkService
             throw new DuplicateWorkItemLinkException(workItemId, targetWorkItemId);
         }
 
-        var link = new WorkItemLink
-        {
-            Id = Guid.NewGuid(),
-            WorkItemId = workItemId,
-            LinkedWorkItemId = targetWorkItemId,
-        };
-
         _db.WorkItemLinks.Add(link);
         await _db.SaveChangesAsync(ct);
-        await _db.Entry(link).Reference(l => l.LinkedWorkItem).LoadAsync(ct);
-        await _db.Entry(link).Reference(l => l.WorkItem).LoadAsync(ct);
-        return link;
+        return (await ProjectAsync(_db.WorkItemLinks.Where(l => l.Id == link.Id), workItemId, ct)).Single();
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
@@ -69,5 +57,32 @@ public class WorkItemLinkService : IWorkItemLinkService
 
         _db.WorkItemLinks.Remove(link);
         await _db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Both titles are selected as columns and the "other side" is picked in memory, since
+    /// which side that is depends on the perspective, not on anything EF can translate.
+    /// </summary>
+    private static async Task<IReadOnlyList<WorkItemLinkView>> ProjectAsync(
+        IQueryable<WorkItemLink> links,
+        Guid perspectiveWorkItemId,
+        CancellationToken ct)
+    {
+        var rows = await links
+            .Select(l => new
+            {
+                l.Id,
+                l.WorkItemId,
+                l.LinkedWorkItemId,
+                WorkItemTitle = l.WorkItem!.Title,
+                LinkedWorkItemTitle = l.LinkedWorkItem!.Title,
+            })
+            .ToListAsync(ct);
+
+        return rows
+            .Select(r => r.WorkItemId == perspectiveWorkItemId
+                ? new WorkItemLinkView(r.Id, r.LinkedWorkItemId, r.LinkedWorkItemTitle)
+                : new WorkItemLinkView(r.Id, r.WorkItemId, r.WorkItemTitle))
+            .ToList();
     }
 }

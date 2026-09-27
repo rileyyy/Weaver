@@ -21,12 +21,7 @@ public class WorkItemToolsTests
         _tools = new WorkItemTools(_workItems.Object);
     }
 
-    private static WorkItem MakeWorkItem(Guid? id = null) => new()
-    {
-        Id = id ?? Guid.NewGuid(),
-        Title = "A work item",
-        StatusId = Guid.NewGuid(),
-    };
+    private static WorkItem MakeWorkItem() => WorkItem.Create("A work item", null, null, Guid.NewGuid(), rank: 1.0);
 
     [Test]
     public async Task GetWorkItem_WhenFound_ReturnsDto()

@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ModelContextProtocol;
-using Weaver.Api.Middleware;
 using Weaver.Api.Mcp;
+using Weaver.Api.Middleware;
 using Weaver.Domain.Exceptions;
 
 namespace Weaver.Api.Tests.Mcp;

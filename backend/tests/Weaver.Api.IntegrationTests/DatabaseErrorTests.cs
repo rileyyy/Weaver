@@ -51,13 +51,5 @@ public class DatabaseErrorTests
         Assert.That(notFound.Content.Headers.ContentType?.MediaType, Is.EqualTo("application/problem+json"));
     }
 
-    private static User NewUser(string name) => new()
-    {
-        Id = Guid.NewGuid(),
-        Username = name,
-        NormalizedUsername = name,
-        PasswordHash = "unused",
-        CreatedAtUtc = DateTimeOffset.UtcNow,
-        UpdatedAtUtc = DateTimeOffset.UtcNow,
-    };
+    private static User NewUser(string name) => User.CreateHuman(name, name);
 }

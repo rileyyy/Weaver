@@ -23,7 +23,7 @@ public class BoardToolsTests
     [Test]
     public async Task ListBoards_DelegatesToServiceAndMapsResults()
     {
-        var board = new Board { Id = Guid.NewGuid(), Name = "Main" };
+        var board = Board.Create("Main", null);
         _boards.Setup(b => b.GetAllAsync(It.IsAny<CancellationToken>())).ReturnsAsync([board]);
 
         var result = await _tools.ListBoards(CancellationToken.None);

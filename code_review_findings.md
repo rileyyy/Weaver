@@ -105,7 +105,7 @@ The most important problems cluster in four areas:
 - **Fix:** Validate in the service or domain layer (so REST and MCP share it) and throw a typed domain exception → 400. Share the max-length constants between validation and the EF configurations.
 
 #### B-M2. Anemic domain model: invariants live in services, and every setter is public
-- [ ] **Resolved**
+- [x] **Resolved** in `feature/backend-review-cleanup`: `WorkItem`, `Comment`, `Board`, `WorkItemLink`, `User` and `RefreshToken` have private setters, factories and behaviour methods (`Reschedule`, `SetTags`, `MoveToStatus` (never reparents), `MoveToParent`, `Comment.Edit`, `User.RecordFailedLogin`, `RefreshToken.RotateTo`, …). Services orchestrate loading and saving. The EF model is unchanged (no migration). `Weaver.Domain.Tests` now covers these rules. `Status` and `WorkItemLayer` have no invariants and were left as they are.
 - **Where:** [WorkItem.cs](backend/src/Weaver.Domain/WorkItem.cs), [WorkItemService.cs:127-218](backend/src/Weaver.Infrastructure/Services/WorkItemService.cs#L127-L218)
 - **Issue:** Rules such as "start ≤ end", tag normalisation, and "status change never reparents" are enforced in `WorkItemService`, not on `WorkItem`. Any code with a `WorkItem` can bypass them (`item.StartDate = …`). This also forces every rule test through EF.
 - **Fix:** Move behaviour onto the entity (`item.Reschedule(start, end, clock)`, `item.SetTags(tags)`, `item.MoveTo(status, rank)`) with private setters. Services then orchestrate loading and saving, and the rules become plain unit tests in `Weaver.Domain.Tests`, which today only covers `RankCalculator`.
@@ -184,7 +184,7 @@ The most important problems cluster in four areas:
   - [Weaver.Api.http](backend/src/Weaver.Api/Weaver.Api.http) still targets `/weatherforecast/`.
   - `Program.cs:17` has the "Add services to the container." template comment.
   - The DI registrations could become an `AddWeaverInfrastructure()` extension in Infrastructure, keeping `Program.cs` focused on the pipeline.
-- [ ] **B-L5. `CommentDto` hides a missing author** by returning `AuthorUsername = ""` ([CommentDto.cs:18](backend/src/Weaver.Api/Contracts/CommentDto.cs#L18)). `WorkItemLinkDto` uses `!` on navigation properties that callers must remember to `Include` ([WorkItemLinkDto.cs:14](backend/src/Weaver.Api/Contracts/WorkItemLinkDto.cs#L14)). Project straight to DTOs in the query instead.
+- [x] *(Resolved in `feature/backend-review-cleanup`: the comment and link services project in the query to `CommentView` / `WorkItemLinkView` read models, which the DTOs map 1:1. There are no navigation properties to `Include` and no `""` fallback, and `IWeaverDbContext.Entry` is gone.)* **B-L5. `CommentDto` hides a missing author** by returning `AuthorUsername = ""` ([CommentDto.cs:18](backend/src/Weaver.Api/Contracts/CommentDto.cs#L18)). `WorkItemLinkDto` uses `!` on navigation properties that callers must remember to `Include` ([WorkItemLinkDto.cs:14](backend/src/Weaver.Api/Contracts/WorkItemLinkDto.cs#L14)). Project straight to DTOs in the query instead.
 - [x] *(Resolved in `feature/backend-review-cleanup`: `backend/Directory.Packages.props`. All ASP.NET Core and EF Core packages share one `MicrosoftPlatformVersion` (9.0.20).)* **B-L6. Package versions are inconsistent.** `Microsoft.AspNetCore.OpenApi` is 9.0.7, `JwtBearer`/`Identity.Core` are 9.0.9, and EF is 9.0.20. Consider `Directory.Packages.props` (central package management) so one bump updates them all.
 - [ ] **B-L7. `WouldCreateCycleAsync` returns `false` when it detects an *existing* cycle** ([WorkItemService.cs:256-259](backend/src/Weaver.Infrastructure/Services/WorkItemService.cs#L256-L259)). That state should be impossible, but reporting "no cycle" hides corruption. Throw or log instead.
 
@@ -383,7 +383,7 @@ There are no `Completer`-based tests, so none of these are covered: parallel ref
 `test/widget_test.dart` is a DI smoke test, and it is the only widget test. There is none for `BoardView`, `LoginView`, `AuthGate`, `WorkItemDetailView`, `CommentTile` (which would have caught F-M11), `CreateWorkItemDialog`, or drag/drop acceptance in `StatusColumn`/`SwimlaneLabel`.
 
 #### T-4. Pure logic without unit tests
-- [ ] **Resolved**
+- [x] **Resolved**: the backend domain rules are unit-tested in `Weaver.Domain.Tests` (`feature/backend-review-cleanup`, with B-M2). The frontend list is covered in `feature/frontend-review-cleanup`.
 - **Frontend:** `ApiConfig.baseUrl`, `parseStatusColor`, `formatDate`, `RoadmapTimeframe`, the roadmap bar computation (private in a widget, so extract it first), and the hierarchy time-window filter.
 - **Backend:** domain rules, once they move onto the entities (B-M2).
 

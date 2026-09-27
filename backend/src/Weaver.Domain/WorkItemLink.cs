@@ -1,3 +1,5 @@
+using Weaver.Domain.Exceptions;
+
 namespace Weaver.Domain;
 
 /// <summary>
@@ -9,15 +11,33 @@ namespace Weaver.Domain;
 /// </summary>
 public class WorkItemLink : IHasCreatedAt
 {
-    public Guid Id { get; set; }
+    /// <summary>For EF Core.</summary>
+    private WorkItemLink()
+    {
+    }
 
-    public Guid WorkItemId { get; set; }
+    public Guid Id { get; private set; }
 
-    public Guid LinkedWorkItemId { get; set; }
+    public Guid WorkItemId { get; private set; }
 
-    public DateTimeOffset CreatedAtUtc { get; set; }
+    public Guid LinkedWorkItemId { get; private set; }
 
-    public WorkItem? WorkItem { get; set; }
+    public DateTimeOffset CreatedAtUtc { get; private set; }
 
-    public WorkItem? LinkedWorkItem { get; set; }
+    public WorkItem? WorkItem { get; private set; }
+
+    public WorkItem? LinkedWorkItem { get; private set; }
+
+    public static WorkItemLink Create(Guid workItemId, Guid linkedWorkItemId)
+    {
+        if (workItemId == linkedWorkItemId)
+        {
+            throw new SelfWorkItemLinkException(workItemId);
+        }
+
+        return new WorkItemLink { Id = Guid.NewGuid(), WorkItemId = workItemId, LinkedWorkItemId = linkedWorkItemId };
+    }
+
+    /// <summary>The item on the other side of the link from <paramref name="workItemId"/>'s view.</summary>
+    public Guid OtherSideOf(Guid workItemId) => WorkItemId == workItemId ? LinkedWorkItemId : WorkItemId;
 }

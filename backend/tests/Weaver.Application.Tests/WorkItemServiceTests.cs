@@ -200,12 +200,7 @@ public class WorkItemServiceTests
 
     private async Task<WorkItemLink> AddLinkAsync(Guid workItemId, Guid linkedWorkItemId)
     {
-        var link = new WorkItemLink
-        {
-            Id = Guid.NewGuid(),
-            WorkItemId = workItemId,
-            LinkedWorkItemId = linkedWorkItemId,
-        };
+        var link = WorkItemLink.Create(workItemId, linkedWorkItemId);
         _db.WorkItemLinks.Add(link);
         await _db.SaveChangesAsync();
         return link;
@@ -213,7 +208,7 @@ public class WorkItemServiceTests
 
     private async Task<Board> AddBoardAsync(Guid? scopeItemId)
     {
-        var board = new Board { Id = Guid.NewGuid(), Name = "Board", ScopeItemId = scopeItemId };
+        var board = Board.Create("Board", scopeItemId);
         _db.Boards.Add(board);
         await _db.SaveChangesAsync();
         return board;
@@ -225,7 +220,7 @@ public class WorkItemServiceTests
         var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId);
         var first = await _service.CreateAsync("First", null, parent.Id, StatusConfiguration.ToDoId);
         var second = await _service.CreateAsync("Second", null, parent.Id, StatusConfiguration.ToDoId, afterId: first.Id);
-        second.Rank = first.Rank;
+        second.Reposition(first.Rank);
         await _db.SaveChangesAsync();
 
         var inserted = await _service.CreateAsync("Inserted", null, parent.Id, StatusConfiguration.ToDoId, afterId: first.Id);
@@ -318,14 +313,14 @@ public class WorkItemServiceTests
     }
 
     [Test]
-    public void RescheduleAsync_WithStartAfterEnd_ThrowsInvalidWorkItemScheduleException()
+    public async Task RescheduleAsync_WithStartAfterEnd_ThrowsInvalidWorkItemScheduleException()
     {
-        var itemId = Guid.NewGuid();
+        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
         var start = new DateOnly(2026, 9, 25);
         var end = start.AddDays(-1);
 
         Assert.ThrowsAsync<InvalidWorkItemScheduleException>(() =>
-            _service.RescheduleAsync(itemId, start, end));
+            _service.RescheduleAsync(item.Id, start, end));
     }
 
     [Test]
@@ -457,13 +452,7 @@ public class WorkItemServiceTests
     [Test]
     public async Task AssignAsync_WithAKnownUser_SetsAssignedToUserId()
     {
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Username = "alice",
-            NormalizedUsername = "alice",
-            PasswordHash = "hash",
-        };
+        var user = User.CreateHuman("alice", "alice");
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
         var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
@@ -476,13 +465,7 @@ public class WorkItemServiceTests
     [Test]
     public async Task AssignAsync_WithNullUserId_ClearsTheAssignee()
     {
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Username = "alice",
-            NormalizedUsername = "alice",
-            PasswordHash = "hash",
-        };
+        var user = User.CreateHuman("alice", "alice");
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
         var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);

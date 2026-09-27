@@ -24,24 +24,16 @@ public class CommentServiceTests
         _comments = new CommentService(_db, _clock);
         _workItems = new WorkItemService(_db);
 
-        _authorId = Guid.NewGuid();
-        _otherUserId = Guid.NewGuid();
-        _db.Users.AddRange(
-            MakeUser(_authorId, "alice"),
-            MakeUser(_otherUserId, "bob"));
+        var alice = User.CreateHuman("alice", "alice");
+        var bob = User.CreateHuman("bob", "bob");
+        _authorId = alice.Id;
+        _otherUserId = bob.Id;
+        _db.Users.AddRange(alice, bob);
         await _db.SaveChangesAsync();
     }
 
     [TearDown]
     public void TearDown() => _db.Dispose();
-
-    private static User MakeUser(Guid id, string username) => new()
-    {
-        Id = id,
-        Username = username,
-        NormalizedUsername = username,
-        PasswordHash = "hash",
-    };
 
     [Test]
     public async Task CreateAsync_AddsACommentAuthoredByTheGivenUser()

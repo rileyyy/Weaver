@@ -174,13 +174,23 @@ and it is what allows MCP tools to reuse the same business logic (see
   sent ints, and the frontend's `as String` cast failed on a response that
   had actually succeeded, surfacing as a misleading "could not create
   account". MCP needs the same setting separately (see [MCP](#mcp)).
-- **Errors map to status codes in `ApiExceptionMiddleware`** as
-  `ProblemDetails` bodies: not found → 404; cycles, has-children,
-  board-scope, duplicate link, username taken, version conflict → 409;
-  validation → 400; bad credentials / refresh token → 401; comment
-  author mismatch → 403. The list is hand-maintained and duplicated in
-  `McpExceptionTranslation` (B-M4 in the code review).
-- **Input validation lives in the services**, via `TextValidation` in
+- **Errors map to status codes by kind.** Every expected failure is a
+  `DomainException` carrying a `DomainErrorKind` (NotFound → 404,
+  Validation → 400, Conflict → 409, Unauthorized → 401, Forbidden → 403).
+  `DomainErrorStatusCodes` is the only mapping; `ApiExceptionMiddleware`
+  writes it as `application/problem+json`, and `McpExceptionTranslation`
+  turns any `DomainException` into a tool error with the same message. A
+  new exception needs no transport change. Postgres unique violations are
+  translated to `UniqueConstraintViolationException` (409) inside
+  `WeaverDbContext`, so nothing above Infrastructure sees provider error
+  codes.
+- **Rules live on the entities.** Entities have private setters and
+  change state through methods (`WorkItem.Reschedule`, `SetTags`,
+  `MoveToStatus`, `Comment.Edit`, `User.RecordFailedLogin`, …), so every
+  caller gets the same checks and the rules are plain unit tests in
+  `Weaver.Domain.Tests`. Services keep the rules that need other rows
+  (cycle detection, existence checks, rank neighbours) and orchestrate
+  loading and saving. Field validation uses `TextValidation` in
   `Weaver.Domain`, so REST and MCP share it. A broken rule throws
   `DomainValidationException` (400 in REST, a tool error in MCP). Use it
   for new field rules instead of adding exception types. Max lengths are

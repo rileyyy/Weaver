@@ -52,13 +52,8 @@ public class JsonSerializationTests
     [Test]
     public void WorkItemDto_SerializesScheduleDatesAsCalendarDates()
     {
-        var item = new WorkItem
-        {
-            Id = Guid.NewGuid(),
-            Title = "Item",
-            StartDate = new DateOnly(2026, 9, 25),
-            EndDate = new DateOnly(2026, 9, 30),
-        };
+        var item = WorkItem.Create("Item", null, null, Guid.NewGuid(), rank: 1.0);
+        item.Reschedule(new DateOnly(2026, 9, 25), new DateOnly(2026, 9, 30));
 
         var json = JsonSerializer.Serialize(WorkItemDto.FromEntity(item), Options);
 

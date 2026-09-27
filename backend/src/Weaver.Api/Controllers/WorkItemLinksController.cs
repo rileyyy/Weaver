@@ -18,14 +18,14 @@ public class WorkItemLinksController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<WorkItemLinkDto>>> ListForWorkItem(Guid workItemId)
     {
         var links = await _links.ListForWorkItemAsync(workItemId);
-        return Ok(links.Select(l => WorkItemLinkDto.FromEntity(l, workItemId)));
+        return Ok(links.Select(WorkItemLinkDto.FromView));
     }
 
     [HttpPost("api/work-items/{workItemId:guid}/links")]
     public async Task<ActionResult<WorkItemLinkDto>> Create(Guid workItemId, CreateWorkItemLinkRequest request)
     {
         var link = await _links.CreateAsync(workItemId, request.TargetWorkItemId);
-        return Ok(WorkItemLinkDto.FromEntity(link, workItemId));
+        return Ok(WorkItemLinkDto.FromView(link));
     }
 
     [HttpDelete("api/work-item-links/{id:guid}")]

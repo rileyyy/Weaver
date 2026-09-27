@@ -3,7 +3,6 @@ using Moq;
 using Weaver.Api.Contracts;
 using Weaver.Api.Controllers;
 using Weaver.Application.Services;
-using Weaver.Domain;
 
 namespace Weaver.Api.Tests;
 
@@ -20,21 +19,13 @@ public class WorkItemLinksControllerTests
         _controller = new WorkItemLinksController(_links.Object);
     }
 
-    private static WorkItemLink MakeLink(Guid workItemId, Guid linkedWorkItemId) => new()
-    {
-        Id = Guid.NewGuid(),
-        WorkItemId = workItemId,
-        LinkedWorkItemId = linkedWorkItemId,
-        CreatedAtUtc = DateTimeOffset.UtcNow,
-        WorkItem = new WorkItem { Id = workItemId, Title = "A", StatusId = Guid.NewGuid() },
-        LinkedWorkItem = new WorkItem { Id = linkedWorkItemId, Title = "B", StatusId = Guid.NewGuid() },
-    };
+    private static WorkItemLinkView MakeLink(Guid linkedWorkItemId) => new(Guid.NewGuid(), linkedWorkItemId, "B");
 
     [Test]
     public async Task ListForWorkItem_DelegatesToServiceAndReturnsOk()
     {
         var workItemId = Guid.NewGuid();
-        var link = MakeLink(workItemId, Guid.NewGuid());
+        var link = MakeLink(Guid.NewGuid());
         _links.Setup(l => l.ListForWorkItemAsync(workItemId, It.IsAny<CancellationToken>())).ReturnsAsync([link]);
 
         var result = await _controller.ListForWorkItem(workItemId);
@@ -50,7 +41,7 @@ public class WorkItemLinksControllerTests
     {
         var workItemId = Guid.NewGuid();
         var targetId = Guid.NewGuid();
-        var link = MakeLink(workItemId, targetId);
+        var link = MakeLink(targetId);
         _links.Setup(l => l.CreateAsync(workItemId, targetId, It.IsAny<CancellationToken>())).ReturnsAsync(link);
 
         var result = await _controller.Create(workItemId, new CreateWorkItemLinkRequest(targetId));

@@ -12,7 +12,7 @@ public class UserToolsTests
     public async Task ListUsers_DelegatesToServiceAndMapsResults()
     {
         var users = new Mock<IUserService>(MockBehavior.Strict);
-        var user = new User { Id = Guid.NewGuid(), Username = "alice", NormalizedUsername = "alice", PasswordHash = "hash" };
+        var user = User.CreateHuman("alice", "alice");
         users.Setup(u => u.ListAsync(It.IsAny<CancellationToken>())).ReturnsAsync([user]);
         var tools = new UserTools(users.Object);
 

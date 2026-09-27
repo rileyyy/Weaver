@@ -33,8 +33,8 @@ public class WorkItemLinkServiceTests
 
         var link = await _links.CreateAsync(a.Id, b.Id);
 
-        Assert.That(link.WorkItemId, Is.EqualTo(a.Id));
         Assert.That(link.LinkedWorkItemId, Is.EqualTo(b.Id));
+        Assert.That(link.LinkedWorkItemTitle, Is.EqualTo("B"));
     }
 
     [Test]

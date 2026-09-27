@@ -5,7 +5,6 @@ using Moq;
 using Weaver.Api.Contracts;
 using Weaver.Api.Controllers;
 using Weaver.Application.Services;
-using Weaver.Domain;
 
 namespace Weaver.Api.Tests;
 
@@ -30,14 +29,8 @@ public class CommentsControllerTests
         };
     }
 
-    private static Comment MakeComment(Guid workItemId, Guid authorUserId) => new()
-    {
-        Id = Guid.NewGuid(),
-        WorkItemId = workItemId,
-        AuthorUserId = authorUserId,
-        Body = "A comment",
-        CreatedAtUtc = DateTimeOffset.UtcNow,
-    };
+    private static CommentView MakeComment(Guid workItemId, Guid authorUserId) =>
+        new(Guid.NewGuid(), workItemId, authorUserId, "alice", "A comment", DateTimeOffset.UtcNow, null);
 
     [Test]
     public async Task ListForWorkItem_DelegatesToServiceAndReturnsOk()
@@ -65,7 +58,7 @@ public class CommentsControllerTests
 
         var result = await _controller.Create(workItemId, new CreateCommentRequest("Hello"));
 
-        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(CommentDto.FromEntity(comment)));
+        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(CommentDto.FromView(comment)));
         _comments.VerifyAll();
     }
 
@@ -79,7 +72,7 @@ public class CommentsControllerTests
 
         var result = await _controller.Update(comment.Id, new UpdateCommentRequest("Edited"));
 
-        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(CommentDto.FromEntity(comment)));
+        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(CommentDto.FromView(comment)));
         _comments.VerifyAll();
     }
 

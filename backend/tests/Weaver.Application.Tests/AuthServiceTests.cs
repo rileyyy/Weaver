@@ -260,7 +260,7 @@ public class AuthServiceTests
         var tokenHash = Convert.ToHexString(
             System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(refreshToken)));
         var stored = await _db.RefreshTokens.SingleAsync(t => t.TokenHash == tokenHash);
-        stored.RevokedAtUtc = _clock.GetUtcNow() - ago;
+        _db.Entry(stored).Property(t => t.RevokedAtUtc).CurrentValue = _clock.GetUtcNow() - ago;
         await _db.SaveChangesAsync();
     }
 
@@ -268,7 +268,7 @@ public class AuthServiceTests
     {
         foreach (var token in await _db.RefreshTokens.ToListAsync())
         {
-            token.ExpiresAtUtc = _clock.GetUtcNow().AddMinutes(-1);
+            _db.Entry(token).Property(t => t.ExpiresAtUtc).CurrentValue = _clock.GetUtcNow().AddMinutes(-1);
         }
         await _db.SaveChangesAsync();
     }

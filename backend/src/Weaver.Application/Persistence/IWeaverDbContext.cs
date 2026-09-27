@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Weaver.Domain;
 
 namespace Weaver.Application.Persistence;
@@ -27,8 +26,6 @@ public interface IWeaverDbContext
     DbSet<Comment> Comments { get; }
 
     DbSet<WorkItemLink> WorkItemLinks { get; }
-
-    EntityEntry<TEntity> Entry<TEntity>(TEntity entity) where TEntity : class;
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

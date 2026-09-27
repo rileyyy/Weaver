@@ -30,7 +30,7 @@ public class CommentTools
         CancellationToken ct)
     {
         var comments = await _comments.ListForWorkItemAsync(workItemId, ct);
-        return comments.Select(CommentDto.FromEntity).ToList();
+        return comments.Select(CommentDto.FromView).ToList();
     }
 
     [McpServerTool(Name = "add_comment", Destructive = false)]
@@ -42,7 +42,7 @@ public class CommentTools
         McpExceptionTranslation.TranslateAsync(async () =>
         {
             var comment = await _comments.CreateAsync(workItemId, CurrentUserId, body, ct);
-            return CommentDto.FromEntity(comment);
+            return CommentDto.FromView(comment);
         });
 
     [McpServerTool(Name = "update_comment", Destructive = false, Idempotent = true)]
@@ -54,7 +54,7 @@ public class CommentTools
         McpExceptionTranslation.TranslateAsync(async () =>
         {
             var comment = await _comments.UpdateAsync(id, CurrentUserId, body, ct);
-            return CommentDto.FromEntity(comment);
+            return CommentDto.FromView(comment);
         });
 
     [McpServerTool(Name = "delete_comment", Destructive = true)]

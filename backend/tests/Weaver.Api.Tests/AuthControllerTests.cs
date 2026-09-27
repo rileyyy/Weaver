@@ -23,15 +23,7 @@ public class AuthControllerTests
         _controller = new AuthController(_auth.Object);
     }
 
-    private static User MakeUser() => new()
-    {
-        Id = Guid.NewGuid(),
-        Username = "alice",
-        NormalizedUsername = "alice",
-        PasswordHash = "hashed",
-        CreatedAtUtc = DateTimeOffset.UtcNow,
-        UpdatedAtUtc = DateTimeOffset.UtcNow,
-    };
+    private static User MakeUser() => User.CreateHuman("alice", "alice");
 
     private static AuthResult MakeAuthResult(User user) => new(
         user,
