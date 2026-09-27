@@ -28,6 +28,28 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-09-27 — Open-question improvements
+
+Requested round before Milestone 14 (`feature/pre-milestone-14-improvements`),
+settling four entries from [open-questions.md](docs/open-questions.md).
+
+- **Configurable priorities.** Priority is a `WorkItemPriorities` lookup
+  table seeded with Low / Medium / High / Urgent, like layers.
+  `WorkItemDto.Priority` (an enum name) became `PriorityId`; new items have
+  no priority unless one is set (they used to default to Medium). `GET
+  /api/work-item-priorities` and the `list_work_item_priorities` MCP tool
+  list them. Migration `ConfigurablePriorities` keeps every existing
+  item's priority; Up and Down were verified against the dev Postgres.
+- **Quick tagging.** A "+" at the end of the tags on board cards, Hierarchy
+  rows and Roadmap rows opens an Add tags dialog with existing tags as
+  suggestions.
+- **Hierarchy caret indents** with its title inside the Title column; the
+  other columns stay aligned with their headers.
+- **`list_all_work_items` MCP tool**, paging like `GET /work-items/all`.
+- Checked in headless Chromium against the dev stack: tag added from a
+  card and persisted, Hierarchy and Roadmap "+" dialogs, caret
+  indentation, and the migrated priority in the detail dialog.
+
 ## 2026-09-26 — Repeating work items
 
 Requested feature round before Milestone 14 (`feature/repeating-work-items`).
