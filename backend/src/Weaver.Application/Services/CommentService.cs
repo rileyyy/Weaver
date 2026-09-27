@@ -8,10 +8,12 @@ namespace Weaver.Application.Services;
 public class CommentService : ICommentService
 {
     private readonly IWeaverDbContext _db;
+    private readonly TimeProvider _clock;
 
-    public CommentService(IWeaverDbContext db)
+    public CommentService(IWeaverDbContext db, TimeProvider clock)
     {
         _db = db;
+        _clock = clock;
     }
 
     public async Task<IReadOnlyList<Comment>> ListForWorkItemAsync(Guid workItemId, CancellationToken ct = default) =>
@@ -36,7 +38,6 @@ public class CommentService : ICommentService
             WorkItemId = workItemId,
             AuthorUserId = authorUserId,
             Body = body,
-            CreatedAtUtc = DateTimeOffset.UtcNow,
         };
 
         _db.Comments.Add(comment);
@@ -58,7 +59,7 @@ public class CommentService : ICommentService
         }
 
         comment.Body = body;
-        comment.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        comment.UpdatedAtUtc = _clock.GetUtcNow();
 
         await _db.SaveChangesAsync(ct);
         return comment;

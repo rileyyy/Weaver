@@ -10,7 +10,9 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddWeaverInfrastructure(this IServiceCollection services, string connectionString)
     {
-        services.AddDbContext<WeaverDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddDbContext<WeaverDbContext>((provider, options) => options
+            .UseNpgsql(connectionString)
+            .AddInterceptors(new TimestampInterceptor(provider.GetRequiredService<TimeProvider>())));
         services.AddScoped<IWeaverDbContext>(provider => provider.GetRequiredService<WeaverDbContext>());
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
         return services;

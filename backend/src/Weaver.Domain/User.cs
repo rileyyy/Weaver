@@ -1,6 +1,6 @@
 namespace Weaver.Domain;
 
-public class User
+public class User : IHasUpdatedAt
 {
     public Guid Id { get; set; }
 

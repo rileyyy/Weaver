@@ -10,18 +10,14 @@ namespace Weaver.Application.Tests;
 [TestFixture]
 public class WorkItemServiceTests
 {
+    private readonly FixedTimeProvider _clock = new(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
     private WeaverDbContext _db = null!;
     private WorkItemService _service = null!;
 
     [SetUp]
     public void SetUp()
     {
-        var options = new DbContextOptionsBuilder<WeaverDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-
-        _db = new WeaverDbContext(options);
-        _db.Database.EnsureCreated();
+        _db = TestDatabase.Create(_clock);
         _service = new WorkItemService(_db);
     }
 
@@ -209,7 +205,6 @@ public class WorkItemServiceTests
             Id = Guid.NewGuid(),
             WorkItemId = workItemId,
             LinkedWorkItemId = linkedWorkItemId,
-            CreatedAtUtc = DateTimeOffset.UtcNow,
         };
         _db.WorkItemLinks.Add(link);
         await _db.SaveChangesAsync();
@@ -239,6 +234,22 @@ public class WorkItemServiceTests
         {
             Assert.That(first.Rank, Is.LessThan(inserted.Rank));
             Assert.That(inserted.Rank, Is.LessThan(second.Rank));
+        });
+    }
+
+    [Test]
+    public async Task Timestamps_ComeFromTheClock_AndOnlyUpdatedAtMovesOnChange()
+    {
+        var created = _clock.GetUtcNow();
+        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+        _clock.Advance(TimeSpan.FromHours(1));
+
+        await _service.RescheduleAsync(item.Id, new DateOnly(2026, 9, 2), null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(item.CreatedAtUtc, Is.EqualTo(created));
+            Assert.That(item.UpdatedAtUtc, Is.EqualTo(created + TimeSpan.FromHours(1)));
         });
     }
 
@@ -452,8 +463,6 @@ public class WorkItemServiceTests
             Username = "alice",
             NormalizedUsername = "alice",
             PasswordHash = "hash",
-            CreatedAtUtc = DateTimeOffset.UtcNow,
-            UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
@@ -473,8 +482,6 @@ public class WorkItemServiceTests
             Username = "alice",
             NormalizedUsername = "alice",
             PasswordHash = "hash",
-            CreatedAtUtc = DateTimeOffset.UtcNow,
-            UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
         _db.Users.Add(user);
         await _db.SaveChangesAsync();

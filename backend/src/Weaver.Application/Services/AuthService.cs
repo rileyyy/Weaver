@@ -26,17 +26,20 @@ public partial class AuthService : IAuthService
     private readonly IJwtTokenService _tokenService;
     private readonly IPasswordHasher<User> _passwordHasher;
     private readonly JwtOptions _jwtOptions;
+    private readonly TimeProvider _clock;
 
     public AuthService(
         IWeaverDbContext db,
         IJwtTokenService tokenService,
         IPasswordHasher<User> passwordHasher,
-        IOptions<JwtOptions> jwtOptions)
+        IOptions<JwtOptions> jwtOptions,
+        TimeProvider clock)
     {
         _db = db;
         _tokenService = tokenService;
         _passwordHasher = passwordHasher;
         _jwtOptions = jwtOptions.Value;
+        _clock = clock;
     }
 
     public async Task<AuthResult> RegisterAsync(string username, string password, CancellationToken ct = default)
@@ -49,7 +52,6 @@ public partial class AuthService : IAuthService
             throw new UsernameTakenException(username);
         }
 
-        var now = DateTimeOffset.UtcNow;
         var user = new User
         {
             Id = Guid.NewGuid(),
@@ -57,8 +59,6 @@ public partial class AuthService : IAuthService
             NormalizedUsername = normalized,
             PasswordHash = string.Empty,
             Kind = UserKind.Human,
-            CreatedAtUtc = now,
-            UpdatedAtUtc = now,
         };
         user.PasswordHash = _passwordHasher.HashPassword(user, password);
 
@@ -89,7 +89,7 @@ public partial class AuthService : IAuthService
             throw new InvalidCredentialsException();
         }
 
-        if (user.LockedUntilUtc is { } lockedUntil && lockedUntil > DateTimeOffset.UtcNow)
+        if (user.LockedUntilUtc is { } lockedUntil && lockedUntil > _clock.GetUtcNow())
         {
             throw new InvalidCredentialsException();
         }
@@ -107,7 +107,6 @@ public partial class AuthService : IAuthService
         {
             user.PasswordHash = _passwordHasher.HashPassword(user, password);
         }
-        user.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
 
         return await IssueTokensAsync(user, ct);
@@ -131,12 +130,12 @@ public partial class AuthService : IAuthService
             throw new InvalidRefreshTokenException();
         }
 
-        if (!stored.IsActive)
+        if (!stored.IsActiveAt(_clock.GetUtcNow()))
         {
             throw new InvalidRefreshTokenException();
         }
 
-        stored.RevokedAtUtc = DateTimeOffset.UtcNow;
+        stored.RevokedAtUtc = _clock.GetUtcNow();
 
         try
         {
@@ -159,7 +158,7 @@ public partial class AuthService : IAuthService
             return;
         }
 
-        stored.RevokedAtUtc = DateTimeOffset.UtcNow;
+        stored.RevokedAtUtc = _clock.GetUtcNow();
         await _db.SaveChangesAsync(ct);
     }
 
@@ -169,14 +168,14 @@ public partial class AuthService : IAuthService
     /// revoked and both have to log in again. Logged-out tokens have no replacement and are
     /// simply rejected.
     /// </summary>
-    private static bool IsReuseOfRotatedToken(RefreshToken token) =>
+    private bool IsReuseOfRotatedToken(RefreshToken token) =>
         token.ReplacedByTokenHash is not null
         && token.RevokedAtUtc is { } revokedAt
-        && DateTimeOffset.UtcNow - revokedAt > RotationGracePeriod;
+        && _clock.GetUtcNow() - revokedAt > RotationGracePeriod;
 
     private async Task RevokeTokensIssuedFromAsync(RefreshToken token, CancellationToken ct)
     {
-        var now = DateTimeOffset.UtcNow;
+        var now = _clock.GetUtcNow();
         var visited = new HashSet<string>();
         var nextHash = token.ReplacedByTokenHash;
 
@@ -208,9 +207,8 @@ public partial class AuthService : IAuthService
         user.FailedLoginAttempts++;
         if (user.FailedLoginAttempts >= MaxFailedLoginAttempts)
         {
-            user.LockedUntilUtc = DateTimeOffset.UtcNow.Add(LockoutDuration);
+            user.LockedUntilUtc = _clock.GetUtcNow().Add(LockoutDuration);
         }
-        user.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
     }
 
@@ -218,14 +216,13 @@ public partial class AuthService : IAuthService
     {
         var accessToken = _tokenService.CreateAccessToken(user);
         var refreshTokenValue = GenerateRefreshTokenValue();
-        var now = DateTimeOffset.UtcNow;
+        var now = _clock.GetUtcNow();
 
         var refreshToken = new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
             TokenHash = HashToken(refreshTokenValue),
-            CreatedAtUtc = now,
             ExpiresAtUtc = now.Add(_jwtOptions.RefreshTokenLifetime),
         };
 

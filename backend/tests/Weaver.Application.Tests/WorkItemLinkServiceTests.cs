@@ -9,6 +9,7 @@ namespace Weaver.Application.Tests;
 [TestFixture]
 public class WorkItemLinkServiceTests
 {
+    private readonly FixedTimeProvider _clock = new(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
     private WeaverDbContext _db = null!;
     private WorkItemLinkService _links = null!;
     private WorkItemService _workItems = null!;
@@ -16,12 +17,7 @@ public class WorkItemLinkServiceTests
     [SetUp]
     public void SetUp()
     {
-        var options = new DbContextOptionsBuilder<WeaverDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-
-        _db = new WeaverDbContext(options);
-        _db.Database.EnsureCreated();
+        _db = TestDatabase.Create(_clock);
         _links = new WorkItemLinkService(_db);
         _workItems = new WorkItemService(_db);
     }

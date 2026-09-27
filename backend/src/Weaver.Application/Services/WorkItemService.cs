@@ -78,7 +78,6 @@ public class WorkItemService : IWorkItemService
             throw new EntityNotFoundException(nameof(WorkItemLayer), layerId.Value);
         }
 
-        var now = DateTimeOffset.UtcNow;
         var item = new WorkItem
         {
             Id = Guid.NewGuid(),
@@ -89,8 +88,6 @@ public class WorkItemService : IWorkItemService
             LayerId = layerId,
             Priority = priority,
             Rank = await ComputeRankAsync(parentId, statusId, afterId, excludeItemId: null, ct),
-            CreatedAtUtc = now,
-            UpdatedAtUtc = now,
         };
 
         _db.WorkItems.Add(item);
@@ -114,7 +111,6 @@ public class WorkItemService : IWorkItemService
 
         item.Rank = await ComputeRankAsync(item.ParentId, newStatusId, afterId, excludeItemId: id, ct);
         item.StatusId = newStatusId;
-        item.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await SaveWorkItemChangesAsync(id, ct);
         return item;
@@ -144,7 +140,6 @@ public class WorkItemService : IWorkItemService
 
         item.Rank = await ComputeRankAsync(newParentId, item.StatusId, afterId, excludeItemId: id, ct);
         item.ParentId = newParentId;
-        item.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await SaveWorkItemChangesAsync(id, ct);
         return item;
@@ -169,7 +164,6 @@ public class WorkItemService : IWorkItemService
 
         item.StartDate = startDate;
         item.EndDate = endDate;
-        item.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await SaveWorkItemChangesAsync(id, ct);
         return item;
@@ -200,7 +194,6 @@ public class WorkItemService : IWorkItemService
         item.Description = description;
         item.LayerId = layerId;
         item.Priority = priority;
-        item.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await SaveWorkItemChangesAsync(id, ct);
         return item;
@@ -217,7 +210,6 @@ public class WorkItemService : IWorkItemService
             ?? throw new EntityNotFoundException(nameof(WorkItem), id);
 
         item.AssignedToUserId = userId;
-        item.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await SaveWorkItemChangesAsync(id, ct);
         return item;
@@ -258,7 +250,6 @@ public class WorkItemService : IWorkItemService
         EnsureVersion(item, expectedVersion);
 
         item.Tags = normalized;
-        item.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await SaveWorkItemChangesAsync(id, ct);
         return item;

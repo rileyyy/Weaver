@@ -10,6 +10,7 @@ namespace Weaver.Application.Tests;
 [TestFixture]
 public class BoardServiceTests
 {
+    private readonly FixedTimeProvider _clock = new(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
     private WeaverDbContext _db = null!;
     private BoardService _boards = null!;
     private WorkItemService _workItems = null!;
@@ -17,12 +18,7 @@ public class BoardServiceTests
     [SetUp]
     public void SetUp()
     {
-        var options = new DbContextOptionsBuilder<WeaverDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-
-        _db = new WeaverDbContext(options);
-        _db.Database.EnsureCreated();
+        _db = TestDatabase.Create(_clock);
         _boards = new BoardService(_db);
         _workItems = new WorkItemService(_db);
     }

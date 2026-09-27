@@ -7,7 +7,7 @@ namespace Weaver.Domain;
 /// <see cref="LinkedWorkItemId"/> only reflects creation order; either side
 /// sees the other as "linked."
 /// </summary>
-public class WorkItemLink
+public class WorkItemLink : IHasCreatedAt
 {
     public Guid Id { get; set; }
 

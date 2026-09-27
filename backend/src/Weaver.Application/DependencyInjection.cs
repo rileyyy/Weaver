@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Weaver.Application.Services;
 using Weaver.Domain;
 
@@ -17,5 +18,12 @@ public static class DependencyInjection
             .AddScoped<IBoardService, BoardService>()
             .AddScoped<IStatusService, StatusService>()
             .AddScoped<IWorkItemLayerService, WorkItemLayerService>()
-            .AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
+            .AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>()
+            .AddTimeProvider();
+
+    private static IServiceCollection AddTimeProvider(this IServiceCollection services)
+    {
+        services.TryAddSingleton(TimeProvider.System);
+        return services;
+    }
 }

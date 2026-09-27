@@ -7,18 +7,14 @@ namespace Weaver.Application.Tests;
 [TestFixture]
 public class WorkItemLayerServiceTests
 {
+    private readonly FixedTimeProvider _clock = new(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
     private WeaverDbContext _db = null!;
     private WorkItemLayerService _layers = null!;
 
     [SetUp]
     public void SetUp()
     {
-        var options = new DbContextOptionsBuilder<WeaverDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-
-        _db = new WeaverDbContext(options);
-        _db.Database.EnsureCreated();
+        _db = TestDatabase.Create(_clock);
         _layers = new WorkItemLayerService(_db);
     }
 

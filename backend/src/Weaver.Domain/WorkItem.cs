@@ -1,6 +1,6 @@
 namespace Weaver.Domain;
 
-public class WorkItem
+public class WorkItem : IHasUpdatedAt
 {
     public const int TitleMaxLength = 500;
     public const int MaxTags = 20;

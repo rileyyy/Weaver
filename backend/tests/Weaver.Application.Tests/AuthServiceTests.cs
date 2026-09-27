@@ -15,21 +15,17 @@ public class AuthServiceTests
 {
     private const string ValidPassword = "correct horse battery";
 
+    private readonly FixedTimeProvider _clock = new(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
     private WeaverDbContext _db = null!;
     private AuthService _service = null!;
 
     [SetUp]
     public void SetUp()
     {
-        var options = new DbContextOptionsBuilder<WeaverDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-
-        _db = new WeaverDbContext(options);
-        _db.Database.EnsureCreated();
+        _db = TestDatabase.Create(_clock);
 
         var jwtOptions = Options.Create(new JwtOptions { SigningKey = "test-only-signing-key-at-least-32-bytes-long" });
-        _service = new AuthService(_db, new JwtTokenService(jwtOptions), new PasswordHasher<User>(), jwtOptions);
+        _service = new AuthService(_db, new JwtTokenService(jwtOptions, _clock), new PasswordHasher<User>(), jwtOptions, _clock);
     }
 
     [TearDown]
@@ -109,6 +105,21 @@ public class AuthServiceTests
         await _service.RegisterAsync("alice", ValidPassword);
 
         Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("alice", "wrong password entirely"));
+    }
+
+    [Test]
+    public async Task LoginAsync_OnceTheLockoutHasExpired_AcceptsTheCorrectPassword()
+    {
+        await _service.RegisterAsync("alice", ValidPassword);
+        for (var i = 0; i < 5; i++)
+        {
+            Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("alice", "wrong password!"));
+        }
+
+        _clock.Advance(TimeSpan.FromMinutes(15) + TimeSpan.FromSeconds(1));
+        var result = await _service.LoginAsync("alice", ValidPassword);
+
+        Assert.That(result.User.Username, Is.EqualTo("alice"));
     }
 
     [Test]
@@ -222,7 +233,7 @@ public class AuthServiceTests
             SigningKey = "test-only-signing-key-at-least-32-bytes-long",
             RefreshTokenLifetime = TimeSpan.FromDays(2),
         });
-        var service = new AuthService(_db, new JwtTokenService(jwtOptions), new PasswordHasher<User>(), jwtOptions);
+        var service = new AuthService(_db, new JwtTokenService(jwtOptions, _clock), new PasswordHasher<User>(), jwtOptions, _clock);
 
         await service.RegisterAsync("alice", ValidPassword);
 
@@ -249,7 +260,7 @@ public class AuthServiceTests
         var tokenHash = Convert.ToHexString(
             System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(refreshToken)));
         var stored = await _db.RefreshTokens.SingleAsync(t => t.TokenHash == tokenHash);
-        stored.RevokedAtUtc = DateTimeOffset.UtcNow - ago;
+        stored.RevokedAtUtc = _clock.GetUtcNow() - ago;
         await _db.SaveChangesAsync();
     }
 
@@ -257,7 +268,7 @@ public class AuthServiceTests
     {
         foreach (var token in await _db.RefreshTokens.ToListAsync())
         {
-            token.ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(-1);
+            token.ExpiresAtUtc = _clock.GetUtcNow().AddMinutes(-1);
         }
         await _db.SaveChangesAsync();
     }

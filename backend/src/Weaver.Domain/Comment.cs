@@ -1,6 +1,6 @@
 namespace Weaver.Domain;
 
-public class Comment
+public class Comment : IHasCreatedAt
 {
     public const int BodyMaxLength = 4000;
 

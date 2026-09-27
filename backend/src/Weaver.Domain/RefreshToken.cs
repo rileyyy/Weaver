@@ -8,7 +8,7 @@ namespace Weaver.Domain;
 /// always revokes the one it was exchanged for, and presenting a rotated
 /// token again revokes every token issued from it.
 /// </summary>
-public class RefreshToken
+public class RefreshToken : IHasCreatedAt
 {
     public Guid Id { get; set; }
 
@@ -28,5 +28,5 @@ public class RefreshToken
 
     public User? User { get; set; }
 
-    public bool IsActive => RevokedAtUtc is null && DateTimeOffset.UtcNow < ExpiresAtUtc;
+    public bool IsActiveAt(DateTimeOffset now) => RevokedAtUtc is null && now < ExpiresAtUtc;
 }

@@ -53,7 +53,6 @@ public class WorkItemLinkService : IWorkItemLinkService
             Id = Guid.NewGuid(),
             WorkItemId = workItemId,
             LinkedWorkItemId = targetWorkItemId,
-            CreatedAtUtc = DateTimeOffset.UtcNow,
         };
 
         _db.WorkItemLinks.Add(link);

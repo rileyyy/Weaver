@@ -10,6 +10,7 @@ namespace Weaver.Application.Tests;
 [TestFixture]
 public class CommentServiceTests
 {
+    private readonly FixedTimeProvider _clock = new(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
     private WeaverDbContext _db = null!;
     private CommentService _comments = null!;
     private WorkItemService _workItems = null!;
@@ -19,13 +20,8 @@ public class CommentServiceTests
     [SetUp]
     public async Task SetUp()
     {
-        var options = new DbContextOptionsBuilder<WeaverDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-
-        _db = new WeaverDbContext(options);
-        _db.Database.EnsureCreated();
-        _comments = new CommentService(_db);
+        _db = TestDatabase.Create(_clock);
+        _comments = new CommentService(_db, _clock);
         _workItems = new WorkItemService(_db);
 
         _authorId = Guid.NewGuid();
@@ -45,8 +41,6 @@ public class CommentServiceTests
         Username = username,
         NormalizedUsername = username,
         PasswordHash = "hash",
-        CreatedAtUtc = DateTimeOffset.UtcNow,
-        UpdatedAtUtc = DateTimeOffset.UtcNow,
     };
 
     [Test]
@@ -85,11 +79,13 @@ public class CommentServiceTests
     {
         var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
         var comment = await _comments.CreateAsync(item.Id, _authorId, "Original");
+        _clock.Advance(TimeSpan.FromMinutes(5));
 
         var updated = await _comments.UpdateAsync(comment.Id, _authorId, "Edited");
 
         Assert.That(updated.Body, Is.EqualTo("Edited"));
-        Assert.That(updated.UpdatedAtUtc, Is.Not.Null);
+        Assert.That(updated.UpdatedAtUtc, Is.EqualTo(_clock.GetUtcNow()));
+        Assert.That(updated.CreatedAtUtc, Is.EqualTo(_clock.GetUtcNow() - TimeSpan.FromMinutes(5)));
     }
 
     [Test]
