@@ -13,6 +13,8 @@ class ApiException implements Exception {
 
   bool get isUnauthorized => statusCode == 401;
 
+  bool get isTooManyRequests => statusCode == 429;
+
   @override
   String toString() => message;
 }

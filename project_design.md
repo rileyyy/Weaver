@@ -20,10 +20,10 @@ API
 Business rules belong in the Application/Domain layers and must not
 be implemented separately in controllers, Flutter widgets, or MCP tools.
 
-There is no separate `Weaver.Application` project yet: the Application
-services (`IWorkItemService` etc.) currently live in
-`Weaver.Infrastructure/Services`. Treat that folder as the Application
-layer until it's split out (see B-M3 in `code_review_findings.md`).
+The Application services (`IWorkItemService` etc.) live in
+`Weaver.Application`, which depends only on Domain and on EF Core's API
+through `IWeaverDbContext`. Infrastructure implements that interface and
+owns the provider, model configuration, migrations and JWT signing.
 
 ## Work Items
 

@@ -11,6 +11,9 @@ import 'package:weaver/shared/data/status_repository.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
 import 'package:weaver/shared/models/user.dart';
 
+/// Items per `/work-items/all` request; the server allows up to 1000.
+const int allItemsPageSize = 500;
+
 /// Board data backed by the REST API. Swimlanes are the direct children of
 /// whichever scope item [loadBoard] is asked for (the first board's scope
 /// item, or top-level items, by default); each swimlane's cards are that
@@ -52,24 +55,33 @@ class ApiBoardRepository implements BoardRepository {
   }
 
   @override
-  Future<List<HierarchyItem>> loadAllItems() => _api.get(
-    '/work-items/all',
-    (json) => JsonApiClient.listOf(json, HierarchyItem.fromJson),
-    failureMessage: 'Failed to load work items',
-  );
+  Future<List<HierarchyItem>> loadAllItems() async {
+    final items = <HierarchyItem>[];
+    while (true) {
+      final page = await _api.get(
+        '/work-items/all',
+        (json) => JsonApiClient.listOf(json, HierarchyItem.fromJson),
+        query: {'offset': '${items.length}', 'limit': '$allItemsPageSize'},
+        failureMessage: 'Failed to load work items',
+      );
+      items.addAll(page);
+      // The server caps each page, so a short page is the only end signal.
+      if (page.length < allItemsPageSize) return items;
+    }
+  }
 
   @override
   Future<List<User>> loadUsers() => _users.loadUsers();
 
   @override
   Future<void> changeStatus(String cardId, String newStatusId) =>
-      _api.postIgnoringBody('/work-items/$cardId/status', {
+      _api.putIgnoringBody('/work-items/$cardId/status', {
         'statusId': newStatusId,
       }, failureMessage: 'Failed to change status');
 
   @override
   Future<void> reparentItem(String itemId, String newParentId) =>
-      _api.postIgnoringBody('/work-items/$itemId/parent', {
+      _api.putIgnoringBody('/work-items/$itemId/parent', {
         'parentId': newParentId,
       }, failureMessage: 'Failed to move item');
 
@@ -78,7 +90,7 @@ class ApiBoardRepository implements BoardRepository {
     String itemId,
     DateTime? startDate,
     DateTime? endDate,
-  ) => _api.postIgnoringBody('/work-items/$itemId/schedule', {
+  ) => _api.putIgnoringBody('/work-items/$itemId/schedule', {
     'startDate': formatCalendarDate(startDate),
     'endDate': formatCalendarDate(endDate),
   }, failureMessage: 'Failed to reschedule item');
@@ -98,7 +110,7 @@ class ApiBoardRepository implements BoardRepository {
 
   @override
   Future<void> assign(String workItemId, String? userId) =>
-      _api.postIgnoringBody(
+      _api.putIgnoringBody(
         '/work-items/$workItemId/assignee',
         {'userId': userId},
         failureMessage: 'Failed to assign work item',
@@ -106,7 +118,7 @@ class ApiBoardRepository implements BoardRepository {
 
   @override
   Future<void> setTags(String workItemId, List<String> tags) =>
-      _api.postIgnoringBody('/work-items/$workItemId/tags', {
+      _api.putIgnoringBody('/work-items/$workItemId/tags', {
         'tags': tags,
       }, failureMessage: 'Failed to set tags');
 

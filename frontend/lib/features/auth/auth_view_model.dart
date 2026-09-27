@@ -80,8 +80,11 @@ class AuthViewModel extends ViewModel {
     try {
       final session = await action();
       await _sessionStore.setSession(session);
-    } on ApiException {
-      this.errorMessage = errorMessage;
+    } on ApiException catch (e) {
+      // A 429 carries the server's "wait and try again" message, which is
+      // the one thing the user can act on; the generic message would send
+      // them hunting for a typo instead.
+      this.errorMessage = e.isTooManyRequests ? e.message : errorMessage;
     } finally {
       isSubmitting = false;
       notifyIfActive();

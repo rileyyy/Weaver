@@ -1,10 +1,13 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
+using Weaver.Application.Persistence;
 using Weaver.Domain;
+using Weaver.Domain.Exceptions;
 using Weaver.Infrastructure.Configurations;
 
 namespace Weaver.Infrastructure;
 
-public class WeaverDbContext : DbContext
+public class WeaverDbContext : DbContext, IWeaverDbContext
 {
     public WeaverDbContext(DbContextOptions<WeaverDbContext> options) : base(options)
     {
@@ -25,6 +28,41 @@ public class WeaverDbContext : DbContext
     public DbSet<Comment> Comments => Set<Comment>();
 
     public DbSet<WorkItemLink> WorkItemLinks => Set<WorkItemLink>();
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        try
+        {
+            return base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+        catch (DbUpdateException ex) when (UniqueViolation(ex) is { } violation)
+        {
+            throw new UniqueConstraintViolationException(violation.ConstraintName, ex);
+        }
+    }
+
+    public override async Task<int> SaveChangesAsync(
+        bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
+        catch (DbUpdateException ex) when (UniqueViolation(ex) is { } violation)
+        {
+            throw new UniqueConstraintViolationException(violation.ConstraintName, ex);
+        }
+    }
+
+    /// <summary>
+    /// Translated here, next to the provider, so the Application layer and the transports
+    /// never need to know Postgres error codes.
+    /// </summary>
+    private static PostgresException? UniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } postgres
+            ? postgres
+            : null;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

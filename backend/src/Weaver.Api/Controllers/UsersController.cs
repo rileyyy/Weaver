@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Weaver.Api.Contracts;
-using Weaver.Infrastructure.Services;
+using Weaver.Application.Services;
 
 namespace Weaver.Api.Controllers;
 
@@ -11,6 +11,8 @@ namespace Weaver.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/users")]
+// The bearer challenge has no body.
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
 public class UsersController : ControllerBase
 {
     private readonly IUserService _users;

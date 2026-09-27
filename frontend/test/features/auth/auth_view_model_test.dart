@@ -49,6 +49,18 @@ void main() {
     },
   );
 
+  test("a rate-limited login shows the server's wait message", () async {
+    const wait = 'Too many sign-in attempts. Wait a minute and try again.';
+    viewModel = AuthViewModel(
+      FakeAuthRepository(loginError: const ApiException(wait, statusCode: 429)),
+      sessionStore,
+    );
+
+    await viewModel.login('alice', 'any password');
+
+    expect(viewModel.errorMessage, wait);
+  });
+
   test('register on success authenticates the same as login', () async {
     await viewModel.register('newuser', 'a valid password');
 

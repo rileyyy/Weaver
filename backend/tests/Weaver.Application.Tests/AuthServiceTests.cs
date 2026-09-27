@@ -1,0 +1,333 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Weaver.Application.Auth;
+using Weaver.Application.Services;
+using Weaver.Domain;
+using Weaver.Domain.Exceptions;
+using Weaver.Infrastructure;
+using Weaver.Infrastructure.Auth;
+
+namespace Weaver.Application.Tests;
+
+[TestFixture]
+public class AuthServiceTests
+{
+    private const string ValidPassword = "correct horse battery";
+
+    private FixedTimeProvider _clock = null!;
+    private CountingPasswordHasher _hasher = null!;
+    private WeaverDbContext _db = null!;
+    private AuthService _service = null!;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _clock = new FixedTimeProvider(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
+        _hasher = new CountingPasswordHasher();
+        _db = TestDatabase.Create(_clock);
+
+        var jwtOptions = Options.Create(new JwtOptions { SigningKey = "test-only-signing-key-at-least-32-bytes-long" });
+        _service = new AuthService(_db, new JwtTokenService(jwtOptions, _clock), _hasher, jwtOptions, _clock);
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        _db.Dispose();
+    }
+
+    [Test]
+    public async Task RegisterAsync_CreatesUserAndReturnsTokens()
+    {
+        var result = await _service.RegisterAsync("alice", ValidPassword);
+
+        Assert.That(result.User.Username, Is.EqualTo("alice"));
+        Assert.That(result.User.Kind, Is.EqualTo(UserKind.Human));
+        Assert.That(result.AccessToken.Value, Is.Not.Empty);
+        Assert.That(result.RefreshToken, Is.Not.Empty);
+    }
+
+    [Test]
+    public async Task RegisterAsync_HashesThePassword_NeverStoresItInPlainText()
+    {
+        var result = await _service.RegisterAsync("alice", ValidPassword);
+
+        Assert.That(result.User.PasswordHash, Does.Not.Contain(ValidPassword));
+    }
+
+    [Test]
+    public async Task RegisterAsync_WithDuplicateUsername_ThrowsRegardlessOfCase()
+    {
+        await _service.RegisterAsync("alice", ValidPassword);
+
+        Assert.ThrowsAsync<UsernameTakenException>(() => _service.RegisterAsync("ALICE", ValidPassword));
+    }
+
+    [Test]
+    public void RegisterAsync_WithShortPassword_ThrowsInvalidPasswordException()
+    {
+        Assert.ThrowsAsync<InvalidPasswordException>(() => _service.RegisterAsync("alice", "short"));
+    }
+
+    [Test]
+    public void RegisterAsync_WithInvalidUsername_ThrowsInvalidUsernameException()
+    {
+        Assert.ThrowsAsync<InvalidUsernameException>(() => _service.RegisterAsync("a b!", ValidPassword));
+    }
+
+    [Test]
+    public async Task LoginAsync_WithCorrectCredentials_ReturnsTokens()
+    {
+        await _service.RegisterAsync("alice", ValidPassword);
+
+        var result = await _service.LoginAsync("alice", ValidPassword);
+
+        Assert.That(result.User.Username, Is.EqualTo("alice"));
+    }
+
+    [Test]
+    public async Task LoginAsync_IsCaseInsensitiveOnUsername()
+    {
+        await _service.RegisterAsync("alice", ValidPassword);
+
+        var result = await _service.LoginAsync("Alice", ValidPassword);
+
+        Assert.That(result.User.Username, Is.EqualTo("alice"));
+    }
+
+    [Test]
+    public void LoginAsync_WithUnknownUsername_ThrowsInvalidCredentialsException()
+    {
+        Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("nobody", ValidPassword));
+    }
+
+    [Test]
+    public async Task LoginAsync_WithWrongPassword_ThrowsInvalidCredentialsException()
+    {
+        await _service.RegisterAsync("alice", ValidPassword);
+
+        Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("alice", "wrong password entirely"));
+    }
+
+    [Test]
+    public async Task LoginAsync_OnceTheLockoutHasExpired_AcceptsTheCorrectPassword()
+    {
+        await _service.RegisterAsync("alice", ValidPassword);
+        for (var i = 0; i < 5; i++)
+        {
+            Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("alice", "wrong password!"));
+        }
+
+        _clock.Advance(TimeSpan.FromMinutes(15) + TimeSpan.FromSeconds(1));
+        var result = await _service.LoginAsync("alice", ValidPassword);
+
+        Assert.That(result.User.Username, Is.EqualTo("alice"));
+    }
+
+    [Test]
+    public async Task LoginAsync_AfterALockoutExpires_TheFirstMistakeDoesNotRelock()
+    {
+        await _service.RegisterAsync("alice", ValidPassword);
+        for (var i = 0; i < 5; i++)
+        {
+            Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("alice", "wrong password!"));
+        }
+
+        _clock.Advance(TimeSpan.FromMinutes(16));
+        Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("alice", "wrong password!"));
+        var result = await _service.LoginAsync("alice", ValidPassword);
+
+        Assert.That(result.User.Username, Is.EqualTo("alice"));
+    }
+
+    [Test]
+    public void LoginAsync_ForAnUnknownUser_StillVerifiesAPassword()
+    {
+        Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("nobody", ValidPassword));
+
+        Assert.That(_hasher.Verifications, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task LoginAsync_ForALockedOutUser_StillVerifiesAPassword()
+    {
+        await _service.RegisterAsync("alice", ValidPassword);
+        for (var i = 0; i < 5; i++)
+        {
+            Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("alice", "wrong password!"));
+        }
+
+        var before = _hasher.Verifications;
+        Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("alice", ValidPassword));
+
+        Assert.That(_hasher.Verifications, Is.EqualTo(before + 1));
+    }
+
+    [Test]
+    public async Task LoginAsync_AfterFiveFailedAttempts_LocksTheAccountEvenWithTheCorrectPassword()
+    {
+        await _service.RegisterAsync("alice", ValidPassword);
+
+        for (var i = 0; i < 5; i++)
+        {
+            Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("alice", "wrong password entirely"));
+        }
+
+        Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("alice", ValidPassword));
+    }
+
+    [Test]
+    public async Task LoginAsync_OnSuccess_ResetsThePriorFailedAttemptCounter()
+    {
+        await _service.RegisterAsync("alice", ValidPassword);
+        Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("alice", "wrong password entirely"));
+
+        await _service.LoginAsync("alice", ValidPassword);
+
+        var user = await _db.Users.SingleAsync();
+        Assert.That(user.FailedLoginAttempts, Is.EqualTo(0));
+    }
+
+    [Test]
+    public async Task RefreshAsync_WithAValidToken_ReturnsANewTokenPair()
+    {
+        var initial = await _service.RegisterAsync("alice", ValidPassword);
+
+        var refreshed = await _service.RefreshAsync(initial.RefreshToken);
+
+        Assert.That(refreshed.RefreshToken, Is.Not.EqualTo(initial.RefreshToken));
+        Assert.That(refreshed.User.Id, Is.EqualTo(initial.User.Id));
+    }
+
+    [Test]
+    public async Task RefreshAsync_RevokesTheTokenItWasCalledWith_SoItCannotBeReused()
+    {
+        var initial = await _service.RegisterAsync("alice", ValidPassword);
+        await _service.RefreshAsync(initial.RefreshToken);
+
+        Assert.ThrowsAsync<InvalidRefreshTokenException>(() => _service.RefreshAsync(initial.RefreshToken));
+    }
+
+    [Test]
+    public void RefreshAsync_WithAnUnknownToken_ThrowsInvalidRefreshTokenException()
+    {
+        Assert.ThrowsAsync<InvalidRefreshTokenException>(() => _service.RefreshAsync("not-a-real-token"));
+    }
+
+    [Test]
+    public async Task RefreshAsync_ReusingARotatedTokenAfterTheGracePeriod_RevokesEveryTokenIssuedFromIt()
+    {
+        var initial = await _service.RegisterAsync("alice", ValidPassword);
+        var second = await _service.RefreshAsync(initial.RefreshToken);
+        var third = await _service.RefreshAsync(second.RefreshToken);
+        await BackdateRevocationAsync(initial.RefreshToken, TimeSpan.FromMinutes(5));
+
+        Assert.ThrowsAsync<InvalidRefreshTokenException>(() => _service.RefreshAsync(initial.RefreshToken));
+
+        Assert.ThrowsAsync<InvalidRefreshTokenException>(() => _service.RefreshAsync(third.RefreshToken));
+    }
+
+    [Test]
+    public async Task RefreshAsync_ReusingARotatedTokenWithinTheGracePeriod_IsRejectedButKeepsTheNewToken()
+    {
+        var initial = await _service.RegisterAsync("alice", ValidPassword);
+        var rotated = await _service.RefreshAsync(initial.RefreshToken);
+
+        Assert.ThrowsAsync<InvalidRefreshTokenException>(() => _service.RefreshAsync(initial.RefreshToken));
+
+        var refreshed = await _service.RefreshAsync(rotated.RefreshToken);
+        Assert.That(refreshed.RefreshToken, Is.Not.Empty);
+    }
+
+    [Test]
+    public async Task RefreshAsync_ReuseInOneSession_DoesNotRevokeTheUsersOtherSessions()
+    {
+        var sessionA = await _service.RegisterAsync("alice", ValidPassword);
+        var sessionB = await _service.LoginAsync("alice", ValidPassword);
+        await _service.RefreshAsync(sessionA.RefreshToken);
+        await BackdateRevocationAsync(sessionA.RefreshToken, TimeSpan.FromMinutes(5));
+
+        Assert.ThrowsAsync<InvalidRefreshTokenException>(() => _service.RefreshAsync(sessionA.RefreshToken));
+
+        var refreshedB = await _service.RefreshAsync(sessionB.RefreshToken);
+        Assert.That(refreshedB.RefreshToken, Is.Not.Empty);
+    }
+
+    [Test]
+    public async Task RefreshAsync_WithALoggedOutToken_DoesNotRevokeAnythingElse()
+    {
+        var sessionA = await _service.RegisterAsync("alice", ValidPassword);
+        var sessionB = await _service.LoginAsync("alice", ValidPassword);
+        await _service.LogoutAsync(sessionA.RefreshToken);
+        await BackdateRevocationAsync(sessionA.RefreshToken, TimeSpan.FromMinutes(5));
+
+        Assert.ThrowsAsync<InvalidRefreshTokenException>(() => _service.RefreshAsync(sessionA.RefreshToken));
+
+        Assert.That((await _service.RefreshAsync(sessionB.RefreshToken)).RefreshToken, Is.Not.Empty);
+    }
+
+    [Test]
+    public async Task IssuedRefreshTokens_UseTheConfiguredLifetime()
+    {
+        var jwtOptions = Options.Create(new JwtOptions
+        {
+            SigningKey = "test-only-signing-key-at-least-32-bytes-long",
+            RefreshTokenLifetime = TimeSpan.FromDays(2),
+        });
+        var service = new AuthService(_db, new JwtTokenService(jwtOptions, _clock), new PasswordHasher<User>(), jwtOptions, _clock);
+
+        await service.RegisterAsync("alice", ValidPassword);
+
+        var stored = await _db.RefreshTokens.SingleAsync();
+        Assert.That(stored.ExpiresAtUtc - stored.CreatedAtUtc, Is.EqualTo(TimeSpan.FromDays(2)));
+    }
+
+    [Test]
+    public async Task LoginAsync_RemovesTheUsersExpiredRefreshTokens_ButKeepsOtherUsersTokens()
+    {
+        var alice = await _service.RegisterAsync("alice", ValidPassword);
+        var bob = await _service.RegisterAsync("bob", ValidPassword);
+        await ExpireAllRefreshTokensAsync();
+
+        await _service.LoginAsync("alice", ValidPassword);
+
+        var remainingUserIds = await _db.RefreshTokens.Select(t => t.UserId).ToListAsync();
+        Assert.That(remainingUserIds.Count(id => id == alice.User.Id), Is.EqualTo(1));
+        Assert.That(remainingUserIds.Count(id => id == bob.User.Id), Is.EqualTo(1));
+    }
+
+    private async Task BackdateRevocationAsync(string refreshToken, TimeSpan ago)
+    {
+        var tokenHash = Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(refreshToken)));
+        var stored = await _db.RefreshTokens.SingleAsync(t => t.TokenHash == tokenHash);
+        _db.Entry(stored).Property(t => t.RevokedAtUtc).CurrentValue = _clock.GetUtcNow() - ago;
+        await _db.SaveChangesAsync();
+    }
+
+    private async Task ExpireAllRefreshTokensAsync()
+    {
+        foreach (var token in await _db.RefreshTokens.ToListAsync())
+        {
+            _db.Entry(token).Property(t => t.ExpiresAtUtc).CurrentValue = _clock.GetUtcNow().AddMinutes(-1);
+        }
+        await _db.SaveChangesAsync();
+    }
+
+    [Test]
+    public async Task LogoutAsync_RevokesTheToken_SoItCanNoLongerBeRefreshed()
+    {
+        var initial = await _service.RegisterAsync("alice", ValidPassword);
+
+        await _service.LogoutAsync(initial.RefreshToken);
+
+        Assert.ThrowsAsync<InvalidRefreshTokenException>(() => _service.RefreshAsync(initial.RefreshToken));
+    }
+
+    [Test]
+    public void LogoutAsync_WithAnUnknownToken_DoesNotThrow()
+    {
+        Assert.DoesNotThrowAsync(() => _service.LogoutAsync("not-a-real-token"));
+    }
+}

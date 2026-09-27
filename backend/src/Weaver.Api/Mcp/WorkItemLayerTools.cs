@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using ModelContextProtocol.Server;
 using Weaver.Api.Contracts;
-using Weaver.Infrastructure.Services;
+using Weaver.Application.Services;
 
 namespace Weaver.Api.Mcp;
 

@@ -1,20 +1,19 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Weaver.Domain.Exceptions;
 
 namespace Weaver.Api.Auth;
 
 public static class ClaimsPrincipalExtensions
 {
     /// <summary>
-    /// The authenticated user's id, from the access token's `sub` claim.
-    /// Throws if called on an unauthenticated principal — every caller sits
-    /// behind <c>[Authorize]</c>, so a missing/malformed claim here is a bug,
-    /// not a normal "not logged in" case to swallow.
+    /// The authenticated user's id, from the access token's `sub` claim. Every caller sits
+    /// behind <c>[Authorize]</c>, so the token's signature is already valid; a missing or
+    /// malformed claim still means the token doesn't identify anyone, which is a 401 rather
+    /// than a server error.
     /// </summary>
-    public static Guid GetUserId(this ClaimsPrincipal principal)
-    {
-        var value = principal.FindFirstValue(JwtRegisteredClaimNames.Sub)
-            ?? throw new InvalidOperationException("Access token is missing a 'sub' claim.");
-        return Guid.Parse(value);
-    }
+    public static Guid GetUserId(this ClaimsPrincipal principal) =>
+        Guid.TryParse(principal.FindFirstValue(JwtRegisteredClaimNames.Sub), out var id)
+            ? id
+            : throw new InvalidAccessTokenException();
 }

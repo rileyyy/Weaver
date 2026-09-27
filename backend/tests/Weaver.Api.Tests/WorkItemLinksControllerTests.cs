@@ -2,8 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Weaver.Api.Contracts;
 using Weaver.Api.Controllers;
-using Weaver.Domain;
-using Weaver.Infrastructure.Services;
+using Weaver.Application.Services;
 
 namespace Weaver.Api.Tests;
 
@@ -20,21 +19,13 @@ public class WorkItemLinksControllerTests
         _controller = new WorkItemLinksController(_links.Object);
     }
 
-    private static WorkItemLink MakeLink(Guid workItemId, Guid linkedWorkItemId) => new()
-    {
-        Id = Guid.NewGuid(),
-        WorkItemId = workItemId,
-        LinkedWorkItemId = linkedWorkItemId,
-        CreatedAtUtc = DateTimeOffset.UtcNow,
-        WorkItem = new WorkItem { Id = workItemId, Title = "A", StatusId = Guid.NewGuid() },
-        LinkedWorkItem = new WorkItem { Id = linkedWorkItemId, Title = "B", StatusId = Guid.NewGuid() },
-    };
+    private static WorkItemLinkView MakeLink(Guid linkedWorkItemId) => new(Guid.NewGuid(), linkedWorkItemId, "B");
 
     [Test]
     public async Task ListForWorkItem_DelegatesToServiceAndReturnsOk()
     {
         var workItemId = Guid.NewGuid();
-        var link = MakeLink(workItemId, Guid.NewGuid());
+        var link = MakeLink(Guid.NewGuid());
         _links.Setup(l => l.ListForWorkItemAsync(workItemId, It.IsAny<CancellationToken>())).ReturnsAsync([link]);
 
         var result = await _controller.ListForWorkItem(workItemId);
@@ -46,18 +37,19 @@ public class WorkItemLinksControllerTests
     }
 
     [Test]
-    public async Task Create_DelegatesToServiceAndReturnsOk()
+    public async Task Create_DelegatesToServiceAndReturnsCreated()
     {
         var workItemId = Guid.NewGuid();
         var targetId = Guid.NewGuid();
-        var link = MakeLink(workItemId, targetId);
+        var link = MakeLink(targetId);
         _links.Setup(l => l.CreateAsync(workItemId, targetId, It.IsAny<CancellationToken>())).ReturnsAsync(link);
 
         var result = await _controller.Create(workItemId, new CreateWorkItemLinkRequest(targetId));
 
-        var ok = result.Result as OkObjectResult;
-        Assert.That(ok, Is.Not.Null);
-        Assert.That((ok!.Value as WorkItemLinkDto)!.LinkedWorkItemId, Is.EqualTo(targetId));
+        var created = result.Result as CreatedAtActionResult;
+        Assert.That(created, Is.Not.Null);
+        Assert.That(created!.ActionName, Is.EqualTo(nameof(WorkItemLinksController.ListForWorkItem)));
+        Assert.That((created.Value as WorkItemLinkDto)!.LinkedWorkItemId, Is.EqualTo(targetId));
     }
 
     [Test]

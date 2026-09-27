@@ -1,13 +1,20 @@
 using Microsoft.AspNetCore.Mvc;
 using Weaver.Api.Contracts;
-using Weaver.Infrastructure.Services;
+using Weaver.Application.Services;
 
 namespace Weaver.Api.Controllers;
 
 [ApiController]
 [Route("api/work-items")]
+// The bearer challenge has no body.
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
 public class WorkItemsController : ControllerBase
 {
+    public const int DefaultPageSize = 500;
+
     private readonly IWorkItemService _workItems;
 
     public WorkItemsController(IWorkItemService workItems)
@@ -37,14 +44,16 @@ public class WorkItemsController : ControllerBase
     }
 
     /// <summary>
-    /// Every work item, flat and unscoped. Used by the Hierarchy view to
-    /// build a full parent/child tree client-side — see
+    /// One page of every work item, flat and unscoped, for the Hierarchy and Roadmap views,
+    /// which page until a response comes back shorter than <paramref name="limit"/> — see
     /// <see cref="IWorkItemService.GetAllAsync"/>.
     /// </summary>
     [HttpGet("all")]
-    public async Task<ActionResult<IReadOnlyList<WorkItemDto>>> GetAll()
+    public async Task<ActionResult<IReadOnlyList<WorkItemDto>>> GetAll(
+        [FromQuery] int offset = 0,
+        [FromQuery] int limit = DefaultPageSize)
     {
-        var items = await _workItems.GetAllAsync();
+        var items = await _workItems.GetAllAsync(offset, limit);
         return Ok(items.Select(WorkItemDto.FromEntity));
     }
 
@@ -56,6 +65,7 @@ public class WorkItemsController : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType<WorkItemDto>(StatusCodes.Status201Created)]
     public async Task<ActionResult<WorkItemDto>> Create(CreateWorkItemRequest request)
     {
         var item = await _workItems.CreateAsync(
@@ -74,7 +84,7 @@ public class WorkItemsController : ControllerBase
     /// <summary>
     /// Moves a work item to a different column. Cannot reparent — see <see cref="Reparent"/>.
     /// </summary>
-    [HttpPost("{id:guid}/status")]
+    [HttpPut("{id:guid}/status")]
     public async Task<ActionResult<WorkItemDto>> ChangeStatus(Guid id, ChangeWorkItemStatusRequest request)
     {
         var item = await _workItems.ChangeStatusAsync(id, request.StatusId, request.AfterId);
@@ -84,7 +94,7 @@ public class WorkItemsController : ControllerBase
     /// <summary>
     /// Moves a work item to a different parent. Cannot change its status — see <see cref="ChangeStatus"/>.
     /// </summary>
-    [HttpPost("{id:guid}/parent")]
+    [HttpPut("{id:guid}/parent")]
     public async Task<ActionResult<WorkItemDto>> Reparent(Guid id, ReparentWorkItemRequest request)
     {
         var item = await _workItems.ReparentAsync(id, request.ParentId, request.AfterId);
@@ -95,7 +105,7 @@ public class WorkItemsController : ControllerBase
     /// Sets a work item's scheduled start/end. Independent of status and
     /// parent — see <see cref="ChangeStatus"/>/<see cref="Reparent"/>.
     /// </summary>
-    [HttpPost("{id:guid}/schedule")]
+    [HttpPut("{id:guid}/schedule")]
     public async Task<ActionResult<WorkItemDto>> Reschedule(Guid id, RescheduleWorkItemRequest request)
     {
         var item = await _workItems.RescheduleAsync(id, request.StartDate, request.EndDate, request.ExpectedVersion);
@@ -123,7 +133,7 @@ public class WorkItemsController : ControllerBase
     /// Sets or clears who a work item is assigned to. Independent of every
     /// other field.
     /// </summary>
-    [HttpPost("{id:guid}/assignee")]
+    [HttpPut("{id:guid}/assignee")]
     public async Task<ActionResult<WorkItemDto>> Assign(Guid id, AssignWorkItemRequest request)
     {
         var item = await _workItems.AssignAsync(id, request.UserId);
@@ -134,7 +144,7 @@ public class WorkItemsController : ControllerBase
     /// Replaces a work item's full tag list. Independent of every other
     /// field.
     /// </summary>
-    [HttpPost("{id:guid}/tags")]
+    [HttpPut("{id:guid}/tags")]
     public async Task<ActionResult<WorkItemDto>> SetTags(Guid id, SetTagsWorkItemRequest request)
     {
         var item = await _workItems.SetTagsAsync(id, request.Tags, request.ExpectedVersion);
@@ -142,6 +152,7 @@ public class WorkItemsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(Guid id, [FromQuery] bool cascade = false)
     {
         await _workItems.DeleteAsync(id, cascade);

@@ -1,7 +1,7 @@
 using Moq;
 using Weaver.Api.Mcp;
+using Weaver.Application.Services;
 using Weaver.Domain;
-using Weaver.Infrastructure.Services;
 
 namespace Weaver.Api.Tests.Mcp;
 
@@ -12,7 +12,7 @@ public class UserToolsTests
     public async Task ListUsers_DelegatesToServiceAndMapsResults()
     {
         var users = new Mock<IUserService>(MockBehavior.Strict);
-        var user = new User { Id = Guid.NewGuid(), Username = "alice", NormalizedUsername = "alice", PasswordHash = "hash" };
+        var user = User.CreateHuman("alice", "alice");
         users.Setup(u => u.ListAsync(It.IsAny<CancellationToken>())).ReturnsAsync([user]);
         var tools = new UserTools(users.Object);
 

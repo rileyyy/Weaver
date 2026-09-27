@@ -1,0 +1,36 @@
+using Microsoft.EntityFrameworkCore;
+using Weaver.Application.Persistence;
+using Weaver.Domain;
+using Weaver.Domain.Exceptions;
+
+namespace Weaver.Application.Services;
+
+public class BoardService : IBoardService
+{
+    private readonly IWeaverDbContext _db;
+
+    public BoardService(IWeaverDbContext db)
+    {
+        _db = db;
+    }
+
+    public async Task<IReadOnlyList<Board>> GetAllAsync(CancellationToken ct = default) =>
+        await _db.Boards.AsNoTracking().OrderBy(b => b.Name).ThenBy(b => b.Id).ToListAsync(ct);
+
+    public Task<Board?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
+        _db.Boards.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id, ct);
+
+    public async Task<Board> CreateAsync(string name, Guid? scopeItemId, CancellationToken ct = default)
+    {
+        if (scopeItemId is not null && !await _db.WorkItems.AnyAsync(w => w.Id == scopeItemId, ct))
+        {
+            throw new EntityNotFoundException(nameof(WorkItem), scopeItemId.Value);
+        }
+
+        var board = Board.Create(name, scopeItemId);
+
+        _db.Boards.Add(board);
+        await _db.SaveChangesAsync(ct);
+        return board;
+    }
+}

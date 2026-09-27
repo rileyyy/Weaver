@@ -1,13 +1,15 @@
 # Small, self-hosted-friendly image: publish on the full SDK, run on the
 # Alpine ASP.NET runtime so the shipped image doesn't carry the SDK/compiler
-# toolchain. Built from the repo root so it can COPY across all three
-# projects' csproj files before the full source, keeping `dotnet restore`
-# cacheable as its own layer.
+# toolchain. Built from the repo root so it can COPY the central package
+# versions and every project's csproj before the full source, keeping
+# `dotnet restore` cacheable as its own layer.
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS build
 WORKDIR /source
 
+COPY backend/Directory.Packages.props ./
 COPY backend/src/Weaver.Domain/Weaver.Domain.csproj src/Weaver.Domain/
+COPY backend/src/Weaver.Application/Weaver.Application.csproj src/Weaver.Application/
 COPY backend/src/Weaver.Infrastructure/Weaver.Infrastructure.csproj src/Weaver.Infrastructure/
 COPY backend/src/Weaver.Api/Weaver.Api.csproj src/Weaver.Api/
 RUN dotnet restore src/Weaver.Api/Weaver.Api.csproj

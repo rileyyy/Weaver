@@ -1,15 +1,16 @@
+using Microsoft.EntityFrameworkCore;
 using ModelContextProtocol;
+using Weaver.Api.Middleware;
 using Weaver.Domain.Exceptions;
 
 namespace Weaver.Api.Mcp;
 
 /// <summary>
-/// Translates the same domain exceptions <see cref="Weaver.Api.Middleware.ApiExceptionMiddleware"/>
-/// maps to HTTP status codes into <see cref="McpException"/>, so an MCP client sees the same
-/// message a REST caller would (e.g. "Work item {id} was not found.") instead of the generic,
-/// detail-free message the SDK substitutes for an unrecognized exception type. This is
-/// transport-specific error presentation, not a second copy of any business rule — the
-/// exceptions themselves are still only ever thrown from the Application services.
+/// Translates the same failures <see cref="ApiExceptionMiddleware"/> maps to HTTP statuses into
+/// <see cref="McpException"/>, so an MCP client sees the same message a REST caller would
+/// (e.g. "Work item {id} was not found.") instead of the generic, detail-free message the SDK
+/// substitutes for an unrecognized exception type. Every <see cref="DomainException"/> is
+/// covered, so a new one needs no change here.
 /// </summary>
 public static class McpExceptionTranslation
 {
@@ -19,34 +20,20 @@ public static class McpExceptionTranslation
         {
             return await operation();
         }
-        catch (Exception ex) when (IsKnownDomainException(ex))
+        catch (DomainException ex)
         {
             throw new McpException(ex.Message, ex);
         }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new McpException(ApiExceptionMiddleware.ConcurrencyConflictMessage, ex);
+        }
     }
 
-    public static async Task TranslateAsync(Func<Task> operation)
-    {
-        try
+    public static Task TranslateAsync(Func<Task> operation) =>
+        TranslateAsync(async () =>
         {
             await operation();
-        }
-        catch (Exception ex) when (IsKnownDomainException(ex))
-        {
-            throw new McpException(ex.Message, ex);
-        }
-    }
-
-    private static bool IsKnownDomainException(Exception ex) => ex is
-        EntityNotFoundException or
-        DomainValidationException or
-        CyclicParentException or
-        WorkItemHasChildrenException or
-        WorkItemIsBoardScopeException or
-        WorkItemVersionConflictException or
-        InvalidWorkItemScheduleException or
-        InvalidWorkItemTagException or
-        CommentAuthorMismatchException or
-        SelfWorkItemLinkException or
-        DuplicateWorkItemLinkException;
+            return true;
+        });
 }

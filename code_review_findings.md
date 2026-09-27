@@ -50,7 +50,7 @@ The most important problems cluster in four areas:
 ### High
 
 #### B-H1. `appsettings.json` ships a JWT signing key, which defeats the startup guard
-- [ ] **Resolved** — *Deferred: the committed key is dev-only and not used by any production deployment yet. Revisit before Milestone 15 (production deployment).*
+- [x] **Resolved** in `feature/backend-review-cleanup`: the dev key and connection string moved to `appsettings.Development.json`. `JwtSigningKeyPolicy` rejects a missing key, one under 32 bytes, or the public dev key outside Development, and a missing connection string also stops startup. Integration tests boot a Production host to prove each case refuses to start.
 - **Where:** [appsettings.json:12-14](backend/src/Weaver.Api/appsettings.json#L12-L14), [Program.cs:56-61](backend/src/Weaver.Api/Program.cs#L56-L61), [JwtOptions.cs:3-9](backend/src/Weaver.Infrastructure/Auth/JwtOptions.cs#L3-L9)
 - **Issue:** `Program.cs` throws if `Jwt:SigningKey` is empty, and the `JwtOptions` doc says the key "has no default and startup should fail loudly without one". But `appsettings.json`, which loads in every environment, contains `insecure-development-only-signing-key-do-not-use-in-production`. So the guard can never fire. Any deployment that forgets `Jwt__SigningKey` (for example, running the image outside `compose.yaml`) silently signs tokens with a key that is public in the repo, and anyone can forge a token for any user. The same file also ships a default DB password.
 - **Fix:**
@@ -58,7 +58,7 @@ The most important problems cluster in four areas:
   - Also reject keys shorter than 32 bytes (HS256 minimum) and the known placeholder value when not in Development.
 
 #### B-H2. Deleting a linked work item or a board's scope item returns 500
-- [x] **Resolved** in `bugfix/delete-linked-work-item`: links are removed with the deleted items, and deleting a board's scope item returns 409. Checked by hand against real Postgres; the automated real-Postgres test is still pending [T-1](#t-1-no-integration-tests-against-a-real-pipeline-or-database).
+- [x] **Resolved** in `bugfix/delete-linked-work-item`: links are removed with the deleted items, and deleting a board's scope item returns 409. Covered against real Postgres by the [T-1](#t-1-no-integration-tests-against-a-real-pipeline-or-database) integration tests.
 - **Where:** [WorkItemLinkConfiguration.cs:18-26](backend/src/Weaver.Infrastructure/Configurations/WorkItemLinkConfiguration.cs#L18-L26), [BoardConfiguration.cs:13-16](backend/src/Weaver.Infrastructure/Configurations/BoardConfiguration.cs#L13-L16), [WorkItemService.cs:220-234](backend/src/Weaver.Infrastructure/Services/WorkItemService.cs#L220-L234), [ApiExceptionMiddleware.cs](backend/src/Weaver.Api/Middleware/ApiExceptionMiddleware.cs)
 - **Issue:** Both `WorkItemLink` FKs and `Board.ScopeItemId` are `Restrict`. `DeleteAsync` removes neither links nor boards first, so Postgres rejects the delete with a `DbUpdateException`. The middleware doesn't map that exception, so the client gets an opaque 500. A cascade delete fails entirely if *any* descendant has a link. `agent_notes.md:659-668` acknowledges the restriction but not the 500. The InMemory provider used in tests doesn't enforce these FKs, so no test catches it.
 - **Fix:** Decide on the behaviour first:
@@ -105,25 +105,25 @@ The most important problems cluster in four areas:
 - **Fix:** Validate in the service or domain layer (so REST and MCP share it) and throw a typed domain exception → 400. Share the max-length constants between validation and the EF configurations.
 
 #### B-M2. Anemic domain model: invariants live in services, and every setter is public
-- [ ] **Resolved**
+- [x] **Resolved** in `feature/backend-review-cleanup`: `WorkItem`, `Comment`, `Board`, `WorkItemLink`, `User` and `RefreshToken` have private setters, factories and behaviour methods (`Reschedule`, `SetTags`, `MoveToStatus` (never reparents), `MoveToParent`, `Comment.Edit`, `User.RecordFailedLogin`, `RefreshToken.RotateTo`, …). Services orchestrate loading and saving. The EF model is unchanged (no migration). `Weaver.Domain.Tests` now covers these rules. `Status` and `WorkItemLayer` have no invariants and were left as they are.
 - **Where:** [WorkItem.cs](backend/src/Weaver.Domain/WorkItem.cs), [WorkItemService.cs:127-218](backend/src/Weaver.Infrastructure/Services/WorkItemService.cs#L127-L218)
 - **Issue:** Rules such as "start ≤ end", tag normalisation, and "status change never reparents" are enforced in `WorkItemService`, not on `WorkItem`. Any code with a `WorkItem` can bypass them (`item.StartDate = …`). This also forces every rule test through EF.
 - **Fix:** Move behaviour onto the entity (`item.Reschedule(start, end, clock)`, `item.SetTags(tags)`, `item.MoveTo(status, rank)`) with private setters. Services then orchestrate loading and saving, and the rules become plain unit tests in `Weaver.Domain.Tests`, which today only covers `RankCalculator`.
 
 #### B-M3. "Application" services live in Infrastructure and depend on the concrete `DbContext`
-- [ ] **Resolved**
+- [x] **Resolved** in `feature/backend-review-cleanup`: a new `Weaver.Application` project holds the services, `JwtOptions` and `IJwtTokenService`, and queries through `IWeaverDbContext` (EF Core's `DbSet` API, no provider). Infrastructure keeps `WeaverDbContext`, configurations, migrations and JWT signing. The service tests moved to `Weaver.Application.Tests`. Each layer registers itself with `AddWeaverApplication()` / `AddWeaverInfrastructure()`.
 - **Where:** `backend/src/Weaver.Infrastructure/Services/*`
 - **Issue:** Business orchestration (cycle detection, rank computation, auth lockout) is in the Infrastructure project and uses `WeaverDbContext` directly. `McpExceptionTranslation`'s doc even refers to "the Application services", a layer that doesn't exist. As a result, services can only be tested with an EF provider, and the provider in use (InMemory) behaves differently from Postgres ([T-1](#t-1-no-integration-tests-against-a-real-pipeline-or-database)).
 - **Fix (incremental):** Add a `Weaver.Application` project for services and interfaces, and keep Infrastructure for EF, JWT and configuration. The `IXxxService` interfaces already exist, so this is mostly a file move. Don't hide EF behind a generic repository unless there's a concrete need.
 
 #### B-M4. The exception-to-status mapping is duplicated in two hand-maintained lists
-- [ ] **Resolved**
+- [x] **Resolved** in `feature/backend-review-cleanup`: every domain exception derives from `DomainException` with a `DomainErrorKind`. `DomainErrorStatusCodes` is the only kind-to-status map. The middleware has one `catch` and writes `application/problem+json` through `IProblemDetailsService`, and MCP translates every `DomainException` plus stray `DbUpdateConcurrencyException`s. `IExceptionHandler` was not used: in .NET 9 its middleware logs every handled exception at error level.
 - **Where:** [ApiExceptionMiddleware.cs:26-84](backend/src/Weaver.Api/Middleware/ApiExceptionMiddleware.cs#L26-L84), [McpExceptionTranslation.cs:40-48](backend/src/Weaver.Api/Mcp/McpExceptionTranslation.cs#L40-L48)
 - **Issue:** Adding a domain exception means editing a 14-branch `catch` chain *and* a separate `is … or …` list, and the two already differ (MCP lacks `DbUpdateConcurrencyException`). This violates Open/Closed.
 - **Fix:** Introduce an abstract `DomainException` with a `Kind` (NotFound, Conflict, Validation, Forbidden, Unauthorized). Map `Kind` to a status in one place, and translate all `DomainException`s in MCP. Consider `IExceptionHandler` + `AddProblemDetails()` (built into .NET 8+), which also sets `application/problem+json` correctly; the current `WriteAsJsonAsync` sends `application/json`.
 
 #### B-M5. Unmapped framework exceptions leak as 500
-- [ ] **Resolved**
+- [x] **Resolved** in `feature/backend-review-cleanup`: `GetUserId` uses `TryParse` and throws `InvalidAccessTokenException` (401). `WeaverDbContext` turns Postgres `23505` into `UniqueConstraintViolationException` (409), and registration reports a lost race as `UsernameTakenException`. A cell whose neighbours share a rank is respaced instead of throwing. Integration tests cover the translation and five concurrent registrations of one name (one 200, the rest 409).
 - **Issue:** Several ordinary failures surface as 500:
   - `ClaimsPrincipalExtensions.GetUserId` uses `Guid.Parse` and throws `FormatException` on a malformed `sub` ([ClaimsPrincipalExtensions.cs:16-18](backend/src/Weaver.Api/Auth/ClaimsPrincipalExtensions.cs#L16-L18)).
   - `RankCalculator` throws `ArgumentException` if two siblings share a rank, which concurrent inserts at the same position can produce ([RankCalculator.cs:31-36](backend/src/Weaver.Domain/RankCalculator.cs#L31-L36)).
@@ -131,7 +131,7 @@ The most important problems cluster in four areas:
 - **Fix:** Use `Guid.TryParse` and reject with 401. Handle unique violations (`PostgresException.SqlState == "23505"`) as 409. Make ranks robust to ties: rebalance the cell when `previous >= next`.
 
 #### B-M6. Auth hardening
-- [ ] **Resolved**
+- [x] **Resolved** in `feature/backend-review-cleanup`: the auth endpoints are rate-limited per IP (429 with `Retry-After`; the login screen shows the server's message). Unknown and locked-out users are verified against a dummy hash, and an expired lockout resets the failure count. **By decision (2026-09-27), registration stays open** as an accepted risk for a single-team deployment. That, and the agent API-key flow, are recorded in `docs/open-questions.md`.
 - **Where:** [AuthController.cs](backend/src/Weaver.Api/Controllers/AuthController.cs), [AuthService.cs:58-93, 126-135](backend/src/Weaver.Infrastructure/Services/AuthService.cs#L58-L93)
 - **Issues:**
   - **Open self-registration:** anyone who can reach the API can create an account and then read and modify every work item. There is no per-board or per-tenant authorization.
@@ -147,7 +147,7 @@ The most important problems cluster in four areas:
   - Plan an API-key or service-account flow for agents.
 
 #### B-M7. Unbounded and N+1 queries
-- [ ] **Resolved** — *partly: the board's per-lane N+1 is gone (F-M9), and the child/all/swimlane queries have a deterministic `Rank, Number` order. Paging, `AsNoTracking` elsewhere and the ancestor/descendant walks are still open.*
+- [x] **Resolved**: the board's per-lane N+1 went with F-M9. In `feature/backend-review-cleanup`, reads use `AsNoTracking()`, boards are ordered, and rank placement reads only the neighbouring ranks (the whole cell only to respace ties). Ancestor and descendant walks are single recursive CTEs behind `IWorkItemHierarchy`, and `/work-items/all` takes `offset`/`limit` (max 1000), which the frontend pages through. Covered by integration tests on Postgres.
 - **Where:** [WorkItemService.cs:25-28](backend/src/Weaver.Infrastructure/Services/WorkItemService.cs#L25-L28) (`GetAllAsync`, no paging), [WorkItemService.cs:245-286](backend/src/Weaver.Infrastructure/Services/WorkItemService.cs#L245-L286) (one query per ancestor level / descendant level), [WorkItemService.cs:301](backend/src/Weaver.Infrastructure/Services/WorkItemService.cs#L301) (whole cell loaded to compute one rank), [BoardService.cs:16-17](backend/src/Weaver.Infrastructure/Services/BoardService.cs#L16-L17) (no ordering)
 - **Issue:** Fine at today's scale, but the frontend fetches `/work-items/all` for Hierarchy and Roadmap. The code comment "revisit if item counts grow" has no metric attached.
 - **Fix:**
@@ -158,7 +158,7 @@ The most important problems cluster in four areas:
   - Give `GetAllAsync` a deterministic order.
 
 #### B-M8. Startup auto-migration and hosting details
-- [ ] **Resolved** — *partly: forwarded headers and dropping `UseHttpsRedirection` were done with I-H1, and `/health` with I-M1. Moving migrations out of startup is still open.*
+- [x] **Resolved**: forwarded headers and dropping `UseHttpsRedirection` came with I-H1, and `/health` with I-M1. In `feature/backend-review-cleanup`, migrations moved out of startup: `dotnet Weaver.Api.dll migrate` runs them as a one-shot compose `migrate` service that the backend waits for (`service_completed_successfully`). Startup migration is opt-in (`Database:MigrateOnStartup`, on only in Development). Verified with the production image: `migrate` applied all 10 migrations and exited 0, and the API then started without migrating and reported Healthy.
 - **Where:** [Program.cs:107-110, 120](backend/src/Weaver.Api/Program.cs#L107-L110)
 - **Issues:**
   - `MigrateAsync()` on every boot races if more than one replica starts, and it applies schema changes without a deploy gate.
@@ -171,22 +171,22 @@ The most important problems cluster in four areas:
 
 ### Low
 
-- [ ] **B-L1. `UpdatedAtUtc` is set by hand in 8 places, and `DateTimeOffset.UtcNow` is called directly everywhere.** Use a `SaveChanges` interceptor for timestamps and inject `TimeProvider` so the lockout, expiry and schedule tests don't depend on wall-clock time.
-- [ ] **B-L2. Inconsistent REST responses.**
+- [x] *(Resolved in `feature/backend-review-cleanup`: `TimestampInterceptor` stamps `IHasCreatedAt`/`IHasUpdatedAt` entities from an injected `TimeProvider`, and every other clock read (lockout, token expiry and rotation, comment edits, JWT expiry) goes through it. `RefreshToken.IsActive` became `IsActiveAt(now)`. Tests use a `FixedTimeProvider`, including a lockout that expires when the clock is advanced.)* **B-L1. `UpdatedAtUtc` is set by hand in 8 places, and `DateTimeOffset.UtcNow` is called directly everywhere.** Use a `SaveChanges` interceptor for timestamps and inject `TimeProvider` so the lockout, expiry and schedule tests don't depend on wall-clock time.
+- [x] *(Resolved in `feature/backend-review-cleanup`: creating a comment or link returns `201` with a `Location` (a new `GET /api/comments/{id}` backs the comment one). Field updates are `PUT`s, and the Flutter client was switched to match. Controllers declare `201`/`204` and `application/problem+json` error responses, which an integration test checks in the OpenAPI document.)* **B-L2. Inconsistent REST responses.**
   - `POST` comments and links return `200 Ok` while work items and boards return `201 CreatedAtAction` ([CommentsController.cs:29](backend/src/Weaver.Api/Controllers/CommentsController.cs#L29), [WorkItemLinksController.cs:28](backend/src/Weaver.Api/Controllers/WorkItemLinksController.cs#L28)).
   - Mutations use `POST /{id}/status` etc. rather than `PATCH`/`PUT`.
   - The controllers have no `[ProducesResponseType]`, so the OpenAPI doc lacks error shapes.
-- [ ] **B-L3. Multiple types per file** (against CLAUDE.md §2.4):
+- [x] *(Resolved in `feature/backend-review-cleanup`: every type has its own file, including the request records and `WorkItemLinkDto`/`CommentDto`/`BoardDto` companions not on the original list.)* **B-L3. Multiple types per file** (against CLAUDE.md §2.4):
   - `Status.cs` (+`StatusCategory`), `User.cs` (+`UserKind`), `WorkItem.cs` (+`WorkItemPriority`)
   - `AuthDto.cs` (6 records), `WorkItemDto.cs` (+`WorkItemLayerDto` and 7 request records)
   - `IJwtTokenService.cs` (+`AccessToken`), `IAuthService.cs` (+`AuthResult`)
-- [ ] **B-L4. Leftover scaffold.**
+- [x] *(Resolved in `feature/backend-review-cleanup`: `Weaver.Api.http` holds real dev requests (login, then authenticated calls reusing its token), the template comments are gone, and DI moved into `AddWeaverApplication()` / `AddWeaverInfrastructure()` with B-M3.)* **B-L4. Leftover scaffold.**
   - [Weaver.Api.http](backend/src/Weaver.Api/Weaver.Api.http) still targets `/weatherforecast/`.
   - `Program.cs:17` has the "Add services to the container." template comment.
   - The DI registrations could become an `AddWeaverInfrastructure()` extension in Infrastructure, keeping `Program.cs` focused on the pipeline.
-- [ ] **B-L5. `CommentDto` hides a missing author** by returning `AuthorUsername = ""` ([CommentDto.cs:18](backend/src/Weaver.Api/Contracts/CommentDto.cs#L18)). `WorkItemLinkDto` uses `!` on navigation properties that callers must remember to `Include` ([WorkItemLinkDto.cs:14](backend/src/Weaver.Api/Contracts/WorkItemLinkDto.cs#L14)). Project straight to DTOs in the query instead.
-- [ ] **B-L6. Package versions are inconsistent.** `Microsoft.AspNetCore.OpenApi` is 9.0.7, `JwtBearer`/`Identity.Core` are 9.0.9, and EF is 9.0.20. Consider `Directory.Packages.props` (central package management) so one bump updates them all.
-- [ ] **B-L7. `WouldCreateCycleAsync` returns `false` when it detects an *existing* cycle** ([WorkItemService.cs:256-259](backend/src/Weaver.Infrastructure/Services/WorkItemService.cs#L256-L259)). That state should be impossible, but reporting "no cycle" hides corruption. Throw or log instead.
+- [x] *(Resolved in `feature/backend-review-cleanup`: the comment and link services project in the query to `CommentView` / `WorkItemLinkView` read models, which the DTOs map 1:1. There are no navigation properties to `Include` and no `""` fallback, and `IWeaverDbContext.Entry` is gone.)* **B-L5. `CommentDto` hides a missing author** by returning `AuthorUsername = ""` ([CommentDto.cs:18](backend/src/Weaver.Api/Contracts/CommentDto.cs#L18)). `WorkItemLinkDto` uses `!` on navigation properties that callers must remember to `Include` ([WorkItemLinkDto.cs:14](backend/src/Weaver.Api/Contracts/WorkItemLinkDto.cs#L14)). Project straight to DTOs in the query instead.
+- [x] *(Resolved in `feature/backend-review-cleanup`: `backend/Directory.Packages.props`. All ASP.NET Core and EF Core packages share one `MicrosoftPlatformVersion` (9.0.20).)* **B-L6. Package versions are inconsistent.** `Microsoft.AspNetCore.OpenApi` is 9.0.7, `JwtBearer`/`Identity.Core` are 9.0.9, and EF is 9.0.20. Consider `Directory.Packages.props` (central package management) so one bump updates them all.
+- [x] *(Resolved in `feature/backend-review-cleanup`: the ancestor walk uses Postgres's `CYCLE` clause and throws on a pre-existing cycle, which `UseExceptionHandler` logs and answers as a problem-details 500. An integration test corrupts a tree to prove it.)* **B-L7. `WouldCreateCycleAsync` returns `false` when it detects an *existing* cycle** ([WorkItemService.cs:256-259](backend/src/Weaver.Infrastructure/Services/WorkItemService.cs#L256-L259)). That state should be impossible, but reporting "no cycle" hides corruption. Throw or log instead.
 
 ---
 
@@ -366,7 +366,7 @@ The most important problems cluster in four areas:
 ## 4. Testing
 
 #### T-1. No integration tests against a real pipeline or database
-- [ ] **Resolved**
+- [x] **Resolved** in `feature/backend-review-cleanup`: `Weaver.Api.IntegrationTests` (`WebApplicationFactory<Program>` + Testcontainers `postgres:16-alpine`, run in the `Production` environment). It covers the auth fallback policy, JWT rejection, register/login/refresh, CORS, enum serialization, identity `Number`, `text[]` tags, delete-with-links and board-scope deletes (B-H2), `xmin` conflicts (B-H3), problem-details 404s, and MCP over HTTP with and without a token. CI's existing `dotnet test` step picks it up.
 - **Issue:** Backend tests are controller tests with mocked services, service tests on **EF InMemory**, and one `RankCalculator` suite. So the following are never tested:
   - the auth fallback policy, JWT validation, CORS and `ApiExceptionMiddleware` (no tests at all)
   - JSON enum serialization end-to-end
@@ -383,7 +383,7 @@ There are no `Completer`-based tests, so none of these are covered: parallel ref
 `test/widget_test.dart` is a DI smoke test, and it is the only widget test. There is none for `BoardView`, `LoginView`, `AuthGate`, `WorkItemDetailView`, `CommentTile` (which would have caught F-M11), `CreateWorkItemDialog`, or drag/drop acceptance in `StatusColumn`/`SwimlaneLabel`.
 
 #### T-4. Pure logic without unit tests
-- [ ] **Resolved** — *partly: the frontend list is covered (`ApiConfig`, `parseStatusColor`, `formatDate` and `RoadmapTimeframe` in `feature/frontend-review-cleanup`; the roadmap bar and the hierarchy time window in earlier branches). The backend domain rules wait on B-M2.*
+- [x] **Resolved**: the backend domain rules are unit-tested in `Weaver.Domain.Tests` (`feature/backend-review-cleanup`, with B-M2). The frontend list is covered in `feature/frontend-review-cleanup`.
 - **Frontend:** `ApiConfig.baseUrl`, `parseStatusColor`, `formatDate`, `RoadmapTimeframe`, the roadmap bar computation (private in a widget, so extract it first), and the hierarchy time-window filter.
 - **Backend:** domain rules, once they move onto the entities (B-M2).
 

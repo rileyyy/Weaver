@@ -1,9 +1,9 @@
 using ModelContextProtocol;
 using Moq;
 using Weaver.Api.Mcp;
+using Weaver.Application.Services;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
-using Weaver.Infrastructure.Services;
 
 namespace Weaver.Api.Tests.Mcp;
 
@@ -23,7 +23,7 @@ public class BoardToolsTests
     [Test]
     public async Task ListBoards_DelegatesToServiceAndMapsResults()
     {
-        var board = new Board { Id = Guid.NewGuid(), Name = "Main" };
+        var board = Board.Create("Main", null);
         _boards.Setup(b => b.GetAllAsync(It.IsAny<CancellationToken>())).ReturnsAsync([board]);
 
         var result = await _tools.ListBoards(CancellationToken.None);

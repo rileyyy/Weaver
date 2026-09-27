@@ -4,9 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Weaver.Api.Contracts;
 using Weaver.Api.Controllers;
+using Weaver.Application.Auth;
+using Weaver.Application.Services;
 using Weaver.Domain;
-using Weaver.Infrastructure.Auth;
-using Weaver.Infrastructure.Services;
 
 namespace Weaver.Api.Tests;
 
@@ -23,15 +23,7 @@ public class AuthControllerTests
         _controller = new AuthController(_auth.Object);
     }
 
-    private static User MakeUser() => new()
-    {
-        Id = Guid.NewGuid(),
-        Username = "alice",
-        NormalizedUsername = "alice",
-        PasswordHash = "hashed",
-        CreatedAtUtc = DateTimeOffset.UtcNow,
-        UpdatedAtUtc = DateTimeOffset.UtcNow,
-    };
+    private static User MakeUser() => User.CreateHuman("alice", "alice");
 
     private static AuthResult MakeAuthResult(User user) => new(
         user,

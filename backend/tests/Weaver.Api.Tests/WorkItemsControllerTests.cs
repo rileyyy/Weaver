@@ -2,8 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Weaver.Api.Contracts;
 using Weaver.Api.Controllers;
+using Weaver.Application.Services;
 using Weaver.Domain;
-using Weaver.Infrastructure.Services;
 
 namespace Weaver.Api.Tests;
 
@@ -20,16 +20,8 @@ public class WorkItemsControllerTests
         _controller = new WorkItemsController(_workItems.Object);
     }
 
-    private static WorkItem MakeWorkItem(Guid? parentId = null, Guid statusId = default) => new()
-    {
-        Id = Guid.NewGuid(),
-        Title = "Task",
-        ParentId = parentId,
-        StatusId = statusId,
-        Rank = 1.0,
-        CreatedAtUtc = DateTimeOffset.UtcNow,
-        UpdatedAtUtc = DateTimeOffset.UtcNow,
-    };
+    private static WorkItem MakeWorkItem(Guid? parentId = null, Guid statusId = default) =>
+        WorkItem.Create("Task", null, parentId, statusId, rank: 1.0);
 
     [Test]
     public async Task GetById_WhenServiceReturnsNull_ReturnsNotFound()
@@ -57,12 +49,12 @@ public class WorkItemsControllerTests
     }
 
     [Test]
-    public async Task GetAll_ReturnsOkWithEveryItem()
+    public async Task GetAll_ReturnsOkWithTheRequestedPage()
     {
         var items = new[] { MakeWorkItem(), MakeWorkItem() };
-        _workItems.Setup(s => s.GetAllAsync(It.IsAny<CancellationToken>())).ReturnsAsync(items);
+        _workItems.Setup(s => s.GetAllAsync(500, 2, It.IsAny<CancellationToken>())).ReturnsAsync(items);
 
-        var result = await _controller.GetAll();
+        var result = await _controller.GetAll(offset: 500, limit: 2);
 
         var ok = result.Result as OkObjectResult;
         Assert.That(ok, Is.Not.Null);

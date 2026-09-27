@@ -38,34 +38,3 @@ public record WorkItemDto(
         item.UpdatedAtUtc,
         item.Version);
 }
-
-public record WorkItemLayerDto(Guid Id, string Name, int Order)
-{
-    public static WorkItemLayerDto FromEntity(WorkItemLayer layer) => new(layer.Id, layer.Name, layer.Order);
-}
-
-public record CreateWorkItemRequest(
-    string Title,
-    string? Description,
-    Guid? ParentId,
-    Guid StatusId,
-    Guid? AfterId,
-    Guid? LayerId = null,
-    WorkItemPriority Priority = WorkItemPriority.Medium);
-
-public record ChangeWorkItemStatusRequest(Guid StatusId, Guid? AfterId);
-
-public record ReparentWorkItemRequest(Guid? ParentId, Guid? AfterId);
-
-public record RescheduleWorkItemRequest(DateOnly? StartDate, DateOnly? EndDate, uint? ExpectedVersion = null);
-
-public record UpdateWorkItemDetailsRequest(
-    string Title,
-    string? Description,
-    Guid? LayerId,
-    WorkItemPriority Priority,
-    uint? ExpectedVersion = null);
-
-public record AssignWorkItemRequest(Guid? UserId);
-
-public record SetTagsWorkItemRequest(IReadOnlyList<string> Tags, uint? ExpectedVersion = null);

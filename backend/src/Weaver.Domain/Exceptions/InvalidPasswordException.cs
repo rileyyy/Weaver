@@ -1,9 +1,9 @@
 namespace Weaver.Domain.Exceptions;
 
-public class InvalidPasswordException : Exception
+public class InvalidPasswordException : DomainException
 {
     public InvalidPasswordException(string reason)
-        : base(reason)
+        : base(DomainErrorKind.Validation, reason)
     {
     }
 }

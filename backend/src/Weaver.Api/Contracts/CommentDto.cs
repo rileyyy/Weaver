@@ -1,4 +1,4 @@
-using Weaver.Domain;
+using Weaver.Application.Services;
 
 namespace Weaver.Api.Contracts;
 
@@ -11,16 +11,12 @@ public record CommentDto(
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? UpdatedAtUtc)
 {
-    public static CommentDto FromEntity(Comment comment) => new(
+    public static CommentDto FromView(CommentView comment) => new(
         comment.Id,
         comment.WorkItemId,
         comment.AuthorUserId,
-        comment.AuthorUser?.Username ?? string.Empty,
+        comment.AuthorUsername,
         comment.Body,
         comment.CreatedAtUtc,
         comment.UpdatedAtUtc);
 }
-
-public record CreateCommentRequest(string Body);
-
-public record UpdateCommentRequest(string Body);

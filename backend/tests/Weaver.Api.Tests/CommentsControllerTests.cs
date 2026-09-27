@@ -4,8 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Weaver.Api.Contracts;
 using Weaver.Api.Controllers;
-using Weaver.Domain;
-using Weaver.Infrastructure.Services;
+using Weaver.Application.Services;
 
 namespace Weaver.Api.Tests;
 
@@ -30,14 +29,8 @@ public class CommentsControllerTests
         };
     }
 
-    private static Comment MakeComment(Guid workItemId, Guid authorUserId) => new()
-    {
-        Id = Guid.NewGuid(),
-        WorkItemId = workItemId,
-        AuthorUserId = authorUserId,
-        Body = "A comment",
-        CreatedAtUtc = DateTimeOffset.UtcNow,
-    };
+    private static CommentView MakeComment(Guid workItemId, Guid authorUserId) =>
+        new(Guid.NewGuid(), workItemId, authorUserId, "alice", "A comment", DateTimeOffset.UtcNow, null);
 
     [Test]
     public async Task ListForWorkItem_DelegatesToServiceAndReturnsOk()
@@ -56,6 +49,17 @@ public class CommentsControllerTests
     }
 
     [Test]
+    public async Task GetById_WhenMissing_ReturnsNotFound()
+    {
+        var id = Guid.NewGuid();
+        _comments.Setup(c => c.GetAsync(id, It.IsAny<CancellationToken>())).ReturnsAsync((CommentView?)null);
+
+        var result = await _controller.GetById(id);
+
+        Assert.That(result.Result, Is.TypeOf<NotFoundResult>());
+    }
+
+    [Test]
     public async Task Create_UsesTheAuthenticatedUserAsAuthor()
     {
         var workItemId = Guid.NewGuid();
@@ -65,7 +69,9 @@ public class CommentsControllerTests
 
         var result = await _controller.Create(workItemId, new CreateCommentRequest("Hello"));
 
-        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(CommentDto.FromEntity(comment)));
+        var created = result.Result as CreatedAtActionResult;
+        Assert.That(created!.ActionName, Is.EqualTo(nameof(CommentsController.GetById)));
+        Assert.That(created.Value, Is.EqualTo(CommentDto.FromView(comment)));
         _comments.VerifyAll();
     }
 
@@ -79,7 +85,7 @@ public class CommentsControllerTests
 
         var result = await _controller.Update(comment.Id, new UpdateCommentRequest("Edited"));
 
-        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(CommentDto.FromEntity(comment)));
+        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(CommentDto.FromView(comment)));
         _comments.VerifyAll();
     }
 

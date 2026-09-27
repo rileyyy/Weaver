@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Weaver.Application.Auth;
 using Weaver.Domain;
 
 namespace Weaver.Infrastructure.Auth;
@@ -12,15 +13,17 @@ public class JwtTokenService : IJwtTokenService
     public const string KindClaimType = "kind";
 
     private readonly JwtOptions _options;
+    private readonly TimeProvider _clock;
 
-    public JwtTokenService(IOptions<JwtOptions> options)
+    public JwtTokenService(IOptions<JwtOptions> options, TimeProvider clock)
     {
         _options = options.Value;
+        _clock = clock;
     }
 
     public AccessToken CreateAccessToken(User user)
     {
-        var expiresAtUtc = DateTimeOffset.UtcNow.Add(_options.AccessTokenLifetime);
+        var expiresAtUtc = _clock.GetUtcNow().Add(_options.AccessTokenLifetime);
         var claims = new[]
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),

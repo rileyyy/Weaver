@@ -19,19 +19,26 @@ the history is in [CHANGELOG.md](../CHANGELOG.md).
   networking, dates, `ViewModel` base, theme) and `shared/` (what several
   features use: the `WorkItemStatus` and `User` models, cached lookup
   repositories, the `CurrentUser` interface and `WorkItemDetailOpener`).
-- **Database:** PostgreSQL 16 through EF Core (Npgsql). Migrations are
-  applied at API startup (`Database.MigrateAsync()` in `Program.cs`).
+- **Database:** PostgreSQL 16 through EF Core (Npgsql). Migrations are an
+  explicit step: `dotnet Weaver.Api.dll migrate` applies them and exits,
+  and Compose runs it as a one-shot `migrate` service before the backend.
+  Only Development applies them at API startup
+  (`Database:MigrateOnStartup`), because `dotnet watch` restarts often.
+  Applying them on every boot would let replicas race and would crash-loop
+  the API on a failed migration.
 - **Deployment:** Docker Compose: `db`, `backend`, `frontend` (nginx),
   `caddy` (TLS), `backup`.
 
-**The Application layer lives in `Weaver.Infrastructure/Services`.**
-`project_design.md` describes a Domain / Application / Infrastructure / API
-split, but there is no `Weaver.Application` project. The service
-interfaces (`IWorkItemService`, `IBoardService`, …) and their
-implementations sit in `Weaver.Infrastructure/Services` and use
-`WeaverDbContext` directly. Treat that folder as the Application layer.
-Moving it out is tracked as B-M3 in
-[code_review_findings.md](../code_review_findings.md).
+**Projects follow the layers.** `Weaver.Domain` has the entities and
+domain exceptions. `Weaver.Application` has the service interfaces
+(`IWorkItemService`, `IBoardService`, …) and implementations, which query
+through `IWeaverDbContext`: EF Core's `DbSet` API without the Npgsql
+provider, model configuration or migrations. It is deliberately not a
+generic repository; services compose EF queries directly.
+`Weaver.Infrastructure` implements `IWeaverDbContext` with
+`WeaverDbContext` and owns JWT signing. Each layer registers itself
+(`AddWeaverApplication()`, `AddWeaverInfrastructure()`), so `Program.cs`
+only wires the HTTP pipeline.
 
 **Every controller depends only on a service interface**, never on
 `WeaverDbContext`. This lets controller tests mock the service with Moq,
@@ -51,18 +58,25 @@ and it is what allows MCP tools to reuse the same business logic (see
   with no schema change, and drilling into a card on the frontend is just
   loading a different scope.
 - **`ChangeStatus` and `Reparent` are separate operations**
-  (`ChangeStatusAsync` / `ReparentAsync`, `POST /work-items/{id}/status` /
+  (`ChangeStatusAsync` / `ReparentAsync`, `PUT /work-items/{id}/status` /
   `/parent`), each touching only `StatusId` or `ParentId`. That a column
   drag can never reparent an item, and vice versa, is guaranteed by the
   method signatures, not by trusting callers to send one field to a shared
   update endpoint. The frontend mirrors this (see
   [Frontend](#frontend)).
-- **Cycle detection walks up from the proposed parent**
-  (`WouldCreateCycleAsync`), one query per ancestor with a visited set,
-  looking for the item being moved. A recursive SQL query would be fewer
-  round trips, but this works the same on Postgres and on the EF InMemory
-  provider used by the service tests. The direction matters: walk up from
-  the new parent, not down from the item.
+- **Tree walks are single recursive queries.** `IWorkItemHierarchy`
+  (Postgres: `PostgresWorkItemHierarchy`) answers "is the proposed parent
+  this item or a descendant?" by walking up from the proposed parent, and
+  lists a subtree's ids for cascade deletes, each with one recursive CTE
+  instead of a query per level. The walk up uses Postgres's `CYCLE` clause:
+  a tree that already contains a cycle fails loudly (a logged 500) instead
+  of being reported as "no cycle". The EF InMemory service tests use an
+  iterative test double with the same contract; the integration tests
+  cover the SQL. The direction matters: walk up from the new parent, not
+  down from the item.
+- **Ranks load only their neighbours.** Placing an item reads the anchor's
+  rank and the next one up; the whole cell is loaded only when two
+  siblings share a rank and need respacing.
 - **Deleting an item with children requires `cascade: true`**, otherwise
   `WorkItemHasChildrenException` (409). There is no silent subtree loss. A
   cascade loads all descendants and removes them in one `SaveChanges`; EF
@@ -167,18 +181,35 @@ and it is what allows MCP tools to reuse the same business logic (see
   carries the cross-cutting risk that keeps status and parent apart.
 - **DTOs only** (`Weaver.Api/Contracts`); EF entities are never
   serialised.
+- **Verbs follow the resource.** `POST` creates and answers `201` with a
+  `Location` (work items, boards, comments; a link's `Location` is its
+  work item's link list, since a link has no view of its own). Setting a
+  work item field (`/status`, `/parent`, `/schedule`, `/details`,
+  `/assignee`, `/tags`) is a `PUT` to that sub-resource. Controllers
+  declare their `201`/`204` and problem-details error responses, so the
+  OpenAPI document shows the error shapes.
 - **Enums serialise as their string name** (`"Medium"`, `"Human"`) via a
   global `JsonStringEnumConverter` in `Program.cs`. Without it the API
   sent ints, and the frontend's `as String` cast failed on a response that
   had actually succeeded, surfacing as a misleading "could not create
   account". MCP needs the same setting separately (see [MCP](#mcp)).
-- **Errors map to status codes in `ApiExceptionMiddleware`** as
-  `ProblemDetails` bodies: not found → 404; cycles, has-children,
-  board-scope, duplicate link, username taken, version conflict → 409;
-  validation → 400; bad credentials / refresh token → 401; comment
-  author mismatch → 403. The list is hand-maintained and duplicated in
-  `McpExceptionTranslation` (B-M4 in the code review).
-- **Input validation lives in the services**, via `TextValidation` in
+- **Errors map to status codes by kind.** Every expected failure is a
+  `DomainException` carrying a `DomainErrorKind` (NotFound → 404,
+  Validation → 400, Conflict → 409, Unauthorized → 401, Forbidden → 403).
+  `DomainErrorStatusCodes` is the only mapping; `ApiExceptionMiddleware`
+  writes it as `application/problem+json`, and `McpExceptionTranslation`
+  turns any `DomainException` into a tool error with the same message. A
+  new exception needs no transport change. Postgres unique violations are
+  translated to `UniqueConstraintViolationException` (409) inside
+  `WeaverDbContext`, so nothing above Infrastructure sees provider error
+  codes.
+- **Rules live on the entities.** Entities have private setters and
+  change state through methods (`WorkItem.Reschedule`, `SetTags`,
+  `MoveToStatus`, `Comment.Edit`, `User.RecordFailedLogin`, …), so every
+  caller gets the same checks and the rules are plain unit tests in
+  `Weaver.Domain.Tests`. Services keep the rules that need other rows
+  (cycle detection, existence checks, rank neighbours) and orchestrate
+  loading and saving. Field validation uses `TextValidation` in
   `Weaver.Domain`, so REST and MCP share it. A broken rule throws
   `DomainValidationException` (400 in REST, a tool error in MCP). Use it
   for new field rules instead of adding exception types. Max lengths are
@@ -218,10 +249,11 @@ and it is what allows MCP tools to reuse the same business logic (see
   yields a usable credential.
 - **Signing key:** `Jwt:SigningKey` is required; the API refuses to start
   without one or with one under 32 bytes (HS256's minimum), which would
-  otherwise only fail at the first login. Note that
-  `backend/src/Weaver.Api/appsettings.json` still ships a dev key, so the
-  "missing key" check only fires if that file is overridden (B-H1, see
-  [open-questions.md](open-questions.md)).
+  otherwise only fail at the first login. The dev key and connection
+  string live only in `appsettings.Development.json`, and
+  `JwtSigningKeyPolicy` also rejects the public dev key outside
+  Development, so a deployment that forgets `Jwt__SigningKey` fails to
+  start instead of signing tokens anyone could forge.
 - **Passwords** are hashed with `PasswordHasher<User>` (PBKDF2-HMAC-SHA256,
   framework-managed iterations) from the standalone
   `Microsoft.Extensions.Identity.Core` package. The full ASP.NET Core
@@ -231,8 +263,20 @@ and it is what allows MCP tools to reuse the same business logic (see
   case-insensitively.
 - **Login failures are uniform.** Unknown username, wrong password and a
   locked-out account all throw `InvalidCredentialsException` with the same
-  message, so the response can't be used to enumerate usernames or learn
-  lockout state. Five failures lock the account for 15 minutes.
+  message, and the first two paths also verify the password against a
+  dummy hash so they take as long as a real check. Neither the response
+  nor its timing tells a caller whether a username exists or is locked.
+  (Registration still reveals a taken name with a 409; that follows from
+  open registration, see [open-questions.md](open-questions.md).)
+- **Lockout:** five consecutive failures lock the account for 15 minutes
+  (`User.RecordFailedLogin`). An expired lockout starts a fresh count, so
+  the first mistake afterwards doesn't re-lock immediately.
+- **Auth endpoints are rate-limited per client IP** (`register`, `login`,
+  `refresh`, `logout`): 30 requests a minute by default, configurable under
+  `RateLimiting:Auth`, answered with 429, a `Retry-After` header and a
+  problem-details message the login screen shows. The limit is generous
+  enough for a team behind one NAT; the per-account lockout is what stops
+  guessing against one user.
 - **Every endpoint requires authentication by default**, through
   `AddAuthorization(options => options.FallbackPolicy = ...
   RequireAuthenticatedUser())`. A new controller is protected
@@ -493,7 +537,8 @@ and it is what allows MCP tools to reuse the same business logic (see
   order by `Rank, Number` to stay deterministic across columns.
 - **Search, status filter, tag filter, sort and the time-frame filter are
   client-side.** The board already fetches each lane's full child list,
-  and the Hierarchy/Roadmap views fetch `GET /work-items/all`, so these are
+  and the Hierarchy/Roadmap views page through `GET /work-items/all`
+  (`offset`/`limit`, at most 1000 per page, 500 by default), so these are
   predicates and comparators over data in hand. None of them is persisted.
 - **Time-frame filter semantics are interval overlap, not containment**,
   with a missing bound (the item's or the filter's) open-ended. An item
@@ -616,12 +661,12 @@ and it is what allows MCP tools to reuse the same business logic (see
 ### Startup, health and backups
 
 - **Startup is ordered by health.** The API exposes an anonymous `/health`
-  with a database check, not proxied by nginx. Compose waits db → backend
-  → frontend → caddy on `service_healthy`, so Caddy never serves a
-  frontend whose API is still migrating. The backend healthcheck has a
-  30 s `start_period` for migrations. The dev override relaxes the
-  frontend's wait to `service_started`, because the first `dotnet watch`
-  build can outlast the healthcheck.
+  with a database check, not proxied by nginx. Compose runs db → `migrate`
+  (on `service_completed_successfully`) → backend → frontend → caddy (on
+  `service_healthy`), so Caddy never serves a frontend whose API isn't
+  ready. The dev override makes `migrate` a no-op (dev migrates at API
+  startup) and relaxes the frontend's wait to `service_started`, because
+  the first `dotnet watch` build can outlast the healthcheck.
 - **Backups are an inline `backup` service on `postgres:16-alpine`**,
   which already has `pg_dump`. A third-party backup image would need the
   database password, and inline configuration keeps the server at

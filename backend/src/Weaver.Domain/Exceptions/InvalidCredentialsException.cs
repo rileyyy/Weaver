@@ -6,10 +6,10 @@ namespace Weaver.Domain.Exceptions;
 /// message (e.g. "no such user") would let a caller enumerate valid
 /// usernames.
 /// </summary>
-public class InvalidCredentialsException : Exception
+public class InvalidCredentialsException : DomainException
 {
     public InvalidCredentialsException()
-        : base("Invalid username or password.")
+        : base(DomainErrorKind.Unauthorized, "Invalid username or password.")
     {
     }
 }

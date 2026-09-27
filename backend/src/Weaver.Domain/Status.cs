@@ -1,12 +1,5 @@
 namespace Weaver.Domain;
 
-public enum StatusCategory
-{
-    ToDo,
-    Doing,
-    Done,
-}
-
 public class Status
 {
     public Guid Id { get; set; }

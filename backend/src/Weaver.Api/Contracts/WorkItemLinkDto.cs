@@ -1,4 +1,4 @@
-using Weaver.Domain;
+using Weaver.Application.Services;
 
 namespace Weaver.Api.Contracts;
 
@@ -9,11 +9,6 @@ namespace Weaver.Api.Contracts;
 /// </summary>
 public record WorkItemLinkDto(Guid Id, Guid LinkedWorkItemId, string LinkedWorkItemTitle)
 {
-    public static WorkItemLinkDto FromEntity(WorkItemLink link, Guid perspectiveWorkItemId)
-    {
-        var other = link.WorkItemId == perspectiveWorkItemId ? link.LinkedWorkItem! : link.WorkItem!;
-        return new WorkItemLinkDto(link.Id, other.Id, other.Title);
-    }
+    public static WorkItemLinkDto FromView(WorkItemLinkView link) =>
+        new(link.Id, link.LinkedWorkItemId, link.LinkedWorkItemTitle);
 }
-
-public record CreateWorkItemLinkRequest(Guid TargetWorkItemId);

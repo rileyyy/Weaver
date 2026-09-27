@@ -1,5 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using ModelContextProtocol;
 using Weaver.Api.Mcp;
+using Weaver.Api.Middleware;
 using Weaver.Domain.Exceptions;
 
 namespace Weaver.Api.Tests.Mcp;
@@ -65,5 +67,25 @@ public class McpExceptionTranslationTests
             McpExceptionTranslation.TranslateAsync(() => throw domainException));
 
         Assert.That(thrown!.Message, Is.EqualTo(domainException.Message));
+    }
+
+    [Test]
+    public void TranslateAsync_CoversEveryDomainException_WithoutAListToMaintain()
+    {
+        var domainException = new UniqueConstraintViolationException("ix_users_normalized_username", new Exception());
+
+        var thrown = Assert.ThrowsAsync<McpException>(() =>
+            McpExceptionTranslation.TranslateAsync(() => throw domainException));
+
+        Assert.That(thrown!.Message, Is.EqualTo(domainException.Message));
+    }
+
+    [Test]
+    public void TranslateAsync_WhenAConcurrencyConflictEscapes_ThrowsMcpException()
+    {
+        var thrown = Assert.ThrowsAsync<McpException>(() =>
+            McpExceptionTranslation.TranslateAsync(() => throw new DbUpdateConcurrencyException("stale")));
+
+        Assert.That(thrown!.Message, Is.EqualTo(ApiExceptionMiddleware.ConcurrencyConflictMessage));
     }
 }

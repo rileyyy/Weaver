@@ -6,10 +6,10 @@ namespace Weaver.Domain.Exceptions;
 /// rotated-out token is a signal of a possibly stolen token, not just a
 /// stale client).
 /// </summary>
-public class InvalidRefreshTokenException : Exception
+public class InvalidRefreshTokenException : DomainException
 {
     public InvalidRefreshTokenException()
-        : base("Refresh token is invalid or expired.")
+        : base(DomainErrorKind.Unauthorized, "Refresh token is invalid or expired.")
     {
     }
 }

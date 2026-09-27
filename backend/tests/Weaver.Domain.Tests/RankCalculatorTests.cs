@@ -60,4 +60,12 @@ public class RankCalculatorTests
     {
         Assert.Throws<ArgumentException>(() => RankCalculator.GetRankBetween(previous, next));
     }
+
+    [Test]
+    public void EvenlySpaced_GivesStrictlyIncreasingRanks()
+    {
+        var ranks = RankCalculator.EvenlySpaced(3);
+
+        Assert.That(ranks, Is.EqualTo(new[] { 1.0, 2.0, 3.0 }));
+    }
 }

@@ -3,15 +3,14 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Weaver.Api.Mcp;
 using Weaver.Api.Middleware;
-using Weaver.Domain;
+using Weaver.Api.RateLimiting;
+using Weaver.Application;
+using Weaver.Application.Auth;
 using Weaver.Infrastructure;
 using Weaver.Infrastructure.Auth;
-using Weaver.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,23 +19,21 @@ var builder = WebApplication.CreateBuilder(args);
 // frontend parsing (and any future enum DTO field) expects.
 builder.Services.AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+builder.Services.AddProblemDetails();
+builder.Services.AddAuthRateLimiting(builder.Configuration);
 
-builder.Services.AddDbContext<WeaverDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Weaver")));
+var connectionString = builder.Configuration.GetConnectionString("Weaver");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException(
+        "ConnectionStrings:Weaver is not configured. Set it via the ConnectionStrings__Weaver environment variable.");
+}
+builder.Services
+    .AddWeaverApplication()
+    .AddWeaverInfrastructure(connectionString);
 
 builder.Services.AddHealthChecks().AddDbContextCheck<WeaverDbContext>();
-
-builder.Services
-    .AddScoped<IWorkItemService, WorkItemService>()
-    .AddScoped<IAuthService, AuthService>()
-    .AddScoped<IUserService, UserService>()
-    .AddScoped<ICommentService, CommentService>()
-    .AddScoped<IWorkItemLinkService, WorkItemLinkService>()
-    .AddScoped<IBoardService, BoardService>()
-    .AddScoped<IStatusService, StatusService>()
-    .AddScoped<IWorkItemLayerService, WorkItemLayerService>();
 
 // CommentTools reads the calling user's id off the current request the same way
 // CommentsController does (User.GetUserId()) — MCP tools don't get a ControllerBase's
@@ -51,22 +48,9 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
     .WithToolsFromAssembly(serializerOptions: McpJsonSerializerOptions.Default);
-builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
-builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 
-var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>();
-if (string.IsNullOrWhiteSpace(jwtOptions?.SigningKey))
-{
-    throw new InvalidOperationException(
-        "Jwt:SigningKey is not configured. Set it via the Jwt__SigningKey environment variable (see .env.example).");
-}
-// HS256 needs a key of at least 256 bits. A shorter one (e.g. a placeholder
-// copied from .env.example) would otherwise only fail at the first login.
-if (Encoding.UTF8.GetByteCount(jwtOptions.SigningKey) < 32)
-{
-    throw new InvalidOperationException(
-        "Jwt:SigningKey must be at least 32 bytes. Generate one with `openssl rand -base64 48`.");
-}
+var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
+JwtSigningKeyPolicy.EnsureUsable(jwtOptions.SigningKey, builder.Environment.IsDevelopment());
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 
 builder.Services
@@ -123,9 +107,15 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+if (args.Contains(DatabaseMigrations.Command))
 {
-    await scope.ServiceProvider.GetRequiredService<WeaverDbContext>().Database.MigrateAsync();
+    await app.Services.MigrateWeaverDatabaseAsync();
+    return;
+}
+
+if (app.Configuration.GetValue<bool>(DatabaseMigrations.MigrateOnStartupSetting))
+{
+    await app.Services.MigrateWeaverDatabaseAsync();
 }
 
 if (app.Environment.IsDevelopment())
@@ -135,6 +125,12 @@ if (app.Environment.IsDevelopment())
 
 app.UseForwardedHeaders();
 
+// After forwarded headers, so the limiter partitions by the real client IP.
+app.UseRateLimiter();
+
+// Anything ApiExceptionMiddleware doesn't recognise is a bug: logged, and answered with a
+// problem-details 500 rather than an empty body.
+app.UseExceptionHandler();
 app.UseMiddleware<ApiExceptionMiddleware>();
 
 app.UseCors(corsPolicy);
@@ -154,3 +150,7 @@ app.MapHealthChecks("/health").AllowAnonymous();
 app.MapMcp("/mcp");
 
 app.Run();
+
+// Makes the entry point visible to WebApplicationFactory<Program> in the
+// integration tests.
+public partial class Program;

@@ -1,11 +1,15 @@
 using Microsoft.AspNetCore.Mvc;
 using Weaver.Api.Contracts;
-using Weaver.Infrastructure.Services;
+using Weaver.Application.Services;
 
 namespace Weaver.Api.Controllers;
 
 [ApiController]
 [Route("api/boards")]
+// The bearer challenge has no body.
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
 public class BoardsController : ControllerBase
 {
     private readonly IBoardService _boards;
@@ -30,6 +34,7 @@ public class BoardsController : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType<BoardDto>(StatusCodes.Status201Created)]
     public async Task<ActionResult<BoardDto>> Create(CreateBoardRequest request)
     {
         var board = await _boards.CreateAsync(request.Name, request.ScopeItemId);

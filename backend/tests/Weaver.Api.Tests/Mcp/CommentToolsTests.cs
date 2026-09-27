@@ -3,9 +3,8 @@ using Microsoft.AspNetCore.Http;
 using ModelContextProtocol;
 using Moq;
 using Weaver.Api.Mcp;
-using Weaver.Domain;
+using Weaver.Application.Services;
 using Weaver.Domain.Exceptions;
-using Weaver.Infrastructure.Services;
 
 namespace Weaver.Api.Tests.Mcp;
 
@@ -31,14 +30,8 @@ public class CommentToolsTests
         _tools = new CommentTools(_comments.Object, httpContextAccessor);
     }
 
-    private static Comment MakeComment(Guid workItemId, Guid authorUserId) => new()
-    {
-        Id = Guid.NewGuid(),
-        WorkItemId = workItemId,
-        AuthorUserId = authorUserId,
-        Body = "A comment",
-        CreatedAtUtc = DateTimeOffset.UtcNow,
-    };
+    private static CommentView MakeComment(Guid workItemId, Guid authorUserId) =>
+        new(Guid.NewGuid(), workItemId, authorUserId, "alice", "A comment", DateTimeOffset.UtcNow, null);
 
     [Test]
     public async Task ListComments_DelegatesToServiceAndMapsResults()
