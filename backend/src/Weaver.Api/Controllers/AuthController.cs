@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Weaver.Api.Auth;
 using Weaver.Api.Contracts;
+using Weaver.Api.RateLimiting;
 using Weaver.Application.Services;
 
 namespace Weaver.Api.Controllers;
@@ -19,6 +21,7 @@ public class AuthController : ControllerBase
 
     [HttpPost("register")]
     [AllowAnonymous]
+    [EnableRateLimiting(AuthRateLimiting.PolicyName)]
     public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request)
     {
         var result = await _auth.RegisterAsync(request.Username, request.Password);
@@ -27,6 +30,7 @@ public class AuthController : ControllerBase
 
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting(AuthRateLimiting.PolicyName)]
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest request)
     {
         var result = await _auth.LoginAsync(request.Username, request.Password);
@@ -35,6 +39,7 @@ public class AuthController : ControllerBase
 
     [HttpPost("refresh")]
     [AllowAnonymous]
+    [EnableRateLimiting(AuthRateLimiting.PolicyName)]
     public async Task<ActionResult<AuthResponse>> Refresh(RefreshRequest request)
     {
         var result = await _auth.RefreshAsync(request.RefreshToken);
@@ -43,6 +48,7 @@ public class AuthController : ControllerBase
 
     [HttpPost("logout")]
     [AllowAnonymous]
+    [EnableRateLimiting(AuthRateLimiting.PolicyName)]
     public async Task<IActionResult> Logout(LogoutRequest request)
     {
         await _auth.LogoutAsync(request.RefreshToken);

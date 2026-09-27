@@ -15,17 +15,20 @@ public class AuthServiceTests
 {
     private const string ValidPassword = "correct horse battery";
 
-    private readonly FixedTimeProvider _clock = new(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
+    private FixedTimeProvider _clock = null!;
+    private CountingPasswordHasher _hasher = null!;
     private WeaverDbContext _db = null!;
     private AuthService _service = null!;
 
     [SetUp]
     public void SetUp()
     {
+        _clock = new FixedTimeProvider(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
+        _hasher = new CountingPasswordHasher();
         _db = TestDatabase.Create(_clock);
 
         var jwtOptions = Options.Create(new JwtOptions { SigningKey = "test-only-signing-key-at-least-32-bytes-long" });
-        _service = new AuthService(_db, new JwtTokenService(jwtOptions, _clock), new PasswordHasher<User>(), jwtOptions, _clock);
+        _service = new AuthService(_db, new JwtTokenService(jwtOptions, _clock), _hasher, jwtOptions, _clock);
     }
 
     [TearDown]
@@ -120,6 +123,45 @@ public class AuthServiceTests
         var result = await _service.LoginAsync("alice", ValidPassword);
 
         Assert.That(result.User.Username, Is.EqualTo("alice"));
+    }
+
+    [Test]
+    public async Task LoginAsync_AfterALockoutExpires_TheFirstMistakeDoesNotRelock()
+    {
+        await _service.RegisterAsync("alice", ValidPassword);
+        for (var i = 0; i < 5; i++)
+        {
+            Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("alice", "wrong password!"));
+        }
+
+        _clock.Advance(TimeSpan.FromMinutes(16));
+        Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("alice", "wrong password!"));
+        var result = await _service.LoginAsync("alice", ValidPassword);
+
+        Assert.That(result.User.Username, Is.EqualTo("alice"));
+    }
+
+    [Test]
+    public void LoginAsync_ForAnUnknownUser_StillVerifiesAPassword()
+    {
+        Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("nobody", ValidPassword));
+
+        Assert.That(_hasher.Verifications, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task LoginAsync_ForALockedOutUser_StillVerifiesAPassword()
+    {
+        await _service.RegisterAsync("alice", ValidPassword);
+        for (var i = 0; i < 5; i++)
+        {
+            Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("alice", "wrong password!"));
+        }
+
+        var before = _hasher.Verifications;
+        Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("alice", ValidPassword));
+
+        Assert.That(_hasher.Verifications, Is.EqualTo(before + 1));
     }
 
     [Test]

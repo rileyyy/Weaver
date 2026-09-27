@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Weaver.Api.Mcp;
 using Weaver.Api.Middleware;
+using Weaver.Api.RateLimiting;
 using Weaver.Application;
 using Weaver.Application.Auth;
 using Weaver.Infrastructure;
@@ -21,6 +22,7 @@ builder.Services.AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
+builder.Services.AddAuthRateLimiting(builder.Configuration);
 
 var connectionString = builder.Configuration.GetConnectionString("Weaver");
 if (string.IsNullOrWhiteSpace(connectionString))
@@ -117,6 +119,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseForwardedHeaders();
+
+// After forwarded headers, so the limiter partitions by the real client IP.
+app.UseRateLimiter();
 
 app.UseMiddleware<ApiExceptionMiddleware>();
 

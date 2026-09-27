@@ -131,7 +131,7 @@ The most important problems cluster in four areas:
 - **Fix:** Use `Guid.TryParse` and reject with 401. Handle unique violations (`PostgresException.SqlState == "23505"`) as 409. Make ranks robust to ties: rebalance the cell when `previous >= next`.
 
 #### B-M6. Auth hardening
-- [ ] **Resolved**
+- [x] **Resolved** in `feature/backend-review-cleanup`: the auth endpoints are rate-limited per IP (429 with `Retry-After`; the login screen shows the server's message). Unknown and locked-out users are verified against a dummy hash, and an expired lockout resets the failure count. **By decision (2026-09-27), registration stays open** as an accepted risk for a single-team deployment. That, and the agent API-key flow, are recorded in `docs/open-questions.md`.
 - **Where:** [AuthController.cs](backend/src/Weaver.Api/Controllers/AuthController.cs), [AuthService.cs:58-93, 126-135](backend/src/Weaver.Infrastructure/Services/AuthService.cs#L58-L93)
 - **Issues:**
   - **Open self-registration:** anyone who can reach the API can create an account and then read and modify every work item. There is no per-board or per-tenant authorization.

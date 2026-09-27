@@ -56,10 +56,17 @@ public class User : IHasUpdatedAt
 
     /// <summary>
     /// Counts a wrong password; the <see cref="MaxFailedLoginAttempts"/>th in a row locks the
-    /// account for <see cref="LockoutDuration"/>.
+    /// account for <see cref="LockoutDuration"/>. An expired lockout starts a fresh count, so
+    /// the first mistake after it doesn't immediately lock the account again.
     /// </summary>
     public void RecordFailedLogin(DateTimeOffset now)
     {
+        if (LockedUntilUtc is { } lockedUntil && lockedUntil <= now)
+        {
+            FailedLoginAttempts = 0;
+            LockedUntilUtc = null;
+        }
+
         FailedLoginAttempts++;
         if (FailedLoginAttempts >= MaxFailedLoginAttempts)
         {

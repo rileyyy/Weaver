@@ -9,7 +9,7 @@ namespace Weaver.Application.Tests;
 [TestFixture]
 public class WorkItemLinkServiceTests
 {
-    private readonly FixedTimeProvider _clock = new(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
+    private FixedTimeProvider _clock = null!;
     private WeaverDbContext _db = null!;
     private WorkItemLinkService _links = null!;
     private WorkItemService _workItems = null!;
@@ -17,6 +17,7 @@ public class WorkItemLinkServiceTests
     [SetUp]
     public void SetUp()
     {
+        _clock = new FixedTimeProvider(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
         _db = TestDatabase.Create(_clock);
         _links = new WorkItemLinkService(_db);
         _workItems = new WorkItemService(_db);

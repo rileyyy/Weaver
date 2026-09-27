@@ -12,10 +12,11 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
   and password (`POST /api/auth/register`), and every account can read and
   change every work item. There is no invite, admin or per-board access
   control.
-- **To decide:** whether registration should be gated (config flag,
-  invite codes, first-user-is-admin) and whether access should ever be
-  scoped per board or team. Fine for a single team on a LAN; not beyond
-  that. (B-M6 in the code review.)
+- **Decided (2026-09-27):** kept open as an accepted risk while Weaver
+  serves a single team on a trusted network. Revisit before exposing a
+  deployment more widely: gating options are a config flag, invite codes,
+  or first-user-is-admin, and access could later be scoped per board or
+  team. (B-M6 in the code review.)
 
 ### Agent users can't be created
 - **Today:** `User.Kind` has `Human` and `Agent`, but registration always
@@ -31,12 +32,13 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
 - **To decide:** an admin-driven reset, an email field plus self-service
   reset, or neither.
 
-### Lockout and rate limiting
-- **Today:** five wrong passwords lock an account for 15 minutes, which
-  lets anyone lock out a known username; there is no rate limiting on
-  `/api/auth/*`.
-- **To decide:** whether to add rate limiting and change the lockout
-  policy (B-M6).
+### Lockout policy
+- **Today:** five wrong passwords lock an account for 15 minutes. The auth
+  endpoints are rate-limited to 30 requests a minute per IP, which slows
+  but doesn't stop someone deliberately locking out known usernames.
+- **To decide:** whether lockout should be scoped per client (IP and
+  username) or replaced by progressive delays, if deliberate lockouts
+  become a real problem.
 
 ## Work items
 

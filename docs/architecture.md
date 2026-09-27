@@ -244,8 +244,20 @@ and it is what allows MCP tools to reuse the same business logic (see
   case-insensitively.
 - **Login failures are uniform.** Unknown username, wrong password and a
   locked-out account all throw `InvalidCredentialsException` with the same
-  message, so the response can't be used to enumerate usernames or learn
-  lockout state. Five failures lock the account for 15 minutes.
+  message, and the first two paths also verify the password against a
+  dummy hash so they take as long as a real check. Neither the response
+  nor its timing tells a caller whether a username exists or is locked.
+  (Registration still reveals a taken name with a 409; that follows from
+  open registration, see [open-questions.md](open-questions.md).)
+- **Lockout:** five consecutive failures lock the account for 15 minutes
+  (`User.RecordFailedLogin`). An expired lockout starts a fresh count, so
+  the first mistake afterwards doesn't re-lock immediately.
+- **Auth endpoints are rate-limited per client IP** (`register`, `login`,
+  `refresh`, `logout`): 30 requests a minute by default, configurable under
+  `RateLimiting:Auth`, answered with 429, a `Retry-After` header and a
+  problem-details message the login screen shows. The limit is generous
+  enough for a team behind one NAT; the per-account lockout is what stops
+  guessing against one user.
 - **Every endpoint requires authentication by default**, through
   `AddAuthorization(options => options.FallbackPolicy = ...
   RequireAuthenticatedUser())`. A new controller is protected

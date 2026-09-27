@@ -20,6 +20,9 @@ public partial class AuthService : IAuthService
     // Inside this window reuse is still rejected, just not treated as theft.
     private static readonly TimeSpan RotationGracePeriod = TimeSpan.FromSeconds(30);
 
+    private static readonly User DummyUser = User.CreateHuman("dummy", "dummy");
+    private static string? _dummyPasswordHash;
+
     private readonly IWeaverDbContext _db;
     private readonly IJwtTokenService _tokenService;
     private readonly IPasswordHasher<User> _passwordHasher;
@@ -72,16 +75,12 @@ public partial class AuthService : IAuthService
         var normalized = NormalizeUsername(username);
         var user = await _db.Users.FirstOrDefaultAsync(u => u.NormalizedUsername == normalized, ct);
 
-        // Same generic failure for "no such user", "wrong password", and
-        // "locked out" — a distinguishable response would let a caller
-        // enumerate valid usernames or learn an account's lockout state.
-        if (user is null)
+        // Same generic failure, and the same password-hashing cost, for "no such user",
+        // "wrong password" and "locked out": a response that differed in content or timing
+        // would let a caller enumerate usernames or learn an account's lockout state.
+        if (user is null || user.IsLockedOutAt(_clock.GetUtcNow()))
         {
-            throw new InvalidCredentialsException();
-        }
-
-        if (user.IsLockedOutAt(_clock.GetUtcNow()))
-        {
+            VerifyAgainstDummyHash(password);
             throw new InvalidCredentialsException();
         }
 
@@ -218,6 +217,14 @@ public partial class AuthService : IAuthService
             .ToListAsync(ct);
 
         _db.RefreshTokens.RemoveRange(expired);
+    }
+
+    private void VerifyAgainstDummyHash(string password)
+    {
+        var dummyHash = LazyInitializer.EnsureInitialized(
+            ref _dummyPasswordHash,
+            () => _passwordHasher.HashPassword(DummyUser, "not-a-real-password-just-for-timing"));
+        _passwordHasher.VerifyHashedPassword(DummyUser, dummyHash, password);
     }
 
     private static string GenerateRefreshTokenValue() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
