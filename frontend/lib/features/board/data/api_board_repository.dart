@@ -11,6 +11,9 @@ import 'package:weaver/shared/data/status_repository.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
 import 'package:weaver/shared/models/user.dart';
 
+/// Items per `/work-items/all` request; the server allows up to 1000.
+const int allItemsPageSize = 500;
+
 /// Board data backed by the REST API. Swimlanes are the direct children of
 /// whichever scope item [loadBoard] is asked for (the first board's scope
 /// item, or top-level items, by default); each swimlane's cards are that
@@ -52,11 +55,20 @@ class ApiBoardRepository implements BoardRepository {
   }
 
   @override
-  Future<List<HierarchyItem>> loadAllItems() => _api.get(
-    '/work-items/all',
-    (json) => JsonApiClient.listOf(json, HierarchyItem.fromJson),
-    failureMessage: 'Failed to load work items',
-  );
+  Future<List<HierarchyItem>> loadAllItems() async {
+    final items = <HierarchyItem>[];
+    while (true) {
+      final page = await _api.get(
+        '/work-items/all',
+        (json) => JsonApiClient.listOf(json, HierarchyItem.fromJson),
+        query: {'offset': '${items.length}', 'limit': '$allItemsPageSize'},
+        failureMessage: 'Failed to load work items',
+      );
+      items.addAll(page);
+      // The server caps each page, so a short page is the only end signal.
+      if (page.length < allItemsPageSize) return items;
+    }
+  }
 
   @override
   Future<List<User>> loadUsers() => _users.loadUsers();

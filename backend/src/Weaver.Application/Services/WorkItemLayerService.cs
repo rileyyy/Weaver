@@ -14,5 +14,5 @@ public class WorkItemLayerService : IWorkItemLayerService
     }
 
     public async Task<IReadOnlyList<WorkItemLayer>> GetAllAsync(CancellationToken ct = default) =>
-        await _db.WorkItemLayers.OrderBy(l => l.Order).ToListAsync(ct);
+        await _db.WorkItemLayers.AsNoTracking().OrderBy(l => l.Order).ToListAsync(ct);
 }

@@ -14,6 +14,7 @@ public static class DependencyInjection
             .UseNpgsql(connectionString)
             .AddInterceptors(new TimestampInterceptor(provider.GetRequiredService<TimeProvider>())));
         services.AddScoped<IWeaverDbContext>(provider => provider.GetRequiredService<WeaverDbContext>());
+        services.AddScoped<IWorkItemHierarchy, PostgresWorkItemHierarchy>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
         return services;
     }

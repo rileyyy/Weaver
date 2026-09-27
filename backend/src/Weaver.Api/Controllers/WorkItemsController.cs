@@ -8,6 +8,8 @@ namespace Weaver.Api.Controllers;
 [Route("api/work-items")]
 public class WorkItemsController : ControllerBase
 {
+    public const int DefaultPageSize = 500;
+
     private readonly IWorkItemService _workItems;
 
     public WorkItemsController(IWorkItemService workItems)
@@ -37,14 +39,16 @@ public class WorkItemsController : ControllerBase
     }
 
     /// <summary>
-    /// Every work item, flat and unscoped. Used by the Hierarchy view to
-    /// build a full parent/child tree client-side — see
+    /// One page of every work item, flat and unscoped, for the Hierarchy and Roadmap views,
+    /// which page until a response comes back shorter than <paramref name="limit"/> — see
     /// <see cref="IWorkItemService.GetAllAsync"/>.
     /// </summary>
     [HttpGet("all")]
-    public async Task<ActionResult<IReadOnlyList<WorkItemDto>>> GetAll()
+    public async Task<ActionResult<IReadOnlyList<WorkItemDto>>> GetAll(
+        [FromQuery] int offset = 0,
+        [FromQuery] int limit = DefaultPageSize)
     {
-        var items = await _workItems.GetAllAsync();
+        var items = await _workItems.GetAllAsync(offset, limit);
         return Ok(items.Select(WorkItemDto.FromEntity));
     }
 

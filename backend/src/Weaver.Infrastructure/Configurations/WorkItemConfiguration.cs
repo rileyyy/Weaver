@@ -11,10 +11,10 @@ public class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         builder.Property(w => w.Title).IsRequired().HasMaxLength(WorkItem.TitleMaxLength);
 
         // Database-generated (Postgres identity column), never set by
-        // application code — see WorkItem.Number's own doc comment. Also
-        // works against EF Core's in-memory provider for tests: it honors
-        // plain ValueGeneratedOnAdd for integer properties regardless of
-        // the Npgsql-specific generation strategy this also sets.
+        // application code — see WorkItem.Number's own doc comment. The EF
+        // InMemory provider used by the service tests does not generate it
+        // (every item reads 0), so logic must not rely on Number being unique
+        // outside Postgres.
         builder.Property(w => w.Number).UseIdentityAlwaysColumn();
         builder.HasIndex(w => w.Number).IsUnique();
 

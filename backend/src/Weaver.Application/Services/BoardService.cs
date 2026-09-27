@@ -15,10 +15,10 @@ public class BoardService : IBoardService
     }
 
     public async Task<IReadOnlyList<Board>> GetAllAsync(CancellationToken ct = default) =>
-        await _db.Boards.ToListAsync(ct);
+        await _db.Boards.AsNoTracking().OrderBy(b => b.Name).ThenBy(b => b.Id).ToListAsync(ct);
 
     public Task<Board?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
-        _db.Boards.FirstOrDefaultAsync(b => b.Id == id, ct);
+        _db.Boards.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id, ct);
 
     public async Task<Board> CreateAsync(string name, Guid? scopeItemId, CancellationToken ct = default)
     {

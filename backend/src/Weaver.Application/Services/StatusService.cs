@@ -14,5 +14,5 @@ public class StatusService : IStatusService
     }
 
     public async Task<IReadOnlyList<Status>> GetAllAsync(CancellationToken ct = default) =>
-        await _db.Statuses.OrderBy(s => s.Order).ToListAsync(ct);
+        await _db.Statuses.AsNoTracking().OrderBy(s => s.Order).ToListAsync(ct);
 }

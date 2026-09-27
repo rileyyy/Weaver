@@ -23,7 +23,7 @@ public class CommentServiceTests
         _clock = new FixedTimeProvider(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
         _db = TestDatabase.Create(_clock);
         _comments = new CommentService(_db, _clock);
-        _workItems = new WorkItemService(_db);
+        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db));
 
         var alice = User.CreateHuman("alice", "alice");
         var bob = User.CreateHuman("bob", "bob");

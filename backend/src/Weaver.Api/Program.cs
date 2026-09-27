@@ -123,6 +123,9 @@ app.UseForwardedHeaders();
 // After forwarded headers, so the limiter partitions by the real client IP.
 app.UseRateLimiter();
 
+// Anything ApiExceptionMiddleware doesn't recognise is a bug: logged, and answered with a
+// problem-details 500 rather than an empty body.
+app.UseExceptionHandler();
 app.UseMiddleware<ApiExceptionMiddleware>();
 
 app.UseCors(corsPolicy);

@@ -19,7 +19,7 @@ public class WorkItemServiceTests
     {
         _clock = new FixedTimeProvider(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
         _db = TestDatabase.Create(_clock);
-        _service = new WorkItemService(_db);
+        _service = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db));
     }
 
     [TearDown]
@@ -226,10 +226,14 @@ public class WorkItemServiceTests
 
         var inserted = await _service.CreateAsync("Inserted", null, parent.Id, StatusConfiguration.ToDoId, afterId: first.Id);
 
+        // Which of the two tied items comes first is decided by Number, which InMemory
+        // doesn't generate; what must hold is distinct ranks with the new item right after
+        // its anchor.
+        var cell = (await _service.GetChildrenAsync(parent.Id)).Select(w => w.Id).ToList();
         Assert.Multiple(() =>
         {
-            Assert.That(first.Rank, Is.LessThan(inserted.Rank));
-            Assert.That(inserted.Rank, Is.LessThan(second.Rank));
+            Assert.That(new[] { first.Rank, second.Rank, inserted.Rank }, Is.Unique);
+            Assert.That(cell.IndexOf(inserted.Id), Is.EqualTo(cell.IndexOf(first.Id) + 1));
         });
     }
 
@@ -247,6 +251,43 @@ public class WorkItemServiceTests
             Assert.That(item.CreatedAtUtc, Is.EqualTo(created));
             Assert.That(item.UpdatedAtUtc, Is.EqualTo(created + TimeSpan.FromHours(1)));
         });
+    }
+
+    [Test]
+    public async Task GetAllAsync_PagesInRankThenNumberOrder()
+    {
+        var first = await _service.CreateAsync("First", null, null, StatusConfiguration.ToDoId);
+        var second = await _service.CreateAsync("Second", null, null, StatusConfiguration.ToDoId, afterId: first.Id);
+        var third = await _service.CreateAsync("Third", null, null, StatusConfiguration.ToDoId, afterId: second.Id);
+
+        var page1 = await _service.GetAllAsync(offset: 0, limit: 2);
+        var page2 = await _service.GetAllAsync(offset: 2, limit: 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(page1.Select(w => w.Id), Is.EqualTo(new[] { first.Id, second.Id }));
+            Assert.That(page2.Select(w => w.Id), Is.EqualTo(new[] { third.Id }));
+        });
+    }
+
+    [TestCase(-1, 10)]
+    [TestCase(0, 0)]
+    [TestCase(0, WorkItemService.MaxPageSize + 1)]
+    public void GetAllAsync_WithAnInvalidPage_IsRejected(int offset, int limit)
+    {
+        Assert.ThrowsAsync<DomainValidationException>(() => _service.GetAllAsync(offset, limit));
+    }
+
+    [Test]
+    public async Task ReparentAsync_WhenTheTreeAlreadyHasACycle_ThrowsInsteadOfReportingNoCycle()
+    {
+        var a = await _service.CreateAsync("A", null, null, StatusConfiguration.ToDoId);
+        var b = await _service.CreateAsync("B", null, a.Id, StatusConfiguration.ToDoId);
+        var outsider = await _service.CreateAsync("Outsider", null, null, StatusConfiguration.ToDoId);
+        _db.Entry(a).Property(w => w.ParentId).CurrentValue = b.Id;
+        await _db.SaveChangesAsync();
+
+        Assert.ThrowsAsync<InvalidOperationException>(() => _service.ReparentAsync(outsider.Id, a.Id));
     }
 
     [Test]
@@ -278,7 +319,7 @@ public class WorkItemServiceTests
         var grandchild = await _service.CreateAsync("Grandchild", null, child.Id, StatusConfiguration.ToDoId);
         var unrelated = await _service.CreateAsync("Unrelated", null, null, StatusConfiguration.ToDoId);
 
-        var all = await _service.GetAllAsync();
+        var all = await _service.GetAllAsync(offset: 0, limit: 100);
 
         Assert.That(
             all.Select(w => w.Id),

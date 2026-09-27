@@ -14,8 +14,8 @@ public class UserService : IUserService
     }
 
     public Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
-        _db.Users.FirstOrDefaultAsync(u => u.Id == id, ct);
+        _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id, ct);
 
     public async Task<IReadOnlyList<User>> ListAsync(CancellationToken ct = default) =>
-        await _db.Users.OrderBy(u => u.Username).ToListAsync(ct);
+        await _db.Users.AsNoTracking().OrderBy(u => u.Username).ToListAsync(ct);
 }

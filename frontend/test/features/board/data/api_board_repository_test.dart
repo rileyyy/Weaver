@@ -362,6 +362,36 @@ void main() {
     },
   );
 
+  test('loadAllItems pages until a short page comes back', () async {
+    final offsets = <String?>[];
+    final client = MockClient((request) async {
+      offsets.add(request.url.queryParameters['offset']);
+      final offset = int.parse(request.url.queryParameters['offset']!);
+      final count = offset == 0 ? allItemsPageSize : 1;
+      return _jsonResponse([
+        for (var i = 0; i < count; i++)
+          {
+            'id': 'item-${offset + i}',
+            'number': offset + i,
+            'title': 'Item',
+            'parentId': null,
+            'statusId': 'status-todo',
+          },
+      ]);
+    });
+    final repository = ApiBoardRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
+
+    final items = await repository.loadAllItems();
+
+    expect(offsets, ['0', '$allItemsPageSize']);
+    expect(items, hasLength(allItemsPageSize + 1));
+  });
+
   test('loadAllItems throws an ApiException on failure', () async {
     final client = MockClient((request) async {
       return _jsonResponse({

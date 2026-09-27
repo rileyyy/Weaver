@@ -21,13 +21,12 @@ public interface IWorkItemService
     Task<IReadOnlyList<Swimlane>> GetSwimlanesAsync(Guid? scopeItemId, CancellationToken ct = default);
 
     /// <summary>
-    /// Every work item in the system, flat and unscoped, ordered by rank.
-    /// Used by the Hierarchy view to build a full parent/child tree
-    /// client-side from each item's <see cref="WorkItem.ParentId"/> — unlike
-    /// <see cref="GetChildrenAsync"/>, this walks no single parent's subtree.
-    /// Not paginated; revisit if item counts grow large enough to need it.
+    /// One page of every work item in the system, flat and unscoped, ordered by rank then
+    /// number. Used by the Hierarchy and Roadmap views, which page through all of it to build
+    /// the full parent/child tree client-side. <paramref name="limit"/> is 1 to
+    /// <see cref="WorkItemService.MaxPageSize"/>.
     /// </summary>
-    Task<IReadOnlyList<WorkItem>> GetAllAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<WorkItem>> GetAllAsync(int offset, int limit, CancellationToken ct = default);
 
     Task<WorkItem> CreateAsync(
         string title,

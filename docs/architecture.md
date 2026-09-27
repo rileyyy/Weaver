@@ -59,12 +59,19 @@ and it is what allows MCP tools to reuse the same business logic (see
   method signatures, not by trusting callers to send one field to a shared
   update endpoint. The frontend mirrors this (see
   [Frontend](#frontend)).
-- **Cycle detection walks up from the proposed parent**
-  (`WouldCreateCycleAsync`), one query per ancestor with a visited set,
-  looking for the item being moved. A recursive SQL query would be fewer
-  round trips, but this works the same on Postgres and on the EF InMemory
-  provider used by the service tests. The direction matters: walk up from
-  the new parent, not down from the item.
+- **Tree walks are single recursive queries.** `IWorkItemHierarchy`
+  (Postgres: `PostgresWorkItemHierarchy`) answers "is the proposed parent
+  this item or a descendant?" by walking up from the proposed parent, and
+  lists a subtree's ids for cascade deletes, each with one recursive CTE
+  instead of a query per level. The walk up uses Postgres's `CYCLE` clause:
+  a tree that already contains a cycle fails loudly (a logged 500) instead
+  of being reported as "no cycle". The EF InMemory service tests use an
+  iterative test double with the same contract; the integration tests
+  cover the SQL. The direction matters: walk up from the new parent, not
+  down from the item.
+- **Ranks load only their neighbours.** Placing an item reads the anchor's
+  rank and the next one up; the whole cell is loaded only when two
+  siblings share a rank and need respacing.
 - **Deleting an item with children requires `cascade: true`**, otherwise
   `WorkItemHasChildrenException` (409). There is no silent subtree loss. A
   cascade loads all descendants and removes them in one `SaveChanges`; EF
@@ -518,7 +525,8 @@ and it is what allows MCP tools to reuse the same business logic (see
   order by `Rank, Number` to stay deterministic across columns.
 - **Search, status filter, tag filter, sort and the time-frame filter are
   client-side.** The board already fetches each lane's full child list,
-  and the Hierarchy/Roadmap views fetch `GET /work-items/all`, so these are
+  and the Hierarchy/Roadmap views page through `GET /work-items/all`
+  (`offset`/`limit`, at most 1000 per page, 500 by default), so these are
   predicates and comparators over data in hand. None of them is persisted.
 - **Time-frame filter semantics are interval overlap, not containment**,
   with a missing bound (the item's or the filter's) open-ended. An item

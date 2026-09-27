@@ -7,18 +7,23 @@ namespace Weaver.Application.Services;
 
 public class WorkItemService : IWorkItemService
 {
-    private readonly IWeaverDbContext _db;
+    public const int MaxPageSize = 1000;
 
-    public WorkItemService(IWeaverDbContext db)
+    private readonly IWeaverDbContext _db;
+    private readonly IWorkItemHierarchy _hierarchy;
+
+    public WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy)
     {
         _db = db;
+        _hierarchy = hierarchy;
     }
 
     public Task<WorkItem?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
-        _db.WorkItems.FirstOrDefaultAsync(w => w.Id == id, ct);
+        _db.WorkItems.AsNoTracking().FirstOrDefaultAsync(w => w.Id == id, ct);
 
     public async Task<IReadOnlyList<WorkItem>> GetChildrenAsync(Guid? parentId, CancellationToken ct = default) =>
         await _db.WorkItems
+            .AsNoTracking()
             .Where(w => w.ParentId == parentId)
             .OrderBy(w => w.Rank)
             .ThenBy(w => w.Number)
@@ -45,11 +50,26 @@ public class WorkItemService : IWorkItemService
         return lanes.Select(lane => new Swimlane(lane, cardsByLane[lane.Id].ToList())).ToList();
     }
 
-    public async Task<IReadOnlyList<WorkItem>> GetAllAsync(CancellationToken ct = default) =>
-        await _db.WorkItems
+    public async Task<IReadOnlyList<WorkItem>> GetAllAsync(int offset, int limit, CancellationToken ct = default)
+    {
+        if (offset < 0)
+        {
+            throw new DomainValidationException("Offset must not be negative.");
+        }
+
+        if (limit is < 1 or > MaxPageSize)
+        {
+            throw new DomainValidationException($"Limit must be between 1 and {MaxPageSize}.");
+        }
+
+        return await _db.WorkItems
+            .AsNoTracking()
             .OrderBy(w => w.Rank)
             .ThenBy(w => w.Number)
+            .Skip(offset)
+            .Take(limit)
             .ToListAsync(ct);
+    }
 
     public async Task<WorkItem> CreateAsync(
         string title,
@@ -115,7 +135,7 @@ public class WorkItemService : IWorkItemService
 
         if (newParentId is not null)
         {
-            if (await WouldCreateCycleAsync(id, newParentId.Value, ct))
+            if (await _hierarchy.IsSelfOrDescendantAsync(id, newParentId.Value, ct))
             {
                 throw new CyclicParentException(id, newParentId.Value);
             }
@@ -213,7 +233,8 @@ public class WorkItemService : IWorkItemService
         var item = await _db.WorkItems.FindAsync([id], ct)
             ?? throw new EntityNotFoundException(nameof(WorkItem), id);
 
-        var descendants = await LoadDescendantsAsync(id, ct);
+        var descendantIds = await _hierarchy.GetDescendantIdsAsync(id, ct);
+        var descendants = await _db.WorkItems.Where(w => descendantIds.Contains(w.Id)).ToListAsync(ct);
         if (descendants.Count > 0 && !cascade)
         {
             throw new WorkItemHasChildrenException(id);
@@ -278,57 +299,10 @@ public class WorkItemService : IWorkItemService
     }
 
     /// <summary>
-    /// True if setting <paramref name="itemId"/>'s parent to <paramref name="proposedParentId"/>
-    /// would create a cycle — i.e. <paramref name="proposedParentId"/> is <paramref name="itemId"/>
-    /// itself or one of its descendants. Checked by walking upward from the proposed parent
-    /// through its ancestor chain one link at a time (rather than a single recursive query) so
-    /// it works identically against any EF Core provider, including the in-memory one used in
-    /// tests.
+    /// The rank for an item placed first in its cell, or directly after
+    /// <paramref name="afterId"/>. Only the one or two neighbouring rows are read; the whole
+    /// cell is loaded only when two neighbours share a rank and have to be respaced.
     /// </summary>
-    private async Task<bool> WouldCreateCycleAsync(Guid itemId, Guid proposedParentId, CancellationToken ct)
-    {
-        Guid? currentId = proposedParentId;
-        var visited = new HashSet<Guid>();
-
-        while (currentId is not null)
-        {
-            if (currentId == itemId)
-            {
-                return true;
-            }
-
-            if (!visited.Add(currentId.Value))
-            {
-                return false;
-            }
-
-            currentId = await _db.WorkItems
-                .Where(w => w.Id == currentId)
-                .Select(w => w.ParentId)
-                .FirstOrDefaultAsync(ct);
-        }
-
-        return false;
-    }
-
-    private async Task<List<WorkItem>> LoadDescendantsAsync(Guid rootId, CancellationToken ct)
-    {
-        var descendants = new List<WorkItem>();
-        var frontierIds = new List<Guid> { rootId };
-
-        while (frontierIds.Count > 0)
-        {
-            var children = await _db.WorkItems
-                .Where(w => w.ParentId != null && frontierIds.Contains(w.ParentId.Value))
-                .ToListAsync(ct);
-
-            descendants.AddRange(children);
-            frontierIds = children.Select(w => w.Id).ToList();
-        }
-
-        return descendants;
-    }
-
     private async Task<double> ComputeRankAsync(
         Guid? parentId,
         Guid statusId,
@@ -336,38 +310,54 @@ public class WorkItemService : IWorkItemService
         Guid? excludeItemId,
         CancellationToken ct)
     {
-        var query = _db.WorkItems.Where(w => w.ParentId == parentId && w.StatusId == statusId);
-        if (excludeItemId is not null)
-        {
-            query = query.Where(w => w.Id != excludeItemId);
-        }
-
-        var cellItems = await query.OrderBy(w => w.Rank).ThenBy(w => w.Number).ToListAsync(ct);
+        var cell = CellQuery(parentId, statusId, excludeItemId);
 
         if (afterId is null)
         {
-            return RankCalculator.GetRankBetween(null, cellItems.FirstOrDefault()?.Rank);
+            var firstRank = await cell.OrderBy(w => w.Rank).ThenBy(w => w.Number)
+                .Select(w => (double?)w.Rank)
+                .FirstOrDefaultAsync(ct);
+            return RankCalculator.GetRankBetween(null, firstRank);
         }
 
-        var afterIndex = cellItems.FindIndex(w => w.Id == afterId.Value);
-        if (afterIndex < 0)
+        var afterRank = await cell.Where(w => w.Id == afterId)
+            .Select(w => (double?)w.Rank)
+            .FirstOrDefaultAsync(ct)
+            ?? throw new EntityNotFoundException(nameof(WorkItem), afterId.Value);
+
+        if (await cell.AnyAsync(w => w.Id != afterId && w.Rank == afterRank, ct))
         {
-            throw new EntityNotFoundException(nameof(WorkItem), afterId.Value);
+            return await RespaceAndRankAfterAsync(cell, afterId.Value, ct);
         }
 
-        var next = afterIndex + 1 < cellItems.Count ? cellItems[afterIndex + 1] : null;
-        if (next is not null && next.Rank <= cellItems[afterIndex].Rank)
-        {
-            RespaceRanks(cellItems);
-        }
+        var nextRank = await cell
+            .Where(w => w.Rank > afterRank)
+            .OrderBy(w => w.Rank)
+            .Select(w => (double?)w.Rank)
+            .FirstOrDefaultAsync(ct);
 
-        return RankCalculator.GetRankBetween(cellItems[afterIndex].Rank, next?.Rank);
+        return RankCalculator.GetRankBetween(afterRank, nextRank);
+    }
+
+    private IQueryable<WorkItem> CellQuery(Guid? parentId, Guid statusId, Guid? excludeItemId)
+    {
+        var query = _db.WorkItems.Where(w => w.ParentId == parentId && w.StatusId == statusId);
+        return excludeItemId is null ? query : query.Where(w => w.Id != excludeItemId);
+    }
+
+    private async Task<double> RespaceAndRankAfterAsync(IQueryable<WorkItem> cell, Guid afterId, CancellationToken ct)
+    {
+        var orderedCell = await cell.OrderBy(w => w.Rank).ThenBy(w => w.Number).ThenBy(w => w.Id).ToListAsync(ct);
+        RespaceRanks(orderedCell);
+
+        var afterIndex = orderedCell.FindIndex(w => w.Id == afterId);
+        var next = afterIndex + 1 < orderedCell.Count ? orderedCell[afterIndex + 1] : null;
+        return RankCalculator.GetRankBetween(orderedCell[afterIndex].Rank, next?.Rank);
     }
 
     /// <summary>
-    /// Two siblings sharing a rank leave no gap to insert into. The cell is small and
-    /// already loaded (and tracked), so its new ranks are saved with the change that
-    /// needed them.
+    /// Two siblings sharing a rank leave no gap to insert into. The cell is loaded (and
+    /// tracked) for this, so its new ranks are saved with the change that needed them.
     /// </summary>
     private static void RespaceRanks(IReadOnlyList<WorkItem> orderedCell)
     {

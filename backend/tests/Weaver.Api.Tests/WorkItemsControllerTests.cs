@@ -49,12 +49,12 @@ public class WorkItemsControllerTests
     }
 
     [Test]
-    public async Task GetAll_ReturnsOkWithEveryItem()
+    public async Task GetAll_ReturnsOkWithTheRequestedPage()
     {
         var items = new[] { MakeWorkItem(), MakeWorkItem() };
-        _workItems.Setup(s => s.GetAllAsync(It.IsAny<CancellationToken>())).ReturnsAsync(items);
+        _workItems.Setup(s => s.GetAllAsync(500, 2, It.IsAny<CancellationToken>())).ReturnsAsync(items);
 
-        var result = await _controller.GetAll();
+        var result = await _controller.GetAll(offset: 500, limit: 2);
 
         var ok = result.Result as OkObjectResult;
         Assert.That(ok, Is.Not.Null);
