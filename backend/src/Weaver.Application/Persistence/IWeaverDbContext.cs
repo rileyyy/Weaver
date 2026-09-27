@@ -24,6 +24,8 @@ public interface IWeaverDbContext
 
     DbSet<WorkItemLayer> WorkItemLayers { get; }
 
+    DbSet<WorkItemPriority> WorkItemPriorities { get; }
+
     DbSet<Comment> Comments { get; }
 
     DbSet<WorkItemLink> WorkItemLinks { get; }

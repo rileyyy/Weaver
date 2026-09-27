@@ -20,7 +20,7 @@ WorkItemDetail _item({
   String id = 'item-1',
   String statusId = 'todo',
   String? layerId,
-  WorkItemPriority priority = WorkItemPriority.medium,
+  String? priorityId,
   String? assignedToUserId,
   List<String> tags = const [],
   String title = 'A task',
@@ -32,7 +32,7 @@ WorkItemDetail _item({
   description: null,
   statusId: statusId,
   layerId: layerId,
-  priority: priority,
+  priorityId: priorityId,
   assignedToUserId: assignedToUserId,
   startDate: null,
   endDate: null,
@@ -110,6 +110,11 @@ class _FakeRepository implements WorkItemDetailRepository {
   ];
 
   @override
+  Future<List<WorkItemPriority>> loadPriorities() async => const [
+    WorkItemPriority(id: 'priority-high', name: 'High', order: 2),
+  ];
+
+  @override
   Future<List<User>> loadUsers() async => const [
     User(id: 'user-1', username: 'alice', kind: UserKind.human),
   ];
@@ -120,7 +125,7 @@ class _FakeRepository implements WorkItemDetailRepository {
     required String title,
     required String? description,
     required String? layerId,
-    required WorkItemPriority priority,
+    required String? priorityId,
     required int expectedVersion,
   }) async {
     updateDetailsCalls.add(id);
@@ -131,7 +136,7 @@ class _FakeRepository implements WorkItemDetailRepository {
       id: id,
       statusId: item.statusId,
       layerId: layerId,
-      priority: priority,
+      priorityId: priorityId,
       version: item.version + 1,
     );
   }
@@ -253,7 +258,7 @@ class _FakeRepository implements WorkItemDetailRepository {
 }
 
 void main() {
-  test('load populates item, statuses, layers, and users', () async {
+  test('load populates item, statuses, layers, priorities and users', () async {
     final repository = _FakeRepository();
     final viewModel = WorkItemDetailViewModel(repository, _currentUser);
 
@@ -264,6 +269,7 @@ void main() {
     expect(viewModel.item!.id, 'item-1');
     expect(viewModel.statuses, hasLength(2));
     expect(viewModel.layers, hasLength(1));
+    expect(viewModel.priorities.single.name, 'High');
     expect(viewModel.users, hasLength(1));
   });
 
@@ -326,12 +332,12 @@ void main() {
       title: 'New title',
       description: null,
       layerId: 'layer-task',
-      priority: WorkItemPriority.high,
+      priorityId: 'priority-high',
     );
 
     expect(ok, isTrue);
     expect(viewModel.item!.layerId, 'layer-task');
-    expect(viewModel.item!.priority, WorkItemPriority.high);
+    expect(viewModel.item!.priorityId, 'priority-high');
     expect(viewModel.saveError, isNull);
   });
 
@@ -346,7 +352,7 @@ void main() {
       title: 'New title',
       description: null,
       layerId: null,
-      priority: WorkItemPriority.medium,
+      priorityId: null,
     );
 
     expect(ok, isFalse);
@@ -364,7 +370,7 @@ void main() {
         title: 'One',
         description: null,
         layerId: null,
-        priority: WorkItemPriority.low,
+        priorityId: null,
       );
       await viewModel.saveTags(['urgent']);
 
@@ -403,7 +409,7 @@ void main() {
         title: 'My title',
         description: null,
         layerId: null,
-        priority: WorkItemPriority.medium,
+        priorityId: null,
       );
 
       expect(ok, isFalse);
@@ -749,7 +755,7 @@ void main() {
         title: '   ',
         description: null,
         layerId: null,
-        priority: WorkItemPriority.medium,
+        priorityId: null,
       );
 
       expect(ok, isFalse);

@@ -114,7 +114,7 @@ public class WorkItemRecurrenceServiceTests
         var user = User.CreateHuman("sam", "sam");
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
-        await _workItems.UpdateDetailsAsync(item.Id, "Report", "Fill it in", WorkItemLayerConfiguration.TaskId, WorkItemPriority.High);
+        await _workItems.UpdateDetailsAsync(item.Id, "Report", "Fill it in", WorkItemLayerConfiguration.TaskId, WorkItemPriorityConfiguration.HighId);
         await _workItems.AssignAsync(item.Id, user.Id);
         await _workItems.SetTagsAsync(item.Id, ["finance"]);
         await _workItems.RescheduleAsync(item.Id, new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 5));
@@ -128,7 +128,7 @@ public class WorkItemRecurrenceServiceTests
             Assert.That(copy.Title, Is.EqualTo("Report"));
             Assert.That(copy.Description, Is.EqualTo("Fill it in"));
             Assert.That(copy.LayerId, Is.EqualTo(WorkItemLayerConfiguration.TaskId));
-            Assert.That(copy.Priority, Is.EqualTo(WorkItemPriority.High));
+            Assert.That(copy.PriorityId, Is.EqualTo(WorkItemPriorityConfiguration.HighId));
             Assert.That(copy.AssignedToUserId, Is.EqualTo(user.Id));
             Assert.That(copy.Tags, Is.EqualTo(new[] { "finance" }));
             Assert.That(copy.ParentId, Is.EqualTo(lane.Id));

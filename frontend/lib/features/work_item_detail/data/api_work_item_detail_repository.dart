@@ -63,6 +63,13 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   );
 
   @override
+  Future<List<WorkItemPriority>> loadPriorities() => _api.get(
+    '/work-item-priorities',
+    (json) => JsonApiClient.listOf(json, WorkItemPriority.fromJson),
+    failureMessage: 'Failed to load priorities',
+  );
+
+  @override
   Future<List<User>> loadUsers() => _users.loadUsers();
 
   @override
@@ -71,7 +78,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     required String title,
     required String? description,
     required String? layerId,
-    required WorkItemPriority priority,
+    required String? priorityId,
     required int expectedVersion,
   }) => _api.put(
     '/work-items/$id/details',
@@ -79,7 +86,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
       'title': title,
       'description': description,
       'layerId': layerId,
-      'priority': priority.wire,
+      'priorityId': priorityId,
       'expectedVersion': expectedVersion,
     },
     _detail,

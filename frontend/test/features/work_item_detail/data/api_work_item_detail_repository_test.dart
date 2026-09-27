@@ -4,9 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:weaver/core/network/api_exception.dart';
-import 'package:weaver/core/network/unexpected_response_exception.dart';
 import 'package:weaver/features/work_item_detail/data/api_work_item_detail_repository.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/shared/data/api_status_repository.dart';
 import 'package:weaver/shared/data/api_user_directory_repository.dart';
 
@@ -19,7 +17,7 @@ http.Response _jsonResponse(Object body, {int statusCode = 200}) =>
 
 Map<String, dynamic> _itemJson({
   String? layerId,
-  String priority = 'Medium',
+  String? priorityId,
   String? assignedToUserId,
   List<String> tags = const [],
   int version = 7,
@@ -30,7 +28,7 @@ Map<String, dynamic> _itemJson({
   'description': null,
   'statusId': 'status-todo',
   'layerId': layerId,
-  'priority': priority,
+  'priorityId': priorityId,
   'assignedToUserId': assignedToUserId,
   'tags': tags,
   'rank': 0,
@@ -61,7 +59,7 @@ void main() {
         (request) async => _jsonResponse(
           _itemJson(
             layerId: 'layer-1',
-            priority: 'Urgent',
+            priorityId: 'priority-urgent',
             assignedToUserId: 'user-1',
           ),
         ),
@@ -76,28 +74,8 @@ void main() {
       final item = await repository.getItem('item-1');
 
       expect(item.layerId, 'layer-1');
-      expect(item.priority, WorkItemPriority.urgent);
+      expect(item.priorityId, 'priority-urgent');
       expect(item.assignedToUserId, 'user-1');
-    },
-  );
-
-  test(
-    'getItem reports an unknown priority as an unexpected response',
-    () async {
-      final client = MockClient(
-        (request) async => _jsonResponse(_itemJson(priority: 'Critical')),
-      );
-      final repository = ApiWorkItemDetailRepository(
-        client,
-        baseUrl,
-        ApiStatusRepository(client, baseUrl),
-        ApiUserDirectoryRepository(client, baseUrl),
-      );
-
-      await expectLater(
-        repository.getItem('item-1'),
-        throwsA(isA<UnexpectedResponseException>()),
-      );
     },
   );
 
@@ -164,6 +142,30 @@ void main() {
     expect(layers.single.name, 'Project');
   });
 
+  test('loadPriorities parses the priority list', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse([
+        {'id': 'priority-low', 'name': 'Low', 'order': 0},
+        {'id': 'priority-high', 'name': 'High', 'order': 2},
+      ]);
+    });
+    final repository = ApiWorkItemDetailRepository(
+      client,
+      baseUrl,
+      ApiStatusRepository(client, baseUrl),
+      ApiUserDirectoryRepository(client, baseUrl),
+    );
+
+    final priorities = await repository.loadPriorities();
+
+    expect(sentRequest!.url.path, '/api/work-item-priorities');
+    expect(priorities.map((p) => p.name), ['Low', 'High']);
+    expect(priorities.last.id, 'priority-high');
+    expect(priorities.last.order, 2);
+  });
+
   test('loadUsers parses the user list', () async {
     final client = MockClient(
       (request) async => _jsonResponse([
@@ -186,7 +188,9 @@ void main() {
     http.Request? sentRequest;
     final client = MockClient((request) async {
       sentRequest = request;
-      return _jsonResponse(_itemJson(layerId: 'layer-1', priority: 'High'));
+      return _jsonResponse(
+        _itemJson(layerId: 'layer-1', priorityId: 'priority-high'),
+      );
     });
     final repository = ApiWorkItemDetailRepository(
       client,
@@ -200,7 +204,7 @@ void main() {
       title: 'New title',
       description: 'New description',
       layerId: 'layer-1',
-      priority: WorkItemPriority.high,
+      priorityId: 'priority-high',
       expectedVersion: 7,
     );
 
@@ -210,7 +214,7 @@ void main() {
       'title': 'New title',
       'description': 'New description',
       'layerId': 'layer-1',
-      'priority': 'High',
+      'priorityId': 'priority-high',
       'expectedVersion': 7,
     });
   });
@@ -231,7 +235,7 @@ void main() {
       title: 'New title',
       description: null,
       layerId: null,
-      priority: WorkItemPriority.medium,
+      priorityId: null,
       expectedVersion: 7,
     );
 

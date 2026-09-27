@@ -35,7 +35,7 @@ public interface IWorkItemService
         Guid statusId,
         Guid? afterId = null,
         Guid? layerId = null,
-        WorkItemPriority priority = WorkItemPriority.Medium,
+        Guid? priorityId = null,
         CancellationToken ct = default);
 
     /// <summary>
@@ -92,7 +92,7 @@ public interface IWorkItemService
         string title,
         string? description,
         Guid? layerId,
-        WorkItemPriority priority,
+        Guid? priorityId,
         uint? expectedVersion = null,
         CancellationToken ct = default);
 

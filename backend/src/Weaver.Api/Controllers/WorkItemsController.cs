@@ -73,7 +73,7 @@ public class WorkItemsController : ControllerBase
             request.StatusId,
             request.AfterId,
             request.LayerId,
-            request.Priority);
+            request.PriorityId);
 
         var dto = WorkItemDto.FromEntity(item);
         return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
@@ -122,7 +122,7 @@ public class WorkItemsController : ControllerBase
             request.Title,
             request.Description,
             request.LayerId,
-            request.Priority,
+            request.PriorityId,
             request.ExpectedVersion);
         return Ok(WorkItemDto.FromEntity(item));
     }

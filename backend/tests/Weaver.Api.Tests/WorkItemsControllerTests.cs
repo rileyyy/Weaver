@@ -72,7 +72,7 @@ public class WorkItemsControllerTests
         var created = MakeWorkItem(parentId, statusId);
 
         _workItems.Setup(s => s.CreateAsync(
-                "Title", "Desc", parentId, statusId, afterId, null, WorkItemPriority.Medium, It.IsAny<CancellationToken>()))
+                "Title", "Desc", parentId, statusId, afterId, null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(created);
 
         var result = await _controller.Create(new CreateWorkItemRequest("Title", "Desc", parentId, statusId, afterId));
@@ -146,12 +146,13 @@ public class WorkItemsControllerTests
     {
         var item = MakeWorkItem();
         var layerId = Guid.NewGuid();
+        var priorityId = Guid.NewGuid();
         _workItems.Setup(s => s.UpdateDetailsAsync(
-                item.Id, "New title", "New description", layerId, WorkItemPriority.High, 7u, It.IsAny<CancellationToken>()))
+                item.Id, "New title", "New description", layerId, priorityId, 7u, It.IsAny<CancellationToken>()))
             .ReturnsAsync(item);
 
         var result = await _controller.UpdateDetails(
-            item.Id, new UpdateWorkItemDetailsRequest("New title", "New description", layerId, WorkItemPriority.High, 7u));
+            item.Id, new UpdateWorkItemDetailsRequest("New title", "New description", layerId, priorityId, 7u));
 
         Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(WorkItemDto.FromEntity(item)));
         _workItems.VerifyAll();

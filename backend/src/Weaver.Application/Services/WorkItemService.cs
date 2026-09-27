@@ -79,7 +79,7 @@ public class WorkItemService : IWorkItemService
         Guid statusId,
         Guid? afterId = null,
         Guid? layerId = null,
-        WorkItemPriority priority = WorkItemPriority.Medium,
+        Guid? priorityId = null,
         CancellationToken ct = default)
     {
         if (parentId is not null && !await _db.WorkItems.AnyAsync(w => w.Id == parentId, ct))
@@ -92,13 +92,10 @@ public class WorkItemService : IWorkItemService
             throw new EntityNotFoundException(nameof(Status), statusId);
         }
 
-        if (layerId is not null && !await _db.WorkItemLayers.AnyAsync(l => l.Id == layerId, ct))
-        {
-            throw new EntityNotFoundException(nameof(WorkItemLayer), layerId.Value);
-        }
+        await EnsureDetailLookupsExistAsync(layerId, priorityId, ct);
 
         var rank = await ComputeRankAsync(parentId, statusId, afterId, excludeItemId: null, ct);
-        var item = WorkItem.Create(title, description, parentId, statusId, rank, layerId, priority);
+        var item = WorkItem.Create(title, description, parentId, statusId, rank, layerId, priorityId);
 
         _db.WorkItems.Add(item);
         await _db.SaveChangesAsync(ct);
@@ -176,21 +173,18 @@ public class WorkItemService : IWorkItemService
         string title,
         string? description,
         Guid? layerId,
-        WorkItemPriority priority,
+        Guid? priorityId,
         uint? expectedVersion = null,
         CancellationToken ct = default)
     {
-        if (layerId is not null && !await _db.WorkItemLayers.AnyAsync(l => l.Id == layerId, ct))
-        {
-            throw new EntityNotFoundException(nameof(WorkItemLayer), layerId.Value);
-        }
+        await EnsureDetailLookupsExistAsync(layerId, priorityId, ct);
 
         var item = await _db.WorkItems.FindAsync([id], ct)
             ?? throw new EntityNotFoundException(nameof(WorkItem), id);
 
         EnsureVersion(item, expectedVersion);
 
-        item.UpdateDetails(title, description, layerId, priority);
+        item.UpdateDetails(title, description, layerId, priorityId);
 
         await SaveWorkItemChangesAsync(id, ct);
         return item;
@@ -284,6 +278,19 @@ public class WorkItemService : IWorkItemService
         if (expectedVersion is not null && item.Version != expectedVersion)
         {
             throw new WorkItemVersionConflictException(item.Id);
+        }
+    }
+
+    private async Task EnsureDetailLookupsExistAsync(Guid? layerId, Guid? priorityId, CancellationToken ct)
+    {
+        if (layerId is not null && !await _db.WorkItemLayers.AnyAsync(l => l.Id == layerId, ct))
+        {
+            throw new EntityNotFoundException(nameof(WorkItemLayer), layerId.Value);
+        }
+
+        if (priorityId is not null && !await _db.WorkItemPriorities.AnyAsync(p => p.Id == priorityId, ct))
+        {
+            throw new EntityNotFoundException(nameof(WorkItemPriority), priorityId.Value);
         }
     }
 

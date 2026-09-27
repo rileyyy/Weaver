@@ -26,6 +26,7 @@ class WorkItemDetailViewModel extends ViewModel {
   WorkItemDetail? _item;
   List<WorkItemStatus> _statuses = const [];
   List<WorkItemLayer> _layers = const [];
+  List<WorkItemPriority> _priorities = const [];
   List<User> _users = const [];
   List<WorkItemComment> _comments = const [];
   List<WorkItemLink> _links = const [];
@@ -42,6 +43,7 @@ class WorkItemDetailViewModel extends ViewModel {
   WorkItemDetail? get item => _item;
   List<WorkItemStatus> get statuses => _statuses;
   List<WorkItemLayer> get layers => _layers;
+  List<WorkItemPriority> get priorities => _priorities;
   List<User> get users => _users;
   List<WorkItemComment> get comments => _comments;
   List<WorkItemLink> get links => _links;
@@ -90,10 +92,20 @@ class WorkItemDetailViewModel extends ViewModel {
     notifyIfActive();
 
     try {
-      final (item, statuses, layers, users, comments, links, children) = await (
+      final (
+        item,
+        statuses,
+        layers,
+        priorities,
+        users,
+        comments,
+        links,
+        children,
+      ) = await (
         _repository.getItem(id),
         _repository.loadStatuses(),
         _repository.loadLayers(),
+        _repository.loadPriorities(),
         _repository.loadUsers(),
         _repository.loadComments(id),
         _repository.loadLinks(id),
@@ -102,12 +114,13 @@ class WorkItemDetailViewModel extends ViewModel {
       _item = item;
       _statuses = statuses;
       _layers = layers;
+      _priorities = priorities;
       _users = users;
       _comments = comments;
       _links = links;
       _children = children;
     } on ParallelWaitError<Object?, Object?> catch (e) {
-      final (a, b, c, d, f, g, h) =
+      final (a, b, c, d, f, g, h, i) =
           e.errors
               as (
                 AsyncError?,
@@ -117,8 +130,9 @@ class WorkItemDetailViewModel extends ViewModel {
                 AsyncError?,
                 AsyncError?,
                 AsyncError?,
+                AsyncError?,
               );
-      rethrowNonApiErrors([a, b, c, d, f, g, h]);
+      rethrowNonApiErrors([a, b, c, d, f, g, h, i]);
       _loadError =
           'Could not load this work item. Check your connection and try again.';
     } finally {
@@ -144,7 +158,7 @@ class WorkItemDetailViewModel extends ViewModel {
     required String title,
     required String? description,
     required String? layerId,
-    required WorkItemPriority priority,
+    required String? priorityId,
   }) {
     final error = titleError(title);
     if (error != null) return _reject(error);
@@ -154,7 +168,7 @@ class WorkItemDetailViewModel extends ViewModel {
         title: title,
         description: description,
         layerId: layerId,
-        priority: priority,
+        priorityId: priorityId,
         expectedVersion: _item!.version,
       ),
     );

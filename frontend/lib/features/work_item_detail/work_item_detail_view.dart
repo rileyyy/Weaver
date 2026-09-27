@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:weaver/core/dates/date_format.dart';
 import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/features/work_item_detail/repeat_settings_view_model.dart';
 import 'package:weaver/features/work_item_detail/widgets/comments_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/confirm_dialogs.dart';
@@ -109,7 +108,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   String? _selectedLayerId;
-  WorkItemPriority _selectedPriority = WorkItemPriority.medium;
+  String? _selectedPriorityId;
 
   String? _selectedAssigneeId;
   List<String> _tags = [];
@@ -155,7 +154,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     _titleController.text = item.title;
     _descriptionController.text = item.description ?? '';
     _selectedLayerId = item.layerId;
-    _selectedPriority = item.priority;
+    _selectedPriorityId = item.priorityId;
     _selectedAssigneeId = item.assignedToUserId;
     _tags = [...item.tags];
   }
@@ -167,7 +166,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     return _titleController.text != item.title ||
         _descriptionController.text != (item.description ?? '') ||
         _selectedLayerId != item.layerId ||
-        _selectedPriority != item.priority;
+        _selectedPriorityId != item.priorityId;
   }
 
   bool get _hasUnsavedChanges => _hasUnsavedDetails || _repeat.isDirty;
@@ -333,16 +332,15 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
         ),
         const SizedBox(height: 16),
         const FieldLabel('Priority'),
-        DropdownButtonFormField<WorkItemPriority>(
-          initialValue: _selectedPriority,
+        DropdownButtonFormField<String?>(
+          initialValue: _selectedPriorityId,
           decoration: const InputDecoration(),
           items: [
-            for (final priority in WorkItemPriority.values)
-              DropdownMenuItem(value: priority, child: Text(priority.label)),
+            const DropdownMenuItem(value: null, child: Text('None')),
+            for (final priority in _viewModel.priorities)
+              DropdownMenuItem(value: priority.id, child: Text(priority.name)),
           ],
-          onChanged: (value) => setState(
-            () => _selectedPriority = value ?? WorkItemPriority.medium,
-          ),
+          onChanged: (value) => setState(() => _selectedPriorityId = value),
         ),
         const SizedBox(height: 16),
         const FieldLabel('Status'),
@@ -421,7 +419,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
         ? null
         : _descriptionController.text,
     layerId: _selectedLayerId,
-    priority: _selectedPriority,
+    priorityId: _selectedPriorityId,
   );
 
   Future<void> _saveAssignee(String? userId) async {

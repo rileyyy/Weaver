@@ -98,14 +98,15 @@ public class WorkItemToolsTests
         var statusId = Guid.NewGuid();
         var afterId = Guid.NewGuid();
         var layerId = Guid.NewGuid();
+        var priorityId = Guid.NewGuid();
         var created = MakeWorkItem();
         _workItems
             .Setup(w => w.CreateAsync(
-                "Title", "Description", parentId, statusId, afterId, layerId, WorkItemPriority.High, It.IsAny<CancellationToken>()))
+                "Title", "Description", parentId, statusId, afterId, layerId, priorityId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(created);
 
         var result = await _tools.CreateWorkItem(
-            "Title", statusId, "Description", parentId, afterId, layerId, WorkItemPriority.High, CancellationToken.None);
+            "Title", statusId, "Description", parentId, afterId, layerId, priorityId, CancellationToken.None);
 
         Assert.That(result.Id, Is.EqualTo(created.Id));
     }
@@ -118,7 +119,7 @@ public class WorkItemToolsTests
         var domainException = new EntityNotFoundException(nameof(WorkItem), missingParentId);
         _workItems
             .Setup(w => w.CreateAsync(
-                "Title", null, missingParentId, statusId, null, null, WorkItemPriority.Medium, It.IsAny<CancellationToken>()))
+                "Title", null, missingParentId, statusId, null, null, null, It.IsAny<CancellationToken>()))
             .ThrowsAsync(domainException);
 
         var thrown = Assert.ThrowsAsync<McpException>(() =>

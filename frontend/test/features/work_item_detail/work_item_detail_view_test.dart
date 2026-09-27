@@ -31,7 +31,7 @@ class _LoadOnlyRepository implements WorkItemDetailRepository {
     description: null,
     statusId: 'todo',
     layerId: null,
-    priority: WorkItemPriority.medium,
+    priorityId: null,
     assignedToUserId: null,
     startDate: null,
     endDate: null,
@@ -47,6 +47,9 @@ class _LoadOnlyRepository implements WorkItemDetailRepository {
 
   @override
   Future<List<WorkItemLayer>> loadLayers() async => const [];
+
+  @override
+  Future<List<WorkItemPriority>> loadPriorities() async => const [];
 
   @override
   Future<List<User>> loadUsers() async => const [];

@@ -20,12 +20,30 @@ public class WorkItemPersistenceTests
     [Test]
     public async Task Enums_AreSentAsTheirNames()
     {
-        var item = await _client.CreateWorkItemAsync("Enum check");
+        var json = await _client.GetStringAsync("/api/statuses");
+        var category = JsonDocument.Parse(json).RootElement[0].GetProperty("category").GetString();
 
-        var json = await _client.GetStringAsync($"/api/work-items/{item.Id}");
-        var priority = JsonDocument.Parse(json).RootElement.GetProperty("priority").GetString();
+        Assert.That(category, Is.EqualTo("ToDo"));
+    }
 
-        Assert.That(priority, Is.EqualTo("Medium"));
+    [Test]
+    public async Task Priorities_AreSeededInOrder_AndCanBeSetOnAWorkItem()
+    {
+        var priorities = await (await _client.GetAsync("/api/work-item-priorities"))
+            .ReadAsync<List<WorkItemPriorityDto>>();
+        var item = await _client.CreateWorkItemAsync("Prioritised");
+
+        var updated = await (await _client.PutJsonAsync(
+            $"/api/work-items/{item.Id}/details",
+            new UpdateWorkItemDetailsRequest("Prioritised", null, null, SeededPriorities.High)))
+            .ReadAsync<WorkItemDto>();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(priorities.Select(p => p.Name), Is.EqualTo(new[] { "Low", "Medium", "High", "Urgent" }));
+            Assert.That(item.PriorityId, Is.Null);
+            Assert.That(updated.PriorityId, Is.EqualTo(SeededPriorities.High));
+        });
     }
 
     [Test]
@@ -88,12 +106,12 @@ public class WorkItemPersistenceTests
         var item = await _client.CreateWorkItemAsync("Original");
         var firstEdit = await (await _client.PutJsonAsync(
             $"/api/work-items/{item.Id}/details",
-            new UpdateWorkItemDetailsRequest("First edit", null, null, Domain.WorkItemPriority.High, item.Version)))
+            new UpdateWorkItemDetailsRequest("First edit", null, null, SeededPriorities.High, item.Version)))
             .ReadAsync<WorkItemDto>();
 
         var staleEdit = await _client.PutJsonAsync(
             $"/api/work-items/{item.Id}/details",
-            new UpdateWorkItemDetailsRequest("Stale edit", null, null, Domain.WorkItemPriority.Low, item.Version));
+            new UpdateWorkItemDetailsRequest("Stale edit", null, null, SeededPriorities.Low, item.Version));
         var current = await (await _client.GetAsync($"/api/work-items/{item.Id}")).ReadAsync<WorkItemDto>();
 
         Assert.Multiple(() =>

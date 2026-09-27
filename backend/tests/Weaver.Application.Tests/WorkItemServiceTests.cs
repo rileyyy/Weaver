@@ -403,11 +403,29 @@ public class WorkItemServiceTests
     }
 
     [Test]
-    public async Task CreateAsync_DefaultsPriorityToMedium()
+    public async Task CreateAsync_LeavesPriorityUnsetByDefault()
     {
         var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
 
-        Assert.That(item.Priority, Is.EqualTo(WorkItemPriority.Medium));
+        Assert.That(item.PriorityId, Is.Null);
+    }
+
+    [Test]
+    public async Task CreateAsync_WithPriorityId_SetsIt()
+    {
+        var item = await _service.CreateAsync(
+            "Task", null, null, StatusConfiguration.ToDoId, priorityId: WorkItemPriorityConfiguration.UrgentId);
+
+        Assert.That(item.PriorityId, Is.EqualTo(WorkItemPriorityConfiguration.UrgentId));
+    }
+
+    [Test]
+    public async Task CreateAsync_WithUnknownPriorityId_ThrowsAndCreatesNothing()
+    {
+        Assert.ThrowsAsync<EntityNotFoundException>(() =>
+            _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, priorityId: Guid.NewGuid()));
+
+        Assert.That(await _db.WorkItems.AnyAsync(), Is.False);
     }
 
     [Test]
@@ -416,12 +434,12 @@ public class WorkItemServiceTests
         var item = await _service.CreateAsync("Old title", "Old description", null, StatusConfiguration.ToDoId);
 
         var updated = await _service.UpdateDetailsAsync(
-            item.Id, "New title", "New description", WorkItemLayerConfiguration.GoalId, WorkItemPriority.Urgent);
+            item.Id, "New title", "New description", WorkItemLayerConfiguration.GoalId, WorkItemPriorityConfiguration.UrgentId);
 
         Assert.That(updated.Title, Is.EqualTo("New title"));
         Assert.That(updated.Description, Is.EqualTo("New description"));
         Assert.That(updated.LayerId, Is.EqualTo(WorkItemLayerConfiguration.GoalId));
-        Assert.That(updated.Priority, Is.EqualTo(WorkItemPriority.Urgent));
+        Assert.That(updated.PriorityId, Is.EqualTo(WorkItemPriorityConfiguration.UrgentId));
     }
 
     [Test]
@@ -430,7 +448,7 @@ public class WorkItemServiceTests
         var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId);
         var item = await _service.CreateAsync("Child", null, parent.Id, StatusConfiguration.DoingId);
 
-        var updated = await _service.UpdateDetailsAsync(item.Id, "Renamed", null, null, WorkItemPriority.Low);
+        var updated = await _service.UpdateDetailsAsync(item.Id, "Renamed", null, null, WorkItemPriorityConfiguration.LowId);
 
         Assert.That(updated.StatusId, Is.EqualTo(StatusConfiguration.DoingId));
         Assert.That(updated.ParentId, Is.EqualTo(parent.Id));
@@ -440,14 +458,38 @@ public class WorkItemServiceTests
     public void UpdateDetailsAsync_WithUnknownLayerId_ThrowsEntityNotFoundException()
     {
         Assert.ThrowsAsync<EntityNotFoundException>(() =>
-            _service.UpdateDetailsAsync(Guid.NewGuid(), "Title", null, Guid.NewGuid(), WorkItemPriority.Medium));
+            _service.UpdateDetailsAsync(Guid.NewGuid(), "Title", null, Guid.NewGuid(), null));
+    }
+
+    [Test]
+    public async Task UpdateDetailsAsync_WithUnknownPriorityId_ThrowsAndLeavesPriorityUnchanged()
+    {
+        var item = await _service.CreateAsync(
+            "Item", null, null, StatusConfiguration.ToDoId, priorityId: WorkItemPriorityConfiguration.LowId);
+
+        Assert.ThrowsAsync<EntityNotFoundException>(() =>
+            _service.UpdateDetailsAsync(item.Id, "Item", null, null, Guid.NewGuid()));
+
+        _db.ChangeTracker.Clear();
+        Assert.That((await _db.WorkItems.SingleAsync()).PriorityId, Is.EqualTo(WorkItemPriorityConfiguration.LowId));
+    }
+
+    [Test]
+    public async Task UpdateDetailsAsync_WithNullPriorityId_ClearsIt()
+    {
+        var item = await _service.CreateAsync(
+            "Item", null, null, StatusConfiguration.ToDoId, priorityId: WorkItemPriorityConfiguration.LowId);
+
+        var updated = await _service.UpdateDetailsAsync(item.Id, "Item", null, null, null);
+
+        Assert.That(updated.PriorityId, Is.Null);
     }
 
     [Test]
     public void UpdateDetailsAsync_WhenNotFound_ThrowsEntityNotFoundException()
     {
         Assert.ThrowsAsync<EntityNotFoundException>(() =>
-            _service.UpdateDetailsAsync(Guid.NewGuid(), "Title", null, null, WorkItemPriority.Medium));
+            _service.UpdateDetailsAsync(Guid.NewGuid(), "Title", null, null, null));
     }
 
     [Test]
@@ -456,7 +498,7 @@ public class WorkItemServiceTests
         var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
 
         var updated = await _service.UpdateDetailsAsync(
-            item.Id, "Renamed", null, null, WorkItemPriority.High, expectedVersion: item.Version);
+            item.Id, "Renamed", null, null, WorkItemPriorityConfiguration.HighId, expectedVersion: item.Version);
 
         Assert.That(updated.Title, Is.EqualTo("Renamed"));
     }
@@ -467,7 +509,7 @@ public class WorkItemServiceTests
         var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
 
         Assert.ThrowsAsync<WorkItemVersionConflictException>(() => _service.UpdateDetailsAsync(
-            item.Id, "Renamed", null, null, WorkItemPriority.High, expectedVersion: item.Version + 1));
+            item.Id, "Renamed", null, null, WorkItemPriorityConfiguration.HighId, expectedVersion: item.Version + 1));
 
         _db.ChangeTracker.Clear();
         Assert.That((await _db.WorkItems.SingleAsync()).Title, Is.EqualTo("Item"));
@@ -595,7 +637,7 @@ public class WorkItemServiceTests
         var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
 
         Assert.ThrowsAsync<DomainValidationException>(() =>
-            _service.UpdateDetailsAsync(item.Id, " ", null, null, WorkItemPriority.Medium));
+            _service.UpdateDetailsAsync(item.Id, " ", null, null, null));
 
         _db.ChangeTracker.Clear();
         Assert.That((await _db.WorkItems.SingleAsync()).Title, Is.EqualTo("Item"));

@@ -1,21 +1,21 @@
-/// Mirrors the backend's `WorkItemPriority`. [wire] is the API contract and
-/// [label] the display text; keeping them separate lets the UI wording change
-/// without breaking requests.
-enum WorkItemPriority {
-  low(wire: 'Low', label: 'Low'),
-  medium(wire: 'Medium', label: 'Medium'),
-  high(wire: 'High', label: 'High'),
-  urgent(wire: 'Urgent', label: 'Urgent');
+/// One of the configurable priorities (seeded Low / Medium / High / Urgent),
+/// loaded from the backend like [WorkItemLayer]s. [order] runs from least to
+/// most urgent.
+class WorkItemPriority {
+  const WorkItemPriority({
+    required this.id,
+    required this.name,
+    required this.order,
+  });
 
-  const WorkItemPriority({required this.wire, required this.label});
+  factory WorkItemPriority.fromJson(Map<String, dynamic> json) =>
+      WorkItemPriority(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        order: json['order'] as int,
+      );
 
-  final String wire;
-  final String label;
-
-  /// Throws a [FormatException] for an unknown value, which the API client
-  /// reports as an unexpected response instead of silently showing Medium.
-  static WorkItemPriority fromWire(String value) => values.firstWhere(
-    (priority) => priority.wire == value,
-    orElse: () => throw FormatException('Unknown work item priority', value),
-  );
+  final String id;
+  final String name;
+  final int order;
 }

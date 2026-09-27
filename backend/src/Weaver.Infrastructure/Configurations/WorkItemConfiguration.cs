@@ -33,6 +33,11 @@ public class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             .HasForeignKey(w => w.LayerId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(w => w.Priority)
+            .WithMany()
+            .HasForeignKey(w => w.PriorityId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasOne(w => w.AssignedToUser)
             .WithMany()
             .HasForeignKey(w => w.AssignedToUserId)

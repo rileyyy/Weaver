@@ -7,7 +7,7 @@ namespace Weaver.Api.Mcp;
 /// MCP tool parameters/results follow the same "enums serialize as their string name,
 /// not the underlying int" contract as the REST API's own JSON (see the
 /// <see cref="JsonStringEnumConverter"/> registered for MVC in Program.cs) — an MCP
-/// client sees e.g. "Medium" for <see cref="Weaver.Domain.WorkItemPriority"/>, not 1.
+/// client sees e.g. "Human" for <see cref="Weaver.Domain.UserKind"/>, not 0.
 /// </summary>
 /// <remarks>
 /// Must be built from <see cref="JsonSerializerOptions.Default"/> (which already carries a

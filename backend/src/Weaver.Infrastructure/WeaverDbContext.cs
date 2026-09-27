@@ -25,6 +25,8 @@ public class WeaverDbContext : DbContext, IWeaverDbContext
 
     public DbSet<WorkItemLayer> WorkItemLayers => Set<WorkItemLayer>();
 
+    public DbSet<WorkItemPriority> WorkItemPriorities => Set<WorkItemPriority>();
+
     public DbSet<Comment> Comments => Set<Comment>();
 
     public DbSet<WorkItemLink> WorkItemLinks => Set<WorkItemLink>();
@@ -74,6 +76,7 @@ public class WeaverDbContext : DbContext, IWeaverDbContext
         modelBuilder.ApplyConfiguration(new UserConfiguration());
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemLayerConfiguration());
+        modelBuilder.ApplyConfiguration(new WorkItemPriorityConfiguration());
         modelBuilder.ApplyConfiguration(new CommentConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemLinkConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemRecurrenceConfiguration());

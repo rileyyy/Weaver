@@ -1,6 +1,5 @@
 import 'package:weaver/core/network/api_dates.dart';
 import 'package:weaver/core/network/json_fields.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 
 /// The full record for one work item — a superset of `WorkItemCard`'s
 /// board-display fields, used by the detail screen rather than the board.
@@ -12,7 +11,7 @@ class WorkItemDetail {
     required this.description,
     required this.statusId,
     required this.layerId,
-    required this.priority,
+    required this.priorityId,
     required this.assignedToUserId,
     required this.startDate,
     required this.endDate,
@@ -31,7 +30,7 @@ class WorkItemDetail {
     description: json['description'] as String?,
     statusId: json['statusId'] as String,
     layerId: json['layerId'] as String?,
-    priority: WorkItemPriority.fromWire(json['priority'] as String),
+    priorityId: json['priorityId'] as String?,
     assignedToUserId: json['assignedToUserId'] as String?,
     startDate: parseCalendarDate(json['startDate']),
     endDate: parseCalendarDate(json['endDate']),
@@ -49,7 +48,7 @@ class WorkItemDetail {
   final String? description;
   final String statusId;
   final String? layerId;
-  final WorkItemPriority priority;
+  final String? priorityId;
   final String? assignedToUserId;
   final DateTime? startDate;
   final DateTime? endDate;

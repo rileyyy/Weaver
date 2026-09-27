@@ -3,7 +3,6 @@ using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using Weaver.Api.Contracts;
 using Weaver.Application.Services;
-using Weaver.Domain;
 
 namespace Weaver.Api.Mcp;
 
@@ -61,11 +60,11 @@ public class WorkItemTools
         [Description("Id of the parent work item this item will become a child of. Omit to create a top-level item.")] Guid? parentId = null,
         [Description("Id of an existing sibling (same parent and status) to place this item immediately after. Omit to place it first.")] Guid? afterId = null,
         [Description("Id of the work item layer, e.g. Project/Goal/Task. Use list_work_item_layers to find valid ids. Optional.")] Guid? layerId = null,
-        [Description("Priority of the work item. Defaults to Medium.")] WorkItemPriority priority = WorkItemPriority.Medium,
+        [Description("Id of the work item priority. Use list_work_item_priorities to find valid ids. Optional.")] Guid? priorityId = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
-            var item = await _workItems.CreateAsync(title, description, parentId, statusId, afterId, layerId, priority, ct);
+            var item = await _workItems.CreateAsync(title, description, parentId, statusId, afterId, layerId, priorityId, ct);
             return WorkItemDto.FromEntity(item);
         });
 
@@ -120,12 +119,12 @@ public class WorkItemTools
         [Description("New title.")] string title,
         [Description("New description. Optional.")] string? description = null,
         [Description("Id of the work item layer. Omit to clear it.")] Guid? layerId = null,
-        [Description("New priority. Defaults to Medium.")] WorkItemPriority priority = WorkItemPriority.Medium,
+        [Description("Id of the work item priority. Omit to clear it.")] Guid? priorityId = null,
         [Description("The work item's Version from your last read. If given and the item has changed since, the update is rejected instead of overwriting someone else's change.")] uint? expectedVersion = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
-            var item = await _workItems.UpdateDetailsAsync(id, title, description, layerId, priority, expectedVersion, ct);
+            var item = await _workItems.UpdateDetailsAsync(id, title, description, layerId, priorityId, expectedVersion, ct);
             return WorkItemDto.FromEntity(item);
         });
 

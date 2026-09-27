@@ -112,9 +112,18 @@ and it is what allows MCP tools to reuse the same business logic (see
   the parent/child tree**: the layer is a label, not a constraint, so the
   hierarchy stays fluid (a Task can parent a Project if someone wants
   that).
-- **`Priority` is a fixed enum** (`WorkItemPriority`: `Low`, `Medium`,
-  `High`, `Urgent`; default `Medium`), like `StatusCategory`. Only layers
-  and statuses were asked to be configurable.
+- **`WorkItemPriority` is a lookup table too** (`Id`, `Name`, `Order`
+  from least to most urgent), seeded with Low / Medium / High / Urgent. It
+  replaced a fixed enum so priorities can be renamed, reordered or added
+  without a schema change. `WorkItem.PriorityId` is nullable like
+  `LayerId`, and a new item has no priority unless one is given; the enum
+  defaulted to Medium only because an enum column needs a value. The
+  `ConfigurablePriorities` migration maps each stored enum ordinal onto the
+  seeded row with that `Order`, and its `Down` maps back (anything else
+  becomes Medium). Clients read the list from `GET
+  /work-item-priorities` / `list_work_item_priorities`; like layers and
+  statuses there is no write endpoint yet, so "configurable" means editable
+  in the database.
 - **Fields that were requested but map onto existing ones:**
   - There is no `DueDate`: `EndDate` is the due date (the board's sort
     option labels it "Due date").
@@ -238,7 +247,7 @@ and it is what allows MCP tools to reuse the same business logic (see
   `/assignee`, `/tags`) is a `PUT` to that sub-resource. Controllers
   declare their `201`/`204` and problem-details error responses, so the
   OpenAPI document shows the error shapes.
-- **Enums serialise as their string name** (`"Medium"`, `"Human"`) via a
+- **Enums serialise as their string name** (`"ToDo"`, `"Human"`) via a
   global `JsonStringEnumConverter` in `Program.cs`. Without it the API
   sent ints, and the frontend's `as String` cast failed on a response that
   had actually succeeded, surfacing as a misleading "could not create
@@ -381,8 +390,8 @@ and it is what allows MCP tools to reuse the same business logic (see
   from the request's DI scope, so a `WeaverDbContext`-backed service
   behaves exactly as it does for a controller. `CommentTools` reads the
   caller's id through `IHttpContextAccessor`.
-- **Coverage:** work items, boards, statuses, layers, users, comments and
-  links. Auth endpoints are not tools; they're how a client gets its token.
+- **Coverage:** work items, boards, statuses, layers, priorities, users,
+  comments and links. Auth endpoints are not tools; they're how a client gets its token.
   `list_all_work_items` pages through every item like `GET
   /work-items/all` (same `offset`/`limit`, default 500, at most 1000, from
   `WorkItemService`), so an agent can rebuild the whole tree;

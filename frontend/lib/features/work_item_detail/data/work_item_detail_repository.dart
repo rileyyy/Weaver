@@ -25,6 +25,8 @@ abstract class WorkItemDetailRepository {
 
   Future<List<WorkItemLayer>> loadLayers();
 
+  Future<List<WorkItemPriority>> loadPriorities();
+
   Future<List<User>> loadUsers();
 
   /// [expectedVersion] is the [WorkItemDetail.version] the edit was based
@@ -35,7 +37,7 @@ abstract class WorkItemDetailRepository {
     required String title,
     required String? description,
     required String? layerId,
-    required WorkItemPriority priority,
+    required String? priorityId,
     required int expectedVersion,
   });
 

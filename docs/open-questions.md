@@ -57,12 +57,6 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
 - **To decide:** whether anyone (admins, item owners) should be able to
   moderate comments; this depends on a roles concept that doesn't exist.
 
-### Priority is a fixed enum
-- **Today:** `Low` / `Medium` / `High` / `Urgent`, hardcoded like
-  `StatusCategory`.
-- **To decide:** whether priorities should be configurable like layers
-  and statuses (a lookup table).
-
 ### Attachments
 - **Today:** none. Milestone 12 (attachments) was skipped.
 - **To decide:** whether they're wanted, and where files would be stored.

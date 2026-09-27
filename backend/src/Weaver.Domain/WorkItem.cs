@@ -49,7 +49,11 @@ public class WorkItem : IHasUpdatedAt
     /// </summary>
     public Guid? LayerId { get; private set; }
 
-    public WorkItemPriority Priority { get; private set; } = WorkItemPriority.Medium;
+    /// <summary>
+    /// How urgent this item is — a label from the configurable <see cref="WorkItemPriority"/>
+    /// table. Nullable like <see cref="LayerId"/>: an item doesn't have to be prioritised.
+    /// </summary>
+    public Guid? PriorityId { get; private set; }
 
     public Guid? AssignedToUserId { get; private set; }
 
@@ -97,6 +101,8 @@ public class WorkItem : IHasUpdatedAt
 
     public WorkItemLayer? Layer { get; private set; }
 
+    public WorkItemPriority? Priority { get; private set; }
+
     public User? AssignedToUser { get; private set; }
 
     public WorkItem? RecurrenceSource { get; private set; }
@@ -108,7 +114,7 @@ public class WorkItem : IHasUpdatedAt
         Guid statusId,
         double rank,
         Guid? layerId = null,
-        WorkItemPriority priority = WorkItemPriority.Medium)
+        Guid? priorityId = null)
     {
         var item = new WorkItem
         {
@@ -117,7 +123,7 @@ public class WorkItem : IHasUpdatedAt
             StatusId = statusId,
             Rank = rank,
         };
-        item.UpdateDetails(title, description, layerId, priority);
+        item.UpdateDetails(title, description, layerId, priorityId);
         return item;
     }
 
@@ -125,14 +131,14 @@ public class WorkItem : IHasUpdatedAt
     /// The descriptive fields share no invariant with status, parent, schedule or assignee,
     /// so they are safe to change together.
     /// </summary>
-    public void UpdateDetails(string title, string? description, Guid? layerId, WorkItemPriority priority)
+    public void UpdateDetails(string title, string? description, Guid? layerId, Guid? priorityId)
     {
         TextValidation.RequireText(title, "Title", TitleMaxLength);
 
         Title = title;
         Description = description;
         LayerId = layerId;
-        Priority = priority;
+        PriorityId = priorityId;
     }
 
     /// <summary>
@@ -190,7 +196,7 @@ public class WorkItem : IHasUpdatedAt
     /// </summary>
     public WorkItem CopyForOccurrence(Guid? parentId, Guid statusId, double rank, DateOnly date)
     {
-        var copy = Create(Title, Description, parentId, statusId, rank, LayerId, Priority);
+        var copy = Create(Title, Description, parentId, statusId, rank, LayerId, PriorityId);
         copy.AssignedToUserId = AssignedToUserId;
         copy._tags = [.. _tags];
         copy.StartDate = date;
