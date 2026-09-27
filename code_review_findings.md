@@ -50,7 +50,7 @@ The most important problems cluster in four areas:
 ### High
 
 #### B-H1. `appsettings.json` ships a JWT signing key, which defeats the startup guard
-- [ ] **Resolved** — *Deferred: the committed key is dev-only and not used by any production deployment yet. Revisit before Milestone 15 (production deployment).*
+- [x] **Resolved** in `feature/backend-review-cleanup`: the dev key and connection string moved to `appsettings.Development.json`. `JwtSigningKeyPolicy` rejects a missing key, one under 32 bytes, or the public dev key outside Development, and a missing connection string also stops startup. Integration tests boot a Production host to prove each case refuses to start.
 - **Where:** [appsettings.json:12-14](backend/src/Weaver.Api/appsettings.json#L12-L14), [Program.cs:56-61](backend/src/Weaver.Api/Program.cs#L56-L61), [JwtOptions.cs:3-9](backend/src/Weaver.Infrastructure/Auth/JwtOptions.cs#L3-L9)
 - **Issue:** `Program.cs` throws if `Jwt:SigningKey` is empty, and the `JwtOptions` doc says the key "has no default and startup should fail loudly without one". But `appsettings.json`, which loads in every environment, contains `insecure-development-only-signing-key-do-not-use-in-production`. So the guard can never fire. Any deployment that forgets `Jwt__SigningKey` (for example, running the image outside `compose.yaml`) silently signs tokens with a key that is public in the repo, and anyone can forge a token for any user. The same file also ships a default DB password.
 - **Fix:**
@@ -58,7 +58,7 @@ The most important problems cluster in four areas:
   - Also reject keys shorter than 32 bytes (HS256 minimum) and the known placeholder value when not in Development.
 
 #### B-H2. Deleting a linked work item or a board's scope item returns 500
-- [x] **Resolved** in `bugfix/delete-linked-work-item`: links are removed with the deleted items, and deleting a board's scope item returns 409. Checked by hand against real Postgres; the automated real-Postgres test is still pending [T-1](#t-1-no-integration-tests-against-a-real-pipeline-or-database).
+- [x] **Resolved** in `bugfix/delete-linked-work-item`: links are removed with the deleted items, and deleting a board's scope item returns 409. Covered against real Postgres by the [T-1](#t-1-no-integration-tests-against-a-real-pipeline-or-database) integration tests.
 - **Where:** [WorkItemLinkConfiguration.cs:18-26](backend/src/Weaver.Infrastructure/Configurations/WorkItemLinkConfiguration.cs#L18-L26), [BoardConfiguration.cs:13-16](backend/src/Weaver.Infrastructure/Configurations/BoardConfiguration.cs#L13-L16), [WorkItemService.cs:220-234](backend/src/Weaver.Infrastructure/Services/WorkItemService.cs#L220-L234), [ApiExceptionMiddleware.cs](backend/src/Weaver.Api/Middleware/ApiExceptionMiddleware.cs)
 - **Issue:** Both `WorkItemLink` FKs and `Board.ScopeItemId` are `Restrict`. `DeleteAsync` removes neither links nor boards first, so Postgres rejects the delete with a `DbUpdateException`. The middleware doesn't map that exception, so the client gets an opaque 500. A cascade delete fails entirely if *any* descendant has a link. `agent_notes.md:659-668` acknowledges the restriction but not the 500. The InMemory provider used in tests doesn't enforce these FKs, so no test catches it.
 - **Fix:** Decide on the behaviour first:

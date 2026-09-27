@@ -23,8 +23,13 @@ builder.Services.AddControllers()
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-builder.Services.AddDbContext<WeaverDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Weaver")));
+var connectionString = builder.Configuration.GetConnectionString("Weaver");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException(
+        "ConnectionStrings:Weaver is not configured. Set it via the ConnectionStrings__Weaver environment variable.");
+}
+builder.Services.AddDbContext<WeaverDbContext>(options => options.UseNpgsql(connectionString));
 
 builder.Services.AddHealthChecks().AddDbContextCheck<WeaverDbContext>();
 
@@ -54,19 +59,8 @@ builder.Services.AddMcpServer()
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 
-var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>();
-if (string.IsNullOrWhiteSpace(jwtOptions?.SigningKey))
-{
-    throw new InvalidOperationException(
-        "Jwt:SigningKey is not configured. Set it via the Jwt__SigningKey environment variable (see .env.example).");
-}
-// HS256 needs a key of at least 256 bits. A shorter one (e.g. a placeholder
-// copied from .env.example) would otherwise only fail at the first login.
-if (Encoding.UTF8.GetByteCount(jwtOptions.SigningKey) < 32)
-{
-    throw new InvalidOperationException(
-        "Jwt:SigningKey must be at least 32 bytes. Generate one with `openssl rand -base64 48`.");
-}
+var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
+JwtSigningKeyPolicy.EnsureUsable(jwtOptions.SigningKey, builder.Environment.IsDevelopment());
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 
 builder.Services

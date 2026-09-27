@@ -20,7 +20,7 @@ public class IntegrationTestEnvironment
     public async Task StartAsync()
     {
         // Matches the image compose.yaml runs.
-        _database = new PostgreSqlBuilder().WithImage("postgres:16-alpine").Build();
+        _database = new PostgreSqlBuilder("postgres:16-alpine").Build();
         await _database.StartAsync();
         _factory = new WeaverApiFactory(_database.GetConnectionString());
     }
