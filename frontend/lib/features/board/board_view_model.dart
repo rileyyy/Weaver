@@ -14,6 +14,7 @@ import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/state/board_filters.dart';
 import 'package:weaver/features/board/state/hierarchy_tree_builder.dart';
 import 'package:weaver/features/board/state/swimlane_edits.dart';
+import 'package:weaver/features/board/state/tag_additions.dart';
 import 'package:weaver/features/board/state/user_directory.dart';
 import 'package:weaver/features/board/state/work_item_sorting.dart';
 import 'package:weaver/shared/models/user.dart';
@@ -446,6 +447,17 @@ class BoardViewModel extends ViewModel {
       },
       errorMessage: 'Could not update the tags. Try again.',
     );
+  }
+
+  /// Adds [tags] to the work item identified by [workItemId] — the quick
+  /// add from a card, Hierarchy row or Roadmap row. Tags it already has
+  /// (ignoring case) and blank entries are dropped; if nothing is left to
+  /// add, nothing is sent.
+  Future<void> addTags(String workItemId, List<String> tags) {
+    final current = _currentTagsOf(workItemId) ?? const [];
+    final updated = withTagsAdded(current, tags);
+    if (updated.length == current.length) return Future.value();
+    return setTags(workItemId, updated);
   }
 
   void clearMoveError() => _moveError = null;

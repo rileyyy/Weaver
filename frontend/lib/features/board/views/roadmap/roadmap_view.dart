@@ -23,10 +23,13 @@ class RoadmapView extends StatefulWidget {
     super.key,
     required this.viewModel,
     required this.onItemOpened,
+    required this.onAddTagsRequested,
   });
 
   final BoardViewModel viewModel;
   final void Function(String workItemId) onItemOpened;
+  final void Function(String workItemId, List<String> currentTags)
+  onAddTagsRequested;
 
   @override
   State<RoadmapView> createState() => _RoadmapViewState();
@@ -110,6 +113,10 @@ class _RoadmapViewState extends State<RoadmapView> {
                             }
                           }),
                           onTap: () => widget.onItemOpened(row.node.item.id),
+                          onAddTagTapped: () => widget.onAddTagsRequested(
+                            row.node.item.id,
+                            row.node.item.tags,
+                          ),
                           statusColorFor: viewModel.statusColorFor,
                         );
                       },

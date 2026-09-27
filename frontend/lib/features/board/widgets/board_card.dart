@@ -20,6 +20,7 @@ class BoardCard extends StatelessWidget {
     required this.assigneeInitial,
     required this.onOpenDetails,
     required this.onAssignTapped,
+    required this.onAddTagTapped,
   });
 
   final WorkItemCard card;
@@ -44,6 +45,10 @@ class BoardCard extends StatelessWidget {
   /// Called when the assignee avatar itself is tapped, to open a picker
   /// that reassigns this work item directly from the board.
   final VoidCallback onAssignTapped;
+
+  /// Called when the "+" after the tags is tapped, to add tags directly
+  /// from the board.
+  final VoidCallback onAddTagTapped;
 
   @override
   Widget build(BuildContext context) {
@@ -148,7 +153,12 @@ class BoardCard extends StatelessWidget {
                             onTap: onAssignTapped,
                           ),
                           const SizedBox(width: 6),
-                          Expanded(child: TagBadgeRow(tags: card.tags)),
+                          Expanded(
+                            child: TagBadgeRow(
+                              tags: card.tags,
+                              onAddTag: onAddTagTapped,
+                            ),
+                          ),
                         ],
                       ),
                     ],

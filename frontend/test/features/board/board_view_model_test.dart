@@ -611,6 +611,66 @@ void main() {
     },
   );
 
+  test('addTags appends only the tags the card does not have yet', () async {
+    final card = viewModel.swimlanes[0].cards.single;
+    await viewModel.setTags(card.id, ['Urgent']);
+
+    await viewModel.addTags(card.id, ['urgent', ' design ', '']);
+
+    expect(viewModel.swimlanes[0].cards.single.tags, ['Urgent', 'design']);
+    expect(repository.tagUpdates.last, 'card-1->Urgent,design');
+  });
+
+  test('addTags sends nothing when every tag is already present', () async {
+    final card = viewModel.swimlanes[0].cards.single;
+    await viewModel.setTags(card.id, ['urgent']);
+    final updatesBefore = repository.tagUpdates.length;
+
+    await viewModel.addTags(card.id, ['URGENT', '  ']);
+
+    expect(repository.tagUpdates, hasLength(updatesBefore));
+  });
+
+  test('addTags adds to a Hierarchy item that is not on the board', () async {
+    final repository = _TestBoardRepository(
+      hierarchyItems: const [
+        HierarchyItem(
+          id: 'root-1',
+          number: 1,
+          parentId: null,
+          title: 'Root',
+          statusId: 'todo',
+          tags: ['bug'],
+        ),
+      ],
+    );
+    final hierarchyViewModel = BoardViewModel(repository);
+    await hierarchyViewModel.load();
+    await hierarchyViewModel.loadHierarchy();
+
+    await hierarchyViewModel.addTags('root-1', ['design']);
+
+    expect(hierarchyViewModel.hierarchyRoots.single.item.tags, [
+      'bug',
+      'design',
+    ]);
+    expect(repository.tagUpdates, ['root-1->bug,design']);
+  });
+
+  test('addTags rolls back and reports an error when the save fails', () async {
+    final failingRepository = _TestBoardRepository(
+      tagsError: const ApiException('boom'),
+    );
+    final failingViewModel = BoardViewModel(failingRepository);
+    await failingViewModel.load();
+    final card = failingViewModel.swimlanes[0].cards.single;
+
+    await failingViewModel.addTags(card.id, ['urgent']);
+
+    expect(failingViewModel.swimlanes[0].cards.single.tags, isEmpty);
+    expect(failingViewModel.moveError, isNotNull);
+  });
+
   test(
     'createWorkItem persists the new item and reloads the current scope',
     () async {

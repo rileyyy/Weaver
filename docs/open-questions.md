@@ -78,13 +78,6 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
 
 ## Tags
 
-### Tags are edited only in the detail dialog
-- **Today:** cards, Hierarchy rows and Roadmap rows display tags but have
-  no inline way to add one, unlike the assignee avatar, which is tappable
-  everywhere. A tag editor (text field plus removable chips) had no
-  obvious compact place on a card.
-- **To decide:** whether quick inline tagging is worth adding.
-
 ### Tag filter semantics
 - **Today:** the Filters dialog's tag filter is OR ("any selected tag
   matches"); an empty selection applies no tag filter.

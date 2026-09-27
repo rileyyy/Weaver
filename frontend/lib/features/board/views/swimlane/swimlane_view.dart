@@ -26,6 +26,7 @@ class SwimlaneView extends StatelessWidget {
     required this.onCardDetailsOpened,
     required this.onSwimlaneLabelTapped,
     required this.onAssignRequested,
+    required this.onAddTagsRequested,
     required this.cardVisible,
     required this.cardComparator,
     required this.assigneeInitialFor,
@@ -45,6 +46,8 @@ class SwimlaneView extends StatelessWidget {
   final void Function(String workItemId) onSwimlaneLabelTapped;
   final void Function(String workItemId, String? currentAssigneeId)
   onAssignRequested;
+  final void Function(String workItemId, List<String> currentTags)
+  onAddTagsRequested;
   final bool Function(WorkItemCard card) cardVisible;
   final Comparator<WorkItemCard>? cardComparator;
   final String? Function(String? userId) assigneeInitialFor;
@@ -170,6 +173,7 @@ class SwimlaneView extends StatelessWidget {
                     onCardDropped: onCardDropped,
                     onCardDetailsOpened: onCardDetailsOpened,
                     onAssignRequested: onAssignRequested,
+                    onAddTagsRequested: onAddTagsRequested,
                     cardVisible: cardVisible,
                     cardComparator: cardComparator,
                     assigneeInitialFor: assigneeInitialFor,

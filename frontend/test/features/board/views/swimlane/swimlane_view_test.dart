@@ -44,6 +44,7 @@ Widget _board(double width, {double textScale = 1}) => MaterialApp(
           onCardDetailsOpened: (_) {},
           onSwimlaneLabelTapped: (_) {},
           onAssignRequested: (_, _) {},
+          onAddTagsRequested: (_, _) {},
           cardVisible: (_) => true,
           cardComparator: null,
           assigneeInitialFor: (_) => null,

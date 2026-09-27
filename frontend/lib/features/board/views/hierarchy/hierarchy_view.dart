@@ -24,12 +24,15 @@ class HierarchyView extends StatefulWidget {
     required this.viewModel,
     required this.onItemOpened,
     required this.onAssignRequested,
+    required this.onAddTagsRequested,
   });
 
   final BoardViewModel viewModel;
   final void Function(String workItemId) onItemOpened;
   final void Function(String workItemId, String? currentAssigneeId)
   onAssignRequested;
+  final void Function(String workItemId, List<String> currentTags)
+  onAddTagsRequested;
 
   @override
   State<HierarchyView> createState() => _HierarchyViewState();
@@ -91,6 +94,10 @@ class _HierarchyViewState extends State<HierarchyView> {
                       onAssignTapped: () => widget.onAssignRequested(
                         node.item.id,
                         node.item.assignedToUserId,
+                      ),
+                      onAddTagTapped: () => widget.onAddTagsRequested(
+                        node.item.id,
+                        node.item.tags,
                       ),
                       viewModel: viewModel,
                     );

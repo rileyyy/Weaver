@@ -23,6 +23,7 @@ class RoadmapRowTile extends StatelessWidget {
     required this.isCollapsed,
     required this.onToggleCollapsed,
     required this.onTap,
+    required this.onAddTagTapped,
     required this.statusColorFor,
   });
 
@@ -33,6 +34,7 @@ class RoadmapRowTile extends StatelessWidget {
   final bool isCollapsed;
   final VoidCallback onToggleCollapsed;
   final VoidCallback onTap;
+  final VoidCallback onAddTagTapped;
   final Color? Function(String statusId) statusColorFor;
 
   @override
@@ -93,7 +95,13 @@ class RoadmapRowTile extends StatelessWidget {
                       child: Text(item.title, overflow: TextOverflow.ellipsis),
                     ),
                     const SizedBox(width: 6),
-                    Expanded(flex: 2, child: TagBadgeRow(tags: item.tags)),
+                    Expanded(
+                      flex: 2,
+                      child: TagBadgeRow(
+                        tags: item.tags,
+                        onAddTag: onAddTagTapped,
+                      ),
+                    ),
                   ],
                 ),
               ),

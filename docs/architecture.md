@@ -663,6 +663,16 @@ and it is what allows MCP tools to reuse the same business logic (see
   `AssigneeAvatar(showPlaceholderWhenUnassigned: true)` shows a silhouette
   on swimlane labels, Hierarchy rows and the assign dialog so every row has
   something to tap; board cards omit it to stay compact.
+- **Tags can be added from any row that shows them.** Cards, Hierarchy
+  rows and Roadmap rows end their tag row with an `AddTagButton` (room for
+  it is reserved before tags are fitted) that opens `showAddTagsDialog`:
+  type tags or pick from the tags already on the board, then Add.
+  `BoardViewModel.addTags` merges them with `withTagsAdded`
+  (`state/tag_additions.dart`, the server's trim and case-insensitive
+  de-duplication) and saves through the optimistic `setTags`. It only adds;
+  removing a tag stays in the detail dialog. The button is a 22 px circle,
+  not a tag-sized "+" badge: the badge was too small to hit reliably in
+  the browser, even though widget tests tapping its centre passed.
 - **`debugShowCheckedModeBanner: false`**: the debug banner sat over the
   top-right app-bar actions and swallowed clicks on sign-out.
 

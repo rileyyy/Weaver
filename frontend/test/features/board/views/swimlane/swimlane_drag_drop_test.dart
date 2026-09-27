@@ -48,6 +48,7 @@ void main() {
               onCardDetailsOpened: (_) {},
               onSwimlaneLabelTapped: (_) {},
               onAssignRequested: (_, _) {},
+              onAddTagsRequested: (_, _) {},
               cardVisible: (_) => true,
               cardComparator: null,
               assigneeInitialFor: (_) => null,

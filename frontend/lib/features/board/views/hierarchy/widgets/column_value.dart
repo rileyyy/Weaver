@@ -13,12 +13,14 @@ class ColumnValue extends StatelessWidget {
     required this.item,
     required this.viewModel,
     required this.onAssignTapped,
+    required this.onAddTagTapped,
   });
 
   final HierarchyColumn column;
   final HierarchyItem item;
   final BoardViewModel viewModel;
   final VoidCallback onAssignTapped;
+  final VoidCallback onAddTagTapped;
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +63,10 @@ class ColumnValue extends StatelessWidget {
           ),
         ],
       ),
-      HierarchyColumn.tags => TagBadgeRow(tags: item.tags),
+      HierarchyColumn.tags => TagBadgeRow(
+        tags: item.tags,
+        onAddTag: onAddTagTapped,
+      ),
     };
   }
 }

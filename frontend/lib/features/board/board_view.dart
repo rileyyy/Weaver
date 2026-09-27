@@ -15,6 +15,7 @@ import 'package:weaver/features/board/views/hierarchy/hierarchy_view.dart';
 import 'package:weaver/features/board/views/repeating/repeating_view.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_view.dart';
 import 'package:weaver/features/board/views/swimlane/swimlane_view.dart';
+import 'package:weaver/features/board/widgets/add_tags_dialog.dart';
 import 'package:weaver/features/board/widgets/assign_dialog.dart';
 import 'package:weaver/features/board/widgets/create_work_item_dialog.dart';
 import 'package:weaver/features/board/widgets/load_error_view.dart';
@@ -193,6 +194,22 @@ class _BoardViewState extends State<BoardView>
     );
   }
 
+  /// Opens the quick add-tags dialog for [workItemId] — used wherever a
+  /// tag row's "+" is tapped (a card, a Hierarchy row or a Roadmap row).
+  /// Tags already on the item aren't offered again.
+  Future<void> _openAddTagsDialog(
+    String workItemId,
+    List<String> currentTags,
+  ) async {
+    final tags = await showAddTagsDialog(
+      context,
+      currentTags: currentTags,
+      suggestions: _viewModel.availableTags,
+    );
+    if (tags == null || tags.isEmpty) return;
+    await _viewModel.addTags(workItemId, tags);
+  }
+
   Future<void> _openCreateWorkItemDialog() async {
     final statuses = _viewModel.statuses;
     if (statuses.isEmpty) {
@@ -314,11 +331,13 @@ class _BoardViewState extends State<BoardView>
                         RoadmapView(
                           viewModel: _viewModel,
                           onItemOpened: _openDetailsById,
+                          onAddTagsRequested: _openAddTagsDialog,
                         ),
                         HierarchyView(
                           viewModel: _viewModel,
                           onItemOpened: _openDetailsById,
                           onAssignRequested: _openAssignDialog,
+                          onAddTagsRequested: _openAddTagsDialog,
                         ),
                         RepeatingView(
                           viewModel: _repeatingViewModel,
@@ -377,6 +396,7 @@ class _BoardViewState extends State<BoardView>
             onCardDetailsOpened: _openDetails,
             onSwimlaneLabelTapped: _openDetailsById,
             onAssignRequested: _openAssignDialog,
+            onAddTagsRequested: _openAddTagsDialog,
             cardVisible: _viewModel.cardVisible,
             cardComparator: _viewModel.cardComparator,
             assigneeInitialFor: _viewModel.assigneeInitialFor,

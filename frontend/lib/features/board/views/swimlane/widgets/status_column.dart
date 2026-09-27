@@ -18,6 +18,7 @@ class StatusColumn extends StatelessWidget {
     required this.onCardDropped,
     required this.onCardDetailsOpened,
     required this.onAssignRequested,
+    required this.onAddTagsRequested,
     required this.cardVisible,
     required this.cardComparator,
     required this.assigneeInitialFor,
@@ -39,6 +40,8 @@ class StatusColumn extends StatelessWidget {
   final void Function(WorkItemCard card) onCardDetailsOpened;
   final void Function(String workItemId, String? currentAssigneeId)
   onAssignRequested;
+  final void Function(String workItemId, List<String> currentTags)
+  onAddTagsRequested;
   final bool Function(WorkItemCard card) cardVisible;
   final Comparator<WorkItemCard>? cardComparator;
   final String? Function(String? userId) assigneeInitialFor;
@@ -104,6 +107,8 @@ class StatusColumn extends StatelessWidget {
                     onOpenDetails: () => onCardDetailsOpened(card),
                     onAssignTapped: () =>
                         onAssignRequested(card.id, card.assignedToUserId),
+                    onAddTagTapped: () =>
+                        onAddTagsRequested(card.id, card.tags),
                   ),
                 ),
             ],

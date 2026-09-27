@@ -17,6 +17,7 @@ class HierarchyItemTile extends StatelessWidget {
     required this.onToggleCollapsed,
     required this.onTap,
     required this.onAssignTapped,
+    required this.onAddTagTapped,
     required this.viewModel,
   });
 
@@ -27,6 +28,7 @@ class HierarchyItemTile extends StatelessWidget {
   final VoidCallback onToggleCollapsed;
   final VoidCallback onTap;
   final VoidCallback onAssignTapped;
+  final VoidCallback onAddTagTapped;
   final BoardViewModel viewModel;
 
   @override
@@ -57,6 +59,7 @@ class HierarchyItemTile extends StatelessWidget {
       item: node.item,
       viewModel: viewModel,
       onAssignTapped: onAssignTapped,
+      onAddTagTapped: onAddTagTapped,
     );
     // The caret lives inside the Title column and indents with the title,
     // as in a file tree; every other column keeps a fixed position so it

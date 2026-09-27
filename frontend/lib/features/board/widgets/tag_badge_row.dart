@@ -1,24 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:weaver/features/board/widgets/add_tag_button.dart';
 import 'package:weaver/features/board/widgets/tag_badge.dart';
 
 /// A single-line row of [TagBadge]s that fits as many of [tags] as possible
 /// within whatever width its parent gives it, appending a "+N" overflow
-/// badge for the rest when they don't all fit. Renders nothing for an empty
-/// tag list.
+/// badge for the rest when they don't all fit. Given [onAddTag], an
+/// [AddTagButton] always ends the row (room for it is reserved first) and
+/// calls it when tapped. Renders nothing for an empty tag list without [onAddTag].
 class TagBadgeRow extends StatelessWidget {
-  const TagBadgeRow({super.key, required this.tags, this.spacing = 4});
+  const TagBadgeRow({
+    super.key,
+    required this.tags,
+    this.spacing = 4,
+    this.onAddTag,
+  });
 
   final List<String> tags;
   final double spacing;
+  final VoidCallback? onAddTag;
 
   @override
   Widget build(BuildContext context) {
-    if (tags.isEmpty) return const SizedBox.shrink();
+    final onAddTag = this.onAddTag;
+    if (tags.isEmpty && onAddTag == null) return const SizedBox.shrink();
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final visibleCount = _visibleCountFor(context, constraints.maxWidth);
+        final showAdd =
+            onAddTag != null && AddTagButton.size <= constraints.maxWidth;
+        final tagsWidth = showAdd
+            ? constraints.maxWidth - AddTagButton.size - spacing
+            : constraints.maxWidth;
+        final visibleCount = _visibleCountFor(context, tagsWidth);
         final overflowCount = tags.length - visibleCount;
+        // With no tag shown, the "+N" badge alone may not fit; when some
+        // are shown, _visibleCountFor already left room for it.
+        final showOverflow =
+            overflowCount > 0 &&
+            (visibleCount > 0 ||
+                TagBadge.widthFor(context, '+$overflowCount') <= tagsWidth);
+        final showsAnyTagBadge = visibleCount > 0 || showOverflow;
 
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -27,9 +48,13 @@ class TagBadgeRow extends StatelessWidget {
               if (i > 0) SizedBox(width: spacing),
               TagBadge(label: tags[i]),
             ],
-            if (overflowCount > 0) ...[
+            if (showOverflow) ...[
               if (visibleCount > 0) SizedBox(width: spacing),
               TagBadge(label: '+$overflowCount', isOverflow: true),
+            ],
+            if (showAdd) ...[
+              if (showsAnyTagBadge) SizedBox(width: spacing),
+              AddTagButton(onPressed: onAddTag),
             ],
           ],
         );
