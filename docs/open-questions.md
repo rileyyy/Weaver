@@ -111,14 +111,6 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
 - **To decide:** whether layout should persist per user (locally or
   server-side).
 
-### Hierarchy caret doesn't indent
-- **Today:** only the title text indents with depth; the expand caret and
-  number column stay at a fixed position so the fixed-width columns stay
-  aligned with their headers.
-- **To decide:** whether the caret should indent with the title (the usual
-  file-tree convention), which needs a different column-alignment
-  approach.
-
 ### Roadmap quarter/year precision
 - **Today:** Quarter and Year zoom levels use approximate 7- and 30-day
   columns, not true calendar weeks and months, so a bar can be a day or

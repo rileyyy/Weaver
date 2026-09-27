@@ -8,8 +8,6 @@ import 'package:weaver/features/board/views/hierarchy/widgets/column_value.dart'
 import 'package:weaver/features/board/views/hierarchy/widgets/resize_handle.dart';
 
 class HierarchyItemTile extends StatelessWidget {
-  static const double _indentPerLevel = 24;
-
   const HierarchyItemTile({
     super.key,
     required this.node,
@@ -33,8 +31,6 @@ class HierarchyItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasChildren = node.children.isNotEmpty;
-
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -44,28 +40,6 @@ class HierarchyItemTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Fixed height/width regardless of whether this row has a
-            // caret — IconButton's default 48x48 minimum tap target would
-            // otherwise make rows with children taller than leaf rows. Its
-            // position never shifts with depth — see the class doc comment.
-            SizedBox(
-              width: caretColumnWidth,
-              height: caretColumnWidth,
-              child: hasChildren
-                  ? IconButton(
-                      padding: EdgeInsets.zero,
-                      iconSize: 18,
-                      constraints: const BoxConstraints(),
-                      visualDensity: VisualDensity.compact,
-                      icon: Icon(
-                        isCollapsed ? Icons.chevron_right : Icons.expand_more,
-                      ),
-                      tooltip: isCollapsed ? 'Expand' : 'Collapse',
-                      onPressed: onToggleCollapsed,
-                    )
-                  : null,
-            ),
-            const SizedBox(width: caretGap),
             for (final column in HierarchyColumn.values) ...[
               SizedBox(width: columnWidths[column], child: _cell(column)),
               const SizedBox(width: ResizeHandle.width),
@@ -84,13 +58,40 @@ class HierarchyItemTile extends StatelessWidget {
       viewModel: viewModel,
       onAssignTapped: onAssignTapped,
     );
-    // Depth only indents the title's own text — not the caret, the number
-    // or the columns after it — so every column stays aligned under its
-    // header regardless of nesting.
+    // The caret lives inside the Title column and indents with the title,
+    // as in a file tree; every other column keeps a fixed position so it
+    // stays aligned under its header regardless of nesting.
     if (column != HierarchyColumn.title) return value;
     return Padding(
-      padding: EdgeInsets.only(left: depth * _indentPerLevel),
-      child: value,
+      padding: EdgeInsets.only(
+        left: hierarchyTitleIndent(depth, columnWidths[column]),
+      ),
+      child: Row(
+        children: [
+          _caret(),
+          const SizedBox(width: caretGap),
+          Expanded(child: value),
+        ],
+      ),
     );
   }
+
+  /// Fixed height/width whether or not this row has a caret, so titles
+  /// line up at the same depth — and so IconButton's default 48x48 minimum
+  /// tap target doesn't make rows with children taller than leaf rows.
+  Widget _caret() => SizedBox(
+    width: caretColumnWidth,
+    height: caretColumnWidth,
+    child: node.children.isEmpty
+        ? null
+        : IconButton(
+            padding: EdgeInsets.zero,
+            iconSize: 18,
+            constraints: const BoxConstraints(),
+            visualDensity: VisualDensity.compact,
+            icon: Icon(isCollapsed ? Icons.chevron_right : Icons.expand_more),
+            tooltip: isCollapsed ? 'Expand' : 'Collapse',
+            onPressed: onToggleCollapsed,
+          ),
+  );
 }

@@ -60,9 +60,8 @@ class RoadmapRowTile extends StatelessWidget {
             SizedBox(
               width: leftColumnWidth,
               child: Padding(
-                // Only the title text indents by depth — the caret's
-                // position stays fixed, the same tradeoff Hierarchy's own
-                // tile makes to keep columns aligned (see hierarchy_view.dart).
+                // The caret and title indent together by depth, like the
+                // Hierarchy view's Title column.
                 padding: EdgeInsets.only(
                   left: row.depth * _indentPerLevel,
                   right: 8,

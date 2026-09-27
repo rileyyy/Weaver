@@ -12,11 +12,10 @@ import 'package:weaver/features/board/widgets/load_error_view.dart';
 /// [BoardViewModel.hierarchyRoots]). Loaded lazily by the board view the
 /// first time this tab is opened.
 ///
-/// Columns, left to right: a fixed work-item-number column, a title column
-/// (whose text indents by depth, with the expand/collapse caret in its own
-/// fixed gutter before it), then Status and Assigned To — every column
-/// (other than the caret gutter) independently resizable by dragging the
-/// header dividers. Column widths are pure view state, like the collapse
+/// Columns, left to right: a work-item-number column, a title column (whose
+/// expand/collapse caret and text indent together by depth, as in a file
+/// tree), then Status, Assigned To and Tags — every column independently
+/// resizable by dragging the header dividers. Column widths are pure view state, like the collapse
 /// set below — not persisted. When the columns are wider than the screen,
 /// header and rows scroll horizontally together.
 class HierarchyView extends StatefulWidget {

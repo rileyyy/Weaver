@@ -34,7 +34,6 @@ class HierarchyHeaderRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const SizedBox(width: caretColumnWidth + caretGap),
           for (final column in HierarchyColumn.values) ...[
             HeaderCell(
               label: column.headerLabel,

@@ -652,9 +652,13 @@ and it is what allows MCP tools to reuse the same business logic (see
   collapse tree as Hierarchy. Its timeframe (zoom) and visible window are
   separate view state and deliberately not tied to the header's time-frame
   filter, which decides which items appear at all.
-- **Hierarchy columns:** the caret and number column stay at a fixed x
-  position and only the title indents, so fixed-width, resizable columns
-  stay aligned with their headers at every depth.
+- **Hierarchy columns:** the expand caret lives inside the Title column and
+  indents with the title, as in a file tree, while Number and the columns
+  after Title keep a fixed x position, so every resizable column stays
+  aligned with its header at every depth. The indent is capped at the Title
+  column's width (`hierarchyTitleIndent`), so a deeply nested item
+  squeezes its own title instead of spilling into Status. Roadmap rows
+  indent caret and title the same way.
 - **Assignee avatars** are tappable everywhere they're shown.
   `AssigneeAvatar(showPlaceholderWhenUnassigned: true)` shows a silhouette
   on swimlane labels, Hierarchy rows and the assign dialog so every row has
