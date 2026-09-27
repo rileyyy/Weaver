@@ -6,6 +6,8 @@ namespace Weaver.Api.Controllers;
 
 [ApiController]
 [Route("api/work-item-layers")]
+// The bearer challenge has no body.
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
 public class WorkItemLayersController : ControllerBase
 {
     private readonly IWorkItemLayerService _layers;

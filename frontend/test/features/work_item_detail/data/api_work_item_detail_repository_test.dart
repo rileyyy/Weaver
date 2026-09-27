@@ -271,7 +271,7 @@ void main() {
     expect(jsonDecode(sentRequest!.body), {'userId': 'user-1'});
   });
 
-  test('updateTags posts the new tag list to the tags endpoint', () async {
+  test('updateTags puts the new tag list to the tags endpoint', () async {
     http.Request? sentRequest;
     final client = MockClient((request) async {
       sentRequest = request;
@@ -288,7 +288,7 @@ void main() {
       'urgent',
     ], expectedVersion: 7);
 
-    expect(sentRequest!.method, 'POST');
+    expect(sentRequest!.method, 'PUT');
     expect(sentRequest!.url.path, '/api/work-items/item-1/tags');
     expect(jsonDecode(sentRequest!.body), {
       'tags': ['urgent'],

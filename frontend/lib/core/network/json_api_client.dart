@@ -59,6 +59,13 @@ class JsonApiClient {
     required String failureMessage,
   }) => post(path, body, (_) {}, failureMessage: failureMessage);
 
+  /// A PUT whose response body the caller doesn't need.
+  Future<void> putIgnoringBody(
+    String path,
+    Object? body, {
+    required String failureMessage,
+  }) => put(path, body, (_) {}, failureMessage: failureMessage);
+
   Future<void> delete(
     String path, {
     Map<String, String>? query,

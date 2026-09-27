@@ -49,6 +49,17 @@ public class CommentsControllerTests
     }
 
     [Test]
+    public async Task GetById_WhenMissing_ReturnsNotFound()
+    {
+        var id = Guid.NewGuid();
+        _comments.Setup(c => c.GetAsync(id, It.IsAny<CancellationToken>())).ReturnsAsync((CommentView?)null);
+
+        var result = await _controller.GetById(id);
+
+        Assert.That(result.Result, Is.TypeOf<NotFoundResult>());
+    }
+
+    [Test]
     public async Task Create_UsesTheAuthenticatedUserAsAuthor()
     {
         var workItemId = Guid.NewGuid();
@@ -58,7 +69,9 @@ public class CommentsControllerTests
 
         var result = await _controller.Create(workItemId, new CreateCommentRequest("Hello"));
 
-        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(CommentDto.FromView(comment)));
+        var created = result.Result as CreatedAtActionResult;
+        Assert.That(created!.ActionName, Is.EqualTo(nameof(CommentsController.GetById)));
+        Assert.That(created.Value, Is.EqualTo(CommentDto.FromView(comment)));
         _comments.VerifyAll();
     }
 

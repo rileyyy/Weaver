@@ -87,7 +87,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   );
 
   @override
-  Future<WorkItemDetail> assign(String id, String? userId) => _api.post(
+  Future<WorkItemDetail> assign(String id, String? userId) => _api.put(
     '/work-items/$id/assignee',
     {'userId': userId},
     _detail,
@@ -100,7 +100,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     DateTime? startDate,
     DateTime? endDate, {
     required int expectedVersion,
-  }) => _api.post(
+  }) => _api.put(
     '/work-items/$id/schedule',
     {
       'startDate': formatCalendarDate(startDate),
@@ -116,7 +116,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     String id,
     List<String> tags, {
     required int expectedVersion,
-  }) => _api.post(
+  }) => _api.put(
     '/work-items/$id/tags',
     {'tags': tags, 'expectedVersion': expectedVersion},
     _detail,

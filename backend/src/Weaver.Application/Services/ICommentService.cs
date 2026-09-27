@@ -4,6 +4,8 @@ public interface ICommentService
 {
     Task<IReadOnlyList<CommentView>> ListForWorkItemAsync(Guid workItemId, CancellationToken ct = default);
 
+    Task<CommentView?> GetAsync(Guid id, CancellationToken ct = default);
+
     Task<CommentView> CreateAsync(Guid workItemId, Guid authorUserId, string body, CancellationToken ct = default);
 
     /// <summary>Throws <see cref="Weaver.Domain.Exceptions.CommentAuthorMismatchException"/>

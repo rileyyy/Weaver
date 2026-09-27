@@ -172,7 +172,7 @@ The most important problems cluster in four areas:
 ### Low
 
 - [x] *(Resolved in `feature/backend-review-cleanup`: `TimestampInterceptor` stamps `IHasCreatedAt`/`IHasUpdatedAt` entities from an injected `TimeProvider`, and every other clock read (lockout, token expiry and rotation, comment edits, JWT expiry) goes through it. `RefreshToken.IsActive` became `IsActiveAt(now)`. Tests use a `FixedTimeProvider`, including a lockout that expires when the clock is advanced.)* **B-L1. `UpdatedAtUtc` is set by hand in 8 places, and `DateTimeOffset.UtcNow` is called directly everywhere.** Use a `SaveChanges` interceptor for timestamps and inject `TimeProvider` so the lockout, expiry and schedule tests don't depend on wall-clock time.
-- [ ] **B-L2. Inconsistent REST responses.**
+- [x] *(Resolved in `feature/backend-review-cleanup`: creating a comment or link returns `201` with a `Location` (a new `GET /api/comments/{id}` backs the comment one). Field updates are `PUT`s, and the Flutter client was switched to match. Controllers declare `201`/`204` and `application/problem+json` error responses, which an integration test checks in the OpenAPI document.)* **B-L2. Inconsistent REST responses.**
   - `POST` comments and links return `200 Ok` while work items and boards return `201 CreatedAtAction` ([CommentsController.cs:29](backend/src/Weaver.Api/Controllers/CommentsController.cs#L29), [WorkItemLinksController.cs:28](backend/src/Weaver.Api/Controllers/WorkItemLinksController.cs#L28)).
   - Mutations use `POST /{id}/status` etc. rather than `PATCH`/`PUT`.
   - The controllers have no `[ProducesResponseType]`, so the OpenAPI doc lacks error shapes.

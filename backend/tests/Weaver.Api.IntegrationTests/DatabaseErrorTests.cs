@@ -44,7 +44,7 @@ public class DatabaseErrorTests
     {
         var (client, _) = await ApiClient.SignedInAsync();
 
-        var notFound = await client.PostJsonAsync(
+        var notFound = await client.PutJsonAsync(
             $"/api/work-items/{Guid.NewGuid()}/assignee",
             new AssignWorkItemRequest(null));
 

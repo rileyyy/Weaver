@@ -38,7 +38,7 @@ public class HierarchyQueryTests
     {
         var chain = await CreateChainAsync(depth: 4);
 
-        var response = await _client.PostJsonAsync(
+        var response = await _client.PutJsonAsync(
             $"/api/work-items/{chain[0].Id}/parent",
             new ReparentWorkItemRequest(chain[^1].Id, null));
 
@@ -51,7 +51,7 @@ public class HierarchyQueryTests
         var chain = await CreateChainAsync(depth: 3);
         var outsider = await _client.CreateWorkItemAsync("Outsider");
 
-        var moved = await (await _client.PostJsonAsync(
+        var moved = await (await _client.PutJsonAsync(
             $"/api/work-items/{outsider.Id}/parent",
             new ReparentWorkItemRequest(chain[^1].Id, null))).ReadAsync<WorkItemDto>();
 
@@ -66,7 +66,7 @@ public class HierarchyQueryTests
         var outsider = await _client.CreateWorkItemAsync("Outsider");
         await ExecuteSqlAsync($"UPDATE \"WorkItems\" SET \"ParentId\" = {b.Id} WHERE \"Id\" = {a.Id}");
 
-        var response = await _client.PostJsonAsync(
+        var response = await _client.PutJsonAsync(
             $"/api/work-items/{outsider.Id}/parent",
             new ReparentWorkItemRequest(a.Id, null));
 

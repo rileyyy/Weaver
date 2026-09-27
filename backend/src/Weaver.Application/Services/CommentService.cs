@@ -20,6 +20,9 @@ public class CommentService : ICommentService
         await Project(_db.Comments.Where(c => c.WorkItemId == workItemId).OrderBy(c => c.CreatedAtUtc))
             .ToListAsync(ct);
 
+    public Task<CommentView?> GetAsync(Guid id, CancellationToken ct = default) =>
+        Project(_db.Comments.Where(c => c.Id == id)).FirstOrDefaultAsync(ct);
+
     public async Task<CommentView> CreateAsync(Guid workItemId, Guid authorUserId, string body, CancellationToken ct = default)
     {
         if (!await _db.WorkItems.AnyAsync(w => w.Id == workItemId, ct))

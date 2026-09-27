@@ -217,7 +217,7 @@ void main() {
     },
   );
 
-  test('changeStatus posts the new status and succeeds on 200', () async {
+  test('changeStatus puts the new status and succeeds on 200', () async {
     http.Request? sentRequest;
     final client = MockClient((request) async {
       sentRequest = request;
@@ -233,6 +233,7 @@ void main() {
     await repository.changeStatus('card-1', 'status-done');
 
     expect(sentRequest, isNotNull);
+    expect(sentRequest!.method, 'PUT');
     expect(sentRequest!.url.path, '/api/work-items/card-1/status');
     expect(jsonDecode(sentRequest!.body), {'statusId': 'status-done'});
   });
@@ -255,7 +256,7 @@ void main() {
     );
   });
 
-  test('reparentItem posts the new parent and succeeds on 200', () async {
+  test('reparentItem puts the new parent and succeeds on 200', () async {
     http.Request? sentRequest;
     final client = MockClient((request) async {
       sentRequest = request;
@@ -271,6 +272,7 @@ void main() {
     await repository.reparentItem('card-1', 'lane-2');
 
     expect(sentRequest, isNotNull);
+    expect(sentRequest!.method, 'PUT');
     expect(sentRequest!.url.path, '/api/work-items/card-1/parent');
     expect(jsonDecode(sentRequest!.body), {'parentId': 'lane-2'});
   });
@@ -409,7 +411,7 @@ void main() {
     await expectLater(repository.loadAllItems(), throwsA(isA<ApiException>()));
   });
 
-  test('rescheduleItem posts the new dates and succeeds on 200', () async {
+  test('rescheduleItem puts the new dates and succeeds on 200', () async {
     http.Request? sentRequest;
     final client = MockClient((request) async {
       sentRequest = request;
@@ -428,6 +430,7 @@ void main() {
     await repository.rescheduleItem('card-1', start, null);
 
     expect(sentRequest, isNotNull);
+    expect(sentRequest!.method, 'PUT');
     expect(sentRequest!.url.path, '/api/work-items/card-1/schedule');
     expect(jsonDecode(sentRequest!.body), {
       'startDate': '2026-02-01',
@@ -455,7 +458,7 @@ void main() {
     );
   });
 
-  test('assign posts the new assignee and succeeds on 200', () async {
+  test('assign puts the new assignee and succeeds on 200', () async {
     http.Request? sentRequest;
     final client = MockClient((request) async {
       sentRequest = request;
@@ -471,7 +474,7 @@ void main() {
     await repository.assign('card-1', 'user-1');
 
     expect(sentRequest, isNotNull);
-    expect(sentRequest!.method, 'POST');
+    expect(sentRequest!.method, 'PUT');
     expect(sentRequest!.url.path, '/api/work-items/card-1/assignee');
     expect(jsonDecode(sentRequest!.body), {'userId': 'user-1'});
   });
@@ -512,7 +515,7 @@ void main() {
     );
   });
 
-  test('setTags posts the new tag list and succeeds on 200', () async {
+  test('setTags puts the new tag list and succeeds on 200', () async {
     http.Request? sentRequest;
     final client = MockClient((request) async {
       sentRequest = request;
@@ -528,7 +531,7 @@ void main() {
     await repository.setTags('card-1', ['urgent', 'needs review']);
 
     expect(sentRequest, isNotNull);
-    expect(sentRequest!.method, 'POST');
+    expect(sentRequest!.method, 'PUT');
     expect(sentRequest!.url.path, '/api/work-items/card-1/tags');
     expect(jsonDecode(sentRequest!.body), {
       'tags': ['urgent', 'needs review'],

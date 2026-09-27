@@ -10,6 +10,10 @@ namespace Weaver.Api.Controllers;
 
 [ApiController]
 [Route("api/auth")]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized, "application/problem+json")]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests, "application/problem+json")]
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _auth;
@@ -49,6 +53,7 @@ public class AuthController : ControllerBase
     [HttpPost("logout")]
     [AllowAnonymous]
     [EnableRateLimiting(AuthRateLimiting.PolicyName)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Logout(LogoutRequest request)
     {
         await _auth.LogoutAsync(request.RefreshToken);

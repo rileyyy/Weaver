@@ -58,7 +58,7 @@ and it is what allows MCP tools to reuse the same business logic (see
   with no schema change, and drilling into a card on the frontend is just
   loading a different scope.
 - **`ChangeStatus` and `Reparent` are separate operations**
-  (`ChangeStatusAsync` / `ReparentAsync`, `POST /work-items/{id}/status` /
+  (`ChangeStatusAsync` / `ReparentAsync`, `PUT /work-items/{id}/status` /
   `/parent`), each touching only `StatusId` or `ParentId`. That a column
   drag can never reparent an item, and vice versa, is guaranteed by the
   method signatures, not by trusting callers to send one field to a shared
@@ -181,6 +181,13 @@ and it is what allows MCP tools to reuse the same business logic (see
   carries the cross-cutting risk that keeps status and parent apart.
 - **DTOs only** (`Weaver.Api/Contracts`); EF entities are never
   serialised.
+- **Verbs follow the resource.** `POST` creates and answers `201` with a
+  `Location` (work items, boards, comments; a link's `Location` is its
+  work item's link list, since a link has no view of its own). Setting a
+  work item field (`/status`, `/parent`, `/schedule`, `/details`,
+  `/assignee`, `/tags`) is a `PUT` to that sub-resource. Controllers
+  declare their `201`/`204` and problem-details error responses, so the
+  OpenAPI document shows the error shapes.
 - **Enums serialise as their string name** (`"Medium"`, `"Human"`) via a
   global `JsonStringEnumConverter` in `Program.cs`. Without it the API
   sent ints, and the frontend's `as String` cast failed on a response that

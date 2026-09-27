@@ -37,7 +37,7 @@ public class WorkItemLinksControllerTests
     }
 
     [Test]
-    public async Task Create_DelegatesToServiceAndReturnsOk()
+    public async Task Create_DelegatesToServiceAndReturnsCreated()
     {
         var workItemId = Guid.NewGuid();
         var targetId = Guid.NewGuid();
@@ -46,9 +46,10 @@ public class WorkItemLinksControllerTests
 
         var result = await _controller.Create(workItemId, new CreateWorkItemLinkRequest(targetId));
 
-        var ok = result.Result as OkObjectResult;
-        Assert.That(ok, Is.Not.Null);
-        Assert.That((ok!.Value as WorkItemLinkDto)!.LinkedWorkItemId, Is.EqualTo(targetId));
+        var created = result.Result as CreatedAtActionResult;
+        Assert.That(created, Is.Not.Null);
+        Assert.That(created!.ActionName, Is.EqualTo(nameof(WorkItemLinksController.ListForWorkItem)));
+        Assert.That((created.Value as WorkItemLinkDto)!.LinkedWorkItemId, Is.EqualTo(targetId));
     }
 
     [Test]

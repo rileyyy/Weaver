@@ -75,13 +75,13 @@ class ApiBoardRepository implements BoardRepository {
 
   @override
   Future<void> changeStatus(String cardId, String newStatusId) =>
-      _api.postIgnoringBody('/work-items/$cardId/status', {
+      _api.putIgnoringBody('/work-items/$cardId/status', {
         'statusId': newStatusId,
       }, failureMessage: 'Failed to change status');
 
   @override
   Future<void> reparentItem(String itemId, String newParentId) =>
-      _api.postIgnoringBody('/work-items/$itemId/parent', {
+      _api.putIgnoringBody('/work-items/$itemId/parent', {
         'parentId': newParentId,
       }, failureMessage: 'Failed to move item');
 
@@ -90,7 +90,7 @@ class ApiBoardRepository implements BoardRepository {
     String itemId,
     DateTime? startDate,
     DateTime? endDate,
-  ) => _api.postIgnoringBody('/work-items/$itemId/schedule', {
+  ) => _api.putIgnoringBody('/work-items/$itemId/schedule', {
     'startDate': formatCalendarDate(startDate),
     'endDate': formatCalendarDate(endDate),
   }, failureMessage: 'Failed to reschedule item');
@@ -110,7 +110,7 @@ class ApiBoardRepository implements BoardRepository {
 
   @override
   Future<void> assign(String workItemId, String? userId) =>
-      _api.postIgnoringBody(
+      _api.putIgnoringBody(
         '/work-items/$workItemId/assignee',
         {'userId': userId},
         failureMessage: 'Failed to assign work item',
@@ -118,7 +118,7 @@ class ApiBoardRepository implements BoardRepository {
 
   @override
   Future<void> setTags(String workItemId, List<String> tags) =>
-      _api.postIgnoringBody('/work-items/$workItemId/tags', {
+      _api.putIgnoringBody('/work-items/$workItemId/tags', {
         'tags': tags,
       }, failureMessage: 'Failed to set tags');
 

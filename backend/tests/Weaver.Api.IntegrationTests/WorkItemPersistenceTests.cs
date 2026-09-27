@@ -42,7 +42,7 @@ public class WorkItemPersistenceTests
     {
         var item = await _client.CreateWorkItemAsync("Tagged");
 
-        await _client.PostJsonAsync(
+        await _client.PutJsonAsync(
             $"/api/work-items/{item.Id}/tags",
             new SetTagsWorkItemRequest(["urgent", "needs review"]));
         var reloaded = await (await _client.GetAsync($"/api/work-items/{item.Id}")).ReadAsync<WorkItemDto>();
@@ -109,7 +109,7 @@ public class WorkItemPersistenceTests
     {
         var id = Guid.NewGuid();
 
-        var response = await _client.PostJsonAsync(
+        var response = await _client.PutJsonAsync(
             $"/api/work-items/{id}/assignee",
             new AssignWorkItemRequest(null));
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
