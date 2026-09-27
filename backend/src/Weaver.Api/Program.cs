@@ -19,7 +19,6 @@ var builder = WebApplication.CreateBuilder(args);
 // frontend parsing (and any future enum DTO field) expects.
 builder.Services.AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
 var connectionString = builder.Configuration.GetConnectionString("Weaver");

@@ -180,7 +180,7 @@ The most important problems cluster in four areas:
   - `Status.cs` (+`StatusCategory`), `User.cs` (+`UserKind`), `WorkItem.cs` (+`WorkItemPriority`)
   - `AuthDto.cs` (6 records), `WorkItemDto.cs` (+`WorkItemLayerDto` and 7 request records)
   - `IJwtTokenService.cs` (+`AccessToken`), `IAuthService.cs` (+`AuthResult`)
-- [ ] **B-L4. Leftover scaffold.**
+- [x] *(Resolved in `feature/backend-review-cleanup`: `Weaver.Api.http` holds real dev requests (login, then authenticated calls reusing its token), the template comments are gone, and DI moved into `AddWeaverApplication()` / `AddWeaverInfrastructure()` with B-M3.)* **B-L4. Leftover scaffold.**
   - [Weaver.Api.http](backend/src/Weaver.Api/Weaver.Api.http) still targets `/weatherforecast/`.
   - `Program.cs:17` has the "Add services to the container." template comment.
   - The DI registrations could become an `AddWeaverInfrastructure()` extension in Infrastructure, keeping `Program.cs` focused on the pipeline.

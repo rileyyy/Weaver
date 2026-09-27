@@ -1,6 +1,31 @@
-@Weaver.Api_HostAddress = http://localhost:5016
+# Requests against the dev backend (docker compose up). Run "Log in" first;
+# the other requests reuse its access token.
+@baseUrl = http://localhost:8080
 
-GET {{Weaver.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+# @name login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "your-username",
+  "password": "your-password"
+}
 
 ###
+
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{login.response.body.accessToken}}
+
+###
+
+GET {{baseUrl}}/api/work-items/swimlanes
+Authorization: Bearer {{login.response.body.accessToken}}
+
+###
+
+GET {{baseUrl}}/api/statuses
+Authorization: Bearer {{login.response.body.accessToken}}
+
+###
+
+GET {{baseUrl}}/health
