@@ -155,8 +155,10 @@ missing value shows up as the `caddy` container exiting with a message.
 docker compose pull && docker compose up -d
 ```
 
-Startup is ordered by health: db → backend (applies database migrations,
-then reports healthy on `/health`) → frontend → Caddy. The app is then at
+Startup is ordered: db → `migrate` (applies database migrations once, then
+exits) → backend (reports healthy on `/health`) → frontend → Caddy. If a
+migration fails, `migrate` exits non-zero and the backend doesn't start;
+`docker compose logs migrate` shows why. The app is then at
 `https://<WEAVER_DOMAIN>`.
 
 ### Update to a new release
@@ -167,9 +169,9 @@ docker compose pull && docker compose up -d
 
 With `WEAVER_IMAGE_TAG=latest` this picks up the newest build from
 `master`. To pin or roll back, set `WEAVER_IMAGE_TAG` to a version or
-`sha-…` tag and run the same command. Migrations run automatically when
-the new backend starts; take a backup first if the release changes the
-database.
+`sha-…` tag and run the same command. The `migrate` step applies the new
+release's migrations before its backend starts; take a backup first if the
+release changes the database.
 
 ### What's exposed
 

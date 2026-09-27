@@ -35,6 +35,15 @@ services:
       - ./backend:/src
       - backend-nuget-cache:/root/.nuget/packages
 
+  # Dev migrates inside the backend at startup (Database:MigrateOnStartup in
+  # appsettings.Development.json), because dotnet watch restarts it often.
+  # The production image isn't built in dev, so this becomes a no-op that the
+  # backend's depends_on is still satisfied by.
+  migrate:
+    image: postgres:16-alpine
+    entrypoint: ["true"]
+    command: []
+
   frontend:
     build:
       context: .

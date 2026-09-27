@@ -26,6 +26,8 @@ public class WeaverApiFactory : WebApplicationFactory<Program>
         // Production, so the tests see the same configuration rules a deployment does.
         builder.UseEnvironment("Production");
         builder.UseSetting("ConnectionStrings:Weaver", _connectionString);
+        // A fresh container has no schema; production runs the "migrate" step instead.
+        builder.UseSetting("Database:MigrateOnStartup", "true");
         builder.UseSetting("Jwt:SigningKey", "integration-test-signing-key-that-is-long-enough");
         builder.UseSetting("Cors:AllowedOrigins:0", AllowedOrigin);
         // Every test registers from the same in-process "IP"; RateLimitingTests checks the limit.

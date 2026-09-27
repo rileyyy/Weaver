@@ -151,7 +151,7 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
   on narrow screens, but the Hierarchy view's fixed columns overflow phone
   widths (F-M15) and no native mobile build is tested.
 - **Milestone 15, production deployment:** the deployment pieces exist
-  (TLS, backups, health-ordered startup, hardened images), but the
-  remaining items flagged for it are open: B-H1 above, migrations applied
-  on every startup rather than as an explicit step (B-M8), and no
-  automated integration tests against Postgres (T-1).
+  (TLS, backups, health-ordered startup, an explicit migrate step,
+  hardened images, integration tests against Postgres). What's left is
+  deciding the access model before exposing a deployment beyond one team
+  (see [Registration is open](#registration-is-open)).

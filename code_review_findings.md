@@ -158,7 +158,7 @@ The most important problems cluster in four areas:
   - Give `GetAllAsync` a deterministic order.
 
 #### B-M8. Startup auto-migration and hosting details
-- [ ] **Resolved** — *partly: forwarded headers and dropping `UseHttpsRedirection` were done with I-H1, and `/health` with I-M1. Moving migrations out of startup is still open.*
+- [x] **Resolved**: forwarded headers and dropping `UseHttpsRedirection` came with I-H1, and `/health` with I-M1. In `feature/backend-review-cleanup`, migrations moved out of startup: `dotnet Weaver.Api.dll migrate` runs them as a one-shot compose `migrate` service that the backend waits for (`service_completed_successfully`). Startup migration is opt-in (`Database:MigrateOnStartup`, on only in Development). Verified with the production image: `migrate` applied all 10 migrations and exited 0, and the API then started without migrating and reported Healthy.
 - **Where:** [Program.cs:107-110, 120](backend/src/Weaver.Api/Program.cs#L107-L110)
 - **Issues:**
   - `MigrateAsync()` on every boot races if more than one replica starts, and it applies schema changes without a deploy gate.

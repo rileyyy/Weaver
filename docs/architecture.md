@@ -19,8 +19,13 @@ the history is in [CHANGELOG.md](../CHANGELOG.md).
   networking, dates, `ViewModel` base, theme) and `shared/` (what several
   features use: the `WorkItemStatus` and `User` models, cached lookup
   repositories, the `CurrentUser` interface and `WorkItemDetailOpener`).
-- **Database:** PostgreSQL 16 through EF Core (Npgsql). Migrations are
-  applied at API startup (`Database.MigrateAsync()` in `Program.cs`).
+- **Database:** PostgreSQL 16 through EF Core (Npgsql). Migrations are an
+  explicit step: `dotnet Weaver.Api.dll migrate` applies them and exits,
+  and Compose runs it as a one-shot `migrate` service before the backend.
+  Only Development applies them at API startup
+  (`Database:MigrateOnStartup`), because `dotnet watch` restarts often.
+  Applying them on every boot would let replicas race and would crash-loop
+  the API on a failed migration.
 - **Deployment:** Docker Compose: `db`, `backend`, `frontend` (nginx),
   `caddy` (TLS), `backup`.
 
@@ -649,12 +654,12 @@ and it is what allows MCP tools to reuse the same business logic (see
 ### Startup, health and backups
 
 - **Startup is ordered by health.** The API exposes an anonymous `/health`
-  with a database check, not proxied by nginx. Compose waits db → backend
-  → frontend → caddy on `service_healthy`, so Caddy never serves a
-  frontend whose API is still migrating. The backend healthcheck has a
-  30 s `start_period` for migrations. The dev override relaxes the
-  frontend's wait to `service_started`, because the first `dotnet watch`
-  build can outlast the healthcheck.
+  with a database check, not proxied by nginx. Compose runs db → `migrate`
+  (on `service_completed_successfully`) → backend → frontend → caddy (on
+  `service_healthy`), so Caddy never serves a frontend whose API isn't
+  ready. The dev override makes `migrate` a no-op (dev migrates at API
+  startup) and relaxes the frontend's wait to `service_started`, because
+  the first `dotnet watch` build can outlast the healthcheck.
 - **Backups are an inline `backup` service on `postgres:16-alpine`**,
   which already has `pg_dump`. A third-party backup image would need the
   database password, and inline configuration keeps the server at

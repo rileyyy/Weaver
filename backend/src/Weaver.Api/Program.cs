@@ -3,7 +3,6 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Weaver.Api.Mcp;
 using Weaver.Api.Middleware;
@@ -108,9 +107,15 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+if (args.Contains(DatabaseMigrations.Command))
 {
-    await scope.ServiceProvider.GetRequiredService<WeaverDbContext>().Database.MigrateAsync();
+    await app.Services.MigrateWeaverDatabaseAsync();
+    return;
+}
+
+if (app.Configuration.GetValue<bool>(DatabaseMigrations.MigrateOnStartupSetting))
+{
+    await app.Services.MigrateWeaverDatabaseAsync();
 }
 
 if (app.Environment.IsDevelopment())

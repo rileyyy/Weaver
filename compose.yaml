@@ -9,6 +9,13 @@
 # and gets hot-reloading build-from-source containers instead. See
 # docs/architecture.md for the reasoning.
 
+# Shared by the migrate step and the API, which need the same database and
+# configuration.
+x-backend-environment: &backend-environment
+  ASPNETCORE_ENVIRONMENT: Production
+  ConnectionStrings__Weaver: Host=db;Port=5432;Database=weaver;Username=weaver;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (copy .env.example) before starting}
+  Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env (copy .env.example) before starting}
+
 services:
   db:
     image: postgres:16-alpine
@@ -25,22 +32,34 @@ services:
       timeout: 5s
       retries: 10
 
+  # Applies pending database migrations once, then exits; the backend only
+  # starts after it succeeds. Keeping schema changes out of API startup means
+  # replicas can't race to migrate, and a failed migration stops the deploy
+  # visibly instead of crash-looping the API.
+  migrate:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE in .env (copy .env.example) before starting}:${WEAVER_IMAGE_TAG:-latest}
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment: *backend-environment
+    command: ["migrate"]
+
   backend:
     image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE in .env (copy .env.example) before starting}:${WEAVER_IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
-      ASPNETCORE_ENVIRONMENT: Production
-      ConnectionStrings__Weaver: Host=db;Port=5432;Database=weaver;Username=weaver;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (copy .env.example) before starting}
-      Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env (copy .env.example) before starting}
+      <<: *backend-environment
       # The app is served same-origin through Caddy, so this only matters
       # for some other web origin calling the API directly.
       Cors__AllowedOrigins__0: ${CORS_ALLOWED_ORIGIN:-https://${WEAVER_DOMAIN:-localhost}}
     healthcheck:
-      # /health includes a database check; start_period covers migrations
-      # applied at startup.
+      # /health includes a database check.
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
       interval: 10s
       timeout: 5s
