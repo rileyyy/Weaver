@@ -56,6 +56,42 @@ public class WorkItemToolsTests
     }
 
     [Test]
+    public async Task ListAllWorkItems_DelegatesTheRequestedPageAndMapsResults()
+    {
+        var items = new[] { MakeWorkItem(), MakeWorkItem() };
+        _workItems.Setup(w => w.GetAllAsync(500, 2, It.IsAny<CancellationToken>())).ReturnsAsync(items);
+
+        var result = await _tools.ListAllWorkItems(offset: 500, limit: 2, CancellationToken.None);
+
+        Assert.That(result.Select(d => d.Id), Is.EqualTo(items.Select(i => i.Id)));
+    }
+
+    [Test]
+    public async Task ListAllWorkItems_DefaultsToTheFirstPageOfTheDefaultSize()
+    {
+        _workItems
+            .Setup(w => w.GetAllAsync(0, WorkItemService.DefaultPageSize, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        var result = await _tools.ListAllWorkItems();
+
+        Assert.That(result, Is.Empty);
+        _workItems.VerifyAll();
+    }
+
+    [Test]
+    public void ListAllWorkItems_WhenThePageIsInvalid_ThrowsMcpExceptionWithTheServiceMessage()
+    {
+        _workItems
+            .Setup(w => w.GetAllAsync(0, 0, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DomainValidationException("Limit must be between 1 and 1000."));
+
+        var ex = Assert.ThrowsAsync<McpException>(() => _tools.ListAllWorkItems(offset: 0, limit: 0));
+
+        Assert.That(ex!.Message, Is.EqualTo("Limit must be between 1 and 1000."));
+    }
+
+    [Test]
     public async Task CreateWorkItem_DelegatesToServiceWithGivenArguments()
     {
         var parentId = Guid.NewGuid();

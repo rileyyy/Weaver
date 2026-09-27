@@ -38,6 +38,20 @@ public class WorkItemTools
         return items.Select(WorkItemDto.FromEntity).ToList();
     }
 
+    [McpServerTool(Name = "list_all_work_items", ReadOnly = true)]
+    [Description("Lists one page of every work item, flat and unscoped, ordered by rank then number. " +
+        "Rebuild the tree from each item's parentId. Page by increasing offset until a page comes back " +
+        "shorter than limit.")]
+    public Task<IReadOnlyList<WorkItemDto>> ListAllWorkItems(
+        [Description("How many items to skip. Defaults to 0.")] int offset = 0,
+        [Description("Page size, 1 to 1000. Defaults to 500.")] int limit = WorkItemService.DefaultPageSize,
+        CancellationToken ct = default) =>
+        McpExceptionTranslation.TranslateAsync<IReadOnlyList<WorkItemDto>>(async () =>
+        {
+            var items = await _workItems.GetAllAsync(offset, limit, ct);
+            return items.Select(WorkItemDto.FromEntity).ToList();
+        });
+
     [McpServerTool(Name = "create_work_item", Destructive = false)]
     [Description("Creates a new work item.")]
     public Task<WorkItemDto> CreateWorkItem(

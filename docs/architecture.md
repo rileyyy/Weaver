@@ -383,8 +383,10 @@ and it is what allows MCP tools to reuse the same business logic (see
   caller's id through `IHttpContextAccessor`.
 - **Coverage:** work items, boards, statuses, layers, users, comments and
   links. Auth endpoints are not tools; they're how a client gets its token.
-  There is no "list all work items" tool; `list_work_item_children` with
-  `parentId` omitted returns top-level items.
+  `list_all_work_items` pages through every item like `GET
+  /work-items/all` (same `offset`/`limit`, default 500, at most 1000, from
+  `WorkItemService`), so an agent can rebuild the whole tree;
+  `list_work_item_children` with `parentId` omitted returns top-level items.
 - **Auth is the REST API's.** `app.MapMcp("/mcp")` sits in the same
   pipeline after `UseAuthentication()` / `UseAuthorization()`, so it
   inherits the fallback policy. A request with no bearer token gets a plain

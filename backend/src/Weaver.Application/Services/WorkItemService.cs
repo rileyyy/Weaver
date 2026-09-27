@@ -7,6 +7,7 @@ namespace Weaver.Application.Services;
 
 public class WorkItemService : IWorkItemService
 {
+    public const int DefaultPageSize = 500;
     public const int MaxPageSize = 1000;
 
     private readonly IWeaverDbContext _db;

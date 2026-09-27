@@ -13,8 +13,6 @@ namespace Weaver.Api.Controllers;
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
 public class WorkItemsController : ControllerBase
 {
-    public const int DefaultPageSize = 500;
-
     private readonly IWorkItemService _workItems;
 
     public WorkItemsController(IWorkItemService workItems)
@@ -51,7 +49,7 @@ public class WorkItemsController : ControllerBase
     [HttpGet("all")]
     public async Task<ActionResult<IReadOnlyList<WorkItemDto>>> GetAll(
         [FromQuery] int offset = 0,
-        [FromQuery] int limit = DefaultPageSize)
+        [FromQuery] int limit = WorkItemService.DefaultPageSize)
     {
         var items = await _workItems.GetAllAsync(offset, limit);
         return Ok(items.Select(WorkItemDto.FromEntity));

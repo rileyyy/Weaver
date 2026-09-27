@@ -31,11 +31,13 @@ public class McpTests
 
         var tools = await mcp.ListToolsAsync();
         var result = await mcp.CallToolAsync("list_statuses", new Dictionary<string, object?>());
+        var allItems = await mcp.CallToolAsync("list_all_work_items", new Dictionary<string, object?>());
 
         Assert.Multiple(() =>
         {
-            Assert.That(tools.Select(t => t.Name), Does.Contain("create_work_item"));
+            Assert.That(tools.Select(t => t.Name), Does.Contain("create_work_item").And.Contain("list_all_work_items"));
             Assert.That(result.IsError, Is.Not.True);
+            Assert.That(allItems.IsError, Is.Not.True);
         });
     }
 }

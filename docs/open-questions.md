@@ -150,16 +150,6 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
   compact.
 - **To decide:** whether cards should show it too.
 
-## MCP
-
-### No "list all work items" tool
-- **Today:** MCP exposes `list_work_item_children` (top level when
-  `parentId` is omitted) but no equivalent of `GET /work-items/all`. When
-  the MCP tools were built the service had no `GetAllAsync`; it does now,
-  so the tool simply hasn't been added.
-- **To decide:** whether agents should get it, given `/all` is unpaged
-  (B-M7).
-
 ## Roadmap items not yet started
 
 - **Milestone 14, mobile refinement:** the board is built to stay usable
