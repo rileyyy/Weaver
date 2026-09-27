@@ -185,7 +185,7 @@ The most important problems cluster in four areas:
   - `Program.cs:17` has the "Add services to the container." template comment.
   - The DI registrations could become an `AddWeaverInfrastructure()` extension in Infrastructure, keeping `Program.cs` focused on the pipeline.
 - [ ] **B-L5. `CommentDto` hides a missing author** by returning `AuthorUsername = ""` ([CommentDto.cs:18](backend/src/Weaver.Api/Contracts/CommentDto.cs#L18)). `WorkItemLinkDto` uses `!` on navigation properties that callers must remember to `Include` ([WorkItemLinkDto.cs:14](backend/src/Weaver.Api/Contracts/WorkItemLinkDto.cs#L14)). Project straight to DTOs in the query instead.
-- [ ] **B-L6. Package versions are inconsistent.** `Microsoft.AspNetCore.OpenApi` is 9.0.7, `JwtBearer`/`Identity.Core` are 9.0.9, and EF is 9.0.20. Consider `Directory.Packages.props` (central package management) so one bump updates them all.
+- [x] *(Resolved in `feature/backend-review-cleanup`: `backend/Directory.Packages.props`. All ASP.NET Core and EF Core packages share one `MicrosoftPlatformVersion` (9.0.20).)* **B-L6. Package versions are inconsistent.** `Microsoft.AspNetCore.OpenApi` is 9.0.7, `JwtBearer`/`Identity.Core` are 9.0.9, and EF is 9.0.20. Consider `Directory.Packages.props` (central package management) so one bump updates them all.
 - [ ] **B-L7. `WouldCreateCycleAsync` returns `false` when it detects an *existing* cycle** ([WorkItemService.cs:256-259](backend/src/Weaver.Infrastructure/Services/WorkItemService.cs#L256-L259)). That state should be impossible, but reporting "no cycle" hides corruption. Throw or log instead.
 
 ---
