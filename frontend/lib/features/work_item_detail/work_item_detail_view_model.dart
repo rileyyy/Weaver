@@ -242,8 +242,9 @@ class WorkItemDetailViewModel extends ViewModel {
     ];
   }, errorMessage: 'Could not remove this link. Try again.');
 
-  /// Called when a sub-item's own dialog reports a change (e.g. it was
-  /// deleted): reloads the Sub-Items list and marks this dialog as changed.
+  /// Called when a nested dialog (a sub-item, or the repeating item that
+  /// created this one) reports a change: reloads the Sub-Items list and
+  /// marks this dialog as changed.
   Future<void> onSubItemChanged() async {
     _hasChanges = true;
     try {

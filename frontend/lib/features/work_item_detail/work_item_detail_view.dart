@@ -6,14 +6,17 @@ import 'package:weaver/core/dates/date_format.dart';
 import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
+import 'package:weaver/features/work_item_detail/repeat_settings_view_model.dart';
 import 'package:weaver/features/work_item_detail/widgets/comments_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/confirm_dialogs.dart';
-import 'package:weaver/features/work_item_detail/widgets/field_label.dart';
 import 'package:weaver/features/work_item_detail/widgets/links_section.dart';
+import 'package:weaver/features/work_item_detail/widgets/repeat_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/schedule_fields.dart';
 import 'package:weaver/features/work_item_detail/widgets/sub_items_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/tags_editor.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
+import 'package:weaver/shared/recurrence/widgets/confirm_stop_repeating.dart';
+import 'package:weaver/shared/widgets/field_label.dart';
 
 /// Below this available content width, the two-column layout collapses to a
 /// single stacked column — the two-column form is too cramped on a phone
@@ -67,6 +70,7 @@ class WorkItemDetailView extends StatefulWidget {
     this.onDrillInto,
     this.onChanged,
     this.viewModel,
+    this.repeatViewModel,
     super.key,
   });
 
@@ -85,6 +89,9 @@ class WorkItemDetailView extends StatefulWidget {
   /// Normally resolved from DI; tests pass one in.
   final WorkItemDetailViewModel? viewModel;
 
+  /// Normally resolved from DI; tests pass one in.
+  final RepeatSettingsViewModel? repeatViewModel;
+
   @override
   State<WorkItemDetailView> createState() => _WorkItemDetailViewState();
 }
@@ -92,6 +99,9 @@ class WorkItemDetailView extends StatefulWidget {
 class _WorkItemDetailViewState extends State<WorkItemDetailView> {
   late final WorkItemDetailViewModel _viewModel =
       widget.viewModel ?? getIt<WorkItemDetailViewModel>();
+  late final RepeatSettingsViewModel _repeat =
+      widget.repeatViewModel ?? getIt<RepeatSettingsViewModel>();
+  bool _repeatLoadStarted = false;
 
   // The details form (title, description, layer, priority) is edited
   // locally and saved with "Save details"; every other field saves as soon
@@ -109,6 +119,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
   void initState() {
     super.initState();
     _viewModel.addListener(_onViewModelChanged);
+    _repeat.addListener(_onRepeatChanged);
     _titleController.addListener(_onFormEdited);
     _descriptionController.addListener(_onFormEdited);
     unawaited(_viewModel.load(widget.workItemId));
@@ -122,7 +133,21 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
       _seedFrom(item);
       _seededGeneration = _viewModel.reloadGeneration;
     }
+    if (item != null && !_repeatLoadStarted) {
+      _repeatLoadStarted = true;
+      unawaited(
+        _repeat.load(
+          workItemId: item.id,
+          recurrenceSourceId: item.recurrenceSourceId,
+        ),
+      );
+    }
     if (_viewModel.hasChanges) widget.onChanged?.call();
+    setState(() {});
+  }
+
+  void _onRepeatChanged() {
+    if (_repeat.hasChanges) widget.onChanged?.call();
     setState(() {});
   }
 
@@ -145,10 +170,15 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
         _selectedPriority != item.priority;
   }
 
+  bool get _hasUnsavedChanges => _hasUnsavedDetails || _repeat.isDirty;
+
   @override
   void dispose() {
     _viewModel
       ..removeListener(_onViewModelChanged)
+      ..dispose();
+    _repeat
+      ..removeListener(_onRepeatChanged)
       ..dispose();
     _titleController.dispose();
     _descriptionController.dispose();
@@ -160,8 +190,8 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     final onDrillInto = widget.onDrillInto;
     return PopScope(
       // Tapping outside the dialog or pressing back mustn't silently drop
-      // an unsaved title or description.
-      canPop: !_hasUnsavedDetails,
+      // an unsaved title, description or repeat schedule.
+      canPop: !_hasUnsavedChanges,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) unawaited(_closeDiscardingChanges());
       },
@@ -216,7 +246,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
           const SizedBox(height: 20),
           LayoutBuilder(
             builder: (context, constraints) {
-              final primary = _primaryColumn();
+              final primary = _primaryColumn(item);
               final metadata = _metadataColumn(context, item);
               if (constraints.maxWidth < _twoColumnBreakpoint) {
                 return Column(
@@ -249,7 +279,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
   }
 
   /// Column 1 (65% width on wide layouts): the item's main content.
-  Widget _primaryColumn() {
+  Widget _primaryColumn(WorkItemDetail item) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -263,7 +293,15 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
         SubItemsSection(
           children: _viewModel.children,
           statusColorFor: _viewModel.statusColorFor,
-          onOpen: (id) => unawaited(_openSubItem(id)),
+          onOpen: (id) => unawaited(_openNestedItem(id)),
+        ),
+        const SizedBox(height: 20),
+        RepeatSection(
+          viewModel: _repeat,
+          itemStartDate: item.startDate,
+          occurrenceDate: item.recurrenceDate,
+          onOpenSource: (id) => unawaited(_openNestedItem(id)),
+          onStopRepeating: () => unawaited(_stopRepeating()),
         ),
         const SizedBox(height: 20),
         CommentsSection(
@@ -406,11 +444,12 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
   Future<void> _closeDiscardingChanges() async {
     if (!await confirmDiscardChanges(context) || !mounted) return;
     _seedFrom(_viewModel.item!);
+    _repeat.discardChanges();
     Navigator.of(context).pop();
   }
 
   Future<void> _drillInto(VoidCallback onDrillInto) async {
-    if (_hasUnsavedDetails && !await confirmDiscardChanges(context)) return;
+    if (_hasUnsavedChanges && !await confirmDiscardChanges(context)) return;
     if (!mounted) return;
     Navigator.of(context).pop();
     onDrillInto();
@@ -422,10 +461,17 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     if (ok && mounted) Navigator.of(context).pop();
   }
 
-  Future<void> _openSubItem(String subItemId) async {
+  Future<void> _stopRepeating() async {
+    if (!await confirmStopRepeating(context)) return;
+    await _repeat.stopRepeating();
+  }
+
+  /// Opens a sub-item, or the item that created this one, in a dialog on
+  /// top of this one.
+  Future<void> _openNestedItem(String workItemId) async {
     final changed = await showWorkItemDetailDialog(
       context,
-      workItemId: subItemId,
+      workItemId: workItemId,
     );
     if (changed) await _viewModel.onSubItemChanged();
   }

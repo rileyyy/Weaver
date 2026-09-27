@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
-import 'package:weaver/features/work_item_detail/widgets/field_label.dart';
+import 'package:weaver/shared/widgets/field_label.dart';
 
 class SubItemsSection extends StatelessWidget {
   const SubItemsSection({

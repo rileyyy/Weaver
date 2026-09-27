@@ -20,6 +20,8 @@ class WorkItemDetail {
     required this.updatedAt,
     required this.version,
     this.tags = const [],
+    this.recurrenceSourceId,
+    this.recurrenceDate,
   });
 
   factory WorkItemDetail.fromJson(Map<String, dynamic> json) => WorkItemDetail(
@@ -37,6 +39,8 @@ class WorkItemDetail {
     updatedAt: parseApiTimestamp(json['updatedAtUtc'] as String),
     version: json['version'] as int,
     tags: stringList(json['tags']),
+    recurrenceSourceId: json['recurrenceSourceId'] as String?,
+    recurrenceDate: parseCalendarDate(json['recurrenceDate']),
   );
 
   final String id;
@@ -56,4 +60,9 @@ class WorkItemDetail {
   /// backend can reject a save based on a stale read.
   final int version;
   final List<String> tags;
+
+  /// The repeating item this one was created from, and the occurrence date
+  /// it was created for; null for items created by hand.
+  final String? recurrenceSourceId;
+  final DateTime? recurrenceDate;
 }

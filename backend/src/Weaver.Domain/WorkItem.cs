@@ -74,6 +74,15 @@ public class WorkItem : IHasUpdatedAt
 
     public DateOnly? EndDate { get; private set; }
 
+    /// <summary>
+    /// The repeating work item this one was generated from, and the occurrence date it was
+    /// generated for. Both null for items created by hand. Together they're unique, which is
+    /// what stops generation from creating the same occurrence twice.
+    /// </summary>
+    public Guid? RecurrenceSourceId { get; private set; }
+
+    public DateOnly? RecurrenceDate { get; private set; }
+
     public DateTimeOffset CreatedAtUtc { get; private set; }
 
     public DateTimeOffset UpdatedAtUtc { get; private set; }
@@ -89,6 +98,8 @@ public class WorkItem : IHasUpdatedAt
     public WorkItemLayer? Layer { get; private set; }
 
     public User? AssignedToUser { get; private set; }
+
+    public WorkItem? RecurrenceSource { get; private set; }
 
     public static WorkItem Create(
         string title,
@@ -170,6 +181,31 @@ public class WorkItem : IHasUpdatedAt
     public void AssignTo(Guid? userId)
     {
         AssignedToUserId = userId;
+    }
+
+    /// <summary>
+    /// A copy of this item for one occurrence of a repetition: same descriptive fields,
+    /// assignee and tags, placed under <paramref name="parentId"/> and scheduled on
+    /// <paramref name="date"/>. Comments, links, schedule and repetition are not copied.
+    /// </summary>
+    public WorkItem CopyForOccurrence(Guid? parentId, Guid statusId, double rank, DateOnly date)
+    {
+        var copy = Create(Title, Description, parentId, statusId, rank, LayerId, Priority);
+        copy.AssignedToUserId = AssignedToUserId;
+        copy._tags = [.. _tags];
+        copy.StartDate = date;
+        copy.EndDate = date;
+        return copy;
+    }
+
+    /// <summary>
+    /// Marks this item as the occurrence of <paramref name="sourceId"/> for
+    /// <paramref name="date"/>; the pair is unique, so an occurrence can't be generated twice.
+    /// </summary>
+    public void MarkAsOccurrenceOf(Guid sourceId, DateOnly date)
+    {
+        RecurrenceSourceId = sourceId;
+        RecurrenceDate = date;
     }
 
     /// <summary>

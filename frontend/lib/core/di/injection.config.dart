@@ -23,10 +23,13 @@ import 'package:weaver/features/auth/data/secure_token_store.dart' as _i54;
 import 'package:weaver/features/board/board_view_model.dart' as _i314;
 import 'package:weaver/features/board/data/api_board_repository.dart' as _i436;
 import 'package:weaver/features/board/data/board_repository.dart' as _i522;
+import 'package:weaver/features/board/repeating_items_view_model.dart' as _i87;
 import 'package:weaver/features/work_item_detail/data/api_work_item_detail_repository.dart'
     as _i335;
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart'
     as _i982;
+import 'package:weaver/features/work_item_detail/repeat_settings_view_model.dart'
+    as _i60;
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart'
     as _i194;
 import 'package:weaver/shared/data/api_status_repository.dart' as _i209;
@@ -34,6 +37,10 @@ import 'package:weaver/shared/data/api_user_directory_repository.dart' as _i982;
 import 'package:weaver/shared/data/current_user.dart' as _i875;
 import 'package:weaver/shared/data/status_repository.dart' as _i770;
 import 'package:weaver/shared/data/user_directory_repository.dart' as _i562;
+import 'package:weaver/shared/recurrence/data/api_recurrence_repository.dart'
+    as _i919;
+import 'package:weaver/shared/recurrence/data/recurrence_repository.dart'
+    as _i65;
 
 extension GetItInjectableX on _i174.GetIt {
   // initializes the registration of main-scope dependencies inside of GetIt
@@ -81,6 +88,12 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i875.CurrentUser>(
       () => networkModule.currentUser(gh<_i605.AuthSessionStore>()),
     );
+    gh.lazySingleton<_i65.RecurrenceRepository>(
+      () => _i919.ApiRecurrenceRepository(
+        gh<_i519.Client>(),
+        gh<String>(instanceName: 'apiBaseUrl'),
+      ),
+    );
     gh.lazySingleton<_i562.UserDirectoryRepository>(
       () => _i982.ApiUserDirectoryRepository(
         gh<_i519.Client>(),
@@ -117,6 +130,12 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i314.BoardViewModel>(
       () => _i314.BoardViewModel(gh<_i522.BoardRepository>()),
+    );
+    gh.factory<_i87.RepeatingItemsViewModel>(
+      () => _i87.RepeatingItemsViewModel(gh<_i65.RecurrenceRepository>()),
+    );
+    gh.factory<_i60.RepeatSettingsViewModel>(
+      () => _i60.RepeatSettingsViewModel(gh<_i65.RecurrenceRepository>()),
     );
     return this;
   }

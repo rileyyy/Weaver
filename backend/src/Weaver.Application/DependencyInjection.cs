@@ -18,6 +18,7 @@ public static class DependencyInjection
             .AddScoped<IBoardService, BoardService>()
             .AddScoped<IStatusService, StatusService>()
             .AddScoped<IWorkItemLayerService, WorkItemLayerService>()
+            .AddScoped<IWorkItemRecurrenceService, WorkItemRecurrenceService>()
             .AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>()
             .AddTimeProvider();
 

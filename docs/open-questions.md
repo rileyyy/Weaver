@@ -67,6 +67,21 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
 - **Today:** none. Milestone 12 (attachments) was skipped.
 - **To decide:** whether they're wanted, and where files would be stored.
 
+### Repeating items
+- **Lead time is fixed at seven days** (`WorkItemRecurrence.LeadDays`). To
+  decide: whether it should be configurable per schedule.
+- **Copies are dated on the occurrence day only** (start = end). A
+  template spanning several days doesn't carry its duration over, and
+  sub-items get the same single day. To decide: whether to preserve the
+  template's duration and the sub-items' offsets.
+- **Editing a schedule doesn't touch copies already created**, even ones
+  dated after a new end date. To decide: whether edits should remove
+  not-yet-started future copies.
+- **"Today" is the server's UTC date.** To decide: whether a configured
+  team time zone is needed.
+- **The Repeating tab ignores the header's search and filters.** To
+  decide: whether it should apply them.
+
 ## Tags
 
 ### Tags are edited only in the detail dialog

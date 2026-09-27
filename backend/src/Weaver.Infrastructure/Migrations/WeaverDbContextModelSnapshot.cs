@@ -253,6 +253,12 @@ namespace Weaver.Infrastructure.Migrations
                     b.Property<double>("Rank")
                         .HasColumnType("double precision");
 
+                    b.Property<DateOnly?>("RecurrenceDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("RecurrenceSourceId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateOnly?>("StartDate")
                         .HasColumnType("date");
 
@@ -287,6 +293,9 @@ namespace Weaver.Infrastructure.Migrations
                         .IsUnique();
 
                     b.HasIndex("StatusId");
+
+                    b.HasIndex("RecurrenceSourceId", "RecurrenceDate")
+                        .IsUnique();
 
                     b.HasIndex("ParentId", "StatusId", "Rank");
 
@@ -359,6 +368,37 @@ namespace Weaver.Infrastructure.Migrations
                     b.ToTable("WorkItemLinks");
                 });
 
+            modelBuilder.Entity("Weaver.Domain.WorkItemRecurrence", b =>
+                {
+                    b.Property<Guid>("WorkItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Days")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("Frequency")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("GeneratedThrough")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("WorkItemId");
+
+                    b.ToTable("WorkItemRecurrences");
+                });
+
             modelBuilder.Entity("Weaver.Domain.Board", b =>
                 {
                     b.HasOne("Weaver.Domain.WorkItem", "ScopeItem")
@@ -416,6 +456,11 @@ namespace Weaver.Infrastructure.Migrations
                         .HasForeignKey("ParentId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Weaver.Domain.WorkItem", "RecurrenceSource")
+                        .WithMany()
+                        .HasForeignKey("RecurrenceSourceId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Weaver.Domain.Status", "Status")
                         .WithMany()
                         .HasForeignKey("StatusId")
@@ -427,6 +472,8 @@ namespace Weaver.Infrastructure.Migrations
                     b.Navigation("Layer");
 
                     b.Navigation("Parent");
+
+                    b.Navigation("RecurrenceSource");
 
                     b.Navigation("Status");
                 });
@@ -446,6 +493,17 @@ namespace Weaver.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("LinkedWorkItem");
+
+                    b.Navigation("WorkItem");
+                });
+
+            modelBuilder.Entity("Weaver.Domain.WorkItemRecurrence", b =>
+                {
+                    b.HasOne("Weaver.Domain.WorkItem", "WorkItem")
+                        .WithOne()
+                        .HasForeignKey("Weaver.Domain.WorkItemRecurrence", "WorkItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("WorkItem");
                 });

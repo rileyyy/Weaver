@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 /// A centered error message with a retry button — shared by every board tab
-/// (Swim Lanes, Hierarchy, Roadmap) that can fail to load.
+/// (Swim Lanes, Hierarchy, Roadmap, Repeating) that can fail to load.
 class LoadErrorView extends StatelessWidget {
   const LoadErrorView({
     super.key,

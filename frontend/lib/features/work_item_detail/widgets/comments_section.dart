@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/widgets/comment_tile.dart';
-import 'package:weaver/features/work_item_detail/widgets/field_label.dart';
 import 'package:weaver/features/work_item_detail/widgets/text_entry_row.dart';
+import 'package:weaver/shared/widgets/field_label.dart';
 
 class CommentsSection extends StatelessWidget {
   const CommentsSection({

@@ -28,6 +28,34 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-09-26 — Repeating work items
+
+Requested feature round before Milestone 14 (`feature/repeating-work-items`).
+
+- **Repeat settings on a work item.** A Repeat section in the detail
+  dialog sets an item to repeat Weekly or Bi-weekly on chosen weekdays
+  (seven checkboxes, Monday first), or Monthly, Quarterly or Yearly on the
+  start date's day of the month, between a start date and an optional end
+  date. It's saved explicitly with **Save repeat**, and closing with an
+  unsaved schedule asks first.
+- **Occurrences are generated a week ahead.** A copy of the item (title,
+  description, layer, priority, assignee, tags and its whole sub-item tree)
+  is created under the item's current parent in the first status, dated on
+  the occurrence day. Past copies stay on the board for reference. A
+  background worker runs at startup and hourly; saving a schedule also
+  generates immediately.
+- **A Repeating tab** next to Swim Lanes, Roadmap and Hierarchy lists every
+  repeating item with its lane, schedule and next date, where each can be
+  edited or stopped.
+- **API and MCP:** `GET/PUT/DELETE /api/work-items/{id}/recurrence`,
+  `GET /api/recurrences`, and matching MCP tools. `WorkItemDto` gained
+  `RecurrenceSourceId` / `RecurrenceDate`.
+- New table `WorkItemRecurrences` (migration `AddWorkItemRecurrences`).
+  Verified against Postgres: generation, idempotent re-saves, occurrence
+  numbering in date order, and deleting a template (cascades its schedule,
+  keeps its copies). UI checked in headless Chromium at desktop and phone
+  widths.
+
 ## 2026-09-25/26 — Code review fixes
 
 Fixes for the [2026-09-25 code review](code_review_findings.md), each on

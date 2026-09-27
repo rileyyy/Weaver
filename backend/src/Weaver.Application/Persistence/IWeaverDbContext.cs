@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Weaver.Domain;
 
 namespace Weaver.Application.Persistence;
@@ -26,6 +27,11 @@ public interface IWeaverDbContext
     DbSet<Comment> Comments { get; }
 
     DbSet<WorkItemLink> WorkItemLinks { get; }
+
+    DbSet<WorkItemRecurrence> WorkItemRecurrences { get; }
+
+    /// <summary>Lets a long-running job discard a failed unit of work and carry on.</summary>
+    ChangeTracker ChangeTracker { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

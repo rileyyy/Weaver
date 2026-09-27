@@ -34,8 +34,8 @@ Future<bool> confirmDiscardChanges(BuildContext context) async =>
       builder: (dialogContext) => AlertDialog(
         title: const Text('Discard unsaved changes?'),
         content: const Text(
-          'Your changes to the title, description, layer or priority '
-          'have not been saved.',
+          'Your changes to the title, description, layer, priority or '
+          'repeat settings have not been saved.',
         ),
         actions: [
           TextButton(

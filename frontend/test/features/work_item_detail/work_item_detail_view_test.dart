@@ -7,11 +7,14 @@ import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_layer.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
+import 'package:weaver/features/work_item_detail/repeat_settings_view_model.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
 import 'package:weaver/shared/data/current_user.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
+
+import '../../shared/recurrence/fake_recurrence_repository.dart';
 
 class _NoUser implements CurrentUser {
   @override
@@ -64,7 +67,10 @@ class _LoadOnlyRepository implements WorkItemDetailRepository {
       throw UnimplementedError('${invocation.memberName}');
 }
 
-Future<void> _openDetails(WidgetTester tester) async {
+Future<void> _openDetails(
+  WidgetTester tester, {
+  FakeRecurrenceRepository? recurrences,
+}) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -79,6 +85,9 @@ Future<void> _openDetails(WidgetTester tester) async {
                 viewModel: WorkItemDetailViewModel(
                   _LoadOnlyRepository(),
                   _NoUser(),
+                ),
+                repeatViewModel: RepeatSettingsViewModel(
+                  recurrences ?? FakeRecurrenceRepository(),
                 ),
               ),
             ),
@@ -138,5 +147,50 @@ void main() {
       find.widgetWithText(FilledButton, 'Save details'),
     );
     expect(save.onPressed, isNull);
+  });
+
+  testWidgets('setting up a repeat is saved with Save repeat', (tester) async {
+    final recurrences = FakeRecurrenceRepository();
+    await _openDetails(tester, recurrences: recurrences);
+
+    await tester.ensureVisible(find.text('Repeat this item'));
+    await tester.tap(find.text('Repeat this item'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Checkbox), findsNWidgets(7));
+
+    await tester.ensureVisible(find.text('Save repeat'));
+    await tester.tap(find.text('Save repeat'));
+    await tester.pumpAndSettle();
+
+    expect(recurrences.saveCalls.single.$1, 'item-1');
+    expect(find.text('Stop repeating'), findsOneWidget);
+  });
+
+  testWidgets('closing with an unsaved repeat asks before discarding it', (
+    tester,
+  ) async {
+    await _openDetails(tester);
+    await tester.ensureVisible(find.text('Repeat this item'));
+    await tester.tap(find.text('Repeat this item'));
+    await tester.pumpAndSettle();
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Discard unsaved changes?'), findsOneWidget);
+  });
+
+  testWidgets('stopping a repeat asks first', (tester) async {
+    final recurrences = FakeRecurrenceRepository([recurrence()]);
+    await _openDetails(tester, recurrences: recurrences);
+
+    await tester.ensureVisible(find.text('Stop repeating'));
+    await tester.tap(find.text('Stop repeating'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Stop repeating'));
+    await tester.pumpAndSettle();
+
+    expect(recurrences.removeCalls, ['item-1']);
+    expect(find.text('Repeat this item'), findsOneWidget);
   });
 }

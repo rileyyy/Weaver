@@ -16,6 +16,8 @@ public record WorkItemDto(
     double Rank,
     DateOnly? StartDate,
     DateOnly? EndDate,
+    Guid? RecurrenceSourceId,
+    DateOnly? RecurrenceDate,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
     uint Version)
@@ -34,6 +36,8 @@ public record WorkItemDto(
         item.Rank,
         item.StartDate,
         item.EndDate,
+        item.RecurrenceSourceId,
+        item.RecurrenceDate,
         item.CreatedAtUtc,
         item.UpdatedAtUtc,
         item.Version);
