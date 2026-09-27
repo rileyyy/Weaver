@@ -38,16 +38,6 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
 - **To decide:** whether to add rate limiting and change the lockout
   policy (B-M6).
 
-### The dev signing key in `appsettings.json`
-- **Today:** `backend/src/Weaver.Api/appsettings.json` contains a dev JWT
-  signing key, so the startup check for a missing key never fires. The
-  Compose deployment always sets `Jwt__SigningKey`, so it isn't affected,
-  but running the image some other way without that variable would sign
-  tokens with a key that is public in the repo.
-- **To decide:** move the dev key and connection string to
-  `appsettings.Development.json` (B-H1, deferred until production
-  deployment).
-
 ## Work items
 
 ### Links are untyped, and added by raw id

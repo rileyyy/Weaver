@@ -230,10 +230,11 @@ and it is what allows MCP tools to reuse the same business logic (see
   yields a usable credential.
 - **Signing key:** `Jwt:SigningKey` is required; the API refuses to start
   without one or with one under 32 bytes (HS256's minimum), which would
-  otherwise only fail at the first login. Note that
-  `backend/src/Weaver.Api/appsettings.json` still ships a dev key, so the
-  "missing key" check only fires if that file is overridden (B-H1, see
-  [open-questions.md](open-questions.md)).
+  otherwise only fail at the first login. The dev key and connection
+  string live only in `appsettings.Development.json`, and
+  `JwtSigningKeyPolicy` also rejects the public dev key outside
+  Development, so a deployment that forgets `Jwt__SigningKey` fails to
+  start instead of signing tokens anyone could forge.
 - **Passwords** are hashed with `PasswordHasher<User>` (PBKDF2-HMAC-SHA256,
   framework-managed iterations) from the standalone
   `Microsoft.Extensions.Identity.Core` package. The full ASP.NET Core
