@@ -70,4 +70,29 @@ public class JsonSerializationTests
         Assert.That(request!.StartDate, Is.EqualTo(new DateOnly(2026, 9, 25)));
         Assert.That(request.EndDate, Is.Null);
     }
+
+    [Test]
+    public void WorkItemRecurrenceDto_SerializesFrequencyAndDaysAsStrings()
+    {
+        var dto = new WorkItemRecurrenceDto(
+            Guid.NewGuid(), 7, "Report", null, RecurrenceFrequency.BiWeekly,
+            [DayOfWeek.Monday, DayOfWeek.Friday], new DateOnly(2026, 9, 28), null, new DateOnly(2026, 9, 28));
+
+        var json = JsonSerializer.Serialize(dto, Options);
+
+        Assert.That(json, Does.Contain("\"frequency\":\"BiWeekly\""));
+        Assert.That(json, Does.Contain("\"daysOfWeek\":[\"Monday\",\"Friday\"]"));
+        Assert.That(json, Does.Contain("\"startDate\":\"2026-09-28\""));
+    }
+
+    [Test]
+    public void SetWorkItemRecurrenceRequest_ReadsStringEnumsAndDates()
+    {
+        var request = JsonSerializer.Deserialize<SetWorkItemRecurrenceRequest>(
+            """{"frequency":"Weekly","daysOfWeek":["Sunday"],"startDate":"2026-09-28","endDate":null}""", Options);
+
+        Assert.That(request!.Frequency, Is.EqualTo(RecurrenceFrequency.Weekly));
+        Assert.That(request.DaysOfWeek, Is.EqualTo(new[] { DayOfWeek.Sunday }));
+        Assert.That(request.EndDate, Is.Null);
+    }
 }

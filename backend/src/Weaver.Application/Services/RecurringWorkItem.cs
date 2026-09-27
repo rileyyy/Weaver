@@ -3,7 +3,13 @@ using Weaver.Domain;
 namespace Weaver.Application.Services;
 
 /// <summary>
-/// A repetition with its work item loaded (<see cref="WorkItemRecurrence.WorkItem"/>) and
-/// the next date it falls on from today, or null once it has ended.
+/// A repetition as read: its schedule, enough of its work item to list it on its own, and the
+/// next date it falls on from today (null once it has ended).
 /// </summary>
-public record RecurringWorkItem(WorkItemRecurrence Recurrence, DateOnly? NextOccurrence);
+public record RecurringWorkItem(
+    Guid WorkItemId,
+    int WorkItemNumber,
+    string WorkItemTitle,
+    Guid? ParentId,
+    RecurrenceSchedule Schedule,
+    DateOnly? NextOccurrence);

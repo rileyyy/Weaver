@@ -48,9 +48,9 @@ public class WorkItemRecurrenceServiceTests
 
         var result = await RepeatWeekly(item.Id, DayOfWeek.Wednesday);
 
-        Assert.That(result.Recurrence.Frequency, Is.EqualTo(RecurrenceFrequency.Weekly));
-        Assert.That(result.Recurrence.Days, Is.EqualTo(RecurrenceDays.Wednesday));
-        Assert.That(result.Recurrence.WorkItem!.Title, Is.EqualTo("Report"));
+        Assert.That(result.Schedule.Frequency, Is.EqualTo(RecurrenceFrequency.Weekly));
+        Assert.That(result.Schedule.Days, Is.EqualTo(RecurrenceDays.Wednesday));
+        Assert.That(result.WorkItemTitle, Is.EqualTo("Report"));
         Assert.That(result.NextOccurrence, Is.EqualTo(new DateOnly(2026, 9, 30)));
     }
 
@@ -218,7 +218,7 @@ public class WorkItemRecurrenceServiceTests
 
         var dates = (await Occurrences(item.Id)).Select(w => w.RecurrenceDate);
         Assert.That(dates, Is.EqualTo(new DateOnly?[] { Monday, new DateOnly(2026, 10, 1) }));
-        Assert.That(result.Recurrence.Days, Is.EqualTo(RecurrenceDays.Thursday));
+        Assert.That(result.Schedule.Days, Is.EqualTo(RecurrenceDays.Thursday));
         Assert.That(await _db.WorkItemRecurrences.CountAsync(), Is.EqualTo(1));
     }
 
@@ -407,7 +407,7 @@ public class WorkItemRecurrenceServiceTests
 
         var list = await _recurrences.ListAsync();
 
-        Assert.That(list.Select(r => r.Recurrence.WorkItem!.Title), Is.EqualTo(new[] { "First", "Second" }));
+        Assert.That(list.Select(r => r.WorkItemTitle), Is.EqualTo(new[] { "First", "Second" }));
         Assert.That(list[0].NextOccurrence, Is.EqualTo(new DateOnly(2027, 1, 1)));
     }
 }

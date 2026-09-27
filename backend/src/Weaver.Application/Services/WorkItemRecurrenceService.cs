@@ -21,12 +21,9 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
 
     public async Task<RecurringWorkItem?> GetAsync(Guid workItemId, CancellationToken ct = default)
     {
-        await FindWorkItemAsync(workItemId, ct);
-        var recurrence = await _db.WorkItemRecurrences
-            .Include(r => r.WorkItem)
-            .FirstOrDefaultAsync(r => r.WorkItemId == workItemId, ct);
-
-        return recurrence is null ? null : Describe(recurrence);
+        var item = await FindWorkItemAsync(workItemId, ct);
+        var recurrence = await _db.WorkItemRecurrences.FindAsync([workItemId], ct);
+        return recurrence is null ? null : Describe(recurrence, item);
     }
 
     public async Task<IReadOnlyList<RecurringWorkItem>> ListAsync(CancellationToken ct = default)
@@ -37,7 +34,7 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
             .OrderBy(r => r.WorkItem!.Number)
             .ToListAsync(ct);
 
-        return recurrences.Select(Describe).ToList();
+        return recurrences.Select(r => Describe(r, r.WorkItem!)).ToList();
     }
 
     public async Task<RecurringWorkItem> SetAsync(
@@ -72,7 +69,7 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
         await _db.SaveChangesAsync(ct);
 
         await GenerateForAsync(recurrence, item, new OccurrenceFactory(_db), ct);
-        return Describe(recurrence);
+        return Describe(recurrence, item);
     }
 
     public async Task RemoveAsync(Guid workItemId, CancellationToken ct = default)
@@ -146,8 +143,13 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
         return dates.Count;
     }
 
-    private RecurringWorkItem Describe(WorkItemRecurrence recurrence) =>
-        new(recurrence, recurrence.Schedule.NextOccurrenceOnOrAfter(Today()));
+    private RecurringWorkItem Describe(WorkItemRecurrence recurrence, WorkItem item) => new(
+        item.Id,
+        item.Number,
+        item.Title,
+        item.ParentId,
+        recurrence.Schedule,
+        recurrence.Schedule.NextOccurrenceOnOrAfter(Today()));
 
     /// <summary>
     /// Schedule dates are calendar days with no time zone of their own; the server's UTC day

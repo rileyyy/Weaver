@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
+using Weaver.Api.Background;
 using Weaver.Api.Mcp;
 using Weaver.Api.Middleware;
 using Weaver.Api.RateLimiting;
@@ -34,6 +35,8 @@ builder.Services
     .AddWeaverInfrastructure(connectionString);
 
 builder.Services.AddHealthChecks().AddDbContextCheck<WeaverDbContext>();
+
+builder.Services.AddHostedService<RecurrenceGenerationWorker>();
 
 // CommentTools reads the calling user's id off the current request the same way
 // CommentsController does (User.GetUserId()) — MCP tools don't get a ControllerBase's
