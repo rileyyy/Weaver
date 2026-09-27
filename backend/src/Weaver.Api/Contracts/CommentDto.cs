@@ -20,7 +20,3 @@ public record CommentDto(
         comment.CreatedAtUtc,
         comment.UpdatedAtUtc);
 }
-
-public record CreateCommentRequest(string Body);
-
-public record UpdateCommentRequest(string Body);

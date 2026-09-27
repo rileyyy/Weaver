@@ -1,13 +1,5 @@
 namespace Weaver.Domain;
 
-public enum WorkItemPriority
-{
-    Low,
-    Medium,
-    High,
-    Urgent,
-}
-
 public class WorkItem
 {
     public const int TitleMaxLength = 500;

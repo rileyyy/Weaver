@@ -15,5 +15,3 @@ public record WorkItemLinkDto(Guid Id, Guid LinkedWorkItemId, string LinkedWorkI
         return new WorkItemLinkDto(link.Id, other.Id, other.Title);
     }
 }
-
-public record CreateWorkItemLinkRequest(Guid TargetWorkItemId);

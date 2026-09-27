@@ -176,7 +176,7 @@ The most important problems cluster in four areas:
   - `POST` comments and links return `200 Ok` while work items and boards return `201 CreatedAtAction` ([CommentsController.cs:29](backend/src/Weaver.Api/Controllers/CommentsController.cs#L29), [WorkItemLinksController.cs:28](backend/src/Weaver.Api/Controllers/WorkItemLinksController.cs#L28)).
   - Mutations use `POST /{id}/status` etc. rather than `PATCH`/`PUT`.
   - The controllers have no `[ProducesResponseType]`, so the OpenAPI doc lacks error shapes.
-- [ ] **B-L3. Multiple types per file** (against CLAUDE.md §2.4):
+- [x] *(Resolved in `feature/backend-review-cleanup`: every type has its own file, including the request records and `WorkItemLinkDto`/`CommentDto`/`BoardDto` companions not on the original list.)* **B-L3. Multiple types per file** (against CLAUDE.md §2.4):
   - `Status.cs` (+`StatusCategory`), `User.cs` (+`UserKind`), `WorkItem.cs` (+`WorkItemPriority`)
   - `AuthDto.cs` (6 records), `WorkItemDto.cs` (+`WorkItemLayerDto` and 7 request records)
   - `IJwtTokenService.cs` (+`AccessToken`), `IAuthService.cs` (+`AuthResult`)

@@ -1,11 +1,5 @@
 namespace Weaver.Domain;
 
-public enum UserKind
-{
-    Human,
-    Agent,
-}
-
 public class User
 {
     public Guid Id { get; set; }
