@@ -47,7 +47,7 @@ Requested feature round before Milestone 14 (`feature/repeating-work-items`).
 - **A Repeating tab** next to Swim Lanes, Roadmap and Hierarchy lists every
   repeating item with its lane, schedule and next date, where each can be
   edited or stopped.
-- **API and MCP:** `GET/POST/DELETE /api/work-items/{id}/recurrence`,
+- **API and MCP:** `GET/PUT/DELETE /api/work-items/{id}/recurrence`,
   `GET /api/recurrences`, and matching MCP tools. `WorkItemDto` gained
   `RecurrenceSourceId` / `RecurrenceDate`.
 - New table `WorkItemRecurrences` (migration `AddWorkItemRecurrences`).

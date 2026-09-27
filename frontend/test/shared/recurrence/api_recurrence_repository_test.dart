@@ -68,7 +68,7 @@ void main() {
     expect(result.map((r) => r.workItemId), ['item-1', 'item-2']);
   });
 
-  test('save posts the draft', () async {
+  test('save puts the draft', () async {
     late http.Request sent;
     final repository = ApiRecurrenceRepository(
       MockClient((request) async {
@@ -88,7 +88,7 @@ void main() {
       ),
     );
 
-    expect(sent.method, 'POST');
+    expect(sent.method, 'PUT');
     expect(sent.url.path, '/api/work-items/item-1/recurrence');
     expect(jsonDecode(sent.body), {
       'frequency': 'Weekly',

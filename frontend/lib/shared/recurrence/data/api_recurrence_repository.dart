@@ -34,7 +34,7 @@ class ApiRecurrenceRepository implements RecurrenceRepository {
 
   @override
   Future<WorkItemRecurrence> save(String workItemId, RecurrenceDraft draft) =>
-      _api.post(
+      _api.put(
         '/work-items/$workItemId/recurrence',
         draft.toJson(),
         _recurrence,
