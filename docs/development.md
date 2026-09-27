@@ -109,6 +109,11 @@ container, makes the requests, which is why it's `localhost`.
   docker compose restart backend
   ```
 
+- **The container and the host share `backend/**/obj/`.** Whichever side
+  restores last writes its own package paths into `project.assets.json`,
+  so a host `dotnet build` after the container's `dotnet watch` restored
+  (or the reverse) fails with `NETSDK1064: Package … was not found`. Run
+  `dotnet restore` on the side that failed; nothing is actually missing.
 - Dev uses `ASPNETCORE_ENVIRONMENT=Development` (so `/openapi/v1.json` is
   mapped) and hardcoded dev values for the connection string, JWT key and
   CORS origin (`http://localhost:8082`).
