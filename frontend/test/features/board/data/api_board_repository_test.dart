@@ -299,7 +299,12 @@ void main() {
     final client = MockClient((request) async {
       if (request.url.path == '/api/users') {
         return _jsonResponse([
-          {'id': 'user-1', 'username': 'riley', 'kind': 'Human'},
+          {
+            'id': 'user-1',
+            'username': 'riley',
+            'kind': 'Human',
+            'isAdmin': false,
+          },
         ]);
       }
       throw StateError('Unexpected request: ${request.url}');

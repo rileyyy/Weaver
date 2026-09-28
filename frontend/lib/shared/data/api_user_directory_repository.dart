@@ -46,4 +46,10 @@ class ApiUserDirectoryRepository implements UserDirectoryRepository {
           Error.throwWithStackTrace(error, stackTrace);
         });
   }
+
+  @override
+  void invalidate() {
+    _users = null;
+    _fetchedAt = null;
+  }
 }

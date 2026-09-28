@@ -6,3 +6,11 @@ String formatDate(DateTime date) {
   final day = date.day.toString().padLeft(2, '0');
   return '$year-$month-$day';
 }
+
+/// Formats [time]'s clock time as 24-hour `HH:mm`, on the same terms as
+/// [formatDate].
+String formatTime(DateTime time) {
+  final hour = time.hour.toString().padLeft(2, '0');
+  final minute = time.minute.toString().padLeft(2, '0');
+  return '$hour:$minute';
+}

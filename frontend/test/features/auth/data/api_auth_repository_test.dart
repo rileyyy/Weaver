@@ -18,7 +18,7 @@ Map<String, dynamic> _authBody({String kind = 'Human'}) => {
   'accessToken': 'access-123',
   'accessTokenExpiresAtUtc': '2026-01-01T00:15:00Z',
   'refreshToken': 'refresh-456',
-  'user': {'id': 'user-1', 'username': 'alice', 'kind': kind},
+  'user': {'id': 'user-1', 'username': 'alice', 'kind': kind, 'isAdmin': false},
 };
 
 void main() {

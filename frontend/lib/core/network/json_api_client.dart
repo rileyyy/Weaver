@@ -70,11 +70,25 @@ class JsonApiClient {
     String path, {
     Map<String, String>? query,
     required String failureMessage,
+  }) => deleteReturning(
+    path,
+    (_) {},
+    query: query,
+    failureMessage: failureMessage,
+  );
+
+  /// A DELETE whose response body the caller needs, e.g. removing a user's
+  /// lockout answers with the user.
+  Future<T> deleteReturning<T>(
+    String path,
+    T Function(Object? json) decode, {
+    Map<String, String>? query,
+    required String failureMessage,
   }) => _send(
     path,
     () => _http.delete(_uri(path, query)),
     failureMessage,
-    (_) {},
+    decode,
   );
 
   /// Decodes a JSON array of objects with [fromJson].

@@ -4,9 +4,10 @@ import 'package:weaver/core/network/json_api_client.dart';
 import 'package:weaver/shared/data/status_repository.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
-/// Statuses are seeded and have no write endpoint, so they're fetched once
-/// per app session and shared by the board and the detail dialog. A failed
-/// fetch isn't cached.
+/// Statuses rarely change (only admins edit them), so they're fetched once
+/// and shared by the board and the detail dialog until [invalidate] is
+/// called. A failed fetch isn't cached. Another person's edits show up
+/// after a reload of the app.
 @LazySingleton(as: StatusRepository)
 class ApiStatusRepository implements StatusRepository {
   ApiStatusRepository(http.Client client, @Named('apiBaseUrl') String baseUrl)
@@ -26,4 +27,7 @@ class ApiStatusRepository implements StatusRepository {
         _statuses = null;
         Error.throwWithStackTrace(error, stackTrace);
       });
+
+  @override
+  void invalidate() => _statuses = null;
 }

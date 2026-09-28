@@ -9,4 +9,9 @@ void main() {
   test('uses the calendar fields as given, ignoring the time of day', () {
     expect(formatDate(DateTime(2026, 12, 31, 23, 59)), '2026-12-31');
   });
+
+  test('formats a time as zero-padded 24-hour HH:mm', () {
+    expect(formatTime(DateTime(2026, 3, 7, 9, 5)), '09:05');
+    expect(formatTime(DateTime(2026, 3, 7, 23, 59)), '23:59');
+  });
 }

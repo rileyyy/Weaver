@@ -34,6 +34,21 @@ void main() {
       expect(results.first.single.name, 'To Do');
     });
 
+    test('fetches again after invalidate', () async {
+      var calls = 0;
+      final client = MockClient((_) async {
+        calls++;
+        return http.Response(jsonEncode([]), 200);
+      });
+      final repository = ApiStatusRepository(client, _baseUrl);
+
+      await repository.loadStatuses();
+      repository.invalidate();
+      await repository.loadStatuses();
+
+      expect(calls, 2);
+    });
+
     test('does not cache a failure', () async {
       var fail = true;
       final client = MockClient(
@@ -64,7 +79,12 @@ void main() {
         calls++;
         return http.Response(
           jsonEncode([
-            {'id': 'u1', 'username': 'alice', 'kind': 'Human'},
+            {
+              'id': 'u1',
+              'username': 'alice',
+              'kind': 'Human',
+              'isAdmin': false,
+            },
           ]),
           200,
         );
@@ -79,6 +99,20 @@ void main() {
 
       expect(calls, 1);
       expect(users.single.username, 'alice');
+    });
+
+    test('fetches again after invalidate, even while fresh', () async {
+      await repository.loadUsers();
+      repository.invalidate();
+      await repository.loadUsers();
+
+      expect(calls, 2);
+    });
+
+    test('reads the admin flag', () async {
+      final users = await repository.loadUsers();
+
+      expect(users.single.isAdmin, isFalse);
     });
 
     test('fetches again once the list is older than maxAge', () async {

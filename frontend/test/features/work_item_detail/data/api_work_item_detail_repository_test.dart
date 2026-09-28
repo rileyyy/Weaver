@@ -169,7 +169,12 @@ void main() {
   test('loadUsers parses the user list', () async {
     final client = MockClient(
       (request) async => _jsonResponse([
-        {'id': 'user-1', 'username': 'alice', 'kind': 'Human'},
+        {
+          'id': 'user-1',
+          'username': 'alice',
+          'kind': 'Human',
+          'isAdmin': false,
+        },
       ]),
     );
     final repository = ApiWorkItemDetailRepository(

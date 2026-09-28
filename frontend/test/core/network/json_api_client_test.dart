@@ -37,6 +37,23 @@ void main() {
     expect(sent.toString(), '$_baseUrl/work-items?parentId=p+1');
   });
 
+  test('deleteReturning decodes the response body', () async {
+    http.Request? sent;
+    final api = _client((request) async {
+      sent = request;
+      return http.Response(jsonEncode({'id': 'u1'}), 200);
+    });
+
+    final id = await api.deleteReturning(
+      '/admin/users/u1/lockout',
+      (json) => (json as Map<String, dynamic>)['id'] as String,
+      failureMessage: 'Failed',
+    );
+
+    expect(id, 'u1');
+    expect(sent!.method, 'DELETE');
+  });
+
   test('post sends JSON with a content type', () async {
     http.Request? sent;
     final api = _client((request) async {
