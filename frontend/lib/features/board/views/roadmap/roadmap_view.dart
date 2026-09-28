@@ -8,7 +8,7 @@ import 'package:weaver/features/board/views/roadmap/roadmap_timeframe.dart';
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_header_row.dart';
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_row_tile.dart';
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_toolbar.dart';
-import 'package:weaver/features/board/widgets/load_error_view.dart';
+import 'package:weaver/shared/widgets/load_error_view.dart';
 
 /// A Gantt-style view of the same work-item tree the Hierarchy view shows
 /// (see [BoardViewModel.hierarchyRoots] for the shared filter/sort/tree

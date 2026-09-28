@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:weaver/core/dates/date_format.dart';
 import 'package:weaver/features/board/repeating_items_view_model.dart';
 import 'package:weaver/features/board/views/repeating/edit_recurrence_dialog.dart';
-import 'package:weaver/features/board/widgets/load_error_view.dart';
 import 'package:weaver/shared/recurrence/models/work_item_recurrence.dart';
 import 'package:weaver/shared/recurrence/widgets/confirm_stop_repeating.dart';
+import 'package:weaver/shared/widgets/load_error_view.dart';
 
 /// The Repeating tab: every repeating work item with its schedule, where
 /// each can be edited or stopped without opening the item itself.

@@ -18,8 +18,8 @@ import 'package:weaver/features/board/views/swimlane/swimlane_view.dart';
 import 'package:weaver/features/board/widgets/add_tags_dialog.dart';
 import 'package:weaver/features/board/widgets/assign_dialog.dart';
 import 'package:weaver/features/board/widgets/create_work_item_dialog.dart';
-import 'package:weaver/features/board/widgets/load_error_view.dart';
 import 'package:weaver/shared/navigation/work_item_detail_opener.dart';
+import 'package:weaver/shared/widgets/load_error_view.dart';
 
 /// Below this width, the header collapses to a column (app name on its own
 /// row) and the swimlane board's status columns become individually

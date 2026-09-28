@@ -5,7 +5,7 @@ import 'package:weaver/features/board/views/hierarchy/hierarchy_column.dart';
 import 'package:weaver/features/board/views/hierarchy/hierarchy_column_widths.dart';
 import 'package:weaver/features/board/views/hierarchy/widgets/hierarchy_header_row.dart';
 import 'package:weaver/features/board/views/hierarchy/widgets/hierarchy_item_tile.dart';
-import 'package:weaver/features/board/widgets/load_error_view.dart';
+import 'package:weaver/shared/widgets/load_error_view.dart';
 
 /// Every work item nested under its parent, respecting the same time/search/
 /// status filters and sort order as the swim-lane board (see
