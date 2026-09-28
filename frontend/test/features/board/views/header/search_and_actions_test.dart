@@ -44,4 +44,39 @@ void main() {
     expect(field.width, moreOrLessEquals(slot.width / 3));
     expect(field.right, moreOrLessEquals(slot.right));
   });
+
+  group('Admin button', () {
+    Widget actions({VoidCallback? onOpenAdmin}) => MaterialApp(
+      home: Scaffold(
+        body: SearchAndActions(
+          controller: TextEditingController(),
+          onSearchChanged: (_) {},
+          onOpenFilters: () {},
+          onLogout: () {},
+          onOpenAdmin: onOpenAdmin,
+        ),
+      ),
+    );
+
+    testWidgets('is hidden for users who are not admins', (tester) async {
+      await tester.pumpWidget(actions());
+
+      expect(find.byTooltip('Admin'), findsNothing);
+      expect(find.byTooltip('Sign out'), findsOneWidget);
+    });
+
+    testWidgets('sits next to sign-out and opens the Admin page', (
+      tester,
+    ) async {
+      var opened = 0;
+      await tester.pumpWidget(actions(onOpenAdmin: () => opened++));
+
+      await tester.tap(find.byTooltip('Admin'));
+
+      expect(opened, 1);
+      final gear = tester.getRect(find.byTooltip('Admin'));
+      final signOut = tester.getRect(find.byTooltip('Sign out'));
+      expect(gear.right, lessThanOrEqualTo(signOut.left));
+    });
+  });
 }

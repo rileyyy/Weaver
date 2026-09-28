@@ -23,8 +23,13 @@ void main() {
 
   Widget gate() => MaterialApp(
     home: AuthGate(
-      signedInBuilder: (onLogout) => Scaffold(
-        body: TextButton(onPressed: onLogout, child: const Text('Signed in')),
+      signedInBuilder: (user, onLogout) => Scaffold(
+        body: Column(
+          children: [
+            TextButton(onPressed: onLogout, child: const Text('Signed in')),
+            Text('${user.username} admin: ${user.isAdmin}'),
+          ],
+        ),
       ),
     ),
   );
@@ -50,6 +55,17 @@ void main() {
     await tester.pump();
 
     expect(find.text('Signed in'), findsOneWidget);
+  });
+
+  testWidgets('passes the signed-in user to the signed-in screen', (
+    tester,
+  ) async {
+    await sessionStore.setSession(fakeSession('alice', isAdmin: true));
+
+    await tester.pumpWidget(gate());
+    await tester.pump();
+
+    expect(find.text('alice admin: true'), findsOneWidget);
   });
 
   testWidgets('returns to the login screen when the session ends', (

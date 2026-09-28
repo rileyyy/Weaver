@@ -16,12 +16,16 @@ class SearchAndActions extends StatelessWidget {
     required this.onSearchChanged,
     required this.onOpenFilters,
     required this.onLogout,
+    this.onOpenAdmin,
   });
 
   final TextEditingController controller;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onOpenFilters;
   final VoidCallback onLogout;
+
+  /// Null hides the Admin button, for users who aren't admins.
+  final VoidCallback? onOpenAdmin;
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +62,12 @@ class SearchAndActions extends StatelessWidget {
           tooltip: 'Filters',
           onPressed: onOpenFilters,
         ),
+        if (onOpenAdmin case final openAdmin?)
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Admin',
+            onPressed: openAdmin,
+          ),
         IconButton(
           icon: const Icon(Icons.logout),
           tooltip: 'Sign out',

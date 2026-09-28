@@ -179,6 +179,21 @@ class BoardViewModel extends ViewModel {
     }
   }
 
+  /// Reloads the users, the current scope (and with it the statuses) and,
+  /// if loaded, the hierarchy — after the Admin page, where statuses can be
+  /// renamed, recoloured or deleted and users renamed or deactivated.
+  Future<void> refreshAfterAdminChanges() async {
+    try {
+      final users = await _repository.loadUsers();
+      if (isDisposed) return;
+      _users = UserDirectory(users);
+    } on ApiException {
+      // Keep the directory already loaded; only names and initials go stale.
+    }
+    await refreshCurrentScope();
+    await refreshHierarchyIfLoaded();
+  }
+
   /// Re-fetches the Hierarchy view's data only if it's already been loaded
   /// once — e.g. after a delete elsewhere on the board, so a still-unopened
   /// Hierarchy tab doesn't trigger a needless network call.

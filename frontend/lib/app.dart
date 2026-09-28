@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:weaver/core/theme/app_theme.dart';
+import 'package:weaver/features/admin/admin_view.dart';
 import 'package:weaver/features/auth/auth_gate.dart';
 import 'package:weaver/features/board/board_view.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view.dart';
@@ -22,9 +23,10 @@ class WeaverApp extends StatelessWidget {
       // The composition root: the only place that knows how features fit
       // together, so they don't import each other.
       home: AuthGate(
-        signedInBuilder: (onLogout) => BoardView(
+        signedInBuilder: (user, onLogout) => BoardView(
           onLogout: onLogout,
           openWorkItemDetails: showWorkItemDetailDialog,
+          openAdmin: user.isAdmin ? showAdminPage : null,
         ),
       ),
     );

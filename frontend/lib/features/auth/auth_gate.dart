@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/features/auth/auth_view_model.dart';
 import 'package:weaver/features/auth/login_view.dart';
+import 'package:weaver/shared/models/user.dart';
 
 /// The app's root: shows [LoginView] or [BoardView] depending on
 /// [AuthViewModel.isAuthenticated], reacting live rather than deciding once
@@ -12,9 +13,12 @@ import 'package:weaver/features/auth/login_view.dart';
 class AuthGate extends StatefulWidget {
   const AuthGate({required this.signedInBuilder, super.key});
 
-  /// The app's signed-in screen, given the sign-out action. Supplied by the
-  /// composition root so the auth feature doesn't import other features.
-  final Widget Function(Future<void> Function() onLogout) signedInBuilder;
+  /// The app's signed-in screen, given who is signed in and the sign-out
+  /// action. Supplied by the composition root so the auth feature doesn't
+  /// import other features. Rebuilt whenever the session changes, e.g. when
+  /// a refresh brings a changed admin flag.
+  final Widget Function(User user, Future<void> Function() onLogout)
+  signedInBuilder;
 
   @override
   State<AuthGate> createState() => _AuthGateState();
@@ -46,11 +50,12 @@ class _AuthGateState extends State<AuthGate> {
           );
         }
 
-        if (!_viewModel.isAuthenticated) {
+        final user = _viewModel.currentUser;
+        if (!_viewModel.isAuthenticated || user == null) {
           return LoginView(viewModel: _viewModel);
         }
 
-        return widget.signedInBuilder(_viewModel.logout);
+        return widget.signedInBuilder(user, _viewModel.logout);
       },
     );
   }

@@ -18,6 +18,7 @@ import 'package:weaver/features/board/views/swimlane/swimlane_view.dart';
 import 'package:weaver/features/board/widgets/add_tags_dialog.dart';
 import 'package:weaver/features/board/widgets/assign_dialog.dart';
 import 'package:weaver/features/board/widgets/create_work_item_dialog.dart';
+import 'package:weaver/shared/navigation/admin_page_opener.dart';
 import 'package:weaver/shared/navigation/work_item_detail_opener.dart';
 import 'package:weaver/shared/widgets/load_error_view.dart';
 
@@ -33,11 +34,15 @@ class BoardView extends StatefulWidget {
   const BoardView({
     required this.onLogout,
     required this.openWorkItemDetails,
+    this.openAdmin,
     super.key,
   });
 
   final Future<void> Function() onLogout;
   final WorkItemDetailOpener openWorkItemDetails;
+
+  /// Null for users who aren't admins, which hides the Admin button.
+  final AdminPageOpener? openAdmin;
 
   @override
   State<BoardView> createState() => _BoardViewState();
@@ -169,6 +174,14 @@ class _BoardViewState extends State<BoardView>
       workItemId: workItemId,
     );
     if (changed) _refreshAfterDetailEdits();
+  }
+
+  /// Admins can rename or delete statuses and change accounts, none of which
+  /// goes through [BoardViewModel], so everything shown is reloaded after.
+  Future<void> _openAdmin(AdminPageOpener openAdmin) async {
+    await openAdmin(context);
+    if (!mounted) return;
+    unawaited(_viewModel.refreshAfterAdminChanges());
   }
 
   Future<void> _openRepeatingItem(String workItemId) async {
@@ -321,6 +334,12 @@ class _BoardViewState extends State<BoardView>
                     onTimeFilterCleared: _viewModel.clearTimeFilter,
                     onOpenFilters: _openFiltersDialog,
                     onLogout: () => unawaited(widget.onLogout()),
+                    onOpenAdmin: switch (widget.openAdmin) {
+                      final openAdmin? => () => unawaited(
+                        _openAdmin(openAdmin),
+                      ),
+                      null => null,
+                    },
                     tabController: _tabController,
                   ),
                   Expanded(

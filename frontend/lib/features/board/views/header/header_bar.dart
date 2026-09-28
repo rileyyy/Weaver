@@ -19,6 +19,7 @@ class HeaderBar extends StatelessWidget {
     required this.onOpenFilters,
     required this.onLogout,
     required this.tabController,
+    this.onOpenAdmin,
   });
 
   final bool isNarrow;
@@ -33,6 +34,7 @@ class HeaderBar extends StatelessWidget {
   final VoidCallback onOpenFilters;
   final VoidCallback onLogout;
   final TabController tabController;
+  final VoidCallback? onOpenAdmin;
 
   @override
   Widget build(BuildContext context) {
@@ -62,6 +64,7 @@ class HeaderBar extends StatelessWidget {
       onSearchChanged: onSearchChanged,
       onOpenFilters: onOpenFilters,
       onLogout: onLogout,
+      onOpenAdmin: onOpenAdmin,
     );
 
     return Container(

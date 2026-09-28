@@ -5,11 +5,16 @@ import 'package:weaver/features/auth/models/auth_session.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
 
-AuthSession fakeSession(String username) => AuthSession(
+AuthSession fakeSession(String username, {bool isAdmin = false}) => AuthSession(
   accessToken: 'access-for-$username',
   accessTokenExpiresAtUtc: DateTime.now().toUtc().add(const Duration(hours: 1)),
   refreshToken: 'refresh-for-$username',
-  user: User(id: 'id-$username', username: username, kind: UserKind.human),
+  user: User(
+    id: 'id-$username',
+    username: username,
+    kind: UserKind.human,
+    isAdmin: isAdmin,
+  ),
 );
 
 class FakeAuthRepository implements AuthRepository {

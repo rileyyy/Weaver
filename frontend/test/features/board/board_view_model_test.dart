@@ -95,7 +95,7 @@ class _TestBoardRepository implements BoardRepository {
   final Exception? tagsError;
   final List<HierarchyItem> hierarchyItems;
   final Exception? hierarchyError;
-  final List<User> users;
+  List<User> users;
   final List<String> statusChanges = [];
   final List<String> reparents = [];
   final List<String> reschedules = [];
@@ -1677,5 +1677,44 @@ void main() {
     viewModel.toggleStatusVisibility('done');
 
     expect(() => viewModel.hiddenStatusIds.add('todo'), throwsUnsupportedError);
+  });
+
+  group('refreshAfterAdminChanges', () {
+    test(
+      'reloads the users, the current scope and a loaded hierarchy',
+      () async {
+        final repository = _TestBoardRepository(
+          users: const [
+            User(id: 'u1', username: 'alice', kind: UserKind.human),
+          ],
+        );
+        final viewModel = BoardViewModel(repository);
+        addTearDown(viewModel.dispose);
+        await viewModel.load();
+        await viewModel.loadHierarchy();
+        repository.users = const [
+          User(id: 'u1', username: 'alicia', kind: UserKind.human),
+        ];
+        final scopeLoadsBefore = repository.requestedScopes.length;
+        final hierarchyLoadsBefore = repository.loadAllItemsCallCount;
+
+        await viewModel.refreshAfterAdminChanges();
+
+        expect(viewModel.usernameFor('u1'), 'alicia');
+        expect(repository.requestedScopes.length, scopeLoadsBefore + 1);
+        expect(repository.loadAllItemsCallCount, hierarchyLoadsBefore + 1);
+      },
+    );
+
+    test('leaves an unopened hierarchy unloaded', () async {
+      final repository = _TestBoardRepository();
+      final viewModel = BoardViewModel(repository);
+      addTearDown(viewModel.dispose);
+      await viewModel.load();
+
+      await viewModel.refreshAfterAdminChanges();
+
+      expect(repository.loadAllItemsCallCount, 0);
+    });
   });
 }
