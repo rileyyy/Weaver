@@ -121,9 +121,8 @@ and it is what allows MCP tools to reuse the same business logic (see
   `ConfigurablePriorities` migration maps each stored enum ordinal onto the
   seeded row with that `Order`, and its `Down` maps back (anything else
   becomes Medium). Clients read the list from `GET
-  /work-item-priorities` / `list_work_item_priorities`; like layers and
-  statuses there is no write endpoint yet, so "configurable" means editable
-  in the database.
+  /work-item-priorities` / `list_work_item_priorities`; admins edit them
+  like layers and statuses (see [Lookup management](#lookup-management)).
 - **Fields that were requested but map onto existing ones:**
   - There is no `DueDate`: `EndDate` is the due date (the board's sort
     option labels it "Due date").
@@ -135,6 +134,36 @@ and it is what allows MCP tools to reuse the same business logic (see
   - `CreatedAtUtc` / `UpdatedAtUtc` are the created/updated timestamps.
 - **Statuses** are seeded (To Do, Doing, Done) with a per-row `Color`, so
   colours can be changed without a schema change.
+
+### Lookup management
+
+- **Statuses, layers and priorities share `LookupValue`** (`Id`, `Name`,
+  `Order`), and their services share `LookupService<T>`: list, append,
+  edit, reorder, delete. Every change needs an admin. Names are required,
+  trimmed, at most 100 characters and unique case-insensitively (409),
+  since two same-named values couldn't be told apart in any picker. A
+  status's colour must be `#RRGGBB` and is stored upper-case. The seeds use
+  anonymous objects in `HasData` because the entities only change through
+  their methods.
+- **Endpoints:** `POST /api/statuses` (and `/work-item-layers`,
+  `/work-item-priorities`), `PUT /{id}`, `PUT /order` with every id in its
+  new order, `DELETE /{id}?replacementId=`. None of this is exposed over
+  MCP yet; agents can still read the lists.
+- **Deleting moves the items, it doesn't orphan them.** Work items using
+  the deleted value move to `replacementId`. Items may go without a layer
+  or priority, so omitting it clears them. Every item needs a status, so a
+  status still in use without a replacement is a 409
+  (`LookupValueInUseException`), and the last status can't be deleted.
+  Moved cards are appended after the last rank in each lane's replacement
+  column, keeping their relative order: no existing card's rank changes and
+  nothing is reparented.
+- **Reordering parks values on negative orders first.** `Order` has a
+  unique index and Postgres checks it row by row, so writing the final
+  positions directly fails as soon as two values swap. `ReorderAsync`
+  writes `-1, -2, …`, then the real orders, in one transaction
+  (`IWeaverDbContext.BeginTransactionAsync`). InMemory has no transactions,
+  so the swap is covered by an integration test against Postgres. Deletes
+  leave gaps in `Order`; only the relative order matters.
 
 ### Tags
 
@@ -380,6 +409,39 @@ and it is what allows MCP tools to reuse the same business logic (see
   the token via `User.GetUserId()`) and throw
   `CommentAuthorMismatchException` (403) for anyone but the author.
 
+### Administrators and accounts
+
+- **`User.IsAdmin`** gates the Admin page and every lookup or account
+  change. Before admins existed everyone could do everything, so the
+  `AdminUsersAndDeactivation` migration made every existing account an
+  admin. On a fresh database the first registered account is the admin;
+  later registrations aren't. Its `Down` drops the flag, so going down and
+  up again makes everyone an admin.
+- **The admin check reads the database** (`IAdminAuthorizer`), not a token
+  claim. Revoking someone's admin rights takes effect on their next
+  request, not when their access token expires. The client's `isAdmin`
+  (from the auth response) only decides whether the gear is shown.
+- **`/api/admin/users`** lists every account (including deactivated ones,
+  with any lockout still in force) and creates, renames, resets passwords,
+  unlocks, grants or revokes admin, deactivates or reactivates, and
+  deletes. Username and password rules are `UserCredentials`, shared with
+  registration.
+- **Deactivate instead of delete.** Comments must keep their author
+  (`Restrict`), so deactivation is the normal way to remove someone:
+  `DeactivatedAtUtc` blocks login (the same uniform
+  failure as a wrong password) and refresh, revokes their refresh tokens,
+  unassigns their work items, drops them from `GET /api/users` (the
+  pickers), and blocks assigning them again (400). Hard delete exists but
+  is refused for a user who has written comments
+  (`UserHasCommentsException`, 409), rather than losing their history.
+- **An access token outlives deactivation by up to 15 minutes.** Only
+  refresh tokens are revoked; checking the user on every request would add
+  a database read to all of them. The same applies to a password reset.
+- **Nobody can lock the team out of administration.** The last active
+  admin can't be demoted, deactivated or deleted (`LastAdminException`),
+  and an admin can't deactivate or delete their own account
+  (`OwnAccountChangeException`); the page doesn't offer either.
+
 ## MCP
 
 - **Tools live in `Weaver.Api/Mcp/`**, not a separate project, because
@@ -391,7 +453,8 @@ and it is what allows MCP tools to reuse the same business logic (see
   behaves exactly as it does for a controller. `CommentTools` reads the
   caller's id through `IHttpContextAccessor`.
 - **Coverage:** work items, boards, statuses, layers, priorities, users,
-  comments and links. Auth endpoints are not tools; they're how a client gets its token.
+  comments and links. Lookups and users are read-only over MCP; their admin
+  changes are REST-only for now. Auth endpoints are not tools; they're how a client gets its token.
   `list_all_work_items` pages through every item like `GET
   /work-items/all` (same `offset`/`limit`, default 500, at most 1000, from
   `WorkItemService`), so an agent can rebuild the whole tree;
@@ -429,15 +492,20 @@ and it is what allows MCP tools to reuse the same business logic (see
 
 - **Features don't import each other.** `app.dart` is the composition
   root: it builds `AuthGate` with the signed-in screen, and gives
-  `BoardView` a `WorkItemDetailOpener` (`showWorkItemDetailDialog`). The
+  `BoardView` a `WorkItemDetailOpener` (`showWorkItemDetailDialog`) and,
+  for admins only, an `AdminPageOpener` (`showAdminPage`). `AuthGate`
+  passes the signed-in `User` to its builder and rebuilds on session
+  changes, so a refresh that changes the admin flag shows or hides the
+  gear. The
   detail view model learns who is signed in through `CurrentUser`, which
   `AuthSessionStore` implements (bound in `NetworkModule`).
 - **Statuses and users are fetched through shared, cached repositories**
   (`StatusRepository`, `UserDirectoryRepository`) that the feature
-  repositories delegate to. Statuses are cached for the session (they are
-  seeded and have no write endpoint); the user list is re-fetched after
-  five minutes because people can register while the app is open. A
-  failed fetch is never cached.
+  repositories delegate to. Statuses are cached until `invalidate()`,
+  which the Admin page's repositories call after every successful write;
+  the user list is re-fetched after five minutes because people can
+  register while the app is open, or after `invalidate()`. A failed fetch
+  is never cached. Another person's admin changes show up after a reload.
 
 - **`ViewModel`** (`lib/core/presentation/view_model.dart`) is a thin
   `ChangeNotifier` that adds `notifyIfActive()`: async work can finish
@@ -587,6 +655,27 @@ and it is what allows MCP tools to reuse the same business logic (see
   refreshed: the drill-in already loads the new scope, and refreshing the
   old one would be the newer load and cancel it. The longer-term fix is a
   shared per-item store both features read from.
+
+### Admin page
+
+- **`features/admin/`**, opened from the gear next to sign-out. One tab
+  each for Statuses, Priorities, Layers and Users, each with its own view
+  model; statuses and the name-only lookups share `OrderedListViewModel`
+  (load and drag-to-reorder), and `LookupAdminViewModel` serves both
+  Priorities and Layers through an injectable factory parameter
+  (`LookupKind`).
+- **Reordering is optimistic**: the new order shows immediately and the
+  old one comes back if the save fails. Drag handles start a drag
+  straight away (`ReorderableDragStartListener`), since the default
+  long-press is undiscoverable on desktop and clashes with the row's
+  buttons.
+- **Every change reports through its dialog or a snackbar**, using the
+  server's message for 400/403/404/409 (e.g. "used by 3 work items",
+  "last administrator") and a generic one otherwise
+  (`adminErrorMessage`). Dialogs stay open on an error.
+- **Closing the page reloads the board** (`refreshAfterAdminChanges`:
+  users, current scope, and the hierarchy if loaded), since statuses and
+  users can have been renamed, recoloured or removed.
 
 ### Repeating items in the UI
 

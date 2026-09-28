@@ -10,13 +10,15 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
 ### Registration is open
 - **Today:** anyone who can reach the server can register with a username
   and password (`POST /api/auth/register`), and every account can read and
-  change every work item. There is no invite, admin or per-board access
-  control.
+  change every work item. The first account on a database is an admin and
+  admins can create, deactivate and delete accounts from the Admin page,
+  but there is no invite or per-board access control.
 - **Decided (2026-09-27):** kept open as an accepted risk while Weaver
   serves a single team on a trusted network. Revisit before exposing a
-  deployment more widely: gating options are a config flag, invite codes,
-  or first-user-is-admin, and access could later be scoped per board or
-  team. (B-M6 in the code review.)
+  deployment more widely: now that admins exist, the simplest gate is a
+  config flag that turns self-registration off and leaves account creation
+  to admins; invite codes are the alternative. Access could later be
+  scoped per board or team. (B-M6 in the code review.)
 
 ### Agent users can't be created
 - **Today:** `User.Kind` has `Human` and `Agent`, but registration always
@@ -26,11 +28,13 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
   or service-account flow, who can create one, and whether agent actions
   should be distinguishable in the UI.
 
-### No password reset
-- **Today:** users have no email address and there is no reset flow. A
-  forgotten password can only be fixed in the database.
-- **To decide:** an admin-driven reset, an email field plus self-service
-  reset, or neither.
+### No self-service password reset
+- **Today:** an admin can set a new password from the Admin page, which
+  also unlocks the account and signs it out everywhere. Users have no
+  email address, so there is no self-service reset, and nobody can change
+  their own password without an admin.
+- **To decide:** whether users should be able to change their own
+  password, and whether an email field plus self-service reset is wanted.
 
 ### Lockout policy
 - **Today:** five wrong passwords lock an account for 15 minutes. The auth
@@ -39,6 +43,16 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
 - **To decide:** whether lockout should be scoped per client (IP and
   username) or replaced by progressive delays, if deliberate lockouts
   become a real problem.
+
+### Admin changes
+- **Today:** other people's open apps keep their cached statuses until
+  they reload, and a deactivated user's current access token keeps working
+  for up to 15 minutes. Admin changes aren't recorded anywhere beyond
+  their effect, and lookup and account changes are REST-only, not MCP
+  tools.
+- **To decide:** whether any of these matter enough to address: pushing
+  lookup changes to open clients, checking the user on every request, an
+  audit log of admin actions, and MCP tools for admins.
 
 ## Work items
 
@@ -52,10 +66,10 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
   search endpoint so links can be added by title.
 
 ### Comment moderation
-- **Today:** only a comment's author can edit or delete it. There are no
-  roles.
-- **To decide:** whether anyone (admins, item owners) should be able to
-  moderate comments; this depends on a roles concept that doesn't exist.
+- **Today:** only a comment's author can edit or delete it, admins
+  included.
+- **To decide:** whether admins (or item owners) should be able to
+  moderate comments.
 
 ### Attachments
 - **Today:** none. Milestone 12 (attachments) was skipped.

@@ -28,6 +28,38 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-09-28 — Admin page
+
+Requested before Milestone 14 (`feature/admin-page`, stacked on
+`feature/pre-milestone-14-improvements` because it edits the priority
+table that branch introduced).
+
+- **Administrators.** `User.IsAdmin`; existing accounts became admins in
+  migration `AdminUsersAndDeactivation`, and on a fresh database the first
+  registered account is the admin. The server checks it on every admin
+  request; the last active admin can't be demoted, deactivated or deleted.
+- **Admin page** behind a gear next to sign-out, shown only to admins,
+  with four tabs:
+  - **Statuses:** add, edit (name, category, colour), drag to reorder,
+    delete with a replacement status for its items.
+  - **Priorities / Layers:** add, rename, reorder, delete with a
+    replacement or none.
+  - **Users:** add, rename, reset password (also unlocks and signs out),
+    unlock, grant/revoke admin, deactivate/reactivate, and delete for
+    users with no comments.
+- **Deactivated users** can't sign in or refresh, are unassigned from
+  their work, drop out of assignee pickers and can't be assigned again;
+  their comments keep their name.
+- **API:** `POST`, `PUT /{id}`, `PUT /order`, `DELETE /{id}?replacementId=`
+  on `/api/statuses`, `/api/work-item-priorities` and
+  `/api/work-item-layers`; `/api/admin/users` for accounts. `UserDto`
+  gained `IsAdmin`. Not exposed over MCP yet.
+- Verified against Postgres (integration tests for the reorder swap,
+  moving items off a deleted status, deactivation and delete, plus the
+  migration's Up and Down on the dev database) and in headless Chromium:
+  gear shown only to admins, add/drag/delete a status with the board
+  showing the change, and deactivating a user at phone width.
+
 ## 2026-09-27 — Open-question improvements
 
 Requested round before Milestone 14 (`feature/pre-milestone-14-improvements`),
