@@ -77,6 +77,41 @@ public class AuthServiceTests
     }
 
     [Test]
+    public async Task RegisterAsync_TheFirstAccountIsAnAdmin_LaterOnesAreNot()
+    {
+        var first = await _service.RegisterAsync("alice", ValidPassword);
+        var second = await _service.RegisterAsync("bob", ValidPassword);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.User.IsAdmin, Is.True);
+            Assert.That(second.User.IsAdmin, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task LoginAsync_ForADeactivatedUser_FailsLikeAWrongPassword()
+    {
+        var registered = await _service.RegisterAsync("alice", ValidPassword);
+        registered.User.Deactivate(_clock.GetUtcNow());
+        await _db.SaveChangesAsync();
+        var verificationsBefore = _hasher.Verifications;
+
+        Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("alice", ValidPassword));
+        Assert.That(_hasher.Verifications, Is.EqualTo(verificationsBefore + 1), "the same hashing cost as a real check");
+    }
+
+    [Test]
+    public async Task RefreshAsync_ForADeactivatedUser_IsRejected()
+    {
+        var registered = await _service.RegisterAsync("alice", ValidPassword);
+        registered.User.Deactivate(_clock.GetUtcNow());
+        await _db.SaveChangesAsync();
+
+        Assert.ThrowsAsync<InvalidRefreshTokenException>(() => _service.RefreshAsync(registered.RefreshToken));
+    }
+
+    [Test]
     public async Task LoginAsync_WithCorrectCredentials_ReturnsTokens()
     {
         await _service.RegisterAsync("alice", ValidPassword);

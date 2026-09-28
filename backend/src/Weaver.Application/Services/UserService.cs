@@ -17,5 +17,8 @@ public class UserService : IUserService
         _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id, ct);
 
     public async Task<IReadOnlyList<User>> ListAsync(CancellationToken ct = default) =>
-        await _db.Users.AsNoTracking().OrderBy(u => u.Username).ToListAsync(ct);
+        await _db.Users.AsNoTracking()
+            .Where(u => u.DeactivatedAtUtc == null)
+            .OrderBy(u => u.Username)
+            .ToListAsync(ct);
 }

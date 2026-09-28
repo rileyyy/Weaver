@@ -27,6 +27,18 @@ public class User : IHasUpdatedAt
 
     public UserKind Kind { get; private set; } = UserKind.Human;
 
+    /// <summary>May manage lookups (statuses, priorities, layers) and other users.</summary>
+    public bool IsAdmin { get; private set; }
+
+    /// <summary>
+    /// Set while the account is deactivated: it can't sign in or refresh, and it is left out
+    /// of assignee pickers. Deactivation instead of deletion keeps the authorship of the
+    /// user's comments.
+    /// </summary>
+    public DateTimeOffset? DeactivatedAtUtc { get; private set; }
+
+    public bool IsActive => DeactivatedAtUtc is null;
+
     public int FailedLoginAttempts { get; private set; }
 
     public DateTimeOffset? LockedUntilUtc { get; private set; }
@@ -39,13 +51,44 @@ public class User : IHasUpdatedAt
     /// A new human user. Username rules and normalization are the auth service's concern;
     /// the password hash is set separately because hashing needs the user instance.
     /// </summary>
-    public static User CreateHuman(string username, string normalizedUsername) => new()
+    public static User CreateHuman(string username, string normalizedUsername, bool isAdmin = false) => new()
     {
         Id = Guid.NewGuid(),
         Username = username,
         NormalizedUsername = normalizedUsername,
         Kind = UserKind.Human,
+        IsAdmin = isAdmin,
     };
+
+    /// <summary>
+    /// Username rules and normalization are <see cref="UserCredentials"/>' concern, as for
+    /// <see cref="CreateHuman"/>; uniqueness needs the other rows, so it's the service's.
+    /// </summary>
+    public void Rename(string username, string normalizedUsername)
+    {
+        Username = username;
+        NormalizedUsername = normalizedUsername;
+    }
+
+    public void GrantAdmin()
+    {
+        IsAdmin = true;
+    }
+
+    public void RevokeAdmin()
+    {
+        IsAdmin = false;
+    }
+
+    public void Deactivate(DateTimeOffset now)
+    {
+        DeactivatedAtUtc ??= now;
+    }
+
+    public void Reactivate()
+    {
+        DeactivatedAtUtc = null;
+    }
 
     public void SetPasswordHash(string passwordHash)
     {
@@ -74,7 +117,9 @@ public class User : IHasUpdatedAt
         }
     }
 
-    public void RecordSuccessfulLogin()
+    public void RecordSuccessfulLogin() => ClearLockout();
+
+    public void ClearLockout()
     {
         FailedLoginAttempts = 0;
         LockedUntilUtc = null;

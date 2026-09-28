@@ -568,6 +568,18 @@ public class WorkItemServiceTests
     }
 
     [Test]
+    public async Task AssignAsync_ToADeactivatedUser_IsAValidationError()
+    {
+        var user = User.CreateHuman("alice", "alice");
+        user.Deactivate(DateTimeOffset.UtcNow);
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync();
+        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+
+        Assert.ThrowsAsync<DomainValidationException>(() => _service.AssignAsync(item.Id, user.Id));
+    }
+
+    [Test]
     public async Task SetTagsAsync_SetsTheTagList()
     {
         var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);

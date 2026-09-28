@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -10,11 +9,8 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
-public partial class AuthService : IAuthService
+public class AuthService : IAuthService
 {
-    public const int MinPasswordLength = 12;
-    public const int MaxPasswordLength = 200;
-
     // Legitimate clients can still present a just-rotated token: two browser
     // tabs share the cached refresh token and both refresh on startup.
     // Inside this window reuse is still rejected, just not treated as theft.
@@ -45,15 +41,19 @@ public partial class AuthService : IAuthService
 
     public async Task<AuthResult> RegisterAsync(string username, string password, CancellationToken ct = default)
     {
-        var normalized = NormalizeUsername(username);
-        ValidatePassword(password);
+        var (trimmed, normalized) = UserCredentials.NormalizeUsername(username);
+        UserCredentials.ValidatePassword(password);
 
         if (await _db.Users.AnyAsync(u => u.NormalizedUsername == normalized, ct))
         {
             throw new UsernameTakenException(username);
         }
 
-        var user = User.CreateHuman(username, normalized);
+        // Registration is open and every later account starts without admin rights, so the
+        // first account on a fresh database is the admin; otherwise nobody could ever manage
+        // users or lookups without editing the database.
+        var isFirstUser = !await _db.Users.AnyAsync(ct);
+        var user = User.CreateHuman(trimmed, normalized, isAdmin: isFirstUser);
         user.SetPasswordHash(_passwordHasher.HashPassword(user, password));
 
         _db.Users.Add(user);
@@ -72,13 +72,13 @@ public partial class AuthService : IAuthService
 
     public async Task<AuthResult> LoginAsync(string username, string password, CancellationToken ct = default)
     {
-        var normalized = NormalizeUsername(username);
+        var (_, normalized) = UserCredentials.NormalizeUsername(username);
         var user = await _db.Users.FirstOrDefaultAsync(u => u.NormalizedUsername == normalized, ct);
 
         // Same generic failure, and the same password-hashing cost, for "no such user",
-        // "wrong password" and "locked out": a response that differed in content or timing
-        // would let a caller enumerate usernames or learn an account's lockout state.
-        if (user is null || user.IsLockedOutAt(_clock.GetUtcNow()))
+        // "wrong password", "locked out" and "deactivated": a response that differed in
+        // content or timing would let a caller enumerate usernames or learn an account's state.
+        if (user is null || !user.IsActive || user.IsLockedOutAt(_clock.GetUtcNow()))
         {
             VerifyAgainstDummyHash(password);
             throw new InvalidCredentialsException();
@@ -108,7 +108,7 @@ public partial class AuthService : IAuthService
             .Include(t => t.User)
             .FirstOrDefaultAsync(t => t.TokenHash == tokenHash, ct);
 
-        if (stored is null || stored.User is null)
+        if (stored is null || stored.User is null || !stored.User.IsActive)
         {
             throw new InvalidRefreshTokenException();
         }
@@ -231,30 +231,4 @@ public partial class AuthService : IAuthService
 
     private static string HashToken(string token) =>
         Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token)));
-
-    private static string NormalizeUsername(string username)
-    {
-        var trimmed = username.Trim();
-        if (!UsernamePattern().IsMatch(trimmed))
-        {
-            throw new InvalidUsernameException(
-                "Username must be 3-50 characters and contain only letters, digits, '.', '_', or '-'.");
-        }
-        return trimmed.ToLowerInvariant();
-    }
-
-    private static void ValidatePassword(string password)
-    {
-        if (password.Length < MinPasswordLength)
-        {
-            throw new InvalidPasswordException($"Password must be at least {MinPasswordLength} characters long.");
-        }
-        if (password.Length > MaxPasswordLength)
-        {
-            throw new InvalidPasswordException($"Password must be at most {MaxPasswordLength} characters long.");
-        }
-    }
-
-    [GeneratedRegex("^[A-Za-z0-9_.-]{3,50}$")]
-    private static partial Regex UsernamePattern();
 }

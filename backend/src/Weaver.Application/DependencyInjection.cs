@@ -13,6 +13,8 @@ public static class DependencyInjection
             .AddScoped<IWorkItemService, WorkItemService>()
             .AddScoped<IAuthService, AuthService>()
             .AddScoped<IUserService, UserService>()
+            .AddScoped<IAdminAuthorizer, AdminAuthorizer>()
+            .AddScoped<IUserAdministrationService, UserAdministrationService>()
             .AddScoped<ICommentService, CommentService>()
             .AddScoped<IWorkItemLinkService, WorkItemLinkService>()
             .AddScoped<IBoardService, BoardService>()

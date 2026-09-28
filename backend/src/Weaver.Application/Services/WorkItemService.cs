@@ -192,9 +192,14 @@ public class WorkItemService : IWorkItemService
 
     public async Task<WorkItem> AssignAsync(Guid id, Guid? userId, CancellationToken ct = default)
     {
-        if (userId is not null && !await _db.Users.AnyAsync(u => u.Id == userId, ct))
+        if (userId is { } assigneeId)
         {
-            throw new EntityNotFoundException(nameof(User), userId.Value);
+            var assignee = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == assigneeId, ct)
+                ?? throw new EntityNotFoundException(nameof(User), assigneeId);
+            if (!assignee.IsActive)
+            {
+                throw new DomainValidationException($"User '{assignee.Username}' is deactivated and can't be assigned work.");
+            }
         }
 
         var item = await _db.WorkItems.FindAsync([id], ct)

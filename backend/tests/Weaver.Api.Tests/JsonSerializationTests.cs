@@ -32,7 +32,7 @@ public class JsonSerializationTests
     [Test]
     public void UserDto_SerializesKindAsAString()
     {
-        var dto = new UserDto(Guid.NewGuid(), "alice", UserKind.Agent);
+        var dto = new UserDto(Guid.NewGuid(), "alice", UserKind.Agent, IsAdmin: false);
 
         var json = JsonSerializer.Serialize(dto, Options);
 

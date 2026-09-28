@@ -46,6 +46,68 @@ public class UserTests
         });
     }
 
+    [Test]
+    public void CreateHuman_IsNotAnAdminUnlessAsked()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(User.CreateHuman("alice", "alice").IsAdmin, Is.False);
+            Assert.That(User.CreateHuman("alice", "alice", isAdmin: true).IsAdmin, Is.True);
+        });
+    }
+
+    [Test]
+    public void GrantAndRevokeAdmin_ToggleIsAdmin()
+    {
+        var user = User.CreateHuman("alice", "alice");
+
+        user.GrantAdmin();
+        Assert.That(user.IsAdmin, Is.True);
+
+        user.RevokeAdmin();
+        Assert.That(user.IsAdmin, Is.False);
+    }
+
+    [Test]
+    public void Deactivate_KeepsTheFirstDeactivationTime()
+    {
+        var user = User.CreateHuman("alice", "alice");
+
+        user.Deactivate(Now);
+        user.Deactivate(Now.AddHours(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(user.IsActive, Is.False);
+            Assert.That(user.DeactivatedAtUtc, Is.EqualTo(Now));
+        });
+    }
+
+    [Test]
+    public void Reactivate_MakesTheUserActiveAgain()
+    {
+        var user = User.CreateHuman("alice", "alice");
+        user.Deactivate(Now);
+
+        user.Reactivate();
+
+        Assert.That(user.IsActive, Is.True);
+    }
+
+    [Test]
+    public void ClearLockout_UnlocksImmediately()
+    {
+        var user = LockedOutUser();
+
+        user.ClearLockout();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(user.IsLockedOutAt(Now), Is.False);
+            Assert.That(user.FailedLoginAttempts, Is.Zero);
+        });
+    }
+
     private static User LockedOutUser()
     {
         var user = User.CreateHuman("alice", "alice");

@@ -182,8 +182,14 @@ namespace Weaver.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTimeOffset?>("DeactivatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("FailedLoginAttempts")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("IsAdmin")
+                        .HasColumnType("boolean");
 
                     b.Property<int>("Kind")
                         .HasColumnType("integer");
