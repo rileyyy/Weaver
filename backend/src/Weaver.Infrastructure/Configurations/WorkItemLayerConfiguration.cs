@@ -12,12 +12,12 @@ public class WorkItemLayerConfiguration : IEntityTypeConfiguration<WorkItemLayer
 
     public void Configure(EntityTypeBuilder<WorkItemLayer> builder)
     {
-        builder.Property(l => l.Name).IsRequired().HasMaxLength(100);
+        builder.Property(l => l.Name).IsRequired().HasMaxLength(LookupValue.NameMaxLength);
         builder.HasIndex(l => l.Order).IsUnique();
 
         builder.HasData(
-            new WorkItemLayer { Id = ProjectId, Name = "Project", Order = 0 },
-            new WorkItemLayer { Id = GoalId, Name = "Goal", Order = 1 },
-            new WorkItemLayer { Id = TaskId, Name = "Task", Order = 2 });
+            new { Id = ProjectId, Name = "Project", Order = 0 },
+            new { Id = GoalId, Name = "Goal", Order = 1 },
+            new { Id = TaskId, Name = "Task", Order = 2 });
     }
 }

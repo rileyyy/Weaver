@@ -1,20 +1,51 @@
+using System.Text.RegularExpressions;
+using Weaver.Domain.Exceptions;
+
 namespace Weaver.Domain;
 
-public class Status
+public partial class Status : LookupValue
 {
-    public Guid Id { get; set; }
+    /// <summary>For EF Core.</summary>
+    private Status()
+    {
+        Color = string.Empty;
+    }
 
-    public required string Name { get; set; }
+    private Status(string name, int order, StatusCategory category, string color) : base(name, order)
+    {
+        Color = string.Empty;
+        Recategorize(category, color);
+    }
 
-    public int Order { get; set; }
-
-    public StatusCategory Category { get; set; }
+    public StatusCategory Category { get; private set; }
 
     /// <summary>
     /// The color a column/badge for this status renders with, as a
     /// <c>#RRGGBB</c> hex string. Stored per-status (not derived from
-    /// <see cref="Category"/>) so it can be reconfigured per status later
-    /// without a schema change.
+    /// <see cref="Category"/>) so each status can have its own.
     /// </summary>
-    public required string Color { get; set; }
+    public string Color { get; private set; }
+
+    public static Status Create(string name, int order, StatusCategory category, string color) =>
+        new(name, order, category, color);
+
+    public void Recategorize(StatusCategory category, string color)
+    {
+        if (!Enum.IsDefined(category))
+        {
+            throw new DomainValidationException($"'{category}' is not a status category.");
+        }
+
+        var trimmed = color?.Trim() ?? string.Empty;
+        if (!HexColor().IsMatch(trimmed))
+        {
+            throw new DomainValidationException("Color must be a #RRGGBB hex value.");
+        }
+
+        Category = category;
+        Color = trimmed.ToUpperInvariant();
+    }
+
+    [GeneratedRegex("^#[0-9A-Fa-f]{6}$")]
+    private static partial Regex HexColor();
 }

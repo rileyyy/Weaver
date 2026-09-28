@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Weaver.Infrastructure;
 
 namespace Weaver.Application.Tests;
@@ -14,6 +15,8 @@ public static class TestDatabase
         var options = new DbContextOptionsBuilder<WeaverDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .AddInterceptors(new TimestampInterceptor(clock))
+            // InMemory has no transactions; the services' commit/rollback is covered against Postgres.
+            .ConfigureWarnings(warnings => warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
 
         var db = new WeaverDbContext(options);

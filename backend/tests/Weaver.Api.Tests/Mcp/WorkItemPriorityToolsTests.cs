@@ -12,7 +12,7 @@ public class WorkItemPriorityToolsTests
     public async Task ListWorkItemPriorities_DelegatesToServiceAndMapsResults()
     {
         var priorities = new Mock<IWorkItemPriorityService>(MockBehavior.Strict);
-        var priority = new WorkItemPriority { Id = Guid.NewGuid(), Name = "High", Order = 2 };
+        var priority = WorkItemPriority.Create("High", 2);
         priorities.Setup(p => p.GetAllAsync(It.IsAny<CancellationToken>())).ReturnsAsync([priority]);
         var tools = new WorkItemPriorityTools(priorities.Object);
 

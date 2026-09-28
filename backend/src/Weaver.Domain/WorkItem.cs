@@ -141,6 +141,18 @@ public class WorkItem : IHasUpdatedAt
         PriorityId = priorityId;
     }
 
+    /// <summary>Used when an admin deletes the item's layer and picks a replacement (or none).</summary>
+    public void ChangeLayer(Guid? layerId)
+    {
+        LayerId = layerId;
+    }
+
+    /// <summary>Used when an admin deletes the item's priority and picks a replacement (or none).</summary>
+    public void ChangePriority(Guid? priorityId)
+    {
+        PriorityId = priorityId;
+    }
+
     /// <summary>
     /// Moves the item to another column. Never touches <see cref="ParentId"/>: that is what
     /// guarantees a drag between columns can never reparent the item.

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 using Weaver.Application.Persistence;
 using Weaver.Domain;
@@ -32,6 +33,9 @@ public class WeaverDbContext : DbContext, IWeaverDbContext
     public DbSet<WorkItemLink> WorkItemLinks => Set<WorkItemLink>();
 
     public DbSet<WorkItemRecurrence> WorkItemRecurrences => Set<WorkItemRecurrence>();
+
+    public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default) =>
+        Database.BeginTransactionAsync(cancellationToken);
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {

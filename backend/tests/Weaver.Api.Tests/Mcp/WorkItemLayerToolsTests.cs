@@ -12,7 +12,7 @@ public class WorkItemLayerToolsTests
     public async Task ListWorkItemLayers_DelegatesToServiceAndMapsResults()
     {
         var layers = new Mock<IWorkItemLayerService>(MockBehavior.Strict);
-        var layer = new WorkItemLayer { Id = Guid.NewGuid(), Name = "Project", Order = 0 };
+        var layer = WorkItemLayer.Create("Project", 0);
         layers.Setup(l => l.GetAllAsync(It.IsAny<CancellationToken>())).ReturnsAsync([layer]);
         var tools = new WorkItemLayerTools(layers.Object);
 

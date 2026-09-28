@@ -8,11 +8,16 @@ namespace Weaver.Domain;
 /// parent/child stays fluid regardless of what layers exist or how items
 /// are labeled.
 /// </summary>
-public class WorkItemLayer
+public class WorkItemLayer : LookupValue
 {
-    public Guid Id { get; set; }
+    /// <summary>For EF Core.</summary>
+    private WorkItemLayer()
+    {
+    }
 
-    public required string Name { get; set; }
+    private WorkItemLayer(string name, int order) : base(name, order)
+    {
+    }
 
-    public int Order { get; set; }
+    public static WorkItemLayer Create(string name, int order) => new(name, order);
 }

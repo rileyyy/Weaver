@@ -4,15 +4,28 @@ using Weaver.Domain;
 
 namespace Weaver.Application.Services;
 
-public class WorkItemLayerService : IWorkItemLayerService
+public class WorkItemLayerService : LookupService<WorkItemLayer>, IWorkItemLayerService
 {
-    private readonly IWeaverDbContext _db;
-
-    public WorkItemLayerService(IWeaverDbContext db)
+    public WorkItemLayerService(IWeaverDbContext db, IAdminAuthorizer admins) : base(db, admins)
     {
-        _db = db;
     }
 
-    public async Task<IReadOnlyList<WorkItemLayer>> GetAllAsync(CancellationToken ct = default) =>
-        await _db.WorkItemLayers.AsNoTracking().OrderBy(l => l.Order).ToListAsync(ct);
+    protected override DbSet<WorkItemLayer> Values => Db.WorkItemLayers;
+
+    protected override string Kind => "Layer";
+
+    public Task<WorkItemLayer> CreateAsync(Guid actorUserId, string name, CancellationToken ct = default) =>
+        AddAsync(actorUserId, order => WorkItemLayer.Create(name, order), ct);
+
+    public Task<WorkItemLayer> RenameAsync(Guid actorUserId, Guid id, string name, CancellationToken ct = default) =>
+        EditAsync(actorUserId, id, layer => layer.Rename(name), ct);
+
+    protected override async Task MoveWorkItemsAsync(WorkItemLayer deleted, Guid? replacementId, CancellationToken ct)
+    {
+        var items = await Db.WorkItems.Where(w => w.LayerId == deleted.Id).ToListAsync(ct);
+        foreach (var item in items)
+        {
+            item.ChangeLayer(replacementId);
+        }
+    }
 }

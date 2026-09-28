@@ -13,15 +13,15 @@ public class WorkItemPriorityConfiguration : IEntityTypeConfiguration<WorkItemPr
 
     public void Configure(EntityTypeBuilder<WorkItemPriority> builder)
     {
-        builder.Property(p => p.Name).IsRequired().HasMaxLength(100);
+        builder.Property(p => p.Name).IsRequired().HasMaxLength(LookupValue.NameMaxLength);
         builder.HasIndex(p => p.Order).IsUnique();
 
         // The four values the former WorkItemPriority enum had. The migration that replaced
         // the enum maps its stored ordinals onto these ids, so they must not change.
         builder.HasData(
-            new WorkItemPriority { Id = LowId, Name = "Low", Order = 0 },
-            new WorkItemPriority { Id = MediumId, Name = "Medium", Order = 1 },
-            new WorkItemPriority { Id = HighId, Name = "High", Order = 2 },
-            new WorkItemPriority { Id = UrgentId, Name = "Urgent", Order = 3 });
+            new { Id = LowId, Name = "Low", Order = 0 },
+            new { Id = MediumId, Name = "Medium", Order = 1 },
+            new { Id = HighId, Name = "High", Order = 2 },
+            new { Id = UrgentId, Name = "Urgent", Order = 3 });
     }
 }
