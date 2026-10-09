@@ -1,5 +1,7 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:weaver/core/platform/touch_platform.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/views/swimlane/swimlane_view.dart';
@@ -15,6 +17,13 @@ const _card = WorkItemCard(
   parentId: 'lane-a',
   statusId: 'todo',
 );
+
+/// Drop-target behaviour must not depend on how a drag is started, so it
+/// runs on one touch and one pointer platform.
+const _touchAndDesktop = TargetPlatformVariant({
+  TargetPlatform.android,
+  TargetPlatform.macOS,
+});
 
 void main() {
   late List<(String, String)> statusDrops;
@@ -73,27 +82,36 @@ void main() {
     (w) => w is SwimlaneLabel && w.swimlane.parentId == laneId,
   );
 
-  Future<void> dragCardTo(WidgetTester tester, Finder target) async {
+  Future<void> dragCardTo(
+    WidgetTester tester,
+    Finder target, {
+    bool holdFirst = true,
+  }) async {
     final gesture = await tester.startGesture(
       tester.getCenter(find.byType(BoardCard)),
     );
     await tester.pump();
+    if (holdFirst && isTouchPlatform) {
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    }
     await gesture.moveTo(tester.getCenter(target));
     await tester.pump();
     await gesture.up();
     await tester.pumpAndSettle();
   }
 
-  testWidgets('dropping on another status in the same lane moves the card', (
-    tester,
-  ) async {
-    await pumpBoard(tester);
+  testWidgets(
+    'dropping on another status in the same lane moves the card',
+    (tester) async {
+      await pumpBoard(tester);
 
-    await dragCardTo(tester, cell('lane-a', 'done'));
+      await dragCardTo(tester, cell('lane-a', 'done'));
 
-    expect(statusDrops, [('card-1', 'done')]);
-    expect(reparents, isEmpty);
-  });
+      expect(statusDrops, [('card-1', 'done')]);
+      expect(reparents, isEmpty);
+    },
+    variant: _touchAndDesktop,
+  );
 
   testWidgets('a status cell in another lane rejects the card', (tester) async {
     await pumpBoard(tester);
@@ -102,7 +120,7 @@ void main() {
 
     expect(statusDrops, isEmpty);
     expect(reparents, isEmpty);
-  });
+  }, variant: _touchAndDesktop);
 
   testWidgets('dropping on another lane label reparents the card', (
     tester,
@@ -113,7 +131,7 @@ void main() {
 
     expect(reparents, [('card-1', 'lane-b')]);
     expect(statusDrops, isEmpty);
-  });
+  }, variant: _touchAndDesktop);
 
   testWidgets("the card's own lane label rejects it", (tester) async {
     await pumpBoard(tester);
@@ -121,5 +139,30 @@ void main() {
     await dragCardTo(tester, label('lane-a'));
 
     expect(reparents, isEmpty);
-  });
+  }, variant: _touchAndDesktop);
+
+  testWidgets(
+    'on touch platforms a swipe that starts on a card does not move it',
+    (tester) async {
+      await pumpBoard(tester);
+
+      await dragCardTo(tester, cell('lane-a', 'done'), holdFirst: false);
+
+      expect(statusDrops, isEmpty);
+      expect(find.byType(LongPressDraggable<WorkItemCard>), findsOneWidget);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.android),
+  );
+
+  testWidgets(
+    'on desktop platforms a card moves without a long press',
+    (tester) async {
+      await pumpBoard(tester);
+
+      await dragCardTo(tester, cell('lane-a', 'done'), holdFirst: false);
+
+      expect(statusDrops, [('card-1', 'done')]);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
 }

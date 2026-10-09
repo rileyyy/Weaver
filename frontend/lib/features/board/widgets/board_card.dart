@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:weaver/core/dates/date_format.dart';
+import 'package:weaver/core/platform/touch_platform.dart';
 import 'package:weaver/core/theme/app_theme.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/widgets/assignee_avatar.dart';
@@ -123,6 +124,12 @@ class BoardCard extends StatelessWidget {
                                   Expanded(
                                     child: Tooltip(
                                       message: card.title,
+                                      // A tooltip also opens on long press,
+                                      // which is what picks the card up on
+                                      // touch platforms.
+                                      triggerMode: isTouchPlatform
+                                          ? TooltipTriggerMode.manual
+                                          : null,
                                       child: Text(
                                         card.title,
                                         maxLines: 2,
@@ -171,13 +178,27 @@ class BoardCard extends StatelessWidget {
       ),
     );
 
+    final feedback = Material(
+      elevation: 4,
+      child: SizedBox(width: _feedbackWidth, child: content),
+    );
+    final childWhenDragging = Opacity(opacity: 0.4, child: content);
+
+    // A drag that starts on first contact would turn every swipe that
+    // begins on a card into a move, leaving almost nothing to scroll the
+    // board with on a phone. Touch platforms hold to pick a card up instead.
+    if (isTouchPlatform) {
+      return LongPressDraggable<WorkItemCard>(
+        data: card,
+        feedback: feedback,
+        childWhenDragging: childWhenDragging,
+        child: content,
+      );
+    }
     return Draggable<WorkItemCard>(
       data: card,
-      feedback: Material(
-        elevation: 4,
-        child: SizedBox(width: _feedbackWidth, child: content),
-      ),
-      childWhenDragging: Opacity(opacity: 0.4, child: content),
+      feedback: feedback,
+      childWhenDragging: childWhenDragging,
       child: content,
     );
   }
