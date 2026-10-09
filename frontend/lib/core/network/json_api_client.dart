@@ -110,7 +110,11 @@ class JsonApiClient {
     final http.Response response;
     try {
       response = await request();
-    } on http.ClientException {
+      // Not just http.ClientException: on native, IOClient wraps socket
+      // errors but lets TLS failures (e.g. an untrusted certificate) escape
+      // as dart:io's HandshakeException, which can't be named here because
+      // this file is also compiled for web.
+    } on Exception {
       throw const NetworkException();
     }
 

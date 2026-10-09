@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -105,6 +106,17 @@ void main() {
 
   test('an unreachable server throws NetworkException', () async {
     final api = _client((_) async => throw http.ClientException('refused'));
+
+    await expectLater(
+      api.get('/x', (json) => json, failureMessage: 'Failed'),
+      throwsA(isA<NetworkException>()),
+    );
+  });
+
+  test('a failed TLS handshake throws NetworkException', () async {
+    final api = _client(
+      (_) async => throw const HandshakeException('CERTIFICATE_VERIFY_FAILED'),
+    );
 
     await expectLater(
       api.get('/x', (json) => json, failureMessage: 'Failed'),
