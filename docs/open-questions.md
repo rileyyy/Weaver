@@ -145,9 +145,13 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
 
 ## Roadmap items not yet started
 
-- **Milestone 14, mobile refinement:** the board is built to stay usable
-  on narrow screens, but the Hierarchy view's fixed columns overflow phone
-  widths (F-M15) and no native mobile build is tested.
+- **Milestone 14, mobile refinement (in progress):** cards move with a
+  long press on phones, native builds ask for the server at sign-in, and
+  release APKs build. Still to check on a real device: safe areas
+  (nothing in the app uses `SafeArea` yet), the keyboard covering dialog
+  fields, and the back button. Hierarchy column resizing is mouse-only,
+  and is deferred. iOS isn't a target yet: it would also need an App
+  Transport Security exception for plain-http dev servers.
 - **Milestone 15, production deployment:** the deployment pieces exist
   (TLS, backups, health-ordered startup, an explicit migrate step,
   hardened images, integration tests against Postgres). What's left is

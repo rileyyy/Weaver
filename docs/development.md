@@ -118,8 +118,38 @@ container, makes the requests, which is why it's `localhost`.
   mapped) and hardcoded dev values for the connection string, JWT key and
   CORS origin (`http://localhost:8082`).
 - Android/iOS builds run natively on the host and can use the dockerised
-  backend at `http://localhost:8080` (`http://10.0.2.2:8080` from the
-  Android emulator).
+  backend: enter `http://localhost:8080` (`http://10.0.2.2:8080` from the
+  Android emulator) as the server on the sign-in screen, or prefill it
+  with `--dart-define=API_BASE_URL=...`.
+
+## Building an Android APK
+
+The host's Flutter may not be the pinned version, so build in the same
+image CI uses. It includes the Android SDK. Force the amd64 image: Flutter
+ships no linux-arm64 `gen_snapshot` for Android release builds, so the
+native arm64 image on Apple Silicon fails at `compileFlutterBuildRelease`.
+Under emulation the build is slow (several minutes):
+
+```sh
+docker run --rm --platform linux/amd64 -v "$PWD/frontend:/app" -w /app \
+  ghcr.io/cirruslabs/flutter:3.44.0 \
+  sh -c 'flutter pub get && flutter build apk --release'
+```
+
+If Docker's VM has 8 GB of memory or less, the Gradle daemon gets killed
+partway through ("daemon disappeared unexpectedly"), because
+`android/gradle.properties` asks for an 8 GB heap. Lower
+`org.gradle.jvmargs` to `-Xmx3G` for the container build (a 3 GB heap
+works) without committing the change. Expect roughly 6 GB of free Docker
+disk for the image's NDK, CMake and Gradle downloads.
+
+The APK lands in `frontend/build/app/outputs/flutter-apk/app-release.apk`.
+It's signed with the debug key, which is fine for sideloading but not for
+a store. As with the dev container, this writes `.dart_tool/` and can
+touch `pubspec.lock` on the host. The app asks for the server address at
+sign-in, and it needs a certificate the phone trusts without a user CA
+(see the README's TLS notes), such as a Tailscale `https://*.ts.net`
+address.
 
 ## Verifying Flutter web in a headless browser
 

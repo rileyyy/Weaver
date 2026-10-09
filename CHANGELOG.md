@@ -22,11 +22,33 @@ What shipped, newest first. Design reasoning lives in
 | 11        | Done        | Comments/links                |
 | 12        | Skipped     | Attachments                   |
 | 13        | Done        | MCP                           |
-| 14        | Not started | Mobile refinement             |
+| 14        | In progress | Mobile refinement             |
 | 15        | Not started | Production deployment         |
 
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
+
+## 2026-10-09 — Milestone 14, mobile refinement (first pass)
+
+`feature/mobile-refinement`. Aimed at sideloading a release APK and
+reaching the backend over Tailscale.
+
+- **Long press to move a card** on Android and iOS, native or in the
+  browser, so swipes that start on a card scroll the board. Desktop keeps
+  the immediate drag. The title tooltip no longer opens on long press
+  there.
+- **Server address on the sign-in screen** for native builds, with https
+  assumed when no scheme is typed. It's remembered after a successful
+  sign-in and prefilled next time; `API_BASE_URL` is now an optional
+  starting value rather than required. Web is unchanged.
+- **Release APKs can reach the network:** the main Android manifest
+  lacked the `INTERNET` permission that only debug and profile builds
+  had. The launcher label is now "Weaver".
+- **TLS failures** (an untrusted certificate, say) show the "could not
+  reach the server" message instead of failing silently.
+- Not yet done: checking safe areas, the keyboard and back navigation on
+  a real phone; touch-friendly column resizing in Hierarchy (deferred);
+  iOS.
 
 ## 2026-09-28 — Admin page
 

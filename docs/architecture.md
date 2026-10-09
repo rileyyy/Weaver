@@ -547,15 +547,31 @@ and it is what allows MCP tools to reuse the same business logic (see
   small stubs. The detail repository is separate from the board's because
   its concerns (full record, layers, users, per-field saves) differ from
   swimlane assembly and drag-and-drop.
-- **Base URL:** `ApiConfig.baseUrl` always ends in `/api`. On web it
-  defaults to the relative `/api`, so the same built image works at any
-  domain (nginx proxies it). Native builds and the web dev server pass the
-  backend origin with `--dart-define=API_BASE_URL=http://host:port` and
-  the app appends `/api`. Getting this wrong makes every request 404 with
-  nothing but "Failed to load resource" in the console. Repositories take
-  the resolved URL as `@Named('apiBaseUrl')` instead of calling
-  `ApiConfig` (which throws on native without the define), so they're
-  testable with `http`'s `MockClient`.
+- **Base URL:** `ServerSettings` decides it and always ends it in `/api`.
+  On web it defaults to the relative `/api`, so the same built image
+  works at any domain (nginx proxies it), and it can't be changed. Native
+  builds ask for the server on the sign-in screen: a missing scheme means
+  https, a pasted `/api` is dropped, and the address is remembered (in
+  secure storage, next to the refresh token) once sign-in succeeds. An
+  optional `--dart-define=API_BASE_URL=http://host:port` is the starting
+  value on both, and is how the web dev server reaches the backend.
+  Getting this wrong makes every request 404 with nothing but "Failed to
+  load resource" in the console.
+- **Repositories read the server per request.** They take an
+  `ApiEndpoint` (bound to `ServerSettings`) rather than a URL string,
+  because on native the server is chosen at sign-in, after the
+  repositories exist. The status and user caches note which server they
+  were filled from and refetch when it changes. Tests pass a fixed
+  endpoint and `http`'s `MockClient`.
+- **Anything thrown before a response is a `NetworkException`.** On
+  native, `IOClient` wraps socket errors in `ClientException` but lets TLS
+  handshake failures through as `HandshakeException`, which
+  `JsonApiClient` can't name because it's also compiled for web.
+- **Native apps trust only the system CA store.** Dart's `HttpClient`
+  ignores user-installed CAs on Android, so the self-signed Caddy CA
+  from the TLS setup works for browsers but not the app. Point the app at
+  a server with a publicly trusted certificate, such as a Tailscale
+  `*.ts.net` address served with `tailscale serve`.
 - **`AuthHttpClient` is the default `http.Client` binding**
   (`NetworkModule`). It attaches the access token and refreshes before
   each call, so every repository is authenticated without auth code of its
@@ -871,10 +887,11 @@ and it is what allows MCP tools to reuse the same business logic (see
   invalid-reference error. The deployment's compose file can't derive the
   owner the way CI does, so set them in `.env`.
 - **Only web is containerised for development.** Android/iOS need an
-  emulator or device a generic Linux container can't provide; they build
+  emulator or device a generic Linux container can't provide; they run
   natively and can point at the dockerised backend
   (`http://localhost:8080`, or `http://10.0.2.2:8080` from the Android
-  emulator).
+  emulator). A release APK can still be built in the pinned Flutter image,
+  which includes the Android SDK.
 
 ## CI
 

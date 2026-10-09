@@ -211,7 +211,9 @@ Then install `weaver-root-ca.crt` on each device:
   Settings**.
 - **Android:** Settings → Security → Encryption & credentials → Install a
   certificate → **CA certificate**. (Menu names vary by vendor.) Browsers
-  honour user CAs; other apps may not.
+  honour user CAs; other apps may not, and the Weaver Android app doesn't.
+  Point the app at an address with a publicly trusted certificate instead,
+  such as Tailscale's `https://<machine>.<tailnet>.ts.net`.
 
 The CA's keys exist only in the `caddy-data` volume. If the volume is
 lost, Caddy creates a new root and every device has to trust the new one.
