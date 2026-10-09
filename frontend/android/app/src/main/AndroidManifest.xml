@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The debug and profile manifests already declare this, which is why
+         those builds could reach the server while release builds couldn't. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="weaver"
+        android:label="Weaver"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
