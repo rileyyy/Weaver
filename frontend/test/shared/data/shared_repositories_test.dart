@@ -4,10 +4,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:weaver/core/network/api_exception.dart';
+import 'package:weaver/core/network/server_settings.dart';
 import 'package:weaver/shared/data/api_status_repository.dart';
 import 'package:weaver/shared/data/api_user_directory_repository.dart';
+import '../../core/network/fakes/fixed_api_endpoint.dart';
+import '../../core/network/fakes/in_memory_server_origin_store.dart';
 
 const _baseUrl = 'http://backend.test/api';
+const _endpoint = FixedApiEndpoint(_baseUrl);
+
+ServerSettings _switchableServer() => ServerSettings(
+  InMemoryServerOriginStore(),
+  buildTimeOrigin: 'https://first.example',
+  isWeb: false,
+);
 
 void main() {
   group('ApiStatusRepository', () {
@@ -22,7 +32,7 @@ void main() {
           200,
         );
       });
-      final repository = ApiStatusRepository(client, _baseUrl);
+      final repository = ApiStatusRepository(client, _endpoint);
 
       final results = await Future.wait([
         repository.loadStatuses(),
@@ -40,7 +50,7 @@ void main() {
         calls++;
         return http.Response(jsonEncode([]), 200);
       });
-      final repository = ApiStatusRepository(client, _baseUrl);
+      final repository = ApiStatusRepository(client, _endpoint);
 
       await repository.loadStatuses();
       repository.invalidate();
@@ -49,13 +59,29 @@ void main() {
       expect(calls, 2);
     });
 
+    test('fetches again from a newly chosen server', () async {
+      final hosts = <String>[];
+      final client = MockClient((request) async {
+        hosts.add(request.url.host);
+        return http.Response(jsonEncode([]), 200);
+      });
+      final server = _switchableServer();
+      final repository = ApiStatusRepository(client, server);
+
+      await repository.loadStatuses();
+      server.use('https://second.example');
+      await repository.loadStatuses();
+
+      expect(hosts, ['first.example', 'second.example']);
+    });
+
     test('does not cache a failure', () async {
       var fail = true;
       final client = MockClient(
         (_) async =>
             fail ? http.Response('', 500) : http.Response(jsonEncode([]), 200),
       );
-      final repository = ApiStatusRepository(client, _baseUrl);
+      final repository = ApiStatusRepository(client, _endpoint);
 
       await expectLater(
         repository.loadStatuses(),
@@ -89,7 +115,11 @@ void main() {
           200,
         );
       });
-      repository = ApiUserDirectoryRepository(client, _baseUrl, now: () => now);
+      repository = ApiUserDirectoryRepository(
+        client,
+        _endpoint,
+        now: () => now,
+      );
     });
 
     test('reuses the list while it is fresh', () async {
@@ -114,6 +144,29 @@ void main() {
 
       expect(users.single.isAdmin, isFalse);
     });
+
+    test(
+      'fetches again from a newly chosen server, even while fresh',
+      () async {
+        final hosts = <String>[];
+        final client = MockClient((request) async {
+          hosts.add(request.url.host);
+          return http.Response(jsonEncode([]), 200);
+        });
+        final server = _switchableServer();
+        final switching = ApiUserDirectoryRepository(
+          client,
+          server,
+          now: () => now,
+        );
+
+        await switching.loadUsers();
+        server.use('https://second.example');
+        await switching.loadUsers();
+
+        expect(hosts, ['first.example', 'second.example']);
+      },
+    );
 
     test('fetches again once the list is older than maxAge', () async {
       await repository.loadUsers();

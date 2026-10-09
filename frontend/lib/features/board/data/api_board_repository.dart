@@ -1,6 +1,7 @@
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
 import 'package:weaver/core/network/api_dates.dart';
+import 'package:weaver/core/network/api_endpoint.dart';
 import 'package:weaver/core/network/json_api_client.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
@@ -23,10 +24,10 @@ const int allItemsPageSize = 500;
 class ApiBoardRepository implements BoardRepository {
   ApiBoardRepository(
     http.Client client,
-    @Named('apiBaseUrl') String baseUrl,
+    ApiEndpoint endpoint,
     this._statuses,
     this._users,
-  ) : _api = JsonApiClient(client, baseUrl);
+  ) : _api = JsonApiClient(client, endpoint);
 
   final JsonApiClient _api;
   final StatusRepository _statuses;

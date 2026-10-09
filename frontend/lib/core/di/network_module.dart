@@ -1,6 +1,7 @@
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
-import 'package:weaver/core/network/api_config.dart';
+import 'package:weaver/core/network/api_endpoint.dart';
+import 'package:weaver/core/network/server_settings.dart';
 import 'package:weaver/features/auth/data/auth_http_client.dart';
 import 'package:weaver/features/auth/data/auth_session_store.dart';
 import 'package:weaver/shared/data/current_user.dart';
@@ -22,8 +23,7 @@ abstract class NetworkModule {
     AuthSessionStore sessionStore,
   ) => AuthHttpClient(raw, sessionStore);
 
-  @Named('apiBaseUrl')
-  String get apiBaseUrl => ApiConfig.baseUrl;
+  ApiEndpoint apiEndpoint(ServerSettings serverSettings) => serverSettings;
 
   CurrentUser currentUser(AuthSessionStore sessionStore) => sessionStore;
 }

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/app.dart';
 import 'package:weaver/core/di/injection.dart';
+import 'package:weaver/core/network/server_origin_store.dart';
 import 'package:weaver/features/auth/data/auth_repository.dart';
 import 'package:weaver/features/auth/data/auth_session_store.dart';
 import 'package:weaver/features/auth/data/secure_token_store.dart';
@@ -15,6 +16,7 @@ import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 import 'package:weaver/shared/recurrence/data/recurrence_repository.dart';
 
+import 'core/network/fakes/in_memory_server_origin_store.dart';
 import 'shared/recurrence/fake_recurrence_repository.dart';
 
 /// Stands in for the real, network-backed [BoardRepository] so this smoke
@@ -128,6 +130,10 @@ void main() {
       ..registerLazySingleton<AuthRepository>(_UnusedAuthRepository.new)
       ..unregister<SecureTokenStore>()
       ..registerLazySingleton<SecureTokenStore>(_InMemoryTokenStore.new)
+      ..unregister<ServerOriginStore>()
+      ..registerLazySingleton<ServerOriginStore>(
+        () => InMemoryServerOriginStore('https://weaver.test'),
+      )
       ..unregister<RecurrenceRepository>()
       ..registerLazySingleton<RecurrenceRepository>(
         FakeRecurrenceRepository.new,

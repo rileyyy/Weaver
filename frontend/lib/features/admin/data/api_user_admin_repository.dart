@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
+import 'package:weaver/core/network/api_endpoint.dart';
 import 'package:weaver/core/network/json_api_client.dart';
 import 'package:weaver/features/admin/data/user_admin_repository.dart';
 import 'package:weaver/features/admin/models/admin_user.dart';
@@ -12,9 +13,9 @@ import 'package:weaver/shared/data/user_directory_repository.dart';
 class ApiUserAdminRepository implements UserAdminRepository {
   ApiUserAdminRepository(
     http.Client client,
-    @Named('apiBaseUrl') String baseUrl,
+    ApiEndpoint endpoint,
     this._directory,
-  ) : _api = JsonApiClient(client, baseUrl);
+  ) : _api = JsonApiClient(client, endpoint);
 
   final JsonApiClient _api;
   final UserDirectoryRepository _directory;

@@ -7,6 +7,7 @@ import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/work_item_detail/data/api_work_item_detail_repository.dart';
 import 'package:weaver/shared/data/api_status_repository.dart';
 import 'package:weaver/shared/data/api_user_directory_repository.dart';
+import '../../../core/network/fakes/fixed_api_endpoint.dart';
 
 http.Response _jsonResponse(Object body, {int statusCode = 200}) =>
     http.Response(
@@ -51,6 +52,7 @@ Map<String, dynamic> _commentJson({DateTime? updatedAt}) => {
 
 void main() {
   const baseUrl = 'http://backend.test/api';
+  const endpoint = FixedApiEndpoint(baseUrl);
 
   test(
     'getItem parses the work item, including layer/priority/assignee',
@@ -66,9 +68,9 @@ void main() {
       );
       final repository = ApiWorkItemDetailRepository(
         client,
-        baseUrl,
-        ApiStatusRepository(client, baseUrl),
-        ApiUserDirectoryRepository(client, baseUrl),
+        endpoint,
+        ApiStatusRepository(client, endpoint),
+        ApiUserDirectoryRepository(client, endpoint),
       );
 
       final item = await repository.getItem('item-1');
@@ -86,9 +88,9 @@ void main() {
     );
     final repository = ApiWorkItemDetailRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     final item = await repository.getItem('item-1');
@@ -111,9 +113,9 @@ void main() {
     });
     final repository = ApiWorkItemDetailRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     final children = await repository.loadChildren('item-1');
@@ -132,9 +134,9 @@ void main() {
     );
     final repository = ApiWorkItemDetailRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     final layers = await repository.loadLayers();
@@ -153,9 +155,9 @@ void main() {
     });
     final repository = ApiWorkItemDetailRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     final priorities = await repository.loadPriorities();
@@ -179,9 +181,9 @@ void main() {
     );
     final repository = ApiWorkItemDetailRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     final users = await repository.loadUsers();
@@ -199,9 +201,9 @@ void main() {
     });
     final repository = ApiWorkItemDetailRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     await repository.updateDetails(
@@ -230,9 +232,9 @@ void main() {
     );
     final repository = ApiWorkItemDetailRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     final item = await repository.updateDetails(
@@ -258,9 +260,9 @@ void main() {
       );
       final repository = ApiWorkItemDetailRepository(
         client,
-        baseUrl,
-        ApiStatusRepository(client, baseUrl),
-        ApiUserDirectoryRepository(client, baseUrl),
+        endpoint,
+        ApiStatusRepository(client, endpoint),
+        ApiUserDirectoryRepository(client, endpoint),
       );
 
       final call = repository.updateTags('item-1', [
@@ -290,9 +292,9 @@ void main() {
     });
     final repository = ApiWorkItemDetailRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     await repository.assign('item-1', 'user-1');
@@ -309,9 +311,9 @@ void main() {
     });
     final repository = ApiWorkItemDetailRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     final item = await repository.updateTags('item-1', [
@@ -335,9 +337,9 @@ void main() {
     });
     final repository = ApiWorkItemDetailRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
     final start = DateTime(2026, 2, 1);
 
@@ -357,9 +359,9 @@ void main() {
     );
     final repository = ApiWorkItemDetailRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     final comments = await repository.loadComments('item-1');
@@ -376,9 +378,9 @@ void main() {
     });
     final repository = ApiWorkItemDetailRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     await repository.addComment('item-1', 'Looks good');
@@ -396,9 +398,9 @@ void main() {
     });
     final repository = ApiWorkItemDetailRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     final comment = await repository.updateComment('comment-1', 'Edited');
@@ -416,9 +418,9 @@ void main() {
     });
     final repository = ApiWorkItemDetailRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     await repository.deleteComment('comment-1');
@@ -435,9 +437,9 @@ void main() {
     });
     final repository = ApiWorkItemDetailRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     await repository.deleteItem('item-1', cascade: true);
@@ -459,9 +461,9 @@ void main() {
     );
     final repository = ApiWorkItemDetailRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     final links = await repository.loadLinks('item-1');
@@ -481,9 +483,9 @@ void main() {
     });
     final repository = ApiWorkItemDetailRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     await repository.addLink('item-1', 'item-2');
@@ -500,9 +502,9 @@ void main() {
     });
     final repository = ApiWorkItemDetailRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     await repository.deleteLink('link-1');

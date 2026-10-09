@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
+import 'package:weaver/core/network/api_endpoint.dart';
 import 'package:weaver/core/network/json_api_client.dart';
 import 'package:weaver/features/admin/data/status_admin_repository.dart';
 import 'package:weaver/features/admin/models/admin_status.dart';
@@ -12,9 +13,9 @@ import 'package:weaver/shared/data/status_repository.dart';
 class ApiStatusAdminRepository implements StatusAdminRepository {
   ApiStatusAdminRepository(
     http.Client client,
-    @Named('apiBaseUrl') String baseUrl,
+    ApiEndpoint endpoint,
     this._statusCache,
-  ) : _api = JsonApiClient(client, baseUrl);
+  ) : _api = JsonApiClient(client, endpoint);
 
   final JsonApiClient _api;
   final StatusRepository _statusCache;

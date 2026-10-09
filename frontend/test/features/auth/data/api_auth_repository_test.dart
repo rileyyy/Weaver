@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/auth/data/api_auth_repository.dart';
 import 'package:weaver/shared/models/user_kind.dart';
+import '../../../core/network/fakes/fixed_api_endpoint.dart';
 
 http.Response _jsonResponse(Object body, {int statusCode = 200}) =>
     http.Response(
@@ -23,6 +24,7 @@ Map<String, dynamic> _authBody({String kind = 'Human'}) => {
 
 void main() {
   const baseUrl = 'http://backend.test/api';
+  const endpoint = FixedApiEndpoint(baseUrl);
 
   test('login posts credentials and parses the returned session', () async {
     http.Request? sentRequest;
@@ -31,7 +33,7 @@ void main() {
       return _jsonResponse(_authBody());
     });
 
-    final repository = ApiAuthRepository(client, baseUrl);
+    final repository = ApiAuthRepository(client, endpoint);
     final session = await repository.login('alice', 'a valid password');
 
     expect(sentRequest!.url.path, '/api/auth/login');
@@ -52,7 +54,7 @@ void main() {
           'detail': 'Invalid username or password.',
         }, statusCode: 401);
       });
-      final repository = ApiAuthRepository(client, baseUrl);
+      final repository = ApiAuthRepository(client, endpoint);
 
       await expectLater(
         repository.login('alice', 'wrong'),
@@ -74,7 +76,7 @@ void main() {
       return _jsonResponse(_authBody());
     });
 
-    final repository = ApiAuthRepository(client, baseUrl);
+    final repository = ApiAuthRepository(client, endpoint);
     await repository.register('alice', 'a valid password');
 
     expect(sentRequest!.url.path, '/api/auth/register');
@@ -87,7 +89,7 @@ void main() {
       return _jsonResponse(_authBody());
     });
 
-    final repository = ApiAuthRepository(client, baseUrl);
+    final repository = ApiAuthRepository(client, endpoint);
     await repository.refresh('old-refresh-token');
 
     expect(sentRequest!.url.path, '/api/auth/refresh');
@@ -103,7 +105,7 @@ void main() {
       return http.Response('', 204);
     });
 
-    final repository = ApiAuthRepository(client, baseUrl);
+    final repository = ApiAuthRepository(client, endpoint);
     await repository.logout('a-refresh-token');
 
     expect(sentRequest!.url.path, '/api/auth/logout');
@@ -114,7 +116,7 @@ void main() {
     final client = MockClient(
       (request) async => _jsonResponse(_authBody(kind: 'Agent')),
     );
-    final repository = ApiAuthRepository(client, baseUrl);
+    final repository = ApiAuthRepository(client, endpoint);
 
     final session = await repository.login('bot', 'a valid password');
 

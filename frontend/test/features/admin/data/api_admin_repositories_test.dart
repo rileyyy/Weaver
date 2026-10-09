@@ -15,8 +15,10 @@ import 'package:weaver/shared/data/status_repository.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
+import '../../../core/network/fakes/fixed_api_endpoint.dart';
 
 const _baseUrl = 'http://backend.test/api';
+const _endpoint = FixedApiEndpoint(_baseUrl);
 
 class _CountingStatusCache implements StatusRepository {
   int invalidations = 0;
@@ -77,7 +79,7 @@ void main() {
           200,
         );
       });
-      repository = ApiStatusAdminRepository(client, _baseUrl, cache);
+      repository = ApiStatusAdminRepository(client, _endpoint, cache);
     });
 
     test('create posts the details and drops the status cache', () async {
@@ -144,7 +146,7 @@ void main() {
           200,
         );
       });
-      repository = ApiLookupAdminRepository(client, _baseUrl);
+      repository = ApiLookupAdminRepository(client, _endpoint);
     });
 
     test('uses the path of the kind', () async {
@@ -188,7 +190,7 @@ void main() {
         }
         return http.Response(jsonEncode(_userJson('u1')), 200);
       });
-      repository = ApiUserAdminRepository(client, _baseUrl, directory);
+      repository = ApiUserAdminRepository(client, _endpoint, directory);
     });
 
     test('create posts the new account and drops the directory', () async {

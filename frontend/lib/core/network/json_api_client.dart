@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:weaver/core/network/api_endpoint.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/core/network/network_exception.dart';
 import 'package:weaver/core/network/unexpected_response_exception.dart';
@@ -12,10 +13,10 @@ import 'package:weaver/core/network/unexpected_response_exception.dart';
 /// body that doesn't match what [decode] expects is an
 /// [UnexpectedResponseException].
 class JsonApiClient {
-  JsonApiClient(this._http, this._baseUrl);
+  JsonApiClient(this._http, this._endpoint);
 
   final http.Client _http;
-  final String _baseUrl;
+  final ApiEndpoint _endpoint;
 
   static const Map<String, String> _jsonHeaders = {
     'Content-Type': 'application/json',
@@ -132,7 +133,7 @@ class JsonApiClient {
   }
 
   Uri _uri(String path, [Map<String, String>? query]) {
-    final uri = Uri.parse('$_baseUrl$path');
+    final uri = Uri.parse('${_endpoint.baseUrl}$path');
     return query == null ? uri : uri.replace(queryParameters: query);
   }
 

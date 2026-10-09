@@ -7,11 +7,13 @@ import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/core/network/json_api_client.dart';
 import 'package:weaver/core/network/network_exception.dart';
 import 'package:weaver/core/network/unexpected_response_exception.dart';
+import 'fakes/fixed_api_endpoint.dart';
 
 const _baseUrl = 'http://backend.test/api';
+const _endpoint = FixedApiEndpoint(_baseUrl);
 
 JsonApiClient _client(MockClientHandler handler) =>
-    JsonApiClient(MockClient(handler), _baseUrl);
+    JsonApiClient(MockClient(handler), _endpoint);
 
 void main() {
   test('get decodes the body and sends query parameters', () async {

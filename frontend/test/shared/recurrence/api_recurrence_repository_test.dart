@@ -7,6 +7,7 @@ import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/shared/recurrence/data/api_recurrence_repository.dart';
 import 'package:weaver/shared/recurrence/models/recurrence_draft.dart';
 import 'package:weaver/shared/recurrence/models/recurrence_frequency.dart';
+import '../../core/network/fakes/fixed_api_endpoint.dart';
 
 Map<String, dynamic> _recurrenceJson({String workItemId = 'item-1'}) => {
   'workItemId': workItemId,
@@ -34,7 +35,7 @@ void main() {
         expect(request.url.path, '/api/work-items/item-1/recurrence');
         return http.Response('', 204);
       }),
-      'http://host/api',
+      const FixedApiEndpoint('http://host/api'),
     );
 
     expect(await repository.get('item-1'), isNull);
@@ -43,7 +44,7 @@ void main() {
   test('get parses a schedule', () async {
     final repository = ApiRecurrenceRepository(
       MockClient((_) async => _json(_recurrenceJson())),
-      'http://host/api',
+      const FixedApiEndpoint('http://host/api'),
     );
 
     final result = await repository.get('item-1');
@@ -60,7 +61,7 @@ void main() {
           _recurrenceJson(workItemId: 'item-2'),
         ]);
       }),
-      'http://host/api',
+      const FixedApiEndpoint('http://host/api'),
     );
 
     final result = await repository.list();
@@ -75,7 +76,7 @@ void main() {
         sent = request;
         return _json(_recurrenceJson());
       }),
-      'http://host/api',
+      const FixedApiEndpoint('http://host/api'),
     );
 
     await repository.save(
@@ -106,7 +107,7 @@ void main() {
           400,
         ),
       ),
-      'http://host/api',
+      const FixedApiEndpoint('http://host/api'),
     );
 
     await expectLater(
@@ -129,7 +130,7 @@ void main() {
         sent = request;
         return http.Response('', 204);
       }),
-      'http://host/api',
+      const FixedApiEndpoint('http://host/api'),
     );
 
     await repository.remove('item-1');

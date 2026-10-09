@@ -8,6 +8,7 @@ import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/board/data/api_board_repository.dart';
 import 'package:weaver/shared/data/api_status_repository.dart';
 import 'package:weaver/shared/data/api_user_directory_repository.dart';
+import '../../../core/network/fakes/fixed_api_endpoint.dart';
 
 http.Response _jsonResponse(Object body, {int statusCode = 200}) =>
     http.Response(
@@ -18,6 +19,7 @@ http.Response _jsonResponse(Object body, {int statusCode = 200}) =>
 
 void main() {
   const baseUrl = 'http://backend.test/api';
+  const endpoint = FixedApiEndpoint(baseUrl);
 
   test("loadRootScopeItemId returns the first board's scope item", () async {
     final client = MockClient((request) async {
@@ -31,9 +33,9 @@ void main() {
 
     final repository = ApiBoardRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     expect(await repository.loadRootScopeItemId(), 'epic-1');
@@ -47,9 +49,9 @@ void main() {
 
     final repository = ApiBoardRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     expect(await repository.loadRootScopeItemId(), isNull);
@@ -95,9 +97,9 @@ void main() {
 
   ApiBoardRepository repositoryFor(http.Client client) => ApiBoardRepository(
     client,
-    baseUrl,
-    ApiStatusRepository(client, baseUrl),
-    ApiUserDirectoryRepository(client, baseUrl),
+    endpoint,
+    ApiStatusRepository(client, endpoint),
+    ApiUserDirectoryRepository(client, endpoint),
   );
 
   test('loadBoard builds swimlanes from one swimlanes request', () async {
@@ -199,9 +201,9 @@ void main() {
 
       final repository = ApiBoardRepository(
         client,
-        baseUrl,
-        ApiStatusRepository(client, baseUrl),
-        ApiUserDirectoryRepository(client, baseUrl),
+        endpoint,
+        ApiStatusRepository(client, endpoint),
+        ApiUserDirectoryRepository(client, endpoint),
       );
 
       await expectLater(
@@ -226,9 +228,9 @@ void main() {
 
     final repository = ApiBoardRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
     await repository.changeStatus('card-1', 'status-done');
 
@@ -245,9 +247,9 @@ void main() {
 
     final repository = ApiBoardRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     await expectLater(
@@ -265,9 +267,9 @@ void main() {
 
     final repository = ApiBoardRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
     await repository.reparentItem('card-1', 'lane-2');
 
@@ -284,9 +286,9 @@ void main() {
 
     final repository = ApiBoardRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     await expectLater(
@@ -312,9 +314,9 @@ void main() {
 
     final repository = ApiBoardRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
     final users = await repository.loadUsers();
 
@@ -352,9 +354,9 @@ void main() {
 
       final repository = ApiBoardRepository(
         client,
-        baseUrl,
-        ApiStatusRepository(client, baseUrl),
-        ApiUserDirectoryRepository(client, baseUrl),
+        endpoint,
+        ApiStatusRepository(client, endpoint),
+        ApiUserDirectoryRepository(client, endpoint),
       );
       final items = await repository.loadAllItems();
 
@@ -388,9 +390,9 @@ void main() {
     });
     final repository = ApiBoardRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     final items = await repository.loadAllItems();
@@ -408,9 +410,9 @@ void main() {
 
     final repository = ApiBoardRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     await expectLater(repository.loadAllItems(), throwsA(isA<ApiException>()));
@@ -428,9 +430,9 @@ void main() {
 
     final repository = ApiBoardRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
     await repository.rescheduleItem('card-1', start, null);
 
@@ -452,9 +454,9 @@ void main() {
 
     final repository = ApiBoardRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     await expectLater(
@@ -472,9 +474,9 @@ void main() {
 
     final repository = ApiBoardRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
     await repository.assign('card-1', 'user-1');
 
@@ -493,9 +495,9 @@ void main() {
 
     final repository = ApiBoardRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
     await repository.assign('card-1', null);
 
@@ -509,9 +511,9 @@ void main() {
 
     final repository = ApiBoardRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     await expectLater(
@@ -529,9 +531,9 @@ void main() {
 
     final repository = ApiBoardRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
     await repository.setTags('card-1', ['urgent', 'needs review']);
 
@@ -552,9 +554,9 @@ void main() {
 
     final repository = ApiBoardRepository(
       client,
-      baseUrl,
-      ApiStatusRepository(client, baseUrl),
-      ApiUserDirectoryRepository(client, baseUrl),
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
     );
 
     await expectLater(

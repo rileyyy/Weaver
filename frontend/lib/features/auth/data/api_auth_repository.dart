@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
+import 'package:weaver/core/network/api_endpoint.dart';
 import 'package:weaver/core/network/json_api_client.dart';
 import 'package:weaver/features/auth/data/auth_repository.dart';
 import 'package:weaver/features/auth/models/auth_session.dart';
@@ -13,8 +14,8 @@ import 'package:weaver/features/auth/models/auth_session.dart';
 class ApiAuthRepository implements AuthRepository {
   ApiAuthRepository(
     @Named('rawHttpClient') http.Client client,
-    @Named('apiBaseUrl') String baseUrl,
-  ) : _api = JsonApiClient(client, baseUrl);
+    ApiEndpoint endpoint,
+  ) : _api = JsonApiClient(client, endpoint);
 
   final JsonApiClient _api;
 

@@ -1,6 +1,7 @@
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
 import 'package:weaver/core/network/api_dates.dart';
+import 'package:weaver/core/network/api_endpoint.dart';
 import 'package:weaver/core/network/json_api_client.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
@@ -18,10 +19,10 @@ import 'package:weaver/shared/models/work_item_status.dart';
 class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   ApiWorkItemDetailRepository(
     http.Client client,
-    @Named('apiBaseUrl') String baseUrl,
+    ApiEndpoint endpoint,
     this._statuses,
     this._users,
-  ) : _api = JsonApiClient(client, baseUrl);
+  ) : _api = JsonApiClient(client, endpoint);
 
   final JsonApiClient _api;
   final StatusRepository _statuses;

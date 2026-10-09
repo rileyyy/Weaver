@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
+import 'package:weaver/core/network/api_endpoint.dart';
 import 'package:weaver/core/network/json_api_client.dart';
 import 'package:weaver/features/admin/data/lookup_admin_repository.dart';
 import 'package:weaver/features/admin/models/lookup_kind.dart';
@@ -7,10 +8,8 @@ import 'package:weaver/features/admin/models/lookup_value.dart';
 
 @LazySingleton(as: LookupAdminRepository)
 class ApiLookupAdminRepository implements LookupAdminRepository {
-  ApiLookupAdminRepository(
-    http.Client client,
-    @Named('apiBaseUrl') String baseUrl,
-  ) : _api = JsonApiClient(client, baseUrl);
+  ApiLookupAdminRepository(http.Client client, ApiEndpoint endpoint)
+    : _api = JsonApiClient(client, endpoint);
 
   final JsonApiClient _api;
 

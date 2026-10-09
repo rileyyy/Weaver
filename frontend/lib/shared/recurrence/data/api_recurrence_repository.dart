@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
+import 'package:weaver/core/network/api_endpoint.dart';
 import 'package:weaver/core/network/json_api_client.dart';
 import 'package:weaver/shared/recurrence/data/recurrence_repository.dart';
 import 'package:weaver/shared/recurrence/models/recurrence_draft.dart';
@@ -7,10 +8,8 @@ import 'package:weaver/shared/recurrence/models/work_item_recurrence.dart';
 
 @LazySingleton(as: RecurrenceRepository)
 class ApiRecurrenceRepository implements RecurrenceRepository {
-  ApiRecurrenceRepository(
-    http.Client client,
-    @Named('apiBaseUrl') String baseUrl,
-  ) : _api = JsonApiClient(client, baseUrl);
+  ApiRecurrenceRepository(http.Client client, ApiEndpoint endpoint)
+    : _api = JsonApiClient(client, endpoint);
 
   final JsonApiClient _api;
 

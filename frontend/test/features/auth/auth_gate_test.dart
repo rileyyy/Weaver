@@ -6,6 +6,7 @@ import 'package:weaver/features/auth/auth_view_model.dart';
 import 'package:weaver/features/auth/data/auth_session_store.dart';
 import 'package:weaver/features/auth/login_view.dart';
 
+import '../../core/network/fakes/in_memory_server_origin_store.dart';
 import 'fakes/fake_auth_repository.dart';
 import 'fakes/in_memory_token_store.dart';
 
@@ -17,7 +18,7 @@ void main() {
     final repository = FakeAuthRepository();
     sessionStore = AuthSessionStore(repository, InMemoryTokenStore());
     getIt.registerFactory<AuthViewModel>(
-      () => AuthViewModel(repository, sessionStore),
+      () => AuthViewModel(repository, sessionStore, webServerSettings()),
     );
   });
 
