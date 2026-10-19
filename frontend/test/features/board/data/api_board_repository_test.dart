@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/board/data/api_board_repository.dart';
+import 'package:weaver/shared/data/api_layer_repository.dart';
 import 'package:weaver/shared/data/api_status_repository.dart';
 import 'package:weaver/shared/data/api_user_directory_repository.dart';
 import '../../../core/network/fakes/fixed_api_endpoint.dart';
@@ -35,6 +36,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -51,6 +53,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -63,10 +66,14 @@ void main() {
     Map<String, dynamic> laneFields = const {},
     Map<String, dynamic> cardFields = const {},
     List<Map<String, dynamic>> statuses = const [],
+    List<Map<String, dynamic>> layers = const [],
     List<String>? requestLog,
   }) => MockClient((request) async {
     requestLog?.add(request.url.toString());
     if (request.url.path == '/api/statuses') return _jsonResponse(statuses);
+    if (request.url.path == '/api/work-item-layers') {
+      return _jsonResponse(layers);
+    }
     if (request.url.path == '/api/work-items/swimlanes' &&
         request.url.queryParameters['scopeItemId'] == 'epic-1') {
       return _jsonResponse([
@@ -99,6 +106,7 @@ void main() {
     client,
     endpoint,
     ApiStatusRepository(client, endpoint),
+    ApiLayerRepository(client, endpoint),
     ApiUserDirectoryRepository(client, endpoint),
   );
 
@@ -121,13 +129,29 @@ void main() {
     expect(board.swimlanes.single.cards.single.number, 1);
     expect(requests, [
       '$baseUrl/statuses',
+      '$baseUrl/work-item-layers',
       '$baseUrl/work-items/swimlanes?scopeItemId=epic-1',
     ]);
+  });
+
+  test('loadBoard loads the layers and each card keeps its layer', () async {
+    final client = boardClient(
+      layers: [
+        {'id': 'layer-task', 'name': 'Task', 'order': 2, 'color': '#43A047'},
+      ],
+      cardFields: {'layerId': 'layer-task'},
+    );
+
+    final board = await repositoryFor(client).loadBoard('epic-1');
+
+    expect(board.layers.single.color, const Color(0xFF43A047));
+    expect(board.swimlanes.single.cards.single.layerId, 'layer-task');
   });
 
   test('loadBoard treats a null scope as top-level', () async {
     final client = MockClient((request) async {
       if (request.url.path == '/api/statuses') return _jsonResponse([]);
+      if (request.url.path == '/api/work-item-layers') return _jsonResponse([]);
       if (request.url.path == '/api/work-items/swimlanes') {
         expect(request.url.queryParameters, isEmpty);
         return _jsonResponse([]);
@@ -203,6 +227,7 @@ void main() {
         client,
         endpoint,
         ApiStatusRepository(client, endpoint),
+        ApiLayerRepository(client, endpoint),
         ApiUserDirectoryRepository(client, endpoint),
       );
 
@@ -230,6 +255,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
     await repository.changeStatus('card-1', 'status-done');
@@ -249,6 +275,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -269,6 +296,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
     await repository.reparentItem('card-1', 'lane-2');
@@ -288,6 +316,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -316,6 +345,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
     final users = await repository.loadUsers();
@@ -356,6 +386,7 @@ void main() {
         client,
         endpoint,
         ApiStatusRepository(client, endpoint),
+        ApiLayerRepository(client, endpoint),
         ApiUserDirectoryRepository(client, endpoint),
       );
       final items = await repository.loadAllItems();
@@ -392,6 +423,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -412,6 +444,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -432,6 +465,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
     await repository.rescheduleItem('card-1', start, null);
@@ -456,6 +490,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -476,6 +511,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
     await repository.assign('card-1', 'user-1');
@@ -497,6 +533,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
     await repository.assign('card-1', null);
@@ -513,6 +550,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -533,6 +571,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
     await repository.setTags('card-1', ['urgent', 'needs review']);
@@ -556,6 +595,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 

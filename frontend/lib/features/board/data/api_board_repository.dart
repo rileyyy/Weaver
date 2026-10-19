@@ -8,6 +8,7 @@ import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
+import 'package:weaver/shared/data/layer_repository.dart';
 import 'package:weaver/shared/data/status_repository.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
 import 'package:weaver/shared/models/user.dart';
@@ -26,11 +27,13 @@ class ApiBoardRepository implements BoardRepository {
     http.Client client,
     ApiEndpoint endpoint,
     this._statuses,
+    this._layers,
     this._users,
   ) : _api = JsonApiClient(client, endpoint);
 
   final JsonApiClient _api;
   final StatusRepository _statuses;
+  final LayerRepository _layers;
   final UserDirectoryRepository _users;
 
   @override
@@ -42,17 +45,18 @@ class ApiBoardRepository implements BoardRepository {
 
   @override
   Future<BoardData> loadBoard(String? scopeItemId) async {
-    // Two requests at most (statuses are cached after the first load):
-    // /swimlanes returns every lane with its cards, instead of one request
-    // per lane.
+    // Three requests at most (statuses and layers are cached after the
+    // first load): /swimlanes returns every lane with its cards, instead of
+    // one request per lane.
     final statuses = await _statuses.loadStatuses();
+    final layers = await _layers.loadLayers();
     final swimlanes = await _api.get(
       '/work-items/swimlanes',
       (json) => JsonApiClient.listOf(json, _toSwimlane),
       query: scopeItemId == null ? null : {'scopeItemId': scopeItemId},
       failureMessage: 'Failed to load the board',
     );
-    return BoardData(statuses: statuses, swimlanes: swimlanes);
+    return BoardData(statuses: statuses, swimlanes: swimlanes, layers: layers);
   }
 
   @override

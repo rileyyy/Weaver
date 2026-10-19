@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/core/network/api_exception.dart';
+import 'package:weaver/features/admin/lookup_admin_view_model.dart';
+import 'package:weaver/features/admin/models/lookup_kind.dart';
+import 'package:weaver/features/admin/models/lookup_value.dart';
 import 'package:weaver/features/admin/status_admin_view_model.dart';
 import 'package:weaver/features/admin/user_admin_view_model.dart';
+import 'package:weaver/features/admin/views/lookup_tab.dart';
 import 'package:weaver/features/admin/views/statuses_tab.dart';
 import 'package:weaver/features/admin/views/users_tab.dart';
 import 'package:weaver/shared/data/current_user.dart';
 
+import '../fakes/fake_lookup_admin_repository.dart';
 import '../fakes/fake_status_admin_repository.dart';
 import '../fakes/fake_user_admin_repository.dart';
 
@@ -20,6 +25,46 @@ class _SignedInAs implements CurrentUser {
 Widget _host(Widget child) => MaterialApp(home: Scaffold(body: child));
 
 void main() {
+  group('LookupTab', () {
+    testWidgets('editing a layer saves its new colour', (tester) async {
+      final repository = FakeLookupAdminRepository(const [
+        LookupValue(id: 'task', name: 'Task', order: 0, color: '#43A047'),
+      ]);
+      final viewModel = LookupAdminViewModel(repository, LookupKind.layers);
+      addTearDown(viewModel.dispose);
+      await viewModel.load();
+      await tester.pumpWidget(_host(LookupTab(viewModel: viewModel)));
+
+      await tester.tap(find.byTooltip('Edit Task'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('#FDD835'));
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(repository.calls.last, 'update layers task Task #FDD835');
+      expect(find.byType(CircleAvatar), findsOneWidget);
+    });
+
+    testWidgets('a priority has no colour to edit', (tester) async {
+      final viewModel = LookupAdminViewModel(
+        FakeLookupAdminRepository(const [
+          LookupValue(id: 'low', name: 'Low', order: 0),
+        ]),
+        LookupKind.priorities,
+      );
+      addTearDown(viewModel.dispose);
+      await viewModel.load();
+      await tester.pumpWidget(_host(LookupTab(viewModel: viewModel)));
+
+      await tester.tap(find.byTooltip('Edit Low'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Rename priority'), findsOneWidget);
+      expect(find.text('Colour'), findsNothing);
+    });
+  });
+
   group('StatusesTab', () {
     testWidgets('lists the statuses with a drag handle each', (tester) async {
       final viewModel = StatusAdminViewModel(

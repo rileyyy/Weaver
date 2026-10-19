@@ -7,7 +7,10 @@ import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/views/hierarchy/hierarchy_layout.dart';
 import 'package:weaver/features/board/views/hierarchy/hierarchy_view.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
+
+const _projectColor = Color(0xFFD81B60);
 
 class _HierarchyOnlyRepository implements BoardRepository {
   @override
@@ -17,6 +20,14 @@ class _HierarchyOnlyRepository implements BoardRepository {
   Future<BoardData> loadBoard(String? scopeItemId) async => const BoardData(
     statuses: [WorkItemStatus(id: 'todo', name: 'To Do', order: 0)],
     swimlanes: [],
+    layers: [
+      WorkItemLayer(
+        id: 'project',
+        name: 'Project',
+        order: 0,
+        color: _projectColor,
+      ),
+    ],
   );
 
   @override
@@ -27,6 +38,7 @@ class _HierarchyOnlyRepository implements BoardRepository {
       parentId: null,
       title: 'A root item with a fairly long title',
       statusId: 'todo',
+      layerId: 'project',
       tags: ['urgent', 'design'],
     ),
     HierarchyItem(
@@ -46,6 +58,33 @@ class _HierarchyOnlyRepository implements BoardRepository {
 }
 
 void main() {
+  testWidgets("a title is underlined in its layer's colour", (tester) async {
+    final viewModel = BoardViewModel(_HierarchyOnlyRepository());
+    await viewModel.load();
+    await viewModel.loadHierarchy();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HierarchyView(
+            viewModel: viewModel,
+            onItemOpened: (_) {},
+            onAssignRequested: (_, _) {},
+            onAddTagsRequested: (_, _) {},
+          ),
+        ),
+      ),
+    );
+
+    final root = tester.widget<Text>(
+      find.text('A root item with a fairly long title'),
+    );
+    final child = tester.widget<Text>(find.text('Child'));
+    expect(root.style?.decoration, TextDecoration.underline);
+    expect(root.style?.decorationColor, _projectColor);
+    expect(child.style?.decoration, isNull);
+  });
+
   testWidgets('a narrow screen scrolls horizontally instead of overflowing', (
     tester,
   ) async {

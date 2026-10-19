@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:weaver/shared/models/work_item_status.dart';
+import 'package:weaver/shared/models/hex_color.dart';
 
-/// A row of preset swatches plus a `#RRGGBB` field for any other colour.
-/// The seeded statuses' colours are among the presets.
-class StatusColorPicker extends StatelessWidget {
-  const StatusColorPicker({
+final _hexColor = RegExp(r'^#[0-9a-fA-F]{6}$');
+
+/// A row of preset swatches plus a `#RRGGBB` field for any other colour,
+/// for statuses and layers. The seeded statuses' and layers' colours are
+/// among the presets.
+class HexColorPicker extends StatelessWidget {
+  const HexColorPicker({
     super.key,
     required this.controller,
     required this.onChanged,
@@ -23,6 +26,9 @@ class StatusColorPicker extends StatelessWidget {
     '#546E7A',
     '#D81B60',
   ];
+
+  /// Whether [text] is what the server accepts: exactly `#RRGGBB`.
+  static bool isValid(String text) => _hexColor.hasMatch(text.trim());
 
   final TextEditingController controller;
   final VoidCallback onChanged;
@@ -54,7 +60,7 @@ class StatusColorPicker extends StatelessWidget {
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
-                      color: parseStatusColor(hex),
+                      color: parseHexColor(hex),
                       shape: BoxShape.circle,
                       border: hex == selected
                           ? Border.all(color: outline, width: 3)
@@ -77,7 +83,7 @@ class StatusColorPicker extends StatelessWidget {
               child: CircleAvatar(
                 radius: 8,
                 backgroundColor:
-                    parseStatusColor(controller.text) ?? Colors.transparent,
+                    parseHexColor(controller.text) ?? Colors.transparent,
               ),
             ),
           ),

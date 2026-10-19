@@ -421,6 +421,7 @@ class _BoardViewState extends State<BoardView>
             cardVisible: _viewModel.cardVisible,
             cardComparator: _viewModel.cardComparator,
             assigneeInitialFor: _viewModel.assigneeInitialFor,
+            layerColorFor: _viewModel.layerColorFor,
             collapsedSwimlaneIds: _collapsedSwimlaneIds,
             onToggleSwimlaneCollapsed: _toggleSwimlaneCollapsed,
             onToggleAllSwimlanesCollapsed: _toggleAllSwimlanesCollapsed,

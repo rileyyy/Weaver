@@ -6,9 +6,11 @@ import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/models/lookup_value.dart';
 import 'package:weaver/features/admin/widgets/admin_list_frame.dart';
 import 'package:weaver/features/admin/widgets/delete_lookup_dialog.dart';
+import 'package:weaver/features/admin/widgets/layer_dialog.dart';
 import 'package:weaver/features/admin/widgets/name_dialog.dart';
 import 'package:weaver/features/admin/widgets/reorderable_lookup_list.dart';
 import 'package:weaver/features/admin/widgets/show_admin_error.dart';
+import 'package:weaver/shared/models/hex_color.dart';
 
 /// The Priorities or Layers tab.
 class LookupTab extends StatelessWidget {
@@ -22,7 +24,8 @@ class LookupTab extends StatelessWidget {
     LookupKind.priorities =>
       'Priorities, from least to most urgent. Drag to reorder.',
     LookupKind.layers =>
-      'Layers label what kind of thing a work item is. Drag to reorder.',
+      'Layers label what kind of thing a work item is, and colour its card '
+          'on the board. Drag to reorder.',
   };
 
   @override
@@ -36,15 +39,7 @@ class LookupTab extends StatelessWidget {
         onRetry: viewModel.load,
         description: _description,
         addLabel: 'Add $singular',
-        onAdd: () => unawaited(
-          showNameDialog(
-            context,
-            title: 'Add $singular',
-            label: 'Name',
-            submitLabel: 'Add',
-            onSave: viewModel.create,
-          ),
-        ),
+        onAdd: () => unawaited(_add(context)),
         child: ReorderableLookupList<LookupValue>(
           items: viewModel.items,
           idOf: (value) => value.id,
@@ -57,19 +52,47 @@ class LookupTab extends StatelessWidget {
                   .then((error) => showAdminError(messenger, error)),
             );
           },
-          onEdit: (value) => unawaited(
-            showNameDialog(
-              context,
-              title: 'Rename $singular',
-              label: 'Name',
-              submitLabel: 'Save',
-              initialName: value.name,
-              onSave: (name) => viewModel.rename(value.id, name),
-            ),
-          ),
+          swatchOf: _kind.hasColor
+              ? (value) => parseHexColor(value.color)
+              : null,
+          onEdit: (value) => unawaited(_edit(context, value)),
           onDelete: (value) => unawaited(_delete(context, value)),
         ),
       ),
+    );
+  }
+
+  Future<bool> _add(BuildContext context) {
+    if (_kind.hasColor) {
+      return showLayerDialog(
+        context,
+        onSave: (name, color) => viewModel.create(name, color: color),
+      );
+    }
+    return showNameDialog(
+      context,
+      title: 'Add ${_kind.singular}',
+      label: 'Name',
+      submitLabel: 'Add',
+      onSave: viewModel.create,
+    );
+  }
+
+  Future<bool> _edit(BuildContext context, LookupValue value) {
+    if (_kind.hasColor) {
+      return showLayerDialog(
+        context,
+        initial: value,
+        onSave: (name, color) => viewModel.update(value.id, name, color: color),
+      );
+    }
+    return showNameDialog(
+      context,
+      title: 'Rename ${_kind.singular}',
+      label: 'Name',
+      submitLabel: 'Save',
+      initialName: value.name,
+      onSave: (name) => viewModel.update(value.id, name),
     );
   }
 

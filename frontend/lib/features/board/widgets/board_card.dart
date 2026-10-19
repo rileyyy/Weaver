@@ -8,9 +8,6 @@ import 'package:weaver/features/board/widgets/tag_badge_row.dart';
 
 const double _feedbackWidth = 208;
 
-/// Placeholder for a future status/priority-driven color — static for now,
-/// per explicit direction, rather than derived from the card's own data.
-const Color _handleColor = Colors.green;
 const double _handleWidth = 2;
 
 class BoardCard extends StatelessWidget {
@@ -19,6 +16,7 @@ class BoardCard extends StatelessWidget {
     required this.card,
     required this.height,
     required this.assigneeInitial,
+    required this.layerColor,
     required this.onOpenDetails,
     required this.onAssignTapped,
     required this.onAddTagTapped,
@@ -35,6 +33,10 @@ class BoardCard extends StatelessWidget {
   /// no avatar at all, whether because there's no assignee or the user
   /// directory hasn't loaded yet.
   final String? assigneeInitial;
+
+  /// The card's layer colour, for the bar along its left edge — null (no
+  /// layer, or layers not loaded) shows a neutral bar instead.
+  final Color? layerColor;
 
   /// Called when the card is tapped, to open a dialog showing every
   /// attribute of this work item (title/description/layer/priority/
@@ -88,7 +90,10 @@ class BoardCard extends StatelessWidget {
           children: [
             // A full-height color handle flush with the card's own left
             // edge; the card's fixed height gives stretch a bound.
-            Container(width: _handleWidth, color: _handleColor),
+            Container(
+              width: _handleWidth,
+              color: layerColor ?? Theme.of(context).colorScheme.outline,
+            ),
             Expanded(
               child: InkWell(
                 onTap: onOpenDetails,

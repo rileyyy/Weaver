@@ -16,6 +16,7 @@ class WorkItemCard {
     this.startDate,
     this.endDate,
     this.assignedToUserId,
+    this.layerId,
     this.tags = const [],
   });
 
@@ -29,6 +30,7 @@ class WorkItemCard {
     startDate: parseCalendarDate(json['startDate']),
     endDate: parseCalendarDate(json['endDate']),
     assignedToUserId: json['assignedToUserId'] as String?,
+    layerId: json['layerId'] as String?,
     tags: stringList(json['tags']),
   );
 
@@ -52,6 +54,10 @@ class WorkItemCard {
 
   final String? assignedToUserId;
 
+  /// Which layer (e.g. Project / Goal / Task) this item is labelled with,
+  /// if any; its colour marks the item on the board.
+  final String? layerId;
+
   /// Short free-text labels, zero or more — see [tagged].
   final List<String> tags;
 
@@ -65,6 +71,7 @@ class WorkItemCard {
     startDate: startDate,
     endDate: endDate,
     assignedToUserId: assignedToUserId,
+    layerId: layerId,
     tags: tags,
   );
 
@@ -81,6 +88,7 @@ class WorkItemCard {
     startDate: startDate,
     endDate: endDate,
     assignedToUserId: assignedToUserId,
+    layerId: layerId,
     tags: tags,
   );
 
@@ -97,6 +105,7 @@ class WorkItemCard {
         startDate: startDate,
         endDate: endDate,
         assignedToUserId: assignedToUserId,
+        layerId: layerId,
         tags: tags,
       );
 
@@ -112,6 +121,7 @@ class WorkItemCard {
     startDate: startDate,
     endDate: endDate,
     assignedToUserId: userId,
+    layerId: layerId,
     tags: tags,
   );
 
@@ -127,6 +137,7 @@ class WorkItemCard {
     startDate: startDate,
     endDate: endDate,
     assignedToUserId: assignedToUserId,
+    layerId: layerId,
     tags: tags,
   );
 }

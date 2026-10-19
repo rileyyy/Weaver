@@ -23,17 +23,31 @@ class FakeLookupAdminRepository implements LookupAdminRepository {
   }
 
   @override
-  Future<LookupValue> create(LookupKind kind, String name) async {
-    calls.add('create ${kind.name} $name');
+  Future<LookupValue> create(
+    LookupKind kind,
+    String name, {
+    String? color,
+  }) async {
+    calls.add('create ${kind.name} $name $color');
     await _fail();
-    return LookupValue(id: 'new', name: name, order: values.length);
+    return LookupValue(
+      id: 'new',
+      name: name,
+      order: values.length,
+      color: color,
+    );
   }
 
   @override
-  Future<LookupValue> rename(LookupKind kind, String id, String name) async {
-    calls.add('rename ${kind.name} $id $name');
+  Future<LookupValue> update(
+    LookupKind kind,
+    String id,
+    String name, {
+    String? color,
+  }) async {
+    calls.add('update ${kind.name} $id $name $color');
     await _fail();
-    return LookupValue(id: id, name: name, order: 0);
+    return LookupValue(id: id, name: name, order: 0, color: color);
   }
 
   @override

@@ -18,6 +18,7 @@ import 'package:weaver/features/board/state/tag_additions.dart';
 import 'package:weaver/features/board/state/user_directory.dart';
 import 'package:weaver/features/board/state/work_item_sorting.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
 Future<void> _noRetry() => Future.value();
@@ -33,6 +34,7 @@ class BoardViewModel extends ViewModel {
 
   List<WorkItemStatus> _statuses = const [];
   Map<String, WorkItemStatus> _statusById = const {};
+  Map<String, WorkItemLayer> _layerById = const {};
   List<Swimlane> _swimlanes = const [];
   List<ScopeCrumb> _breadcrumbs = const [];
   bool _isLoading = true;
@@ -203,6 +205,10 @@ class BoardViewModel extends ViewModel {
   String? statusNameFor(String statusId) => _statusById[statusId]?.name;
 
   Color? statusColorFor(String statusId) => _statusById[statusId]?.color;
+
+  /// The colour of the layer [layerId] names, marking an item's kind on the
+  /// board — null when it has no layer or the layer is unknown.
+  Color? layerColorFor(String? layerId) => _layerById[layerId]?.color;
 
   /// The uppercased first letter of the assigned user's username, for a
   /// small avatar — null if [userId] is null or unresolved (e.g. the user
@@ -652,6 +658,7 @@ class BoardViewModel extends ViewModel {
   void _applyScope(BoardData data) {
     _statuses = [...data.statuses]..sort((a, b) => a.order.compareTo(b.order));
     _statusById = {for (final status in _statuses) status.id: status};
+    _layerById = {for (final layer in data.layers) layer.id: layer};
     _swimlanes = data.swimlanes;
   }
 

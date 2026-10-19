@@ -8,7 +8,7 @@ import 'package:weaver/features/admin/widgets/delete_lookup_dialog.dart';
 import 'package:weaver/features/admin/widgets/reorderable_lookup_list.dart';
 import 'package:weaver/features/admin/widgets/show_admin_error.dart';
 import 'package:weaver/features/admin/widgets/status_dialog.dart';
-import 'package:weaver/shared/models/work_item_status.dart';
+import 'package:weaver/shared/models/hex_color.dart';
 
 class StatusesTab extends StatelessWidget {
   const StatusesTab({super.key, required this.viewModel});
@@ -34,7 +34,7 @@ class StatusesTab extends StatelessWidget {
           idOf: (status) => status.id,
           titleOf: (status) => status.name,
           subtitleOf: (status) => status.category.label,
-          swatchOf: (status) => parseStatusColor(status.color),
+          swatchOf: (status) => parseHexColor(status.color),
           deleteDisabledReason: viewModel.canDelete
               ? null
               : 'At least one status must remain',

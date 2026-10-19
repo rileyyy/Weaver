@@ -11,10 +11,13 @@ import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/models/new_user.dart';
 import 'package:weaver/features/admin/models/status_category.dart';
 import 'package:weaver/features/admin/models/status_details.dart';
+import 'package:weaver/shared/data/layer_repository.dart';
 import 'package:weaver/shared/data/status_repository.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
+
 import '../../../core/network/fakes/fixed_api_endpoint.dart';
 
 const _baseUrl = 'http://backend.test/api';
@@ -25,6 +28,16 @@ class _CountingStatusCache implements StatusRepository {
 
   @override
   Future<List<WorkItemStatus>> loadStatuses() async => const [];
+
+  @override
+  void invalidate() => invalidations++;
+}
+
+class _CountingLayerCache implements LayerRepository {
+  int invalidations = 0;
+
+  @override
+  Future<List<WorkItemLayer>> loadLayers() async => const [];
 
   @override
   void invalidate() => invalidations++;
@@ -134,6 +147,7 @@ void main() {
 
   group('ApiLookupAdminRepository', () {
     late List<http.Request> requests;
+    late _CountingLayerCache layerCache;
     late ApiLookupAdminRepository repository;
 
     setUp(() {
@@ -141,21 +155,56 @@ void main() {
       final client = MockClient((request) async {
         requests.add(request);
         if (request.method == 'DELETE') return http.Response('', 204);
+        if (request.url.path.endsWith('/order')) {
+          return http.Response(jsonEncode([]), 200);
+        }
         return http.Response(
           jsonEncode({'id': 'p1', 'name': 'Critical', 'order': 4}),
           200,
         );
       });
-      repository = ApiLookupAdminRepository(client, _endpoint);
+      layerCache = _CountingLayerCache();
+      repository = ApiLookupAdminRepository(client, _endpoint, layerCache);
     });
 
     test('uses the path of the kind', () async {
-      await repository.create(LookupKind.layers, 'Epic');
-      await repository.rename(LookupKind.priorities, 'p1', 'Critical');
+      await repository.create(LookupKind.layers, 'Epic', color: '#546E7A');
+      await repository.update(LookupKind.priorities, 'p1', 'Critical');
 
       expect(requests[0].url.path, '/api/work-item-layers');
       expect(requests[1].url.path, '/api/work-item-priorities/p1');
+    });
+
+    test('sends a colour for layers only', () async {
+      await repository.update(
+        LookupKind.layers,
+        'l1',
+        'Epic',
+        color: '#FDD835',
+      );
+      await repository.update(
+        LookupKind.priorities,
+        'p1',
+        'Critical',
+        color: '#FDD835',
+      );
+
+      expect(jsonDecode(requests[0].body), {
+        'name': 'Epic',
+        'color': '#FDD835',
+      });
       expect(jsonDecode(requests[1].body), {'name': 'Critical'});
+    });
+
+    test('drops the shared layer list after a layer change only', () async {
+      await repository.create(LookupKind.priorities, 'Critical');
+      await repository.delete(LookupKind.priorities, 'p1');
+      expect(layerCache.invalidations, 0);
+
+      await repository.create(LookupKind.layers, 'Epic', color: '#546E7A');
+      await repository.reorder(LookupKind.layers, ['l1']);
+      await repository.delete(LookupKind.layers, 'l1');
+      expect(layerCache.invalidations, 3);
     });
 
     test('delete without a replacement sends no query', () async {

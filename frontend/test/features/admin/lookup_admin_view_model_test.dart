@@ -25,15 +25,34 @@ void main() {
     expect(viewModel.items.map((v) => v.name), ['Low', 'High']);
   });
 
-  test('create and rename go to its kind', () async {
+  test('create and update go to its kind', () async {
     await viewModel.create('Urgent');
-    await viewModel.rename('low', 'Minor');
+    await viewModel.update('low', 'Minor');
 
     expect(repository.calls.skip(1), [
-      'create priorities Urgent',
-      'rename priorities low Minor',
+      'create priorities Urgent null',
+      'update priorities low Minor null',
     ]);
     expect(viewModel.items.map((v) => v.name), ['Minor', 'High', 'Urgent']);
+  });
+
+  test('a layer is created and updated with its colour', () async {
+    final layers = LookupAdminViewModel(
+      FakeLookupAdminRepository(const [
+        LookupValue(id: 'task', name: 'Task', order: 0, color: '#43A047'),
+      ]),
+      LookupKind.layers,
+    );
+    addTearDown(layers.dispose);
+    await layers.load();
+
+    await layers.create('Epic', color: '#546E7A');
+    await layers.update('task', 'Task', color: '#FDD835');
+
+    expect(layers.items.map((v) => (v.name, v.color)), [
+      ('Task', '#FDD835'),
+      ('Epic', '#546E7A'),
+    ]);
   });
 
   test('delete without a replacement passes none', () async {

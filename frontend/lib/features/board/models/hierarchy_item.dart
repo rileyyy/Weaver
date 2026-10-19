@@ -17,6 +17,7 @@ class HierarchyItem {
     this.startDate,
     this.endDate,
     this.assignedToUserId,
+    this.layerId,
     this.tags = const [],
   });
 
@@ -30,6 +31,7 @@ class HierarchyItem {
     startDate: parseCalendarDate(json['startDate']),
     endDate: parseCalendarDate(json['endDate']),
     assignedToUserId: json['assignedToUserId'] as String?,
+    layerId: json['layerId'] as String?,
     tags: stringList(json['tags']),
   );
 
@@ -47,6 +49,10 @@ class HierarchyItem {
   final DateTime? endDate;
   final String? assignedToUserId;
 
+  /// Which layer (e.g. Project / Goal / Task) this item is labelled with,
+  /// if any; its colour marks the item on the board.
+  final String? layerId;
+
   /// Short free-text labels, zero or more — see [tagged].
   final List<String> tags;
 
@@ -62,6 +68,7 @@ class HierarchyItem {
     startDate: startDate,
     endDate: endDate,
     assignedToUserId: userId,
+    layerId: layerId,
     tags: tags,
   );
 
@@ -77,6 +84,7 @@ class HierarchyItem {
     startDate: startDate,
     endDate: endDate,
     assignedToUserId: assignedToUserId,
+    layerId: layerId,
     tags: tags,
   );
 
@@ -92,6 +100,7 @@ class HierarchyItem {
     startDate: startDate,
     endDate: endDate,
     assignedToUserId: assignedToUserId,
+    layerId: layerId,
     tags: tags,
   );
 
@@ -106,6 +115,7 @@ class HierarchyItem {
     startDate: startDate,
     endDate: endDate,
     assignedToUserId: assignedToUserId,
+    layerId: layerId,
     tags: tags,
   );
 
@@ -121,6 +131,7 @@ class HierarchyItem {
         startDate: startDate,
         endDate: endDate,
         assignedToUserId: assignedToUserId,
+        layerId: layerId,
         tags: tags,
       );
 }

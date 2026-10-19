@@ -7,12 +7,13 @@ import 'package:weaver/features/work_item_detail/data/work_item_detail_repositor
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_layer.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
+import 'package:weaver/shared/data/layer_repository.dart';
 import 'package:weaver/shared/data/status_repository.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
 @LazySingleton(as: WorkItemDetailRepository)
@@ -21,11 +22,13 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     http.Client client,
     ApiEndpoint endpoint,
     this._statuses,
+    this._layers,
     this._users,
   ) : _api = JsonApiClient(client, endpoint);
 
   final JsonApiClient _api;
   final StatusRepository _statuses;
+  final LayerRepository _layers;
   final UserDirectoryRepository _users;
 
   static WorkItemDetail _detail(Object? json) =>
@@ -57,11 +60,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   Future<List<WorkItemStatus>> loadStatuses() => _statuses.loadStatuses();
 
   @override
-  Future<List<WorkItemLayer>> loadLayers() => _api.get(
-    '/work-item-layers',
-    (json) => JsonApiClient.listOf(json, WorkItemLayer.fromJson),
-    failureMessage: 'Failed to load layers',
-  );
+  Future<List<WorkItemLayer>> loadLayers() => _layers.loadLayers();
 
   @override
   Future<List<WorkItemPriority>> loadPriorities() => _api.get(

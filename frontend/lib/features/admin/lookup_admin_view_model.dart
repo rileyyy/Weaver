@@ -25,17 +25,19 @@ class LookupAdminViewModel extends OrderedListViewModel<LookupValue> {
   @override
   String get pluralName => kind.name;
 
-  Future<String?> create(String name) => attempt(
-    () => _repository.create(kind, name),
+  /// [color] is required for kinds where [LookupKind.hasColor]; see
+  /// [LookupAdminRepository.create].
+  Future<String?> create(String name, {String? color}) => attempt(
+    () => _repository.create(kind, name, color: color),
     onSuccess: (created) => setItems([...items, created]),
     fallbackError: 'Could not add the ${kind.singular}. Try again.',
   );
 
-  Future<String?> rename(String id, String name) => attempt(
-    () => _repository.rename(kind, id, name),
-    onSuccess: (renamed) =>
-        setItems([for (final value in items) value.id == id ? renamed : value]),
-    fallbackError: 'Could not rename the ${kind.singular}. Try again.',
+  Future<String?> update(String id, String name, {String? color}) => attempt(
+    () => _repository.update(kind, id, name, color: color),
+    onSuccess: (updated) =>
+        setItems([for (final value in items) value.id == id ? updated : value]),
+    fallbackError: 'Could not save the ${kind.singular}. Try again.',
   );
 
   /// Moves the deleted value's work items to [replacementId], or leaves them

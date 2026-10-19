@@ -9,6 +9,7 @@
 // coverage:ignore-file
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:http/http.dart' as _i519;
 import 'package:injectable/injectable.dart' as _i526;
@@ -52,9 +53,11 @@ import 'package:weaver/features/work_item_detail/repeat_settings_view_model.dart
     as _i60;
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart'
     as _i194;
+import 'package:weaver/shared/data/api_layer_repository.dart' as _i284;
 import 'package:weaver/shared/data/api_status_repository.dart' as _i209;
 import 'package:weaver/shared/data/api_user_directory_repository.dart' as _i982;
 import 'package:weaver/shared/data/current_user.dart' as _i875;
+import 'package:weaver/shared/data/layer_repository.dart' as _i0;
 import 'package:weaver/shared/data/status_repository.dart' as _i770;
 import 'package:weaver/shared/data/user_directory_repository.dart' as _i562;
 import 'package:weaver/shared/recurrence/data/api_recurrence_repository.dart'
@@ -98,11 +101,8 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i54.SecureTokenStore>(),
       ),
     );
-    gh.lazySingleton<_i519.Client>(
-      () => networkModule.httpClient(
-        gh<_i519.Client>(instanceName: 'rawHttpClient'),
-        gh<_i605.AuthSessionStore>(),
-      ),
+    gh.factory<_i875.CurrentUser>(
+      () => networkModule.currentUser(gh<_i605.AuthSessionStore>()),
     );
     gh.factory<_i6.AuthViewModel>(
       () => _i6.AuthViewModel(
@@ -111,8 +111,15 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i577.ServerSettings>(),
       ),
     );
-    gh.factory<_i875.CurrentUser>(
-      () => networkModule.currentUser(gh<_i605.AuthSessionStore>()),
+    gh.lazySingleton<_i519.Client>(
+      () => networkModule.httpClient(
+        gh<_i519.Client>(instanceName: 'rawHttpClient'),
+        gh<_i605.AuthSessionStore>(),
+      ),
+    );
+    gh.lazySingleton<_i0.LayerRepository>(
+      () =>
+          _i284.ApiLayerRepository(gh<_i519.Client>(), gh<_i202.ApiEndpoint>()),
     );
     gh.lazySingleton<_i770.StatusRepository>(
       () => _i209.ApiStatusRepository(
@@ -124,33 +131,8 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i427.ApiLookupAdminRepository(
         gh<_i519.Client>(),
         gh<_i202.ApiEndpoint>(),
+        gh<_i0.LayerRepository>(),
       ),
-    );
-    gh.lazySingleton<_i65.RecurrenceRepository>(
-      () => _i919.ApiRecurrenceRepository(
-        gh<_i519.Client>(),
-        gh<_i202.ApiEndpoint>(),
-      ),
-    );
-    gh.lazySingleton<_i562.UserDirectoryRepository>(
-      () => _i982.ApiUserDirectoryRepository(
-        gh<_i519.Client>(),
-        gh<_i202.ApiEndpoint>(),
-      ),
-    );
-    gh.lazySingleton<_i522.BoardRepository>(
-      () => _i436.ApiBoardRepository(
-        gh<_i519.Client>(),
-        gh<_i202.ApiEndpoint>(),
-        gh<_i770.StatusRepository>(),
-        gh<_i562.UserDirectoryRepository>(),
-      ),
-    );
-    gh.factory<_i87.RepeatingItemsViewModel>(
-      () => _i87.RepeatingItemsViewModel(gh<_i65.RecurrenceRepository>()),
-    );
-    gh.factory<_i60.RepeatSettingsViewModel>(
-      () => _i60.RepeatSettingsViewModel(gh<_i65.RecurrenceRepository>()),
     );
     gh.lazySingleton<_i224.StatusAdminRepository>(
       () => _i550.ApiStatusAdminRepository(
@@ -159,29 +141,57 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i770.StatusRepository>(),
       ),
     );
-    gh.lazySingleton<_i290.UserAdminRepository>(
-      () => _i756.ApiUserAdminRepository(
-        gh<_i519.Client>(),
-        gh<_i202.ApiEndpoint>(),
-        gh<_i562.UserDirectoryRepository>(),
-      ),
-    );
     gh.factoryParam<_i281.LookupAdminViewModel, _i54.LookupKind, dynamic>(
       (kind, _) =>
           _i281.LookupAdminViewModel(gh<_i377.LookupAdminRepository>(), kind),
+    );
+    gh.factory<_i609.StatusAdminViewModel>(
+      () => _i609.StatusAdminViewModel(gh<_i224.StatusAdminRepository>()),
+    );
+    gh.lazySingleton<_i562.UserDirectoryRepository>(
+      () => _i982.ApiUserDirectoryRepository(
+        gh<_i519.Client>(),
+        gh<_i202.ApiEndpoint>(),
+      ),
     );
     gh.lazySingleton<_i982.WorkItemDetailRepository>(
       () => _i335.ApiWorkItemDetailRepository(
         gh<_i519.Client>(),
         gh<_i202.ApiEndpoint>(),
         gh<_i770.StatusRepository>(),
+        gh<_i0.LayerRepository>(),
         gh<_i562.UserDirectoryRepository>(),
       ),
     );
-    gh.factory<_i194.WorkItemDetailViewModel>(
-      () => _i194.WorkItemDetailViewModel(
-        gh<_i982.WorkItemDetailRepository>(),
-        gh<_i875.CurrentUser>(),
+    gh.lazySingleton<_i65.RecurrenceRepository>(
+      () => _i919.ApiRecurrenceRepository(
+        gh<_i519.Client>(),
+        gh<_i202.ApiEndpoint>(),
+      ),
+    );
+    gh.factory<_i87.RepeatingItemsViewModel>(
+      () => _i87.RepeatingItemsViewModel(gh<_i65.RecurrenceRepository>()),
+    );
+    gh.factory<_i60.RepeatSettingsViewModel>(
+      () => _i60.RepeatSettingsViewModel(gh<_i65.RecurrenceRepository>()),
+    );
+    gh.lazySingleton<_i522.BoardRepository>(
+      () => _i436.ApiBoardRepository(
+        gh<_i519.Client>(),
+        gh<_i202.ApiEndpoint>(),
+        gh<_i770.StatusRepository>(),
+        gh<_i0.LayerRepository>(),
+        gh<_i562.UserDirectoryRepository>(),
+      ),
+    );
+    gh.factory<_i314.BoardViewModel>(
+      () => _i314.BoardViewModel(gh<_i522.BoardRepository>()),
+    );
+    gh.lazySingleton<_i290.UserAdminRepository>(
+      () => _i756.ApiUserAdminRepository(
+        gh<_i519.Client>(),
+        gh<_i202.ApiEndpoint>(),
+        gh<_i562.UserDirectoryRepository>(),
       ),
     );
     gh.factory<_i486.UserAdminViewModel>(
@@ -190,11 +200,11 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i875.CurrentUser>(),
       ),
     );
-    gh.factory<_i609.StatusAdminViewModel>(
-      () => _i609.StatusAdminViewModel(gh<_i224.StatusAdminRepository>()),
-    );
-    gh.factory<_i314.BoardViewModel>(
-      () => _i314.BoardViewModel(gh<_i522.BoardRepository>()),
+    gh.factory<_i194.WorkItemDetailViewModel>(
+      () => _i194.WorkItemDetailViewModel(
+        gh<_i982.WorkItemDetailRepository>(),
+        gh<_i875.CurrentUser>(),
+      ),
     );
     return this;
   }

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/work_item_detail/data/api_work_item_detail_repository.dart';
+import 'package:weaver/shared/data/api_layer_repository.dart';
 import 'package:weaver/shared/data/api_status_repository.dart';
 import 'package:weaver/shared/data/api_user_directory_repository.dart';
 import '../../../core/network/fakes/fixed_api_endpoint.dart';
@@ -70,6 +71,7 @@ void main() {
         client,
         endpoint,
         ApiStatusRepository(client, endpoint),
+        ApiLayerRepository(client, endpoint),
         ApiUserDirectoryRepository(client, endpoint),
       );
 
@@ -90,6 +92,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -115,6 +118,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -136,6 +140,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -157,6 +162,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -183,6 +189,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -203,6 +210,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -234,6 +242,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -262,6 +271,7 @@ void main() {
         client,
         endpoint,
         ApiStatusRepository(client, endpoint),
+        ApiLayerRepository(client, endpoint),
         ApiUserDirectoryRepository(client, endpoint),
       );
 
@@ -294,6 +304,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -313,6 +324,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -339,6 +351,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
     final start = DateTime(2026, 2, 1);
@@ -361,6 +374,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -380,6 +394,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -400,6 +415,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -420,6 +436,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -439,6 +456,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -463,6 +481,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -485,6 +504,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -504,6 +524,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 

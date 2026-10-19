@@ -6,9 +6,7 @@ import 'package:weaver/features/admin/models/status_category.dart';
 import 'package:weaver/features/admin/models/status_details.dart';
 import 'package:weaver/features/admin/widgets/admin_form_dialog.dart';
 import 'package:weaver/features/admin/widgets/dialog_submission.dart';
-import 'package:weaver/features/admin/widgets/status_color_picker.dart';
-
-final _hexColor = RegExp(r'^#[0-9a-fA-F]{6}$');
+import 'package:weaver/features/admin/widgets/hex_color_picker.dart';
 
 /// Adds a status, or edits [initial]. [onSave] returns null on success or
 /// an error to show, keeping the dialog open. Completes with whether a save
@@ -52,7 +50,7 @@ class _StatusDialogState extends State<_StatusDialog>
     super.dispose();
   }
 
-  bool get _colorIsValid => _hexColor.hasMatch(_color.text.trim());
+  bool get _colorIsValid => HexColorPicker.isValid(_color.text);
 
   bool get _canSave => _name.text.trim().isNotEmpty && _colorIsValid;
 
@@ -106,7 +104,7 @@ class _StatusDialogState extends State<_StatusDialog>
                 : (category) => setState(() => _category = category!),
           ),
           const SizedBox(height: 16),
-          StatusColorPicker(
+          HexColorPicker(
             controller: _color,
             enabled: !isSaving,
             onChanged: () => setState(() {}),

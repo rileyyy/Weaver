@@ -54,6 +54,7 @@ Widget _board(
           cardVisible: (_) => true,
           cardComparator: null,
           assigneeInitialFor: (_) => null,
+          layerColorFor: (_) => null,
           collapsedSwimlaneIds: const {},
           onToggleSwimlaneCollapsed: (_) {},
           onToggleAllSwimlanesCollapsed: () {},

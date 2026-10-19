@@ -2,10 +2,10 @@ import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_layer.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
 abstract class WorkItemDetailRepository {

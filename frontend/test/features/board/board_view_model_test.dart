@@ -13,11 +13,17 @@ import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
+import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
 const _todoColor = Color(0xFF1E88E5);
 
+const _taskColor = Color(0xFF43A047);
+
 const _rootBoard = BoardData(
+  layers: [
+    WorkItemLayer(id: 'task', name: 'Task', order: 0, color: _taskColor),
+  ],
   statuses: [
     WorkItemStatus(id: 'done', name: 'Done', order: 1),
     WorkItemStatus(id: 'todo', name: 'To Do', order: 0, color: _todoColor),
@@ -263,6 +269,12 @@ void main() {
 
   test('load sorts statuses by order', () {
     expect(viewModel.statuses.map((s) => s.id), ['todo', 'done']);
+  });
+
+  test('layerColorFor resolves a loaded layer and nothing else', () {
+    expect(viewModel.layerColorFor('task'), _taskColor);
+    expect(viewModel.layerColorFor('unknown'), isNull);
+    expect(viewModel.layerColorFor(null), isNull);
   });
 
   test('load sets the root breadcrumb', () {

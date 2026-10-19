@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:ui' show Color;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/core/network/server_settings.dart';
+import 'package:weaver/shared/data/api_layer_repository.dart';
 import 'package:weaver/shared/data/api_status_repository.dart';
 import 'package:weaver/shared/data/api_user_directory_repository.dart';
 import '../../core/network/fakes/fixed_api_endpoint.dart';
@@ -20,6 +22,57 @@ ServerSettings _switchableServer() => ServerSettings(
 );
 
 void main() {
+  group('ApiLayerRepository', () {
+    test('fetches layers once, with their colours', () async {
+      var calls = 0;
+      final client = MockClient((_) async {
+        calls++;
+        return http.Response(
+          jsonEncode([
+            {'id': 'l1', 'name': 'Task', 'order': 0, 'color': '#43A047'},
+          ]),
+          200,
+        );
+      });
+      final repository = ApiLayerRepository(client, _endpoint);
+
+      await repository.loadLayers();
+      final layers = await repository.loadLayers();
+
+      expect(calls, 1);
+      expect(layers.single.color, const Color(0xFF43A047));
+    });
+
+    test('fetches again after invalidate', () async {
+      var calls = 0;
+      final client = MockClient((_) async {
+        calls++;
+        return http.Response(jsonEncode([]), 200);
+      });
+      final repository = ApiLayerRepository(client, _endpoint);
+
+      await repository.loadLayers();
+      repository.invalidate();
+      await repository.loadLayers();
+
+      expect(calls, 2);
+    });
+
+    test('does not cache a failure', () async {
+      var fail = true;
+      final client = MockClient(
+        (_) async =>
+            fail ? http.Response('', 500) : http.Response(jsonEncode([]), 200),
+      );
+      final repository = ApiLayerRepository(client, _endpoint);
+
+      await expectLater(repository.loadLayers(), throwsA(isA<ApiException>()));
+      fail = false;
+
+      expect(await repository.loadLayers(), isEmpty);
+    });
+  });
+
   group('ApiStatusRepository', () {
     test('fetches statuses once and shares the result', () async {
       var calls = 0;

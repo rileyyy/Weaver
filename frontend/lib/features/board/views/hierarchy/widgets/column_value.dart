@@ -29,10 +29,7 @@ class ColumnValue extends StatelessWidget {
         '#${item.number}',
         overflow: TextOverflow.ellipsis,
       ),
-      HierarchyColumn.title => Text(
-        item.title,
-        overflow: TextOverflow.ellipsis,
-      ),
+      HierarchyColumn.title => _title(),
       HierarchyColumn.status => Row(
         children: [
           StatusDot(color: viewModel.statusColorFor(item.statusId)),
@@ -68,5 +65,22 @@ class ColumnValue extends StatelessWidget {
         onAddTag: onAddTagTapped,
       ),
     };
+  }
+
+  /// Underlined in the item's layer colour, matching the bar on its board
+  /// card; an item without a layer isn't underlined.
+  Widget _title() {
+    final layerColor = viewModel.layerColorFor(item.layerId);
+    return Text(
+      item.title,
+      overflow: TextOverflow.ellipsis,
+      style: layerColor == null
+          ? null
+          : TextStyle(
+              decoration: TextDecoration.underline,
+              decorationColor: layerColor,
+              decorationThickness: 2,
+            ),
+    );
   }
 }

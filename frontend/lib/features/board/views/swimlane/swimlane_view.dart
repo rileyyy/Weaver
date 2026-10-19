@@ -30,6 +30,7 @@ class SwimlaneView extends StatelessWidget {
     required this.cardVisible,
     required this.cardComparator,
     required this.assigneeInitialFor,
+    required this.layerColorFor,
     required this.collapsedSwimlaneIds,
     required this.onToggleSwimlaneCollapsed,
     required this.onToggleAllSwimlanesCollapsed,
@@ -51,6 +52,7 @@ class SwimlaneView extends StatelessWidget {
   final bool Function(WorkItemCard card) cardVisible;
   final Comparator<WorkItemCard>? cardComparator;
   final String? Function(String? userId) assigneeInitialFor;
+  final Color? Function(String? layerId) layerColorFor;
   final Set<String> collapsedSwimlaneIds;
   final void Function(String parentId) onToggleSwimlaneCollapsed;
   final VoidCallback onToggleAllSwimlanesCollapsed;
@@ -177,6 +179,7 @@ class SwimlaneView extends StatelessWidget {
                     cardVisible: cardVisible,
                     cardComparator: cardComparator,
                     assigneeInitialFor: assigneeInitialFor,
+                    layerColorFor: layerColorFor,
                   ),
                 ),
             ],
