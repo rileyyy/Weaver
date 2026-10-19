@@ -8,6 +8,7 @@ import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/card_sort_option.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
+import 'package:weaver/features/board/models/scope_crumb.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/shared/models/user.dart';
@@ -341,6 +342,24 @@ void main() {
       expect(viewModel.breadcrumbs, hasLength(1));
     },
   );
+
+  test('drillDownTargets offers the lanes of the current scope', () {
+    expect(viewModel.drillDownTargets.map((t) => (t.id, t.title)), [
+      ('lane-a', 'Lane A'),
+      ('lane-b', 'Lane B'),
+    ]);
+  });
+
+  test('drillIntoScope makes the target the top level of the board', () async {
+    await viewModel.drillIntoScope(
+      const ScopeCrumb(id: 'card-1', title: 'Card 1'),
+    );
+
+    expect(repository.requestedScopes.last, 'card-1');
+    expect(viewModel.swimlanes.single.parentId, 'card-1');
+    expect(viewModel.breadcrumbs.map((b) => b.id), [null, 'card-1']);
+    expect(viewModel.drillDownTargets.single.id, 'card-1');
+  });
 
   test('navigateToBreadcrumb returns to a previous scope', () async {
     final card = viewModel.swimlanes[0].cards.single;

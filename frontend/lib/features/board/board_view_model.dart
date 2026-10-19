@@ -256,18 +256,27 @@ class BoardViewModel extends ViewModel {
     );
   }
 
+  /// The current scope's swimlanes, as the scopes the board can drill one
+  /// level further into.
+  List<ScopeCrumb> get drillDownTargets => [
+    for (final lane in _swimlanes)
+      ScopeCrumb(id: lane.parentId, title: lane.title),
+  ];
+
   /// Re-scopes the board to [card]'s own children — they become the new
   /// swimlanes. Pushes [card] onto the breadcrumb trail.
-  Future<void> drillInto(WorkItemCard card) => _changeScope(() async {
-    final data = await _repository.loadBoard(card.id);
+  Future<void> drillInto(WorkItemCard card) =>
+      drillIntoScope(ScopeCrumb(id: card.id, title: card.title));
+
+  /// Re-scopes the board to [target]'s own children, typically one of
+  /// [drillDownTargets], and pushes [target] onto the breadcrumb trail.
+  Future<void> drillIntoScope(ScopeCrumb target) => _changeScope(() async {
+    final data = await _repository.loadBoard(target.id);
     return () {
       _applyScope(data);
-      _breadcrumbs = [
-        ..._breadcrumbs,
-        ScopeCrumb(id: card.id, title: card.title),
-      ];
+      _breadcrumbs = [..._breadcrumbs, target];
     };
-  }, errorMessage: 'Could not open "${card.title}". Try again.');
+  }, errorMessage: 'Could not open "${target.title}". Try again.');
 
   /// Jumps back to the breadcrumb at [index], discarding any deeper
   /// entries. A no-op if [index] is already the current scope.

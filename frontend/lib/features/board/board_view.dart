@@ -326,6 +326,8 @@ class _BoardViewState extends State<BoardView>
                     isNarrow: isNarrow,
                     breadcrumbs: _viewModel.breadcrumbs,
                     onSelectBreadcrumb: _viewModel.navigateToBreadcrumb,
+                    drillDownTargets: _viewModel.drillDownTargets,
+                    onDrillDown: _viewModel.drillIntoScope,
                     searchController: _searchController,
                     onSearchChanged: _onSearchChanged,
                     filterStart: _viewModel.filterStart,

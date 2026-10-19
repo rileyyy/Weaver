@@ -10,6 +10,8 @@ class HeaderBar extends StatelessWidget {
     required this.isNarrow,
     required this.breadcrumbs,
     required this.onSelectBreadcrumb,
+    required this.drillDownTargets,
+    required this.onDrillDown,
     required this.searchController,
     required this.onSearchChanged,
     required this.filterStart,
@@ -25,6 +27,8 @@ class HeaderBar extends StatelessWidget {
   final bool isNarrow;
   final List<ScopeCrumb> breadcrumbs;
   final Future<void> Function(int index) onSelectBreadcrumb;
+  final List<ScopeCrumb> drillDownTargets;
+  final Future<void> Function(ScopeCrumb target) onDrillDown;
   final TextEditingController searchController;
   final ValueChanged<String> onSearchChanged;
   final DateTime? filterStart;
@@ -49,7 +53,12 @@ class HeaderBar extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        BreadcrumbBar(breadcrumbs: breadcrumbs, onSelect: onSelectBreadcrumb),
+        BreadcrumbBar(
+          breadcrumbs: breadcrumbs,
+          onSelect: onSelectBreadcrumb,
+          drillDownTargets: drillDownTargets,
+          onDrillDown: onDrillDown,
+        ),
         TimeFilterBar(
           start: filterStart,
           end: filterEnd,
