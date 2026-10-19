@@ -66,12 +66,13 @@ class BoardCard extends StatelessWidget {
       fontWeight: FontWeight.bold,
     );
 
-    // The fixed height wraps the Card, margin included, so the card is
-    // exactly the height the lane-height maths assumes.
+    // The fixed height wraps the Card, which has no margin of its own (the
+    // status column spaces cards out), so the card is exactly the height the
+    // lane-height maths assumes.
     final content = SizedBox(
       height: height,
       child: Card(
-        margin: const EdgeInsets.symmetric(vertical: 4),
+        margin: EdgeInsets.zero,
         // Lighter than the status column it sits on (surfaceContainerLow) so a
         // card still stands out from its cell, but not as starkly as a full
         // 20% lightening — a little darker/closer to the column's own tone.

@@ -53,7 +53,7 @@ class StatusColumn extends StatelessWidget {
           .where((c) => c.statusId == status.id && cardVisible(c))
           .length;
       return Container(
-        margin: const EdgeInsets.all(4),
+        margin: const EdgeInsets.all(statusColumnMargin),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surfaceContainerLow,
@@ -82,8 +82,8 @@ class StatusColumn extends StatelessWidget {
       builder: (context, candidateData, rejectedData) {
         final colorScheme = Theme.of(context).colorScheme;
         return Container(
-          margin: const EdgeInsets.all(4),
-          padding: const EdgeInsets.all(4),
+          margin: const EdgeInsets.all(statusColumnMargin),
+          padding: const EdgeInsets.all(cardGridSpacing),
           decoration: BoxDecoration(
             color: candidateData.isNotEmpty
                 ? colorScheme.primaryContainer.withValues(alpha: 0.4)

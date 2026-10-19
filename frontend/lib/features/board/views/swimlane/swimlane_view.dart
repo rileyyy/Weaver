@@ -284,7 +284,7 @@ class SwimlaneView extends StatelessWidget {
     return height;
   }
 
-  /// What a card's content needs: its vertical margin and padding, two
+  /// What a card's content needs: its padding, two
   /// title lines, one schedule line, a gap and the avatar row (see
   /// `BoardCard`). Measured with the current text scale rather than guessed.
   double _minCardHeight(BuildContext context) {
@@ -304,11 +304,9 @@ class SwimlaneView extends StatelessWidget {
       return height;
     }
 
-    const cardMargin = 8;
     const cardPadding = 16;
     const gapBeforeAvatarRow = 4;
-    return cardMargin +
-        cardPadding +
+    return cardPadding +
         2 * lineHeight(titleStyle) +
         lineHeight(textTheme.bodySmall) +
         gapBeforeAvatarRow +

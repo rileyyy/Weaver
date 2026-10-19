@@ -20,14 +20,17 @@ const double collapsedSwimlaneRowHeight = headerRowHeight;
 /// background.
 const double gridHeaderFontScale = 1.2;
 
-/// Gap between cards in a status column's two-per-row grid, both between
-/// columns and between rows of cards.
-const double cardGridSpacing = 8;
+/// Space around every card in a status column's two-per-row grid: between
+/// cards in a row, between rows, and between the cards and the cell's edge.
+const double cardGridSpacing = 12;
 
-/// A status column cell's own margin + padding (each `EdgeInsets.all(4)`),
-/// subtracted from its outer width/height to get the space actually left
-/// for cards.
-const double statusColumnChrome = 16;
+/// The gap between a status column cell and the grid lines around it.
+const double statusColumnMargin = 4;
+
+/// A status column cell's margin plus its [cardGridSpacing] padding, on both
+/// sides, subtracted from its outer width/height to get the space actually
+/// left for cards.
+const double statusColumnChrome = 2 * (statusColumnMargin + cardGridSpacing);
 
 /// Horizontal space [SwimlaneLabel] gives to its collapse chevron and
 /// padding before its title even starts wrapping: left+right padding

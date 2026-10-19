@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
+import 'package:weaver/features/board/views/swimlane/swimlane_layout.dart';
 import 'package:weaver/features/board/views/swimlane/swimlane_view.dart';
 import 'package:weaver/features/board/views/swimlane/widgets/grid_row_box.dart';
 import 'package:weaver/features/board/widgets/board_card.dart';
@@ -9,7 +10,11 @@ import 'package:weaver/shared/models/work_item_status.dart';
 
 final String _longTitle = List.filled(40, 'word').join(' ');
 
-Widget _board(double width, {double textScale = 1}) => MaterialApp(
+Widget _board(
+  double width, {
+  double textScale = 1,
+  List<WorkItemCard> extraLaneACards = const [],
+}) => MaterialApp(
   home: MediaQuery(
     data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
     child: Scaffold(
@@ -35,6 +40,7 @@ Widget _board(double width, {double textScale = 1}) => MaterialApp(
                   endDate: DateTime(2026, 9, 30),
                   tags: const ['urgent', 'design', 'backend'],
                 ),
+                ...extraLaneACards,
               ],
             ),
             const Swimlane(parentId: 'lane-b', title: 'Lane B', cards: []),
@@ -85,4 +91,36 @@ void main() {
       );
     });
   }
+
+  testWidgets('cards sit cardGridSpacing apart and from their cell edge', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      _board(
+        1280,
+        extraLaneACards: const [
+          WorkItemCard(
+            id: 'second',
+            number: 2,
+            title: 'Second',
+            parentId: 'lane-a',
+            statusId: 'todo',
+          ),
+        ],
+      ),
+    );
+
+    final cards = find.byType(BoardCard);
+    final first = tester.getRect(cards.at(0));
+    final second = tester.getRect(cards.at(1));
+    final laneRow = tester.getRect(
+      find.ancestor(of: cards.at(0), matching: find.byType(GridRowBox)),
+    );
+    expect(second.left - first.right, cardGridSpacing);
+    expect(first.top - laneRow.top, statusColumnMargin + cardGridSpacing);
+  });
 }
