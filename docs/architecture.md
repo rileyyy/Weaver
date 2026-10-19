@@ -641,7 +641,7 @@ and it is what allows MCP tools to reuse the same business logic (see
   separate drag target on `SwimlaneLabel` that only accepts cards from
   *other* lanes. At model level, `WorkItemCard.copyWith` never touches
   `parentId`; `movedToParent` is the separate reparent path.
-- **Scope changes go through `_changeScope`.** `load`, `drillInto`,
+- **Scope changes go through `_changeScope`.** `load`, `drillIntoScope`,
   `navigateToBreadcrumb` and `refreshCurrentScope` all use it: it sets the
   loading flag, catches failures into `loadError`, and records a `_retry`
   closure **only when the action fails**.
@@ -685,7 +685,12 @@ and it is what allows MCP tools to reuse the same business logic (see
   model; statuses and the name-only lookups share `OrderedListViewModel`
   (load and drag-to-reorder), and `LookupAdminViewModel` serves both
   Priorities and Layers through an injectable factory parameter
-  (`LookupKind`).
+  (`LookupKind`). Layers also have a colour (`LookupKind.hasColor`), edited
+  in `showLayerDialog` with the `HexColorPicker` statuses use.
+- **Layers are cached app-wide like statuses** (`LayerRepository`): the
+  board needs them on every scope load to colour cards, and the detail
+  dialog reads the same list. Layer writes on the Admin page drop the
+  cache.
 - **Reordering is optimistic**: the new order shows immediately and the
   old one comes back if the save fails. Drag handles start a drag
   straight away (`ReorderableDragStartListener`), since the default
@@ -753,7 +758,11 @@ and it is what allows MCP tools to reuse the same business logic (see
   text scale; titles show at most two lines, with the full title in a
   tooltip and the detail dialog.
 - **Tapping a card opens its detail dialog**; drilling in is the dialog's
-  "View sub-items" action. Any item can be drilled into, even without
+  "View sub-items" action, or the current breadcrumb's menu, which lists
+  the lanes on screen (`drillDownTargets`) and calls `drillIntoScope`. The
+  menu goes one level at a time rather than offering the whole tree, so
+  the breadcrumb trail is always the real path down. Any item can be
+  drilled into, even without
   children: there's no `hasChildren` flag, and computing one only to grey
   out leaves would cost an extra fetch or a denormalised count.
 - **Drag and drop uses Flutter's `Draggable` / `DragTarget`**, no package.

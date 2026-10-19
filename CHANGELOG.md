@@ -28,6 +28,23 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-10-19 — Board refinements
+
+`feature/swimlane-drill-down-and-layer-colors`, stacked on
+`feature/mobile-refinement` because it changes the same API repositories,
+board card and test fakes that branch rewrote.
+
+- **Roomier swimlane cards:** 12px between cards and around them in each
+  cell, so each card is slightly smaller.
+- **Drill down from the breadcrumb:** tapping the current crumb ("Board"
+  at the top) lists its lanes; picking one makes it the board's top level.
+  "View sub-items" in the detail dialog still works.
+- **Layer colours:** each layer has a colour, set on the Admin page's
+  Layers tab. It colours the bar on the left of a card (neutral when an
+  item has no layer) and underlines titles in the Hierarchy view.
+  Migration `AddWorkItemLayerColors` seeds Project / Goal / Task with pink,
+  teal and green (the old bar colour), and other layers with blue-grey.
+
 ## 2026-10-09 — Milestone 14, mobile refinement (first pass)
 
 `feature/mobile-refinement`. Aimed at sideloading a release APK and

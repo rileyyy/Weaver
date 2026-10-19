@@ -10,8 +10,10 @@ read and change work items through an MCP endpoint built into the API.
 
 - **Swimlane board with drill-down.** Cards move between status columns by
   drag and drop; a card can be dropped on another lane's label to reparent
-  it. "View sub-items" in a card's detail dialog drills into it, so its
-  children become the lanes. A breadcrumb leads back up.
+  it. Tapping the current breadcrumb ("Board" at the top) picks a lane to
+  drill into, as does "View sub-items" in a card's detail dialog, so its
+  children become the lanes. Earlier breadcrumbs lead back up. Each card's
+  left bar shows its layer's colour.
 - **Hierarchy and Roadmap views.** Hierarchy shows every work item as a
   collapsible tree with resizable Number / Title / Status / Assigned To
   columns. Roadmap is a Gantt-style timeline (week, fortnight, month,
@@ -22,7 +24,8 @@ read and change work items through an MCP endpoint built into the API.
 - **Search, filter and sort.** Search matches title, description and tags.
   Status columns can be hidden, tags filtered, and cards sorted by title,
   start date or due date without touching the manual order.
-- **Work-item details.** Title, description, layer (Project / Goal / Task),
+- **Work-item details.** Title, description, layer (Project / Goal / Task,
+  each with an admin-set colour),
   priority, assignee, status, schedule, sub-items, and a sequential `#N`
   number.
 - **Tags, comments and links.** Free-text tags; comments editable by their
