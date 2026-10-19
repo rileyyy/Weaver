@@ -1,9 +1,8 @@
-using System.Text.RegularExpressions;
 using Weaver.Domain.Exceptions;
 
 namespace Weaver.Domain;
 
-public partial class Status : LookupValue
+public class Status : LookupValue
 {
     /// <summary>For EF Core.</summary>
     private Status()
@@ -36,16 +35,9 @@ public partial class Status : LookupValue
             throw new DomainValidationException($"'{category}' is not a status category.");
         }
 
-        var trimmed = color?.Trim() ?? string.Empty;
-        if (!HexColor().IsMatch(trimmed))
-        {
-            throw new DomainValidationException("Color must be a #RRGGBB hex value.");
-        }
+        var normalized = HexColor.Normalize(color);
 
         Category = category;
-        Color = trimmed.ToUpperInvariant();
+        Color = normalized;
     }
-
-    [GeneratedRegex("^#[0-9A-Fa-f]{6}$")]
-    private static partial Regex HexColor();
 }

@@ -14,11 +14,20 @@ public class WorkItemLayerService : LookupService<WorkItemLayer>, IWorkItemLayer
 
     protected override string Kind => "Layer";
 
-    public Task<WorkItemLayer> CreateAsync(Guid actorUserId, string name, CancellationToken ct = default) =>
-        AddAsync(actorUserId, order => WorkItemLayer.Create(name, order), ct);
+    public Task<WorkItemLayer> CreateAsync(Guid actorUserId, string name, string color, CancellationToken ct = default) =>
+        AddAsync(actorUserId, order => WorkItemLayer.Create(name, order, color), ct);
 
-    public Task<WorkItemLayer> RenameAsync(Guid actorUserId, Guid id, string name, CancellationToken ct = default) =>
-        EditAsync(actorUserId, id, layer => layer.Rename(name), ct);
+    public Task<WorkItemLayer> UpdateAsync(
+        Guid actorUserId,
+        Guid id,
+        string name,
+        string color,
+        CancellationToken ct = default) =>
+        EditAsync(actorUserId, id, layer =>
+        {
+            layer.Rename(name);
+            layer.Recolor(color);
+        }, ct);
 
     protected override async Task MoveWorkItemsAsync(WorkItemLayer deleted, Guid? replacementId, CancellationToken ct)
     {

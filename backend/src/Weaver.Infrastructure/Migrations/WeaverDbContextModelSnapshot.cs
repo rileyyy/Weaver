@@ -315,6 +315,11 @@ namespace Weaver.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -334,18 +339,21 @@ namespace Weaver.Infrastructure.Migrations
                         new
                         {
                             Id = new Guid("00000000-0000-0000-0000-000000000101"),
+                            Color = "#D81B60",
                             Name = "Project",
                             Order = 0
                         },
                         new
                         {
                             Id = new Guid("00000000-0000-0000-0000-000000000102"),
+                            Color = "#00897B",
                             Name = "Goal",
                             Order = 1
                         },
                         new
                         {
                             Id = new Guid("00000000-0000-0000-0000-000000000103"),
+                            Color = "#43A047",
                             Name = "Task",
                             Order = 2
                         });

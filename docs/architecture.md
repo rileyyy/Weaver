@@ -106,8 +106,12 @@ and it is what allows MCP tools to reuse the same business logic (see
 
 ### Layers, priority and other fields
 
-- **`WorkItemLayer` is a lookup table** (`Id`, `Name`, `Order`), seeded
-  with Project / Goal / Task via `HasData`, the same pattern as `Status`.
+- **`WorkItemLayer` is a lookup table** (`Id`, `Name`, `Order`, `Color`),
+  seeded with Project / Goal / Task via `HasData`, the same pattern as
+  `Status`. The colour marks a layer's items on the board (a card's left
+  bar, the Hierarchy title's underline). The `AddWorkItemLayerColors`
+  migration gives the seeds their colours (Task keeps the green every card
+  bar used to show) and any admin-added layer a neutral `#546E7A`.
   `WorkItem.LayerId` is nullable and deliberately **not validated against
   the parent/child tree**: the layer is a label, not a constraint, so the
   hierarchy stays fluid (a Task can parent a Project if someone wants
@@ -142,11 +146,13 @@ and it is what allows MCP tools to reuse the same business logic (see
   edit, reorder, delete. Every change needs an admin. Names are required,
   trimmed, at most 100 characters and unique case-insensitively (409),
   since two same-named values couldn't be told apart in any picker. A
-  status's colour must be `#RRGGBB` and is stored upper-case. The seeds use
+  status's or layer's colour must be `#RRGGBB` and is stored upper-case
+  (`HexColor.Normalize`). The seeds use
   anonymous objects in `HasData` because the entities only change through
   their methods.
 - **Endpoints:** `POST /api/statuses` (and `/work-item-layers`,
-  `/work-item-priorities`), `PUT /{id}`, `PUT /order` with every id in its
+  `/work-item-priorities`), `PUT /{id}` (statuses and layers take a
+  `color` alongside the `name`), `PUT /order` with every id in its
   new order, `DELETE /{id}?replacementId=`. None of this is exposed over
   MCP yet; agents can still read the lists.
 - **Deleting moves the items, it doesn't orphan them.** Work items using

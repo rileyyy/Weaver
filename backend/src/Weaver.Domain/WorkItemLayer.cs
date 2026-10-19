@@ -13,11 +13,25 @@ public class WorkItemLayer : LookupValue
     /// <summary>For EF Core.</summary>
     private WorkItemLayer()
     {
+        Color = string.Empty;
     }
 
-    private WorkItemLayer(string name, int order) : base(name, order)
+    private WorkItemLayer(string name, int order, string color) : base(name, order)
     {
+        Color = string.Empty;
+        Recolor(color);
     }
 
-    public static WorkItemLayer Create(string name, int order) => new(name, order);
+    /// <summary>
+    /// The <c>#RRGGBB</c> color that marks this layer's items on the board, so what kind of
+    /// thing a card is can be told at a glance.
+    /// </summary>
+    public string Color { get; private set; }
+
+    public static WorkItemLayer Create(string name, int order, string color) => new(name, order, color);
+
+    public void Recolor(string color)
+    {
+        Color = HexColor.Normalize(color);
+    }
 }

@@ -141,6 +141,35 @@ public class AdminTests
         });
     }
 
+    [Test]
+    public async Task LayerColors_AreSeededAndSavedThroughEdits()
+    {
+        var (admin, _) = await ApiClient.SignedInAdminAsync();
+
+        var seeded = await (await admin.GetAsync("/api/work-item-layers")).ReadAsync<List<WorkItemLayerDto>>();
+        var created = await (await admin.PostJsonAsync(
+                "/api/work-item-layers",
+                new LayerDetailsRequest($"L {Guid.NewGuid():N}"[..20], "#546e7a")))
+            .ReadAsync<WorkItemLayerDto>();
+        try
+        {
+            await admin.PutJsonAsync($"/api/work-item-layers/{created.Id}", new LayerDetailsRequest(created.Name, "#FDD835"));
+            var stored = (await (await admin.GetAsync("/api/work-item-layers")).ReadAsync<List<WorkItemLayerDto>>())
+                .Single(l => l.Id == created.Id);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(seeded.Select(l => l.Color), Has.None.Empty);
+                Assert.That(created.Color, Is.EqualTo("#546E7A"));
+                Assert.That(stored.Color, Is.EqualTo("#FDD835"));
+            });
+        }
+        finally
+        {
+            await admin.DeleteAsync($"/api/work-item-layers/{created.Id}");
+        }
+    }
+
     private static async Task<WorkItemPriorityDto> CreatePriorityAsync(HttpClient admin) =>
         await (await admin.PostJsonAsync(
                 "/api/work-item-priorities",

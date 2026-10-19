@@ -35,13 +35,25 @@ public class WorkItemLayerServiceTests
     }
 
     [Test]
-    public async Task CreateAndRename_Work()
+    public async Task GetAllAsync_GivesEverySeededLayerAColor()
     {
-        var created = await _layers.CreateAsync(_admin.Id, "Epic");
-        await _layers.RenameAsync(_admin.Id, created.Id, "Initiative");
-
         var layers = await _layers.GetAllAsync();
-        Assert.That(layers.Select(l => l.Name), Is.EqualTo(new[] { "Project", "Goal", "Task", "Initiative" }));
+
+        Assert.That(layers.Select(l => l.Color), Is.EqualTo(new[] { "#D81B60", "#00897B", "#43A047" }));
+    }
+
+    [Test]
+    public async Task CreateAndUpdate_SetTheNameAndColor()
+    {
+        var created = await _layers.CreateAsync(_admin.Id, "Epic", "#546E7A");
+        await _layers.UpdateAsync(_admin.Id, created.Id, "Initiative", "#fdd835");
+
+        var layer = (await _layers.GetAllAsync()).Last();
+        Assert.Multiple(() =>
+        {
+            Assert.That(layer.Name, Is.EqualTo("Initiative"));
+            Assert.That(layer.Color, Is.EqualTo("#FDD835"));
+        });
     }
 
     [Test]
@@ -49,7 +61,7 @@ public class WorkItemLayerServiceTests
     {
         var member = TestUsers.Add(_db, "member");
 
-        Assert.ThrowsAsync<AdminRequiredException>(() => _layers.CreateAsync(member.Id, "Epic"));
+        Assert.ThrowsAsync<AdminRequiredException>(() => _layers.CreateAsync(member.Id, "Epic", "#546E7A"));
     }
 
     [Test]

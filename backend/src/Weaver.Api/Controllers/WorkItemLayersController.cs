@@ -33,17 +33,17 @@ public class WorkItemLayersController : ControllerBase
     /// <summary>A layer has no view of its own, so the Location header points at the list.</summary>
     [HttpPost]
     [ProducesResponseType<WorkItemLayerDto>(StatusCodes.Status201Created)]
-    public async Task<ActionResult<WorkItemLayerDto>> Create(LookupNameRequest request)
+    public async Task<ActionResult<WorkItemLayerDto>> Create(LayerDetailsRequest request)
     {
-        var created = await _layers.CreateAsync(User.GetUserId(), request.Name);
+        var created = await _layers.CreateAsync(User.GetUserId(), request.Name, request.Color);
         return CreatedAtAction(nameof(GetAll), WorkItemLayerDto.FromEntity(created));
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<WorkItemLayerDto>> Rename(Guid id, LookupNameRequest request)
+    public async Task<ActionResult<WorkItemLayerDto>> Update(Guid id, LayerDetailsRequest request)
     {
-        var renamed = await _layers.RenameAsync(User.GetUserId(), id, request.Name);
-        return Ok(WorkItemLayerDto.FromEntity(renamed));
+        var updated = await _layers.UpdateAsync(User.GetUserId(), id, request.Name, request.Color);
+        return Ok(WorkItemLayerDto.FromEntity(updated));
     }
 
     [HttpPut("order")]

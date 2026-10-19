@@ -13,11 +13,13 @@ public class WorkItemLayerConfiguration : IEntityTypeConfiguration<WorkItemLayer
     public void Configure(EntityTypeBuilder<WorkItemLayer> builder)
     {
         builder.Property(l => l.Name).IsRequired().HasMaxLength(LookupValue.NameMaxLength);
+        builder.Property(l => l.Color).IsRequired().HasMaxLength(HexColor.Length);
         builder.HasIndex(l => l.Order).IsUnique();
 
+        // Task keeps the green every card's color bar showed before layers had colors.
         builder.HasData(
-            new { Id = ProjectId, Name = "Project", Order = 0 },
-            new { Id = GoalId, Name = "Goal", Order = 1 },
-            new { Id = TaskId, Name = "Task", Order = 2 });
+            new { Id = ProjectId, Name = "Project", Order = 0, Color = "#D81B60" },
+            new { Id = GoalId, Name = "Goal", Order = 1, Color = "#00897B" },
+            new { Id = TaskId, Name = "Task", Order = 2, Color = "#43A047" });
     }
 }

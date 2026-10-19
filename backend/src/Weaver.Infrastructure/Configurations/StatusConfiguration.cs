@@ -13,7 +13,7 @@ public class StatusConfiguration : IEntityTypeConfiguration<Status>
     public void Configure(EntityTypeBuilder<Status> builder)
     {
         builder.Property(s => s.Name).IsRequired().HasMaxLength(LookupValue.NameMaxLength);
-        builder.Property(s => s.Color).IsRequired().HasMaxLength(7);
+        builder.Property(s => s.Color).IsRequired().HasMaxLength(HexColor.Length);
         builder.HasIndex(s => s.Order).IsUnique();
 
         // Every WorkItem requires a StatusId, so a fresh database needs at least
