@@ -9,3 +9,6 @@
 # Coverage reports (CI uploads them as artifacts).
 /coverage/
 /frontend/coverage/
+
+# Local markdown issue tracker (see docs/agents/issue-tracker.md).
+/.scratch/
