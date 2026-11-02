@@ -9,3 +9,5 @@
 # Coverage reports (CI uploads them as artifacts).
 /coverage/
 /frontend/coverage/
+
+.claude/
