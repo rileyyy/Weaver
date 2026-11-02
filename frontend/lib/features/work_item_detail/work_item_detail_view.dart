@@ -8,6 +8,7 @@ import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/repeat_settings_view_model.dart';
 import 'package:weaver/features/work_item_detail/widgets/comments_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/confirm_dialogs.dart';
+import 'package:weaver/features/work_item_detail/widgets/description_field.dart';
 import 'package:weaver/features/work_item_detail/widgets/history_tab.dart';
 import 'package:weaver/features/work_item_detail/widgets/links_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/repeat_section.dart';
@@ -204,6 +205,13 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
 
   bool get _hasUnsavedChanges => _hasUnsavedDetails || _repeat.isDirty;
 
+  // A tick is applied to the saved description, so the boxes would no
+  // longer match what's shown once it has unsaved edits; and while a save
+  // is in flight the next tick would carry a stale version.
+  bool get _canTickTasks =>
+      !_viewModel.isSaving &&
+      _descriptionController.text == (_viewModel.item?.description ?? '');
+
   @override
   void dispose() {
     _viewModel
@@ -333,11 +341,11 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const FieldLabel('Description'),
-        TextField(
+        DescriptionField(
           controller: _descriptionController,
-          decoration: const InputDecoration(),
-          maxLines: 4,
+          onToggleTask: _canTickTasks
+              ? (index) => unawaited(_toggleTask(index))
+              : null,
         ),
         const SizedBox(height: 20),
         SubItemsSection(
@@ -475,6 +483,15 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
     layerId: _selectedLayerId,
     priorityId: _selectedPriorityId,
   );
+
+  Future<void> _toggleTask(int taskIndex) async {
+    final ok = await _viewModel.toggleDescriptionTask(taskIndex);
+    // A conflict re-seeds the whole form through reloadGeneration; a
+    // success only needs the description to follow the saved one.
+    if (ok && mounted) {
+      _descriptionController.text = _viewModel.item!.description ?? '';
+    }
+  }
 
   Future<void> _saveAssignee(String? userId) async {
     final previous = _selectedAssigneeId;
