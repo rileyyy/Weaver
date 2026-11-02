@@ -4,10 +4,10 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Details, schedule and tags updates distinguish "absent" from `null` over REST and MCP
-- [ ] Every work-item write accepts an optional `expectedVersion`; a stale one returns a conflict
-- [ ] Write responses (REST and MCP) include the new version and the list of changed fields
-- [ ] The Flutter detail dialog still works and sends `expectedVersion` for everything it edits
-- [ ] Integration tests against real Postgres cover omit vs `null`, and stale versions on each write
+- [x] Details, schedule and tags updates distinguish "absent" from `null` over REST and MCP
+- [x] Every work-item write accepts an optional `expectedVersion`; a stale one returns a conflict
+- [x] Write responses (REST and MCP) include the new version and the list of changed fields
+- [x] The Flutter detail dialog still works and sends `expectedVersion` for everything it edits
+- [x] Integration tests against real Postgres cover omit vs `null`, and stale versions on each write

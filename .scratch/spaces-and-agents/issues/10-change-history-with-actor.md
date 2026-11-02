@@ -27,3 +27,8 @@
 - `Caller.ApiKeyId` is set for every request signed in with an API key and is null for access tokens.
 - Revoking a key keeps its `ApiKeys` row, but hard-deleting an agent account (`DELETE /api/admin/users/{id}`) cascades its keys away. A history foreign key to `ApiKeys` needs `SetNull` or no FK, or deleting an agent with history must be refused the way deleting a commenter is.
 - `whoami` (MCP) uses `ICallerIdentityService`, which loads the account and key named by the caller context; the History tab's "who" can use the same pair.
+
+**2026-11-02, from ticket 09 (patch semantics and `expectedVersion`):**
+
+- Every `WorkItem` write method (`UpdateDetails`, `Reschedule`, `SetTags`, `AssignTo`, `MoveToStatus`, `MoveToParent`) already returns the names of the fields it actually changed (`WorkItemField`, matching the JSON names), collected by `ChangedFields` in `Weaver.Domain`. History needs old and new values too: extending `ChangedFields` to record them where it already compares old and new is the natural place, rather than diffing in the service.
+- A no-op write (every field set to its current value) changes nothing and doesn't move the version, so it shouldn't write history either.

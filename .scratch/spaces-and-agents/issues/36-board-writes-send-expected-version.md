@@ -11,3 +11,11 @@
 - [ ] On a conflict the item is reloaded and the user told, without disturbing other items
 - [ ] The post-dialog full refresh is no longer needed to keep layouts in step
 - [ ] `Completer`-based tests cover overlapping writes and conflicts
+
+## Comments
+
+**2026-11-02, from ticket 09 (patch semantics and `expectedVersion`):**
+
+- Every work-item write now accepts `expectedVersion`: `PUT /status`, `/parent` and `/assignee` in the body, `PATCH /schedule` and `/tags` in the body, and `DELETE /work-items/{id}?expectedVersion=`. The board's repository already uses `PATCH` for schedule and tags but sends no version yet.
+- Every write answers with `{ "item": <WorkItemDto>, "changedFields": [...] }`; `item.version` is the version to store. The board repository ignores the body today.
+- `xmin` moves on any update, so a drag sent with a version is rejected if someone edited the description in the meantime. That's the trade the ticket accepts; the reload-and-tell path has to handle it gracefully, since it'll be the common conflict.
