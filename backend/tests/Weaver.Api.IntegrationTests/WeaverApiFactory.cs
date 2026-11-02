@@ -11,6 +11,8 @@ namespace Weaver.Api.IntegrationTests;
 public class WeaverApiFactory : WebApplicationFactory<Program>
 {
     public const string AllowedOrigin = "https://weaver.test";
+    public const string FirstAdminUsername = "first-admin";
+    public const string FirstAdminPassword = "first-admin-integration-password";
 
     private readonly string _connectionString;
 
@@ -30,6 +32,9 @@ public class WeaverApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Database:MigrateOnStartup", "true");
         builder.UseSetting("Jwt:SigningKey", "integration-test-signing-key-that-is-long-enough");
         builder.UseSetting("Cors:AllowedOrigins:0", AllowedOrigin);
+        // The only way into a fresh database; every other test account is created by this admin.
+        builder.UseSetting("FirstAdmin:Username", FirstAdminUsername);
+        builder.UseSetting("FirstAdmin:Password", FirstAdminPassword);
         // Every test registers from the same in-process "IP"; RateLimitingTests checks the limit.
         builder.UseSetting("RateLimiting:Auth:PermitLimit", "100000");
     }

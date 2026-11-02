@@ -8,6 +8,7 @@ using Weaver.Api.Background;
 using Weaver.Api.Mcp;
 using Weaver.Api.Middleware;
 using Weaver.Api.RateLimiting;
+using Weaver.Api.Startup;
 using Weaver.Application;
 using Weaver.Application.Auth;
 using Weaver.Infrastructure;
@@ -55,6 +56,7 @@ builder.Services.AddMcpServer()
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 JwtSigningKeyPolicy.EnsureUsable(jwtOptions.SigningKey, builder.Environment.IsDevelopment());
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
+builder.Services.Configure<FirstAdminOptions>(builder.Configuration.GetSection(FirstAdminOptions.SectionName));
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -120,6 +122,8 @@ if (app.Configuration.GetValue<bool>(DatabaseMigrations.MigrateOnStartupSetting)
 {
     await app.Services.MigrateWeaverDatabaseAsync();
 }
+
+await app.Services.EnsureFirstAdminAsync();
 
 if (app.Environment.IsDevelopment())
 {
