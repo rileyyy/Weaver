@@ -4,13 +4,13 @@
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Agent accounts are listed apart from, or clearly distinguished from, humans
-- [ ] Creating a key shows it once, with a copy button and a warning that it won't be shown again
-- [ ] Keys list their label, scope, created and last used; revoking asks for confirmation
-- [ ] Assignee pickers and user lists mark agent accounts
-- [ ] Widget tests cover the create-and-reveal flow and revoke
+- [x] Agent accounts are listed apart from, or clearly distinguished from, humans
+- [x] Creating a key shows it once, with a copy button and a warning that it won't be shown again
+- [x] Keys list their label, scope, created and last used; revoking asks for confirmation
+- [x] Assignee pickers and user lists mark agent accounts
+- [x] Widget tests cover the create-and-reveal flow and revoke
 
 ## Comments
 

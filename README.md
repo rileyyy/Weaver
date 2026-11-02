@@ -342,28 +342,19 @@ disk.
 - **Authentication: an agent account and an API key**
   ([ADR-0004](docs/adr/0004-agent-accounts-and-api-keys.md)). Give each
   agent runtime (e.g. "Claude Code (desktop)") its own agent account, so
-  its changes can be told apart from yours. Until the Admin page manages
-  them, an admin creates both over the API (`<token>` is an admin's access
-  token from `POST /api/auth/login`):
-
-  ```sh
-  curl -s https://<WEAVER_DOMAIN>/api/admin/agents \
-      -H "Authorization: Bearer <token>" -H 'Content-Type: application/json' \
-      -d '{"name":"Claude Code (desktop)","description":"My laptop"}'
-  curl -s https://<WEAVER_DOMAIN>/api/admin/agents/<agent id>/keys \
-      -H "Authorization: Bearer <token>" -H 'Content-Type: application/json' \
-      -d '{"label":"laptop","scope":"ReadWrite"}'
-  ```
-
-  The second response's `key` (it starts with `wvr_`) is shown only this
-  once; Weaver keeps just a hash of it. The scope is `ReadOnly` (reads
-  only; every write is refused) or `ReadWrite` (what a non-admin person can
-  do). No agent can change admin data (server settings, statuses,
-  priorities, layers, accounts or admin rights), whatever its scope, and an
-  agent account can't be made an admin. Send the key as `Authorization: Bearer <key>` on every MCP
-  request. It doesn't expire, so there's nothing to refresh; revoke it with
-  `DELETE /api/admin/agents/<agent id>/keys/<key id>`, or deactivate the
-  whole agent with `PUT /api/admin/agents/<agent id>/active`.
+  its changes can be told apart from yours. On the Admin page's **Agents**
+  tab, add the agent, open it and choose **Issue key** with a label and a
+  scope. The key (it starts with `wvr_`) is shown only this once, with a
+  copy button; Weaver keeps just a hash of it. The scope is **read-only**
+  (reads only; every write is refused) or **read-write** (what a non-admin
+  person can do). No agent can change admin data (server settings,
+  statuses, priorities, layers, accounts or admin rights), whatever its
+  scope, and an agent account can't be made an admin. Send the key as
+  `Authorization: Bearer <key>` on every MCP request. It doesn't expire, so
+  there's nothing to refresh; revoke it on the same page, or deactivate the
+  whole agent from the Agents tab (its keys stop working until it's
+  reactivated). The same steps are available over the API under
+  `/api/admin/agents` for scripting.
 - **Keep the key out of the config file.** For Claude Code, a project's
   `.mcp.json` can read it from an environment variable:
 

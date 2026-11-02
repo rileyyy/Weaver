@@ -33,6 +33,25 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-02 — Admin UI for agent accounts and keys
+
+`feature/admin-ui-for-agent-accounts` (ticket 08 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0004](docs/adr/0004-agent-accounts-and-api-keys.md)).
+
+- **The Admin page has an Agents tab.** Admins add an agent with a
+  free-text name and optional description, and deactivate or reactivate
+  it; the confirmation says deactivating doesn't revoke its keys.
+- **Each agent has a keys page.** Issuing a key takes a label and a scope
+  (read-only or read-write, each explained) and shows the key once, with a
+  copy button and a warning that it won't be shown again. Keys list their
+  scope, when they were created and last used; revoking asks first, and
+  revoked keys stay listed, marked revoked.
+- **The Users tab lists people only**, since its rename, password and
+  admin actions don't fit agents.
+- **Assignee pickers mark agents** with a badge, on the board and in the
+  detail dialog.
+
 ## 2026-11-02 — Change history with actor
 
 `feature/change-history-with-actor` (ticket 10 of

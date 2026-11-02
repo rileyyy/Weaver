@@ -901,6 +901,15 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   (`ServerSettingsAdminViewModel`); the time zone is typed as an IANA id
   and checked by the server. Its model is `AdminServerSettings` because
   `ServerSettings` in core already means "which server the app talks to".
+- **Agents have their own tab** (`AgentAdminViewModel`), and the Users tab
+  lists people only: its rename, password and admin actions don't fit
+  agents. An agent's keys open on a page of their own
+  (`AgentKeysPage`, `AgentKeysViewModel` with the agent id as a factory
+  parameter). The plaintext key goes straight from the issue call to the
+  dialog that reveals it, never into view-model state, and that dialog
+  can't be dismissed by tapping outside. Revoking reloads the list, since
+  the server keeps revoked keys and answers with no body. Assignee pickers
+  show agents with `UserNameLabel`'s badge.
 - **Layers are cached app-wide like statuses** (`LayerRepository`): the
   board needs them on every scope load to colour cards, and the detail
   dialog reads the same list. Layer writes on the Admin page drop the
