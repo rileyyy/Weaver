@@ -26,6 +26,25 @@ Widget _tile(WorkItemComment comment, {ValueChanged<String>? onEdit}) =>
     );
 
 void main() {
+  testWidgets('shows the comment as Markdown and edits the raw text', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_tile(_comment('a', 'Looks **done**\n- [x] a')));
+
+    expect(find.textContaining('**', findRichText: true), findsNothing);
+    expect(find.textContaining('done', findRichText: true), findsOneWidget);
+    final box = tester.widget<Checkbox>(find.byType(Checkbox));
+    expect(box.value, isTrue);
+    expect(box.onChanged, isNull);
+
+    await tester.tap(find.byTooltip('Edit comment'));
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'Looks **done**\n- [x] a',
+    );
+  });
+
   testWidgets('editing starts from the comment the tile currently shows', (
     tester,
   ) async {
