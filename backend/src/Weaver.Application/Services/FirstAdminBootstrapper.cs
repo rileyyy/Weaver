@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Weaver.Application.Auth;
 using Weaver.Application.Persistence;
 using Weaver.Domain;
+using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
@@ -40,7 +41,16 @@ public class FirstAdminBootstrapper : IFirstAdminBootstrapper
         var user = User.CreateHuman(trimmed, normalized, isAdmin: true);
         user.SetPasswordHash(_passwordHasher.HashPassword(user, _options.Password));
         _db.Users.Add(user);
-        await _db.SaveChangesAsync(ct);
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (UniqueConstraintViolationException)
+        {
+            // Another instance starting against the same empty database created it first.
+            return FirstAdminBootstrapResult.AccountsAlreadyExist;
+        }
+
         return FirstAdminBootstrapResult.Created;
     }
 }

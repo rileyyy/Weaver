@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Weaver.Application.Auth;
 using Weaver.Application.Services;
@@ -91,6 +92,24 @@ public class FirstAdminBootstrapperTests
                 _hasher.VerifyHashedPassword(user, user.PasswordHash, ValidPassword),
                 Is.Not.EqualTo(PasswordVerificationResult.Failed));
         });
+    }
+
+    [Test]
+    public async Task EnsureFirstAdminAsync_WhenAnotherInstanceCreatesItFirst_TreatsAccountsAsExisting()
+    {
+        var options = new DbContextOptionsBuilder<WeaverDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .AddInterceptors(new UniqueViolationOnSaveInterceptor())
+            .Options;
+        using var racingDb = new WeaverDbContext(options);
+        var bootstrapper = new FirstAdminBootstrapper(
+            racingDb,
+            _hasher,
+            Options.Create(new FirstAdminOptions { Username = "alice", Password = ValidPassword }));
+
+        var result = await bootstrapper.EnsureFirstAdminAsync();
+
+        Assert.That(result, Is.EqualTo(FirstAdminBootstrapResult.AccountsAlreadyExist));
     }
 
     private FirstAdminBootstrapper Bootstrapper(string? username, string? password) =>
