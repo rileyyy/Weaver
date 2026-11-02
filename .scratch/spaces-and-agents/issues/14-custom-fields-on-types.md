@@ -1,0 +1,15 @@
+# 14: Custom fields on Types
+
+**What to build:** Each Type defines **custom fields** of these kinds: text, Markdown, number, currency, date, checkbox, single select, multi-select, user and URL. Admins define them on the Admin page. A work item shows and edits its Type's fields in the detail dialog, and agents read and write them over MCP. Values are validated against the field definitions in the Application layer. See ADR-0002.
+
+**Blocked by:** 09, 10, 13
+
+**Status:** ready-for-agent
+
+- [ ] Admins add, rename, reorder and remove fields on a Type, including select options
+- [ ] Values are stored in a shape that can change without a schema migration, and validated on write (wrong kind, unknown option, unknown user are rejected)
+- [ ] Field updates use patch semantics and `expectedVersion`, and each change is recorded in history
+- [ ] Changing an item's Type has a defined, tested rule for values that don't exist on the new Type
+- [ ] Removing a field definition has a defined rule for existing values
+- [ ] The detail dialog renders an editor for every field kind
+- [ ] MCP returns field definitions and values and can set values; agents can't change definitions

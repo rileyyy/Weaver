@@ -5,8 +5,10 @@ Status: ready-for-human
 Agreed in a design review on 2026-11-02, after an audit of the code at
 `e847af3`. This spec is the decision record for Milestones 16–20. The
 individual decisions and their reasons are in [docs/adr/](../../docs/adr/),
-and the vocabulary in [GLOSSARY.md](../../GLOSSARY.md). Tickets per
-milestone will go in `issues/` next to this file.
+and the vocabulary in [GLOSSARY.md](../../GLOSSARY.md). The work is broken
+into tickets in [issues/](issues/), each listing the tickets that block it.
+They're sliced vertically, so admin UI and MCP tools land with the feature
+they belong to rather than in a later milestone.
 
 ## Context
 
