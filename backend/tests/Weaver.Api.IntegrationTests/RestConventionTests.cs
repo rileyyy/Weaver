@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Weaver.Api.Contracts;
 
@@ -74,6 +75,30 @@ public class RestConventionTests
             Assert.That(document, Does.Contain("application/problem+json"));
             Assert.That(document, Does.Contain("\"409\""));
             Assert.That(document, Does.Contain("\"201\""));
+        });
+    }
+
+    // Patch fields are Optional<T> in code, but on the wire they're plain values that may be left out.
+    [Test]
+    public async Task OpenApi_DescribesPatchFieldsAsPlainValuesThatMayBeLeftOut()
+    {
+        var (_, auth) = await ApiClient.SignedInAsync();
+        await using var factory = IntegrationTestEnvironment.Factory.WithWebHostBuilder(builder =>
+            builder.UseEnvironment("Development"));
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
+
+        using var document = JsonDocument.Parse(await client.GetStringAsync("/openapi/v1.json"));
+        var details = document.RootElement.GetProperty("components").GetProperty("schemas")
+            .GetProperty("UpdateWorkItemDetailsRequest");
+        var required = details.TryGetProperty("required", out var names)
+            ? names.EnumerateArray().Select(name => name.GetString()).ToList()
+            : [];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(required, Does.Not.Contain("title").And.Not.Contain("description"));
+            Assert.That(document.RootElement.GetRawText(), Does.Not.Contain("hasValue"));
         });
     }
 }

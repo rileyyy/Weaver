@@ -28,7 +28,11 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
         options.JsonSerializerOptions.Converters.Add(new OptionalJsonConverterFactory());
     });
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options =>
+{
+    options.AddSchemaTransformer<OptionalOpenApiSchemaTransformer>();
+    options.AddDocumentTransformer<OptionalOpenApiSchemaTransformer>();
+});
 builder.Services.AddProblemDetails();
 builder.Services.AddAuthRateLimiting(builder.Configuration);
 
