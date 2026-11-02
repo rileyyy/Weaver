@@ -223,6 +223,15 @@ above and this file itself.
   All such changes must continue to serve the same goal these files
   share: good coding practice, code quality, and sound git hygiene — not
   a weaker version of it.
+- **Record project knowledge in the repo, not in agent memory.** Decisions,
+  context about users and deployment, specs and plans belong in the repo
+  (`GLOSSARY.md`, `docs/adr/`, `docs/`, `.scratch/`) so they are pushed
+  and available from any machine. Don't keep them in an agent's local
+  memory store.
+- **Improve on the prompter's suggestions.** When a prompt proposes a
+  specific mechanism, treat it as intent rather than spec: if there is a
+  better way to get the same result, say so and explain why, then let the
+  prompter decide.
 
 ---
 

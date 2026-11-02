@@ -118,7 +118,14 @@ docker compose exec frontend sh -c 'cd /app && flutter test'
 
 ## Production deployment
 
-The server needs only two files: `compose.yaml` and `.env`. **Never copy
+The published images are the product; `compose.yaml` is one example of
+running them, with Caddy and its own certificate authority for a LAN. The
+reference deployment instead runs the images under its own compose file
+on a homelab (managed by Komodo, with Tailscale names and certificates
+from tsdproxy) and is reachable over Tailscale only. See
+[ADR-0008](docs/adr/0008-images-first-deployment.md).
+
+Using the example compose file, the server needs only two files: `compose.yaml` and `.env`. **Never copy
 `compose.override.yaml` to the server** — Compose would load it
 automatically and switch to building from source. If it is present for
 some reason, run every command as `docker compose -f compose.yaml ...`.
@@ -282,6 +289,12 @@ overwriting someone else's change.
   gotchas (hot reload, headless browser checks, EF migrations).
 - [docs/open-questions.md](docs/open-questions.md): product and design
   decisions that are still open.
+- [docs/adr/](docs/adr/): architecture decision records, one decision per
+  file.
+- [GLOSSARY.md](GLOSSARY.md): the names Weaver uses for its concepts.
+- [.scratch/](.scratch/): specs and tickets, one folder per feature; the
+  current plan is
+  [.scratch/spaces-and-agents/spec.md](.scratch/spaces-and-agents/spec.md).
 - [CHANGELOG.md](CHANGELOG.md): what shipped, milestone by milestone.
 - [project_design.md](project_design.md): the project's design rules
   (layering, board invariants, testing requirements).
