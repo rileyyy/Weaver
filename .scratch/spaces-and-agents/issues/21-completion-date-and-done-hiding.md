@@ -11,3 +11,9 @@
 - [ ] The server query can exclude Done items completed before a cutoff, and the Board uses it
 - [ ] A "show done" toggle on the Board reveals them
 - [ ] Completion date is returned over REST and MCP
+
+## Comments
+
+**2026-11-02, from ticket 01 (server time zone):**
+
+- If the completion date is a calendar date, take it from `IServerCalendar.TodayAsync`, not the UTC clock, and compute the done-hiding cutoff the same way, so an item completed late in the evening doesn't land on tomorrow's date.

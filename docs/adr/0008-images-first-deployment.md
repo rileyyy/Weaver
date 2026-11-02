@@ -17,7 +17,6 @@ another one.
   variable and volume in one place, including:
   - the database connection
   - the JWT key
-  - the time zone
   - the attachments path, kept separate so it can live on other storage
   - registration off
 - **The backend migrates on startup by default.** An environment variable
@@ -35,3 +34,6 @@ another one.
   the environment and volumes.
 - The dedicated `migrate` command stays available for deployments that want
   an explicit step.
+- The server time zone is not part of the deployment: it is an admin
+  setting stored in the database and set on the Admin page (ticket 01), so
+  it survives image updates and needs no restart to change.

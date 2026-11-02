@@ -10,3 +10,9 @@
 - [ ] Quick picks are resolved to dates by the server, in the configured time zone, with tests around week and month boundaries
 - [ ] The detail dialog shows the When text, whether it's resolved, and the quick picks
 - [ ] Typing a When without dates leaves it unresolved
+
+## Comments
+
+**2026-11-02, from ticket 01 (server time zone):**
+
+- Resolve quick picks (this weekend, next week, next month) on the server from `IServerCalendar.TodayAsync`, so they agree with repeating items and the Agenda; the app can't convert to the server zone itself.
