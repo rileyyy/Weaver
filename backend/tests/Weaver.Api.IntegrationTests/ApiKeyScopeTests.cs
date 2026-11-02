@@ -75,13 +75,13 @@ public class ApiKeyScopeTests
         var moved = await (await agent.PutJsonAsync(
                 $"/api/work-items/{item.Id}/status",
                 new ChangeWorkItemStatusRequest(SeededStatuses.Doing, null)))
-            .ReadAsync<WorkItemDto>();
+            .ReadAsync<WorkItemWriteResponse>();
         var comment = await agent.PostJsonAsync($"/api/work-items/{item.Id}/comments", new CreateCommentRequest("Started"));
         var delete = await agent.DeleteAsync($"/api/work-items/{item.Id}");
 
         Assert.Multiple(() =>
         {
-            Assert.That(moved.StatusId, Is.EqualTo(SeededStatuses.Doing));
+            Assert.That(moved.Item.StatusId, Is.EqualTo(SeededStatuses.Doing));
             Assert.That(comment.StatusCode, Is.EqualTo(HttpStatusCode.Created));
             Assert.That(delete.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
         });
