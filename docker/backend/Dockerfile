@@ -31,6 +31,11 @@ WORKDIR /app
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true \
     ASPNETCORE_HTTP_PORTS=8080
 
+# The admin-set server time zone is an IANA id looked up in /usr/share/zoneinfo.
+# With invariant globalization there's no ICU fallback, so without tzdata every
+# zone but UTC would be rejected. A no-op if the base image already has it.
+RUN apk add --no-cache tzdata
+
 COPY --from=build /app .
 
 # $APP_UID is defined by the base image; running as that non-root user is

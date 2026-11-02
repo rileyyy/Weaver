@@ -34,6 +34,8 @@ public class WeaverDbContext : DbContext, IWeaverDbContext
 
     public DbSet<WorkItemRecurrence> WorkItemRecurrences => Set<WorkItemRecurrence>();
 
+    public DbSet<ServerSettings> ServerSettings => Set<ServerSettings>();
+
     public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default) =>
         Database.BeginTransactionAsync(cancellationToken);
 
@@ -84,5 +86,6 @@ public class WeaverDbContext : DbContext, IWeaverDbContext
         modelBuilder.ApplyConfiguration(new CommentConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemLinkConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemRecurrenceConfiguration());
+        modelBuilder.ApplyConfiguration(new ServerSettingsConfiguration());
     }
 }

@@ -13,3 +13,9 @@ To decide before this is ready:
 
 - [ ] Reminder rules agreed and written into this ticket
 - [ ] Configured ntfy server receives a reminder for a qualifying item, verified on the homelab
+
+## Comments
+
+**2026-11-02, from ticket 01 (server time zone):**
+
+- The server time zone exists now (`ServerSettings.TimeZoneId`, `IServerCalendar.TodayAsync`); "time of day in the server time zone" can build on it. The settings store is the place for an ntfy URL if that's chosen as an admin setting rather than an env var.

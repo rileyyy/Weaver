@@ -5,11 +5,13 @@ import 'package:weaver/features/admin/admin_view.dart';
 import 'package:weaver/features/admin/lookup_admin_view_model.dart';
 import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/models/lookup_value.dart';
+import 'package:weaver/features/admin/server_settings_admin_view_model.dart';
 import 'package:weaver/features/admin/status_admin_view_model.dart';
 import 'package:weaver/features/admin/user_admin_view_model.dart';
 import 'package:weaver/shared/data/current_user.dart';
 
 import '../fakes/fake_lookup_admin_repository.dart';
+import '../fakes/fake_server_settings_admin_repository.dart';
 import '../fakes/fake_status_admin_repository.dart';
 import '../fakes/fake_user_admin_repository.dart';
 
@@ -39,6 +41,11 @@ void main() {
       )
       ..registerFactory(
         () => UserAdminViewModel(users, const _SignedInAs('alice')),
+      )
+      ..registerFactory(
+        () => ServerSettingsAdminViewModel(
+          FakeServerSettingsAdminRepository(timeZoneId: 'Europe/Berlin'),
+        ),
       );
   });
 
@@ -50,7 +57,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: AdminView()));
     await tester.pumpAndSettle();
 
-    for (final tab in ['Statuses', 'Priorities', 'Layers', 'Users']) {
+    for (final tab in ['Statuses', 'Priorities', 'Layers', 'Users', 'Server']) {
       expect(find.widgetWithText(Tab, tab), findsOneWidget);
     }
     expect(find.text('To Do'), findsOneWidget);
@@ -60,5 +67,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('alice'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(Tab, 'Server'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Europe/Berlin'), findsOneWidget);
   });
 }

@@ -117,6 +117,31 @@ namespace Weaver.Infrastructure.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
+            modelBuilder.Entity("Weaver.Domain.ServerSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ServerSettings", t =>
+                        {
+                            t.HasCheckConstraint("CK_ServerSettings_Singleton", "\"Id\" = 1");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            TimeZoneId = "UTC"
+                        });
+                });
+
             modelBuilder.Entity("Weaver.Domain.Status", b =>
                 {
                     b.Property<Guid>("Id")

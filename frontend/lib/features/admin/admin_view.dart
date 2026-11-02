@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/features/admin/lookup_admin_view_model.dart';
 import 'package:weaver/features/admin/models/lookup_kind.dart';
+import 'package:weaver/features/admin/server_settings_admin_view_model.dart';
 import 'package:weaver/features/admin/status_admin_view_model.dart';
 import 'package:weaver/features/admin/user_admin_view_model.dart';
 import 'package:weaver/features/admin/views/lookup_tab.dart';
+import 'package:weaver/features/admin/views/server_tab.dart';
 import 'package:weaver/features/admin/views/statuses_tab.dart';
 import 'package:weaver/features/admin/views/users_tab.dart';
 
@@ -15,8 +17,9 @@ Future<void> showAdminPage(BuildContext context) => Navigator.of(
   context,
 ).push(MaterialPageRoute<void>(builder: (_) => const AdminView()));
 
-/// Statuses, priorities, layers and users, one tab each. Only offered to
-/// admins; the server refuses every change from anyone else.
+/// Statuses, priorities, layers, users and server-wide settings, one tab
+/// each. Only offered to admins; the server refuses every change from anyone
+/// else.
 class AdminView extends StatefulWidget {
   const AdminView({super.key});
 
@@ -33,6 +36,8 @@ class _AdminViewState extends State<AdminView> {
     param1: LookupKind.layers,
   );
   final UserAdminViewModel _users = getIt<UserAdminViewModel>();
+  final ServerSettingsAdminViewModel _server =
+      getIt<ServerSettingsAdminViewModel>();
 
   @override
   void initState() {
@@ -41,6 +46,7 @@ class _AdminViewState extends State<AdminView> {
     unawaited(_priorities.load());
     unawaited(_layers.load());
     unawaited(_users.load());
+    unawaited(_server.load());
   }
 
   @override
@@ -49,13 +55,14 @@ class _AdminViewState extends State<AdminView> {
     _priorities.dispose();
     _layers.dispose();
     _users.dispose();
+    _server.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Admin'),
@@ -67,6 +74,7 @@ class _AdminViewState extends State<AdminView> {
               Tab(text: 'Priorities'),
               Tab(text: 'Layers'),
               Tab(text: 'Users'),
+              Tab(text: 'Server'),
             ],
           ),
         ),
@@ -76,6 +84,7 @@ class _AdminViewState extends State<AdminView> {
             LookupTab(viewModel: _priorities),
             LookupTab(viewModel: _layers),
             UsersTab(viewModel: _users),
+            ServerTab(viewModel: _server),
           ],
         ),
       ),

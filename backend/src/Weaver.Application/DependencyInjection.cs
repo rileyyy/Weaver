@@ -23,6 +23,8 @@ public static class DependencyInjection
             .AddScoped<IWorkItemLayerService, WorkItemLayerService>()
             .AddScoped<IWorkItemPriorityService, WorkItemPriorityService>()
             .AddScoped<IWorkItemRecurrenceService, WorkItemRecurrenceService>()
+            .AddScoped<IServerSettingsService, ServerSettingsService>()
+            .AddScoped<IServerCalendar, ServerCalendar>()
             .AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>()
             .AddTimeProvider();
 

@@ -281,10 +281,11 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   failures per schedule. Each occurrence is saved on its own because EF
   orders one batch's inserts by primary key, which with random GUIDs gave
   display numbers out of date order.
-- **"Today" is the server's UTC date**, via `TimeProvider` (injected, so
-  the lead window is testable). With a seven-day lead that's close enough;
-  only the "next occurrence" label can be a day off around midnight.
-  Milestone 16 replaces UTC with an admin-set server time zone.
+- **"Today" is the date in the server time zone**, from `IServerCalendar`
+  (the admin-set IANA zone in `ServerSettings`, applied to the injected
+  `TimeProvider`, so the lead window is testable). It's read once per
+  operation, so one generation run can't straddle two "todays". Anything
+  else that compares dates with the present should ask the same calendar.
 - **Schedule saves are last-write-wins**, like status and assignee: a
   schedule is one small form with no version token yet.
 
@@ -491,6 +492,14 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
 - **An access token outlives deactivation by up to 15 minutes.** Only
   refresh tokens are revoked; checking the user on every request would add
   a database read to all of them. The same applies to a password reset.
+- **Server settings are one row** (`ServerSettings`, seeded by its
+  migration and held to a single row by a check constraint), with a typed,
+  validated column per setting rather than key/value pairs. Today that's
+  the time zone (default `UTC`). Only IANA ids are accepted: Windows ids
+  resolve on a Windows host but not in the Linux container, and the stored
+  id has to work in production. Anyone signed in can read the settings
+  (`GET /api/server-settings`); only admins change them, one setting per
+  `PUT` (`/api/server-settings/time-zone`), through `IServerSettingsService`.
 - **Nobody can lock the team out of administration.** The last active
   admin can't be demoted, deactivated or deleted (`LastAdminException`),
   and an admin can't deactivate or delete their own account
@@ -507,8 +516,9 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   behaves exactly as it does for a controller. `CommentTools` reads the
   caller's id through `IHttpContextAccessor`.
 - **Coverage:** work items, boards, statuses, layers, priorities, users,
-  comments, links and repeating items. Lookups and users are read-only over
-  MCP, and agents will never be able to change admin data
+  comments, links, repeating items and server settings. Lookups, users and
+  server settings (`get_server_settings`) are read-only over MCP, and agents
+  will never be able to change admin data
   ([ADR-0004](adr/0004-agent-accounts-and-api-keys.md)). Auth endpoints are
   not tools; they're how a client gets its token.
   `list_all_work_items` pages through every item like `GET
@@ -741,7 +751,11 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   (load and drag-to-reorder), and `LookupAdminViewModel` serves both
   Priorities and Layers through an injectable factory parameter
   (`LookupKind`). Layers also have a colour (`LookupKind.hasColor`), edited
-  in `showLayerDialog` with the `HexColorPicker` statuses use.
+  in `showLayerDialog` with the `HexColorPicker` statuses use. A fifth
+  tab, Server, shows the server-wide settings
+  (`ServerSettingsAdminViewModel`); the time zone is typed as an IANA id
+  and checked by the server. Its model is `AdminServerSettings` because
+  `ServerSettings` in core already means "which server the app talks to".
 - **Layers are cached app-wide like statuses** (`LayerRepository`): the
   board needs them on every scope load to colour cards, and the detail
   dialog reads the same list. Layer writes on the Admin page drop the

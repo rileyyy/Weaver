@@ -12,3 +12,12 @@
 - [ ] Agents get forbidden on purge over REST and MCP
 - [ ] Purges are recorded in history
 - [ ] Tests cover expiry, manual purge, and agent rejection
+
+## Comments
+
+**2026-11-02, from ticket 01 (server time zone):**
+
+- Retention fits the existing store without reshaping: `ServerSettings` is one seeded row with a typed, validated column per setting. Add a column with a default in the migration, a validating setter on the entity (with `Weaver.Domain.Tests/ServerSettingsTests` cases), `IServerSettingsService.SetRetentionAsync` behind `IAdminAuthorizer`, `PUT /api/server-settings/retention`, and a field on `ServerSettingsDto`. The Admin page's Server tab (`ServerSettingsAdminViewModel`) gets the field.
+- MCP only has the read-only `get_server_settings` tool; don't add a write. A unit test asserts every tool on `ServerSettingsTools` is read-only.
+- Retention is stored in the database, not an env var, so "default stated in the deployment reference" means a note in the README rather than a row in the environment tables (ticket 02's reference is env-var shaped).
+- Decide whether expiry counts whole days in the server time zone (`IServerCalendar.TodayAsync`) or elapsed time since deletion; either is fine, but say which.
