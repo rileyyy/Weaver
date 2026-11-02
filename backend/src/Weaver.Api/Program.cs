@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
+using Weaver.Api.Auth;
 using Weaver.Api.Background;
 using Weaver.Api.Mcp;
 using Weaver.Api.Middleware;
@@ -42,6 +43,7 @@ builder.Services.AddHostedService<RecurrenceGenerationWorker>();
 // CommentsController does (User.GetUserId()) — MCP tools don't get a ControllerBase's
 // User property for free, so they resolve it via the accessor instead.
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICallerContext, HttpCallerContext>();
 
 // MCP tool classes are discovered via [McpServerToolType] from this assembly (Weaver.Api,
 // the calling assembly) — see the Mcp/ folder. Stateless mode means each MCP call is just a
