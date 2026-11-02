@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using ModelContextProtocol.Server;
+using Weaver.Api.Auth;
 using Weaver.Api.Contracts;
 using Weaver.Application.Services;
 using Weaver.Domain;
@@ -10,10 +11,12 @@ namespace Weaver.Api.Mcp;
 public class WorkItemRecurrenceTools
 {
     private readonly IWorkItemRecurrenceService _recurrences;
+    private readonly HttpCallerContext _caller;
 
-    public WorkItemRecurrenceTools(IWorkItemRecurrenceService recurrences)
+    public WorkItemRecurrenceTools(IWorkItemRecurrenceService recurrences, HttpCallerContext caller)
     {
         _recurrences = recurrences;
+        _caller = caller;
     }
 
     [McpServerTool(Name = "list_repeating_work_items", ReadOnly = true)]
@@ -46,9 +49,11 @@ public class WorkItemRecurrenceTools
         [Description("Days of the week (e.g. Monday) for Weekly/BiWeekly.")] IReadOnlyList<DayOfWeek>? daysOfWeek,
         [Description("First date the schedule can fall on (yyyy-MM-dd).")] DateOnly startDate,
         [Description("Last date the schedule can fall on (yyyy-MM-dd). Omit to repeat indefinitely.")] DateOnly? endDate,
+        [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
+            _caller.UseActorLabel(actorLabel);
             var recurrence = await _recurrences.SetAsync(workItemId, frequency, daysOfWeek ?? [], startDate, endDate, ct);
             return WorkItemRecurrenceDto.FromModel(recurrence);
         });
@@ -57,6 +62,11 @@ public class WorkItemRecurrenceTools
     [Description("Stops a work item repeating. Items it already created are kept.")]
     public Task RemoveWorkItemRecurrence(
         [Description("The work item's id.")] Guid workItemId,
+        [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
-        McpExceptionTranslation.TranslateAsync(() => _recurrences.RemoveAsync(workItemId, ct));
+        McpExceptionTranslation.TranslateAsync(() =>
+        {
+            _caller.UseActorLabel(actorLabel);
+            return _recurrences.RemoveAsync(workItemId, ct);
+        });
 }

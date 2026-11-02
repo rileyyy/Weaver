@@ -2,6 +2,7 @@ using System.ComponentModel;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using Weaver.Api.Auth;
 using Weaver.Api.Contracts;
 using Weaver.Application.Services;
 using Weaver.Domain;
@@ -20,10 +21,12 @@ public class WorkItemTools
         "Returns the item with its new version and the list of fields that changed.";
 
     private readonly IWorkItemService _workItems;
+    private readonly HttpCallerContext _caller;
 
-    public WorkItemTools(IWorkItemService workItems)
+    public WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
     {
         _workItems = workItems;
+        _caller = caller;
     }
 
     [McpServerTool(Name = "get_work_item", ReadOnly = true)]
@@ -71,9 +74,11 @@ public class WorkItemTools
         [Description("Id of an existing sibling (same parent and status) to place this item immediately after. Omit to place it first.")] Guid? afterId = null,
         [Description("Id of the work item layer, e.g. Project/Goal/Task. Use list_work_item_layers to find valid ids. Optional.")] Guid? layerId = null,
         [Description("Id of the work item priority. Use list_work_item_priorities to find valid ids. Optional.")] Guid? priorityId = null,
+        [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
+            _caller.UseActorLabel(actorLabel);
             var item = await _workItems.CreateAsync(title, description, parentId, statusId, afterId, layerId, priorityId, ct);
             return WorkItemDto.FromEntity(item);
         });
@@ -86,8 +91,9 @@ public class WorkItemTools
         [Description("Id of the status column to move the item to.")] Guid statusId,
         [Description("Id of an existing sibling (same parent and status) to place this item immediately after. Omit to place it first.")] Guid? afterId = null,
         [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
+        [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
-        TranslateWriteAsync(() => _workItems.ChangeStatusAsync(id, statusId, afterId, expectedVersion, ct));
+        TranslateWriteAsync(actorLabel, () => _workItems.ChangeStatusAsync(id, statusId, afterId, expectedVersion, ct));
 
     [McpServerTool(Name = "reparent_work_item", Destructive = false, Idempotent = true)]
     [Description("Moves a work item to a different parent, keeping its current status. Cannot change " +
@@ -97,8 +103,9 @@ public class WorkItemTools
         [Description("Id of the new parent work item. Omit to make it a top-level item.")] Guid? parentId = null,
         [Description("Id of an existing sibling under the new parent (same status) to place this item immediately after. Omit to place it first.")] Guid? afterId = null,
         [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
+        [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
-        TranslateWriteAsync(() => _workItems.ReparentAsync(id, parentId, afterId, expectedVersion, ct));
+        TranslateWriteAsync(actorLabel, () => _workItems.ReparentAsync(id, parentId, afterId, expectedVersion, ct));
 
     [McpServerTool(Name = "reschedule_work_item", Destructive = false, Idempotent = true)]
     [Description("Changes a work item's scheduled start and/or end date, independently of status and " +
@@ -109,8 +116,9 @@ public class WorkItemTools
         [Description("New start date (yyyy-MM-dd, a calendar date), or null to clear it.")] DateOnly? startDate = null,
         [Description("New end date (yyyy-MM-dd, a calendar date), or null to clear it.")] DateOnly? endDate = null,
         [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
+        [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
-        TranslateWriteAsync(() => _workItems.RescheduleAsync(
+        TranslateWriteAsync(actorLabel, () => _workItems.RescheduleAsync(
             id,
             context.Supplied(nameof(startDate), startDate),
             context.Supplied(nameof(endDate), endDate),
@@ -128,6 +136,7 @@ public class WorkItemTools
         [Description("Id of the work item layer, or null to clear it. Use list_work_item_layers to find valid ids.")] Guid? layerId = null,
         [Description("Id of the work item priority, or null to clear it. Use list_work_item_priorities to find valid ids.")] Guid? priorityId = null,
         [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
+        [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default)
     {
         var patch = new WorkItemDetailsPatch
@@ -137,7 +146,7 @@ public class WorkItemTools
             LayerId = context.Supplied(nameof(layerId), layerId),
             PriorityId = context.Supplied(nameof(priorityId), priorityId),
         };
-        return TranslateWriteAsync(() => _workItems.UpdateDetailsAsync(id, patch, expectedVersion, ct));
+        return TranslateWriteAsync(actorLabel, () => _workItems.UpdateDetailsAsync(id, patch, expectedVersion, ct));
     }
 
     [McpServerTool(Name = "assign_work_item", Destructive = false, Idempotent = true)]
@@ -146,8 +155,9 @@ public class WorkItemTools
         [Description("The work item's id.")] Guid id,
         [Description("Id of the user to assign. Omit to unassign.")] Guid? userId = null,
         [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
+        [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
-        TranslateWriteAsync(() => _workItems.AssignAsync(id, userId, expectedVersion, ct));
+        TranslateWriteAsync(actorLabel, () => _workItems.AssignAsync(id, userId, expectedVersion, ct));
 
     [McpServerTool(Name = "set_work_item_tags", Destructive = false, Idempotent = true)]
     [Description("Replaces a work item's full tag list, independently of every other field. Tags are " +
@@ -157,13 +167,14 @@ public class WorkItemTools
         [Description("The work item's id.")] Guid id,
         [Description("The complete new list of tags, replacing the existing list entirely. Null or an empty list clears the tags; omitted leaves them unchanged.")] IReadOnlyList<string>? tags = null,
         [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
+        [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default)
     {
         var supplied = context.Supplied(nameof(tags), tags);
         var patch = supplied.HasValue
             ? new Optional<IReadOnlyList<string>>(supplied.Value ?? [])
             : Optional<IReadOnlyList<string>>.Unset;
-        return TranslateWriteAsync(() => _workItems.SetTagsAsync(id, patch, expectedVersion, ct));
+        return TranslateWriteAsync(actorLabel, () => _workItems.SetTagsAsync(id, patch, expectedVersion, ct));
     }
 
     [McpServerTool(Name = "delete_work_item", Destructive = true)]
@@ -174,9 +185,18 @@ public class WorkItemTools
         [Description("The work item's id.")] Guid id,
         [Description("Must be true to delete a work item that has children; this also deletes the entire subtree.")] bool cascade = false,
         [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
+        [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
-        McpExceptionTranslation.TranslateAsync(() => _workItems.DeleteAsync(id, cascade, expectedVersion, ct));
+        McpExceptionTranslation.TranslateAsync(() =>
+        {
+            _caller.UseActorLabel(actorLabel);
+            return _workItems.DeleteAsync(id, cascade, expectedVersion, ct);
+        });
 
-    private static Task<WorkItemWriteResponse> TranslateWriteAsync(Func<Task<WorkItemWriteResult>> write) =>
-        McpExceptionTranslation.TranslateAsync(async () => WorkItemWriteResponse.FromResult(await write()));
+    private Task<WorkItemWriteResponse> TranslateWriteAsync(string? actorLabel, Func<Task<WorkItemWriteResult>> write) =>
+        McpExceptionTranslation.TranslateAsync(async () =>
+        {
+            _caller.UseActorLabel(actorLabel);
+            return WorkItemWriteResponse.FromResult(await write());
+        });
 }

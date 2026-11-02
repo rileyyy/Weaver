@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Http;
 using ModelContextProtocol;
 using Moq;
+using Weaver.Api.Auth;
 using Weaver.Api.Mcp;
 using Weaver.Application.Services;
 using Weaver.Domain;
@@ -17,7 +19,7 @@ public class WorkItemRecurrenceToolsTests
     public void SetUp()
     {
         _recurrences = new Mock<IWorkItemRecurrenceService>(MockBehavior.Strict);
-        _tools = new WorkItemRecurrenceTools(_recurrences.Object);
+        _tools = new WorkItemRecurrenceTools(_recurrences.Object, new HttpCallerContext(new HttpContextAccessor()));
     }
 
     [Test]
@@ -64,7 +66,7 @@ public class WorkItemRecurrenceToolsTests
                 start, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(WorkItemRecurrencesControllerTests.MakeRecurring(id));
 
-        var result = await _tools.SetWorkItemRecurrence(id, RecurrenceFrequency.Yearly, null, start, null, CancellationToken.None);
+        var result = await _tools.SetWorkItemRecurrence(id, RecurrenceFrequency.Yearly, null, start, null, ct: CancellationToken.None);
 
         Assert.That(result.WorkItemId, Is.EqualTo(id));
     }
@@ -81,7 +83,7 @@ public class WorkItemRecurrenceToolsTests
             .ThrowsAsync(domainException);
 
         var thrown = Assert.ThrowsAsync<McpException>(() => _tools.SetWorkItemRecurrence(
-            id, RecurrenceFrequency.Weekly, [], new DateOnly(2026, 9, 28), null, CancellationToken.None));
+            id, RecurrenceFrequency.Weekly, [], new DateOnly(2026, 9, 28), null, ct: CancellationToken.None));
 
         Assert.That(thrown!.Message, Is.EqualTo(domainException.Message));
     }
@@ -92,7 +94,7 @@ public class WorkItemRecurrenceToolsTests
         var id = Guid.NewGuid();
         _recurrences.Setup(r => r.RemoveAsync(id, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
-        await _tools.RemoveWorkItemRecurrence(id, CancellationToken.None);
+        await _tools.RemoveWorkItemRecurrence(id, ct: CancellationToken.None);
 
         _recurrences.VerifyAll();
     }
