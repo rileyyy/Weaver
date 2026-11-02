@@ -33,6 +33,25 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-02 — Agent accounts and API keys
+
+`feature/agent-accounts-and-api-keys` (ticket 06 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0004](docs/adr/0004-agent-accounts-and-api-keys.md)).
+
+- **Admins create agent accounts** (a name and a description, no password)
+  at `/api/admin/agents`, and can deactivate and reactivate them.
+- **Agents sign in with API keys.** Each key has a label and a scope
+  (`ReadOnly` or `ReadWrite`), is shown once when it's issued and stored
+  only as a hash, and can be revoked. A client sends it as
+  `Authorization: Bearer wvr_…` and never has to refresh it. Revoked keys
+  and keys of deactivated agents get a 401 straight away.
+- **Agents can't log in with a password**, and humans can't have keys.
+- **MCP gains `whoami`**, naming the account, key and scope in use. The
+  README shows a `.mcp.json` that reads the key from `WEAVER_API_KEY`.
+- The caller context now carries the key. Scopes aren't enforced yet
+  (ticket 07), and there's no Admin page for agents yet (ticket 08).
+
 ## 2026-11-02 — Admins create every account
 
 `feature/admin-only-account-creation` (ticket 04 of

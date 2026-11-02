@@ -441,9 +441,10 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   the token via `User.GetUserId()`) and throw
   `CommentAuthorMismatchException` (403) for anyone but the author.
 - **`ICallerContext` (Application) says who is calling**: account, API key
-  and actor label, the last two null until API keys exist. `HttpCallerContext`
-  (Api, scoped) reads it from the authenticated principal, so REST and MCP
-  share one mapping. It's read lazily and throws `InvalidAccessTokenException`
+  (for an agent signed in with one) and actor label (null until write tools
+  take one). `HttpCallerContext` (Api, scoped) reads it from the
+  authenticated principal's `sub` and `weaver_api_key_id` claims, so REST
+  and MCP share one mapping. It's read lazily and throws `InvalidAccessTokenException`
   without a signed-in caller, so the background worker can still resolve the
   services. The mutating work item, recurrence, comment, link and lookup
   services receive it (optionally, for now) for history and key scopes;
@@ -505,6 +506,42 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   and an admin can't deactivate or delete their own account
   (`OwnAccountChangeException`); the page doesn't offer either.
 
+### Agent accounts and API keys
+
+- **Agents are rows in `Users`** with `Kind = Agent`, a free-text name
+  (stored as the username, so it shares the unique index with humans) and
+  an optional `Description`, made by `User.CreateAgent`. Keeping one table
+  means `FirstAdminBootstrapper`'s "no accounts yet" check and every
+  user lookup work unchanged. Agents have no password hash, and
+  `AuthService.LoginAsync` refuses them with the usual uniform failure even
+  if an admin set one through `/api/admin/users`.
+- **`/api/admin/agents`** (`IAgentAccountService`, admins only) lists and
+  creates agents, deactivates or reactivates them (`PUT {id}/active`, which
+  reuses the human rules: unassign, end sessions), and lists, issues
+  (`POST {id}/keys`) and revokes (`DELETE {id}/keys/{keyId}`) their keys.
+  Any of these on a human's id is a 409 (`NotAnAgentAccountException`), and
+  `ApiKey.Issue` refuses a human itself.
+- **An `ApiKey` stores only a SHA-256 of the key**, unique-indexed for the
+  per-request lookup. A key is `wvr_` plus 256 random bits (`ApiKeySecret`),
+  so a slow password hash would add cost without adding safety. The
+  plaintext is in the create response only (`IssuedApiKeyDto`). Revoking
+  sets `RevokedAtUtc` and keeps the row, so history can still name the key.
+  `LastUsedAtUtc` is written at most once a minute per key
+  (`ApiKey.RecordUse`), so a busy agent doesn't turn every read into a write.
+- **Keys arrive as `Authorization: Bearer wvr_…`**, the header every MCP
+  client can set. The default scheme is a policy scheme that forwards a
+  `wvr_` bearer value to `ApiKeyAuthenticationHandler` and anything else to
+  JWT bearer, so each credential is only checked by its own handler. The
+  key handler (`IApiKeyAuthenticator`) checks the key, its revocation and
+  the account's activity on every request, so a revoked key or a
+  deactivated agent is refused at once (401), unlike an access token. Its
+  principal carries `sub` like an access token, so `[Authorize]`,
+  `GetUserId()` and `IAdminAuthorizer` treat both alike.
+- **Deactivating an agent doesn't revoke its keys**; they stop working
+  while it's inactive and work again if it's reactivated.
+- **Scope isn't enforced yet**: a read-only key can still write (ticket 07
+  of the spec).
+
 ## MCP
 
 - **Tools live in `Weaver.Api/Mcp/`**, not a separate project, because
@@ -520,7 +557,8 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   server settings (`get_server_settings`) are read-only over MCP, and agents
   will never be able to change admin data
   ([ADR-0004](adr/0004-agent-accounts-and-api-keys.md)). Auth endpoints are
-  not tools; they're how a client gets its token.
+  not tools; they're how a client gets its token. `whoami` names the
+  caller's account and kind, and the label and scope of the key it used.
   `list_all_work_items` pages through every item like `GET
   /work-items/all` (same `offset`/`limit`, default 500, at most 1000, from
   `WorkItemService`), so an agent can rebuild the whole tree;
@@ -530,10 +568,10 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   ([ADR-0006](adr/0006-server-side-query-and-views.md)).
 - **Auth is the REST API's.** `app.MapMcp("/mcp")` sits in the same
   pipeline after `UseAuthentication()` / `UseAuthorization()`, so it
-  inherits the fallback policy. A request with no bearer token gets a plain
-  401 before reaching MCP handling. Today an agent logs in with a human
-  account's password; agent accounts with API keys replace this in
-  Milestone 16 ([ADR-0004](adr/0004-agent-accounts-and-api-keys.md)).
+  inherits the fallback policy. A request with no bearer value, or a bad
+  one, gets a plain 401 before reaching MCP handling. Agents send their API
+  key ([Agent accounts and API keys](#agent-accounts-and-api-keys)); a
+  human's access token works too.
 - **Pitfall: enum serialisation options.** `WithToolsFromAssembly` takes
   its own `JsonSerializerOptions`; without one, enums go out as ints.
   `McpJsonSerializerOptions.Default` adds `JsonStringEnumConverter`, and it

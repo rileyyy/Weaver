@@ -336,23 +336,50 @@ disk.
 - **Endpoint:** `https://<WEAVER_DOMAIN>/mcp`, Streamable HTTP transport,
   stateless (no session to keep between calls). In local dev it is
   `http://localhost:8080/mcp`.
-- **Authentication:** the same as any API client. Log in with an existing
-  account:
+- **Authentication: an agent account and an API key**
+  ([ADR-0004](docs/adr/0004-agent-accounts-and-api-keys.md)). Give each
+  agent runtime (e.g. "Claude Code (desktop)") its own agent account, so
+  its changes can be told apart from yours. Until the Admin page manages
+  them, an admin creates both over the API (`<token>` is an admin's access
+  token from `POST /api/auth/login`):
 
   ```sh
-  curl -s https://<WEAVER_DOMAIN>/api/auth/login \
-      -H 'Content-Type: application/json' \
-      -d '{"username":"…","password":"…"}'
+  curl -s https://<WEAVER_DOMAIN>/api/admin/agents \
+      -H "Authorization: Bearer <token>" -H 'Content-Type: application/json' \
+      -d '{"name":"Claude Code (desktop)","description":"My laptop"}'
+  curl -s https://<WEAVER_DOMAIN>/api/admin/agents/<agent id>/keys \
+      -H "Authorization: Bearer <token>" -H 'Content-Type: application/json' \
+      -d '{"label":"laptop","scope":"ReadWrite"}'
   ```
 
-  and send the returned `accessToken` as `Authorization: Bearer
-  <accessToken>` on every MCP request. There is no separate agent account
-  type yet, so an MCP client acts as the human account it logs in with.
-  Agent accounts with API keys replace this in Milestone 16
-  ([ADR-0004](docs/adr/0004-agent-accounts-and-api-keys.md)).
-- **Access tokens last 15 minutes.** A long-running client has to log in
-  again (or call `POST /api/auth/refresh` with the `refreshToken`) when
-  requests start returning 401.
+  The second response's `key` (it starts with `wvr_`) is shown only this
+  once; Weaver keeps just a hash of it. The scope is `ReadOnly` or
+  `ReadWrite`. Send the key as `Authorization: Bearer <key>` on every MCP
+  request. It doesn't expire, so there's nothing to refresh; revoke it with
+  `DELETE /api/admin/agents/<agent id>/keys/<key id>`, or deactivate the
+  whole agent with `PUT /api/admin/agents/<agent id>/active`.
+- **Keep the key out of the config file.** For Claude Code, a project's
+  `.mcp.json` can read it from an environment variable:
+
+  ```json
+  {
+    "mcpServers": {
+      "weaver": {
+        "type": "http",
+        "url": "https://<WEAVER_DOMAIN>/mcp",
+        "headers": {
+          "Authorization": "Bearer ${WEAVER_API_KEY}"
+        }
+      }
+    }
+  }
+  ```
+
+  Set `WEAVER_API_KEY` in the environment Claude Code starts from. The
+  `whoami` tool says which account, key and scope the connection is using.
+- **Agent accounts have no password**, so they can't log in at
+  `/api/auth/login`. A human's access token works on `/mcp` too, but it
+  lasts only 15 minutes.
 - **TLS:** the client (or the machine it runs on) must trust the Caddy
   root certificate, see above.
 
