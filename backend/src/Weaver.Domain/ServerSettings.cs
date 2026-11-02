@@ -25,19 +25,18 @@ public class ServerSettings
     /// </summary>
     public string TimeZoneId { get; private set; } = DefaultTimeZoneId;
 
-    public TimeZoneInfo TimeZone => TimeZoneInfo.FindSystemTimeZoneById(TimeZoneId);
-
     public static ServerSettings CreateDefault() => new() { Id = SingletonId };
 
     /// <summary>The calendar date in the server's time zone at <paramref name="instant"/>.</summary>
     public DateOnly DateAt(DateTimeOffset instant) =>
-        DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instant, TimeZone).DateTime);
+        DateOnly.FromDateTime(
+            TimeZoneInfo.ConvertTime(instant, TimeZoneInfo.FindSystemTimeZoneById(TimeZoneId)).DateTime);
 
     /// <summary>
     /// Accepts only IANA ids (e.g. "Europe/Berlin"). Windows ids such as "W. Europe Standard
     /// Time" resolve on a Windows host but not in the Linux container, so they're refused
-    /// everywhere. Stores the id as the system spells it, so "europe/berlin" becomes
-    /// "Europe/Berlin" where the lookup is case-insensitive.
+    /// everywhere. Stores the id as the system spells it. The lookup is case-insensitive
+    /// only on Windows, so "europe/berlin" is refused in the Linux container.
     /// </summary>
     public void SetTimeZone(string timeZoneId)
     {

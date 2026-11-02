@@ -498,7 +498,8 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   caller's id through `IHttpContextAccessor`.
 - **Coverage:** work items, boards, statuses, layers, priorities, users,
   comments, links, repeating items and server settings. Lookups, users and
-  server settings (`get_server_settings`) are read-only over MCP, and agents will never be able to change admin data
+  server settings (`get_server_settings`) are read-only over MCP, and agents
+  will never be able to change admin data
   ([ADR-0004](adr/0004-agent-accounts-and-api-keys.md)). Auth endpoints are
   not tools; they're how a client gets its token.
   `list_all_work_items` pages through every item like `GET

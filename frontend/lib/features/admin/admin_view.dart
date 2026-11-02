@@ -18,8 +18,8 @@ Future<void> showAdminPage(BuildContext context) => Navigator.of(
 ).push(MaterialPageRoute<void>(builder: (_) => const AdminView()));
 
 /// Statuses, priorities, layers, users and server-wide settings, one tab
-/// each. Only offered to
-/// admins; the server refuses every change from anyone else.
+/// each. Only offered to admins; the server refuses every change from anyone
+/// else.
 class AdminView extends StatefulWidget {
   const AdminView({super.key});
 

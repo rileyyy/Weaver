@@ -5,8 +5,8 @@ import 'package:weaver/features/admin/widgets/admin_form_dialog.dart';
 import 'package:weaver/features/admin/widgets/dialog_submission.dart';
 
 /// Asks for one name: adding or renaming a priority or layer, renaming a
-/// user, or naming the server's time zone. [onSave] returns null on success or an error to show, keeping the
-/// dialog open. Completes with whether a save succeeded.
+/// user, or naming the server's time zone. [onSave] returns null on success
+/// or an error to show, keeping the dialog open. Completes with whether a save succeeded.
 Future<bool> showNameDialog(
   BuildContext context, {
   required String title,
