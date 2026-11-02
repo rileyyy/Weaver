@@ -33,6 +33,8 @@ public interface IWeaverDbContext
 
     DbSet<WorkItemRecurrence> WorkItemRecurrences { get; }
 
+    DbSet<ServerSettings> ServerSettings { get; }
+
     /// <summary>Lets a long-running job discard a failed unit of work and carry on.</summary>
     ChangeTracker ChangeTracker { get; }
 

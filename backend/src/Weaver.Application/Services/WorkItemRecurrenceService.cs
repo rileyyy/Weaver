@@ -9,13 +9,13 @@ namespace Weaver.Application.Services;
 public class WorkItemRecurrenceService : IWorkItemRecurrenceService
 {
     private readonly IWeaverDbContext _db;
-    private readonly TimeProvider _time;
+    private readonly IServerCalendar _calendar;
     private readonly ILogger<WorkItemRecurrenceService> _logger;
 
-    public WorkItemRecurrenceService(IWeaverDbContext db, TimeProvider time, ILogger<WorkItemRecurrenceService> logger)
+    public WorkItemRecurrenceService(IWeaverDbContext db, IServerCalendar calendar, ILogger<WorkItemRecurrenceService> logger)
     {
         _db = db;
-        _time = time;
+        _calendar = calendar;
         _logger = logger;
     }
 
@@ -23,7 +23,12 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
     {
         var item = await FindWorkItemAsync(workItemId, ct);
         var recurrence = await _db.WorkItemRecurrences.FindAsync([workItemId], ct);
-        return recurrence is null ? null : Describe(recurrence, item, await ParentTitleAsync(item, ct));
+        if (recurrence is null)
+        {
+            return null;
+        }
+
+        return Describe(recurrence, item, await ParentTitleAsync(item, ct), await _calendar.TodayAsync(ct));
     }
 
     public async Task<IReadOnlyList<RecurringWorkItem>> ListAsync(CancellationToken ct = default)
@@ -35,7 +40,8 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
             .OrderBy(r => r.WorkItem!.Number)
             .ToListAsync(ct);
 
-        return recurrences.Select(r => Describe(r, r.WorkItem!, r.WorkItem!.Parent?.Title)).ToList();
+        var today = await _calendar.TodayAsync(ct);
+        return recurrences.Select(r => Describe(r, r.WorkItem!, r.WorkItem!.Parent?.Title, today)).ToList();
     }
 
     public async Task<RecurringWorkItem> SetAsync(
@@ -69,8 +75,9 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
         }
         await _db.SaveChangesAsync(ct);
 
-        await GenerateForAsync(recurrence, item, new OccurrenceFactory(_db), ct);
-        return Describe(recurrence, item, await ParentTitleAsync(item, ct));
+        var today = await _calendar.TodayAsync(ct);
+        await GenerateForAsync(recurrence, item, new OccurrenceFactory(_db), today, ct);
+        return Describe(recurrence, item, await ParentTitleAsync(item, ct), today);
     }
 
     public async Task RemoveAsync(Guid workItemId, CancellationToken ct = default)
@@ -88,7 +95,8 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
 
     public async Task<int> GenerateDueAsync(CancellationToken ct = default)
     {
-        var horizon = Today().AddDays(WorkItemRecurrence.LeadDays);
+        var today = await _calendar.TodayAsync(ct);
+        var horizon = today.AddDays(WorkItemRecurrence.LeadDays);
         var dueIds = await _db.WorkItemRecurrences
             .Where(r => r.GeneratedThrough == null ||
                 (r.GeneratedThrough < horizon && (r.EndDate == null || r.EndDate > r.GeneratedThrough)))
@@ -101,7 +109,7 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
             try
             {
                 var recurrence = await _db.WorkItemRecurrences.Include(r => r.WorkItem).FirstAsync(r => r.WorkItemId == id, ct);
-                created += await GenerateForAsync(recurrence, recurrence.WorkItem!, new OccurrenceFactory(_db), ct);
+                created += await GenerateForAsync(recurrence, recurrence.WorkItem!, new OccurrenceFactory(_db), today, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -117,9 +125,9 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
         WorkItemRecurrence recurrence,
         WorkItem template,
         OccurrenceFactory factory,
+        DateOnly today,
         CancellationToken ct)
     {
-        var today = Today();
         var horizon = today.AddDays(WorkItemRecurrence.LeadDays);
         var from = recurrence.GeneratedThrough?.AddDays(1) ?? today;
 
@@ -147,20 +155,18 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
         return dates.Count;
     }
 
-    private RecurringWorkItem Describe(WorkItemRecurrence recurrence, WorkItem item, string? parentTitle) => new(
+    private static RecurringWorkItem Describe(
+        WorkItemRecurrence recurrence,
+        WorkItem item,
+        string? parentTitle,
+        DateOnly today) => new(
         item.Id,
         item.Number,
         item.Title,
         item.ParentId,
         parentTitle,
         recurrence.Schedule,
-        recurrence.Schedule.NextOccurrenceOnOrAfter(Today()));
-
-    /// <summary>
-    /// Schedule dates are calendar days with no time zone of their own; the server's UTC day
-    /// is close enough given occurrences are created a week ahead.
-    /// </summary>
-    private DateOnly Today() => DateOnly.FromDateTime(_time.GetUtcNow().UtcDateTime);
+        recurrence.Schedule.NextOccurrenceOnOrAfter(today));
 
     private async Task<string?> ParentTitleAsync(WorkItem item, CancellationToken ct) =>
         item.ParentId is null

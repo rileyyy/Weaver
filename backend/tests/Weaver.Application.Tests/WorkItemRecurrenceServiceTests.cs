@@ -25,7 +25,8 @@ public class WorkItemRecurrenceServiceTests
     {
         _time = new FixedTimeProvider(new DateTimeOffset(2026, 9, 26, 12, 0, 0, TimeSpan.Zero));
         _db = TestDatabase.Create(_time);
-        _recurrences = new WorkItemRecurrenceService(_db, _time, NullLogger<WorkItemRecurrenceService>.Instance);
+        var calendar = new ServerCalendar(new ServerSettingsService(_db, new AdminAuthorizer(_db)), _time);
+        _recurrences = new WorkItemRecurrenceService(_db, calendar, NullLogger<WorkItemRecurrenceService>.Instance);
         _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db));
     }
 
@@ -426,4 +427,51 @@ public class WorkItemRecurrenceServiceTests
         Assert.That(list.Select(r => r.WorkItemTitle), Is.EqualTo(new[] { "First", "Second" }));
         Assert.That(list[0].NextOccurrence, Is.EqualTo(new DateOnly(2027, 1, 1)));
     }
+
+    // Each pair straddles midnight in the server's zone: Tokyo is a day ahead of the UTC date
+    // just after its midnight, New York a day behind just before its own. Saturday 26 Sep is
+    // an occurrence; Sunday 27 Sep is not, so the next one is then Saturday 3 Oct.
+    [TestCase("Asia/Tokyo", "2026-09-26T14:30:00Z", "2026-09-26")]
+    [TestCase("Asia/Tokyo", "2026-09-26T15:30:00Z", "2026-10-03")]
+    [TestCase("America/New_York", "2026-09-27T03:30:00Z", "2026-09-26")]
+    [TestCase("America/New_York", "2026-09-27T04:30:00Z", "2026-10-03")]
+    public async Task SetAsync_TakesTodayFromTheServerTimeZone(string timeZoneId, string now, string expectedFirst)
+    {
+        await UseServerTimeZone(timeZoneId);
+        MoveClockTo(DateTimeOffset.Parse(now));
+        var item = await CreateItem("Report");
+
+        var result = await _recurrences.SetAsync(
+            item.Id, RecurrenceFrequency.Weekly, [DayOfWeek.Saturday], new DateOnly(2026, 9, 1), null);
+
+        var first = DateOnly.Parse(expectedFirst);
+        Assert.That(result.NextOccurrence, Is.EqualTo(first));
+        Assert.That((await Occurrences(item.Id)).First().RecurrenceDate, Is.EqualTo(first));
+    }
+
+    [Test]
+    public async Task GenerateDueAsync_UsesTheServerTimeZoneForTheLeadWindow()
+    {
+        await UseServerTimeZone("Asia/Tokyo");
+        var item = await CreateItem("Report");
+        await RepeatWeekly(item.Id, DayOfWeek.Saturday);
+        // Friday 2 Oct 23:30 UTC is already Saturday 3 Oct in Tokyo, which brings Saturday
+        // 10 Oct inside the lead window that a UTC "today" would still leave out.
+        MoveClockTo(new DateTimeOffset(2026, 10, 2, 23, 30, 0, TimeSpan.Zero));
+
+        await _recurrences.GenerateDueAsync();
+
+        Assert.That(
+            (await Occurrences(item.Id)).Select(w => w.RecurrenceDate),
+            Is.EqualTo(new DateOnly?[] { Today, Today.AddDays(7), Today.AddDays(14) }));
+    }
+
+    private async Task UseServerTimeZone(string timeZoneId)
+    {
+        var settings = await _db.ServerSettings.SingleAsync();
+        settings.SetTimeZone(timeZoneId);
+        await _db.SaveChangesAsync();
+    }
+
+    private void MoveClockTo(DateTimeOffset now) => _time.Advance(now - _time.GetUtcNow());
 }
