@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// A small label in a user row: Admin, Deactivated, Locked, You.
+/// A small label next to a user: Admin, Agent, Deactivated, Locked, You.
 class UserStateBadge extends StatelessWidget {
   const UserStateBadge({
     super.key,

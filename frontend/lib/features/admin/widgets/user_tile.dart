@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:weaver/core/dates/date_format.dart';
 import 'package:weaver/features/admin/models/admin_user.dart';
 import 'package:weaver/features/admin/models/user_action.dart';
-import 'package:weaver/features/admin/widgets/user_state_badge.dart';
 import 'package:weaver/shared/models/user_kind.dart';
+import 'package:weaver/shared/widgets/user_state_badge.dart';
 
 class UserTile extends StatelessWidget {
   const UserTile({
