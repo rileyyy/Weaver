@@ -39,7 +39,11 @@ class SwimlaneView extends StatelessWidget {
   final double width;
   final List<WorkItemStatus> statuses;
   final List<Swimlane> swimlanes;
-  final Future<void> Function(WorkItemCard card, String newStatusId)
+  final Future<void> Function(
+    WorkItemCard card,
+    String newStatusId, {
+    String? beforeCardId,
+  })
   onCardDropped;
   final Future<void> Function(WorkItemCard card, String newParentId)
   onCardReparented;
