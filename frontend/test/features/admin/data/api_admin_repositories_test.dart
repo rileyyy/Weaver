@@ -4,10 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:weaver/core/network/api_exception.dart';
+import 'package:weaver/features/admin/data/api_agent_admin_repository.dart';
 import 'package:weaver/features/admin/data/api_lookup_admin_repository.dart';
 import 'package:weaver/features/admin/data/api_server_settings_admin_repository.dart';
 import 'package:weaver/features/admin/data/api_status_admin_repository.dart';
 import 'package:weaver/features/admin/data/api_user_admin_repository.dart';
+import 'package:weaver/features/admin/models/api_key_scope.dart';
 import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/models/new_user.dart';
 import 'package:weaver/features/admin/models/status_category.dart';
@@ -70,6 +72,23 @@ Map<String, dynamic> _userJson(String id) => {
   'isActive': true,
   'lockedUntilUtc': null,
   'createdAtUtc': '2026-09-01T12:00:00Z',
+};
+
+Map<String, dynamic> _agentJson(String id, {bool isActive = true}) => {
+  'id': id,
+  'name': 'Claude Code (desktop)',
+  'description': null,
+  'isActive': isActive,
+  'createdAtUtc': '2026-11-01T12:00:00Z',
+};
+
+Map<String, dynamic> _keyJson(String id, {String? revokedAtUtc}) => {
+  'id': id,
+  'label': 'laptop',
+  'scope': 'ReadOnly',
+  'createdAtUtc': '2026-11-01T12:00:00Z',
+  'lastUsedAtUtc': null,
+  'revokedAtUtc': revokedAtUtc,
 };
 
 void main() {
@@ -291,6 +310,98 @@ void main() {
       expect(requests.single.method, 'DELETE');
       expect(requests.single.url.path, '/api/admin/users/u1');
       expect(directory.invalidations, 1);
+    });
+  });
+
+  group('ApiAgentAdminRepository', () {
+    late List<http.Request> requests;
+    late _CountingDirectory directory;
+    late ApiAgentAdminRepository repository;
+
+    setUp(() {
+      requests = [];
+      directory = _CountingDirectory();
+      final client = MockClient((request) async {
+        requests.add(request);
+        final path = request.url.path;
+        return switch (request.method) {
+          'DELETE' => http.Response('', 204),
+          'GET' when path.endsWith('/keys') => http.Response(
+            jsonEncode([
+              _keyJson('k1'),
+              _keyJson('k2', revokedAtUtc: '2026-11-02T08:00:00Z'),
+            ]),
+            200,
+          ),
+          'GET' => http.Response(jsonEncode([_agentJson('a1')]), 200),
+          'POST' when path.endsWith('/keys') => http.Response(
+            jsonEncode({'apiKey': _keyJson('k3'), 'key': 'wvr_secret'}),
+            201,
+          ),
+          _ => http.Response(jsonEncode(_agentJson('a1')), 200),
+        };
+      });
+      repository = ApiAgentAdminRepository(client, _endpoint, directory);
+    });
+
+    test('list reads the agents', () async {
+      final agents = await repository.list();
+
+      expect(requests.single.url.path, '/api/admin/agents');
+      expect(agents.single.name, 'Claude Code (desktop)');
+      expect(agents.single.description, isNull);
+    });
+
+    test('create posts the agent and drops the directory', () async {
+      await repository.create(name: 'Claude Code', description: 'Laptop');
+
+      expect(requests.single.method, 'POST');
+      expect(requests.single.url.path, '/api/admin/agents');
+      expect(jsonDecode(requests.single.body), {
+        'name': 'Claude Code',
+        'description': 'Laptop',
+      });
+      expect(directory.invalidations, 1);
+    });
+
+    test('setActive puts to the agent and drops the directory', () async {
+      await repository.setActive('a1', isActive: false);
+
+      expect(requests.single.method, 'PUT');
+      expect(requests.single.url.path, '/api/admin/agents/a1/active');
+      expect(jsonDecode(requests.single.body), {'isActive': false});
+      expect(directory.invalidations, 1);
+    });
+
+    test('listKeys keeps revoked keys, marked revoked', () async {
+      final keys = await repository.listKeys('a1');
+
+      expect(requests.single.url.path, '/api/admin/agents/a1/keys');
+      expect(keys.map((k) => k.isRevoked), [false, true]);
+      expect(keys.first.scope, ApiKeyScope.readOnly);
+    });
+
+    test('issueKey posts label and scope and returns the plaintext', () async {
+      final issued = await repository.issueKey(
+        'a1',
+        label: 'laptop',
+        scope: ApiKeyScope.readWrite,
+      );
+
+      expect(requests.single.url.path, '/api/admin/agents/a1/keys');
+      expect(jsonDecode(requests.single.body), {
+        'label': 'laptop',
+        'scope': 'ReadWrite',
+      });
+      expect(issued.key, 'wvr_secret');
+      expect(issued.apiKey.id, 'k3');
+    });
+
+    test('revokeKey deletes the key', () async {
+      await repository.revokeKey('a1', 'k1');
+
+      expect(requests.single.method, 'DELETE');
+      expect(requests.single.url.path, '/api/admin/agents/a1/keys/k1');
     });
   });
 

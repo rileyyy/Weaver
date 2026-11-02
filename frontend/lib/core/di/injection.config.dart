@@ -19,6 +19,11 @@ import 'package:weaver/core/network/flutter_secure_server_origin_store.dart'
     as _i781;
 import 'package:weaver/core/network/server_origin_store.dart' as _i936;
 import 'package:weaver/core/network/server_settings.dart' as _i577;
+import 'package:weaver/features/admin/agent_admin_view_model.dart' as _i588;
+import 'package:weaver/features/admin/agent_keys_view_model.dart' as _i841;
+import 'package:weaver/features/admin/data/agent_admin_repository.dart' as _i6;
+import 'package:weaver/features/admin/data/api_agent_admin_repository.dart'
+    as _i705;
 import 'package:weaver/features/admin/data/api_lookup_admin_repository.dart'
     as _i427;
 import 'package:weaver/features/admin/data/api_server_settings_admin_repository.dart'
@@ -172,6 +177,13 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i202.ApiEndpoint>(),
       ),
     );
+    gh.lazySingleton<_i6.AgentAdminRepository>(
+      () => _i705.ApiAgentAdminRepository(
+        gh<_i519.Client>(),
+        gh<_i202.ApiEndpoint>(),
+        gh<_i562.UserDirectoryRepository>(),
+      ),
+    );
     gh.factory<_i87.RepeatingItemsViewModel>(
       () => _i87.RepeatingItemsViewModel(gh<_i65.RecurrenceRepository>()),
     );
@@ -207,6 +219,9 @@ extension GetItInjectableX on _i174.GetIt {
       () =>
           _i415.WorkItemHistoryViewModel(gh<_i814.WorkItemHistoryRepository>()),
     );
+    gh.factory<_i588.AgentAdminViewModel>(
+      () => _i588.AgentAdminViewModel(gh<_i6.AgentAdminRepository>()),
+    );
     gh.lazySingleton<_i522.BoardRepository>(
       () => _i436.ApiBoardRepository(
         gh<_i519.Client>(),
@@ -232,6 +247,10 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i290.UserAdminRepository>(),
         gh<_i875.CurrentUser>(),
       ),
+    );
+    gh.factoryParam<_i841.AgentKeysViewModel, String, dynamic>(
+      (agentId, _) =>
+          _i841.AgentKeysViewModel(gh<_i6.AgentAdminRepository>(), agentId),
     );
     gh.factory<_i609.StatusAdminViewModel>(
       () => _i609.StatusAdminViewModel(gh<_i224.StatusAdminRepository>()),
