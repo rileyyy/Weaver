@@ -156,19 +156,22 @@ public class AgentAccountTests
     }
 
     [Test]
-    public async Task AnAgentAccount_CantSignInWithAPassword()
+    public async Task AnAgentAccount_CantBeGivenAPassword_OrSignInWithOne()
     {
         var (admin, _) = await ApiClient.SignedInAdminAsync();
         var name = $"nightly-{Guid.NewGuid():N}"[..30];
         var agent = await (await admin.PostJsonAsync("/api/admin/agents", new CreateAgentAccountRequest(name, null)))
             .ReadAsync<AgentAccountDto>();
-        // An admin can still reach the generic account endpoints, so give it a password anyway.
-        (await admin.PutJsonAsync($"/api/admin/users/{agent.Id}/password", new ResetPasswordRequest(ApiClient.Password)))
-            .EnsureSuccessStatusCode();
 
+        // The generic account endpoints accept an agent's id, but not a password for it.
+        var reset = await admin.PutJsonAsync($"/api/admin/users/{agent.Id}/password", new ResetPasswordRequest(ApiClient.Password));
         var login = await ApiClient.Anonymous().PostJsonAsync("/api/auth/login", new LoginRequest(name, ApiClient.Password));
 
-        Assert.That(login.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+        Assert.Multiple(() =>
+        {
+            Assert.That(reset.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+            Assert.That(login.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+        });
     }
 
     private static async Task<IssuedApiKeyDto> IssueKeyAsync(HttpClient admin, Guid agentId) =>

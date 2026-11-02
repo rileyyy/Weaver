@@ -47,6 +47,15 @@ public class AgentAccountTests
     }
 
     [Test]
+    public void SetPasswordHash_RefusesAnAgent()
+    {
+        var agent = User.CreateAgent("Nightly triage", null);
+
+        Assert.Throws<NotAHumanAccountException>(() => agent.SetPasswordHash("a-hash"));
+        Assert.That(agent.PasswordHash, Is.Empty);
+    }
+
+    [Test]
     public void GrantAdmin_RefusesAnAgent()
     {
         var agent = User.CreateAgent("Nightly triage", null);

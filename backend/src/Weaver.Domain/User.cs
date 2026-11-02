@@ -136,8 +136,16 @@ public class User : IHasUpdatedAt
         DeactivatedAtUtc = null;
     }
 
+    /// <summary>
+    /// Agents sign in with API keys only, so a password on one would be stored and never used.
+    /// </summary>
     public void SetPasswordHash(string passwordHash)
     {
+        if (Kind == UserKind.Agent)
+        {
+            throw new NotAHumanAccountException(Username, "Agent accounts sign in with API keys, not a password.");
+        }
+
         PasswordHash = passwordHash;
     }
 
