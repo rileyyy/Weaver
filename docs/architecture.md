@@ -441,6 +441,14 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   controller: `UpdateAsync` / `DeleteAsync` take the caller's user id (from
   the token via `User.GetUserId()`) and throw
   `CommentAuthorMismatchException` (403) for anyone but the author.
+- **`ICallerContext` (Application) says who is calling**: account, API key
+  and actor label, the last two null until API keys exist. `HttpCallerContext`
+  (Api, scoped) reads it from the authenticated principal, so REST and MCP
+  share one mapping. It's read lazily and throws `InvalidAccessTokenException`
+  without a signed-in caller, so the background worker can still resolve the
+  services. The mutating work item, recurrence, comment, link and lookup
+  services receive it (optionally, for now) for history and key scopes;
+  they still take explicit user ids too.
 
 ### Administrators and accounts
 

@@ -6,7 +6,7 @@
 
 **Status:** ready-for-agent
 
-- [ ] A caller-context abstraction exists in the Application layer and is resolved once per request, not threaded by hand through each controller
-- [ ] REST and MCP both populate it from the authenticated principal; key and actor label are empty for now
-- [ ] Services that mutate work items, comments, links and lookups can read it
-- [ ] No behaviour change: existing tests pass without edits
+- [x] A caller-context abstraction exists in the Application layer and is resolved once per request, not threaded by hand through each controller
+- [x] REST and MCP both populate it from the authenticated principal; key and actor label are empty for now
+- [x] Services that mutate work items, comments, links and lookups can read it
+- [x] No behaviour change: existing tests pass without edits
