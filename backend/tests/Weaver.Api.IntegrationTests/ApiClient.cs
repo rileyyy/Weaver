@@ -35,6 +35,14 @@ public static class ApiClient
         return client;
     }
 
+    /// <summary>A client that signs every request with an agent's API key, as an MCP client does.</summary>
+    public static HttpClient WithApiKey(string key)
+    {
+        var client = Anonymous();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", key);
+        return client;
+    }
+
     public static async Task<(HttpClient Client, AuthResponse Auth)> SignInAsync(string username, string password)
     {
         var client = Anonymous();

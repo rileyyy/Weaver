@@ -264,6 +264,21 @@ public class UserAdministrationServiceTests
     }
 
     [Test]
+    public async Task DeleteAsync_AnAgent_RemovesItsApiKeys()
+    {
+        var agent = User.CreateAgent("Nightly triage", null);
+        _db.Users.Add(agent);
+        _db.ApiKeys.Add(ApiKey.Issue(agent, "desktop", ApiKeyScope.ReadOnly, "HASH"));
+        await _db.SaveChangesAsync();
+        // As in a real request, which never loaded the keys; otherwise EF cascades them anyway.
+        _db.ChangeTracker.Clear();
+
+        await _service.DeleteAsync(_admin.Id, agent.Id);
+
+        Assert.That(await _db.ApiKeys.AnyAsync(k => k.UserId == agent.Id), Is.False);
+    }
+
+    [Test]
     public async Task DeleteAsync_AUserWithComments_IsAConflictAndDeletesNothing()
     {
         var item = WorkItem.Create("Commented", null, null, StatusConfiguration.ToDoId, 1);

@@ -24,6 +24,8 @@ public class WeaverDbContext : DbContext, IWeaverDbContext
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+
     public DbSet<WorkItemLayer> WorkItemLayers => Set<WorkItemLayer>();
 
     public DbSet<WorkItemPriority> WorkItemPriorities => Set<WorkItemPriority>();
@@ -81,6 +83,7 @@ public class WeaverDbContext : DbContext, IWeaverDbContext
         modelBuilder.ApplyConfiguration(new BoardConfiguration());
         modelBuilder.ApplyConfiguration(new UserConfiguration());
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
+        modelBuilder.ApplyConfiguration(new ApiKeyConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemLayerConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemPriorityConfiguration());
         modelBuilder.ApplyConfiguration(new CommentConfiguration());

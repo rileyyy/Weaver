@@ -150,10 +150,11 @@ public class UserAdministrationService : IUserAdministrationService
             throw new UserHasCommentsException(user.Username, commentCount);
         }
 
-        // The database would null the assignments and cascade the tokens by itself; doing
-        // both here keeps the tracked entities (and the InMemory tests) consistent with it.
+        // The database would null the assignments and cascade the tokens and keys by itself;
+        // doing it here keeps the tracked entities (and the InMemory tests) consistent with it.
         await UnassignWorkItemsAsync(userId, ct);
         _db.RefreshTokens.RemoveRange(await _db.RefreshTokens.Where(t => t.UserId == userId).ToListAsync(ct));
+        _db.ApiKeys.RemoveRange(await _db.ApiKeys.Where(k => k.UserId == userId).ToListAsync(ct));
         _db.Users.Remove(user);
 
         await _db.SaveChangesAsync(ct);

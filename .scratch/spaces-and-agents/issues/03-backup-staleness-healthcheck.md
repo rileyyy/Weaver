@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] The backup service has a healthcheck that fails when the newest dump is older than a configurable age (default comfortably over one day)
 - [x] It's healthy straight after the startup dump

@@ -4,16 +4,16 @@
 
 **Blocked by:** 05
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Admin-only REST endpoints create, list and deactivate agent accounts, and create, list and revoke their keys
-- [ ] Creating a key returns the plaintext once; only a hash is stored; listing shows label, scope, created and last used, never the key
-- [ ] A valid key header authenticates as the agent account on both REST and MCP; revoked keys and keys of deactivated accounts get 401
-- [ ] Agent accounts can't sign in with a password, and human accounts can't have keys
-- [ ] The caller context carries the key
-- [ ] MCP `whoami` returns the account name and kind, the key label and the scope
-- [ ] Integration tests against real Postgres cover create, authenticate, revoke and deactivated account
-- [ ] Docs show an example `.mcp.json` that reads the key from an environment variable
+- [x] Admin-only REST endpoints create, list and deactivate agent accounts, and create, list and revoke their keys
+- [x] Creating a key returns the plaintext once; only a hash is stored; listing shows label, scope, created and last used, never the key
+- [x] A valid key header authenticates as the agent account on both REST and MCP; revoked keys and keys of deactivated accounts get 401
+- [x] Agent accounts can't sign in with a password, and human accounts can't have keys
+- [x] The caller context carries the key
+- [x] MCP `whoami` returns the account name and kind, the key label and the scope
+- [x] Integration tests against real Postgres cover create, authenticate, revoke and deactivated account
+- [x] Docs show an example `.mcp.json` that reads the key from an environment variable
 
 ## Comments
 

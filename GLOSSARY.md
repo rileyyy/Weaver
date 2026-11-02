@@ -84,11 +84,11 @@ which field, and the old and new value.
 : Where deleted work items wait until the retention period ends. Humans and
 read-write agents can restore from it; only humans can purge it.
 
-**Agent account** *(planned)*
+**Agent account**
 : A user account for one agent runtime (e.g. "Claude Code (desktop)"). It
 has no password and signs in with API keys.
 
-**API key** *(planned)*
+**API key**
 : A long-lived, revocable credential for an agent account. It has a label
 and a scope: **read-only** or **read-write**.
 

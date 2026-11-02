@@ -21,6 +21,19 @@ public class HttpCallerContextTests
     }
 
     [Test]
+    public void Current_ForAnAgentSignedInWithAKey_CarriesTheKey()
+    {
+        var accountId = Guid.NewGuid();
+        var keyId = Guid.NewGuid();
+
+        var caller = ContextFor(SignedIn(
+            new Claim(JwtRegisteredClaimNames.Sub, accountId.ToString()),
+            new Claim(WeaverClaimTypes.ApiKeyId, keyId.ToString()))).Current;
+
+        Assert.That(caller, Is.EqualTo(new Caller(accountId, ApiKeyId: keyId, ActorLabel: null)));
+    }
+
+    [Test]
     public void Current_ForAnAnonymousRequest_ThrowsInvalidAccessToken()
     {
         var context = new HttpCallerContext(new HttpContextAccessor { HttpContext = new DefaultHttpContext() });

@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -62,8 +63,18 @@ var firstAdminOptions = builder.Configuration.GetSection(FirstAdminOptions.Secti
 FirstAdminPasswordPolicy.EnsureUsable(firstAdminOptions.Password, builder.Environment.IsDevelopment());
 builder.Services.Configure<FirstAdminOptions>(builder.Configuration.GetSection(FirstAdminOptions.SectionName));
 
+// Humans send an access token and agents an API key (ADR-0004), both as a bearer value, since
+// that's the header every MCP client can set. The key's prefix picks the scheme, so each
+// credential is only ever checked by its own handler.
+const string bearerOrApiKeyScheme = "BearerOrApiKey";
 builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddAuthentication(bearerOrApiKeyScheme)
+    .AddPolicyScheme(bearerOrApiKeyScheme, displayName: null, options =>
+        options.ForwardDefaultSelector = context =>
+            ApiKeySecret.LooksLikeKey(ApiKeyAuthenticationHandler.BearerValue(context.Request))
+                ? ApiKeyAuthenticationHandler.SchemeName
+                : JwtBearerDefaults.AuthenticationScheme)
+    .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(ApiKeyAuthenticationHandler.SchemeName, null)
     .AddJwtBearer(options =>
     {
         // Without this, the handler silently remaps standard claim types
@@ -156,8 +167,8 @@ app.MapControllers();
 app.MapHealthChecks("/health").AllowAnonymous();
 
 // Inherits the same [Authorize] fallback policy as every controller above (no
-// [AllowAnonymous]-equivalent opt-out here) — an MCP client authenticates with a bearer
-// access token the same way any other API client does (POST /api/auth/login).
+// [AllowAnonymous]-equivalent opt-out here). An agent's MCP client authenticates with its API
+// key; a bearer access token (POST /api/auth/login) works too.
 app.MapMcp("/mcp");
 
 app.Run();

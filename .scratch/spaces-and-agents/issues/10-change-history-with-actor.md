@@ -21,3 +21,9 @@
 - `HttpCallerContext.Current` throws `InvalidAccessTokenException` when there's no HttpContext. Writes from `RecurrenceGenerationWorker` (generated occurrences) have no request, so history needs a system caller for them.
 - No test proves MCP calls populate the context. Add an integration test that writes over `/mcp` and asserts the history entry's account.
 - The services still take explicit `userId` / `actorUserId` parameters alongside the context, and `CommentTools` reads the user id off `IHttpContextAccessor` by hand. Replace both with the context here so there's one source of "who".
+
+**2026-11-02, from ticket 06 (agent accounts and API keys):**
+
+- `Caller.ApiKeyId` is set for every request signed in with an API key and is null for access tokens.
+- Revoking a key keeps its `ApiKeys` row, but hard-deleting an agent account (`DELETE /api/admin/users/{id}`) cascades its keys away. A history foreign key to `ApiKeys` needs `SetNull` or no FK, or deleting an agent with history must be refused the way deleting a commenter is.
+- `whoami` (MCP) uses `ICallerIdentityService`, which loads the account and key named by the caller context; the History tab's "who" can use the same pair.

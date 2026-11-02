@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] A caller-context abstraction exists in the Application layer and is resolved once per request, not threaded by hand through each controller
 - [x] REST and MCP both populate it from the authenticated principal; key and actor label are empty for now
