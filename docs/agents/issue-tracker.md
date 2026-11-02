@@ -1,6 +1,6 @@
 # Issue tracker: Local Markdown
 
-Issues and specs for this repo live as markdown files in `.scratch/`.
+Issues and specs for this repo live as markdown files in `.scratch/`. The folder is committed, so specs and tickets travel with the repo and can be picked up from any machine.
 
 ## Conventions
 
