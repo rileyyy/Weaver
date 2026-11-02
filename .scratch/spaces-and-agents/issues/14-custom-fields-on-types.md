@@ -21,3 +21,7 @@
 - Patch semantics use `Optional<T>` (`Weaver.Domain`): `Unset` means "leave alone", a value (including `null`) means "set". REST reads it with `OptionalJsonConverterFactory` (registered in `Program.cs`, so an `Optional<T>` property on a request record just works, and the OpenAPI transformer describes it as the plain value). MCP tools keep typed, nullable parameters and call `context.Supplied(nameof(arg), arg)` on the `RequestContext<CallToolRequestParams>` to tell a missing argument from `null`.
 - Writes return `WorkItemWriteResult` (item + changed field names). Report custom-field changes in `ChangedFields` too, with a name that can't collide with the built-in `WorkItemField` names (e.g. `fields.<key>`).
 - Take the optional `expectedVersion` and check it through `WorkItemService.FindForWriteAsync`, like every other write.
+
+**2026-11-02, from ticket 10 (change history with actor):**
+
+- Custom field changes must record history with old and new values. Field names are free-form strings in history (`Field`, max 50 chars), so a custom field needs a naming scheme that can't collide with the built-in `WorkItemField` and `WorkItemHistoryField` names.

@@ -76,9 +76,10 @@ Weaver instead.
 : A blocked item scheduled to start before its blocker ends. Weaver flags it
 and never reschedules anything automatically.
 
-**History** *(planned)*
+**History**
 : The append-only record of every change to a work item: who made it, when,
-which field, and the old and new value.
+which field, and the old and new value. It outlives a deleted item. Every
+new field or operation on work items must record history too.
 
 **Trash** *(planned)*
 : Where deleted work items wait until the retention period ends. Humans and
@@ -92,7 +93,7 @@ has no password and signs in with API keys.
 : A long-lived, revocable credential for an agent account. It has a label
 and a scope: **read-only** or **read-write**.
 
-**Actor label** *(planned)*
+**Actor label**
 : Optional free text an agent sends with a write (e.g. "sub-agent:
 test-writer"). History records it, so sub-agents that share one connection
 can be told apart.

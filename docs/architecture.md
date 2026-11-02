@@ -220,6 +220,52 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
 - Comments cascade-delete with their work item; editing is restricted to
   the author (see [Authentication](#authentication)).
 
+### Change history
+
+- **Every change to a work item appends a `WorkItemHistoryEntry`**
+  ([ADR-0005](adr/0005-change-history.md)): create, every field change,
+  status, parent, comments, links, repetition and delete. It records when,
+  the account, the API key (agents), the actor label, the field, and the
+  old and new value as JSON in the shape the field has in the API (`jsonb`).
+  Field changes use `WorkItemField` names; the rest use
+  `WorkItemHistoryField` (`created`, `deleted`, `comment`, `link`,
+  `recurrence`), which documents what each one's values hold.
+- **The Application services write it**, through `WorkItemHistoryRecorder`,
+  so REST and MCP can't diverge. Entries are added to the context before
+  `SaveChanges`, so they commit with the change or not at all: a failed or
+  rejected write records nothing. The domain write methods return
+  `FieldChange`s (old and new value, from `ChangedFields`), so services
+  don't diff; a write that changes nothing records nothing.
+- **Rank isn't recorded.** It's a card's position in its board cell, which
+  every drag rewrites; a reorder alone records nothing.
+- **Changes made as a side effect record too**, attributed to whoever
+  caused them: deleting a status, layer or priority moves its items;
+  deactivating or deleting a user unassigns theirs; deleting an item
+  removes the links on the items outside the subtree; setting a repetition
+  creates occurrences. Occurrences created by `RecurrenceGenerationWorker`
+  have no caller and record as `HistoryActor.System` (no account).
+- **Append-only.** Nothing updates or deletes an entry, and there is no
+  endpoint or tool that could. `GET /api/work-items/{id}/history` lists an
+  item's entries newest first, with the account's name and kind, the key's
+  label, and names for id values (status, layer, priority, user, the other
+  item of a parent or link), looked up at read time so a renamed status
+  shows its current name and a deleted one falls back to the raw id.
+- **Entries outlive their item**: `WorkItemId` has no foreign key, so a
+  deleted item's history (ending in `deleted`) still reads, and "changes
+  since T" (ticket 31) will see deletes. `AccountId` and `ApiKeyId` are
+  Restrict foreign keys, so an account that has changed any work item
+  can't be hard-deleted (409 `UserHasHistoryException`; deactivate it
+  instead, as for comment authors). That also keeps an agent's keys, which
+  are cascaded away only with an agent that has no history.
+- **Ordering** is by the identity `Id`, not the timestamp, since several
+  entries saved together share one `CreatedAtUtc`.
+- **Anything new that changes a work item must record history**: a new
+  field, a new operation, Spaces and Types, custom fields, When, Trash
+  restore, attachments. Return `FieldChange`s from the domain method and
+  pass them to the recorder in the service, and give every new MCP write
+  tool an `actorLabel` argument (an integration test fails a write tool
+  without one).
+
 ### Schedule dates
 
 - **`StartDate` / `EndDate` are calendar dates** (`DateOnly`, Postgres
@@ -447,18 +493,24 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   `/api`), so this only matters for another web origin calling the API
   (`CORS_ALLOWED_ORIGIN`, defaulting to `https://$WEAVER_DOMAIN`).
 - **Comment edit/delete authorisation is in `CommentService`**, not the
-  controller: `UpdateAsync` / `DeleteAsync` take the caller's user id (from
-  the token via `User.GetUserId()`) and throw
-  `CommentAuthorMismatchException` (403) for anyone but the author.
+  controller: it reads the caller from `ICallerContext` and throws
+  `CommentAuthorMismatchException` (403) for anyone but the author. The
+  author of a new comment is the caller too.
 - **`ICallerContext` (Application) says who is calling**: account, API key
-  and its scope (for an agent signed in with one) and actor label (null
-  until write tools take one). `HttpCallerContext` (Api, scoped) reads it
-  from the authenticated principal's `sub`, `weaver_api_key_id` and
-  `weaver_api_key_scope` claims, so REST and MCP share one mapping. It's read lazily and throws `InvalidAccessTokenException`
-  without a signed-in caller, so the background worker can still resolve the
-  services. The mutating work item, recurrence, comment, link and lookup
-  services receive it (optionally, for now) for history;
-  they still take explicit user ids too.
+  and its scope (for an agent signed in with one) and actor label.
+  `HttpCallerContext` (Api, scoped) reads the first three from the
+  authenticated principal's `sub`, `weaver_api_key_id` and
+  `weaver_api_key_scope` claims, so REST and MCP share one mapping.
+  The actor label comes from the `X-Actor-Label` header on REST, or from an
+  MCP tool's `actorLabel` argument, which the tool hands over with
+  `UseActorLabel` (an MCP client sets headers per connection, not per
+  call). It's read lazily and throws `InvalidAccessTokenException` without a
+  signed-in caller, so the background worker can still resolve the services.
+  Every service that changes a work item takes it as a required argument,
+  because its history names the caller. The lookup services and
+  `UserAdministrationService` still also take `actorUserId` for their admin
+  check, so the caller is named twice there until that check reads the
+  context instead.
 
 ### Administrators and accounts
 
@@ -592,8 +644,11 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   `WorkItemsController`, etc.) and takes the same service interface. The
   SDK (`ModelContextProtocol.AspNetCore`) resolves a tool instance per call
   from the request's DI scope, so a `WeaverDbContext`-backed service
-  behaves exactly as it does for a controller. `CommentTools` reads the
-  caller's id through `IHttpContextAccessor`.
+  behaves exactly as it does for a controller. Services read the caller
+  from `ICallerContext`, so no tool passes a user id.
+- **Every tool that changes a work item takes an optional `actorLabel`**
+  (at most 100 characters) and passes it to `HttpCallerContext`, so its
+  history entry shows which part of an agent made the change.
 - **Coverage:** work items, boards, statuses, layers, priorities, users,
   comments, links, repeating items and server settings. Lookups, users and
   server settings (`get_server_settings`) are read-only over MCP, and agents
@@ -751,6 +806,14 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   sub-items") asks before discarding them (`PopScope`). A blank title and
   an inverted schedule are rejected before any request, and a 400 shows
   the server's validation message.
+- **The detail dialog has Details and History tabs.** History
+  (`WorkItemHistoryViewModel`, `HistoryTab`) loads when the tab is shown
+  and again on every visit, so changes just saved on Details appear; it
+  isn't fetched at all if nobody opens it. Each row shows who (with the
+  shared `UserStateBadge` marking agents, plus the actor label and key
+  they sent), when, and the change. `WorkItemHistoryEntry.change` turns
+  the raw JSON values into text, preferring the names the server sends
+  for id values.
 - **Comment and link changes in the detail dialog apply the server's
   response locally** instead of reloading the list. A reload that failed
   after a successful POST used to show as a failure, and retrying created

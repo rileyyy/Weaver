@@ -26,3 +26,7 @@
 
 - Retention: route `SetRetentionAsync` through `IAdminAuthorizer` and agents are refused already; it now rejects every agent account, whatever its scope.
 - Purge is human-only, not admin-only, so `IAdminAuthorizer` doesn't fit. Read-only keys are already refused (it's a write), but a read-write agent passes the write filters. Purge needs its own check on the caller's account `Kind` (e.g. via `ICallerContext`), in the service so REST, MCP and any tool share it. If there's an MCP purge tool at all, it must not be marked `ReadOnly`.
+
+**2026-11-02, from ticket 10 (change history with actor):**
+
+- Purging hard-deletes rows that history still refers to by id only (no FK), so a purge doesn't need to touch history. Decide whether purged items' history is kept (it is, by default) or pruned with them.

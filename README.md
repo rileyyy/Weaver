@@ -31,13 +31,16 @@ the API.
   number.
 - **Tags, comments and links.** Free-text tags; comments editable by their
   author; symmetric "related to" links between work items.
+- **Change history.** Every change to a work item is recorded: who made it
+  (agents are marked, with the key and actor label they used), when, and
+  the old and new value. The detail dialog's History tab lists it, and it
+  survives deleting the item.
 - **Authentication.** Username/password accounts, short-lived JWT access
   tokens and rotating refresh tokens.
 - **MCP tools for AI agents.** The same operations as the REST API, over
   Streamable HTTP at `/mcp`.
 
-The next phase (Spaces, Types, Views, agent accounts, history and the
-Trash) is planned in
+The next phase (Spaces, Types, Views and the Trash) is planned in
 [the Spaces and agents spec](.scratch/spaces-and-agents/spec.md).
 
 ## Tech stack and repo layout
@@ -393,6 +396,11 @@ change only the arguments you send: leave one out to keep it, or send
 `expectedVersion` (the item's `Version` from your last read) to avoid
 overwriting someone else's change, and returns the item with its new
 version and the fields that changed.
+
+Every tool that changes a work item also takes an optional `actorLabel`
+(e.g. `"sub-agent: test-writer"`, at most 100 characters). History records
+it with the change, so sub-agents sharing one key can be told apart. A REST
+client can send the same thing as an `X-Actor-Label` header.
 
 ## Documentation
 

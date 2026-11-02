@@ -33,6 +33,34 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-02 — Change history with actor
+
+`feature/change-history-with-actor` (ticket 10 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0005](docs/adr/0005-change-history.md)). Stacked on ticket 09's
+branch.
+
+- **Every change to a work item is recorded**: create, each field
+  change, status, parent, comments, links, repetition and delete, including
+  side effects such as items moved off a deleted status or unassigned from
+  a deactivated user. Each entry has when, the account, the API key for
+  agents, the actor label, the field and the old and new value. A write
+  that fails or changes nothing records nothing. Board reordering (rank)
+  isn't recorded.
+- **`GET /api/work-items/{id}/history`** lists an item's history newest
+  first, with names for statuses, users and linked items. It keeps working
+  after the item is deleted. Nothing can edit or delete an entry.
+- **The detail dialog has a History tab**, marking agents with a badge and
+  showing the actor label they sent.
+- **Actor labels:** every MCP tool that changes a work item takes an
+  optional `actorLabel`; REST clients can send `X-Actor-Label`.
+- Repeating-item occurrences generated in the background are recorded as
+  made by Weaver itself.
+- **An account that has changed any work item can't be deleted** (409), only
+  deactivated, so history never loses who made a change.
+- Comments take their author from the signed-in caller rather than an id
+  each controller and tool passed by hand.
+
 ## 2026-11-02 — Key scopes and agent admin restrictions
 
 `feature/key-scopes-and-agent-admin-restrictions` (ticket 07 of

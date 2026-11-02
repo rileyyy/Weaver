@@ -12,3 +12,9 @@
 - [ ] The picker searches by title and `#Number` across Spaces
 - [ ] Link changes are recorded in history on both items
 - [ ] MCP can add, list and remove both kinds
+
+## Comments
+
+**2026-11-02, from ticket 10 (change history with actor):**
+
+- Link history records `link` with the other item's id as the value, on both items, and `HistoryValueNames` names it "#N title". Typed links need the type in the value (e.g. `{ "workItemId", "type" }`) and URL links the URL; update `HistoryValueNames.IdIn` and the Flutter `change` text when the value stops being a plain id.

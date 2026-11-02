@@ -19,3 +19,7 @@ To decide before this is ready:
 **2026-11-02, from ticket 01 (server time zone):**
 
 - The server time zone exists now (`ServerSettings.TimeZoneId`, `IServerCalendar.TodayAsync`); "time of day in the server time zone" can build on it. The settings store is the place for an ntfy URL if that's chosen as an admin setting rather than an env var.
+
+**2026-11-02, from ticket 10 (change history with actor):**
+
+- History entries are the event source ADR-0005 suggests for reminders: `WorkItemHistoryRecorder` is the single place entries are created, all inside the write's transaction.

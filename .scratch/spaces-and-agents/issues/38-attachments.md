@@ -21,3 +21,7 @@
 - The README's "Deployment reference" (under Production deployment) is the one place to list the attachments env var and volume: add a row to the backend environment table and the volumes table, plus the example compose's `.env` table if `compose.yaml` gets its own variable.
 - There's no separate `migrate` service any more; the backend migrates on startup, so the attachments metadata migration needs nothing extra in compose.
 - The example `backup` service only dumps Postgres and its healthcheck only watches those dumps. Attachments aren't covered by it; the README's Backups section should say so, alongside ADR-0008's "it must also back up the attachments path".
+
+**2026-11-02, from ticket 10 (change history with actor):**
+
+- Adding or removing an attachment changes a work item, so it must record history (e.g. an `attachment` name in `WorkItemHistoryField` with the file name as the value), and its MCP tools need the `actorLabel` argument (an integration test fails any write tool without it).

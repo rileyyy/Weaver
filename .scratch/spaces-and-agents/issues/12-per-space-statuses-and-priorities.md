@@ -12,3 +12,9 @@
 - [ ] Board columns and pickers show only the current Space's statuses and priorities
 - [ ] MCP lookup tools take or return the Space
 - [ ] The last-value and in-use protections still hold per Space
+
+## Comments
+
+**2026-11-02, from ticket 10 (change history with actor):**
+
+- Moving items off a deleted status already records a `statusId` history entry per item (`StatusService.MoveWorkItemsAsync`); keep that when statuses become per-Space.

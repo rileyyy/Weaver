@@ -10,3 +10,9 @@
 - [ ] Children and ancestors use lean summaries; history is newest first and limited, with a way to ask for more
 - [ ] Trashed related items are excluded
 - [ ] MCP tests for each include
+
+## Comments
+
+**2026-11-02, from ticket 10 (change history with actor):**
+
+- `IWorkItemHistoryService.ListForWorkItemAsync` already returns an item's history newest first with account name and kind, key label, actor label, raw JSON values and names for id values; the `history` include can reuse it (and `WorkItemHistoryEntryDto`).
