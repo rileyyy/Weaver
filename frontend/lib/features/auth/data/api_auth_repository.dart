@@ -7,7 +7,7 @@ import 'package:weaver/features/auth/models/auth_session.dart';
 
 /// Talks to `/api/auth/*` using a plain, unauthenticated [http.Client] — see
 /// the `rawHttpClient` binding in `NetworkModule`. These endpoints must never
-/// go through the token-attaching/auto-refresh client: register/login have
+/// go through the token-attaching/auto-refresh client: login has
 /// no token yet, and refresh is what that client would otherwise recurse
 /// into trying to obtain one.
 @LazySingleton(as: AuthRepository)
@@ -18,13 +18,6 @@ class ApiAuthRepository implements AuthRepository {
   ) : _api = JsonApiClient(client, endpoint);
 
   final JsonApiClient _api;
-
-  @override
-  Future<AuthSession> register(String username, String password) =>
-      _authenticate('/auth/register', {
-        'username': username,
-        'password': password,
-      });
 
   @override
   Future<AuthSession> login(String username, String password) => _authenticate(

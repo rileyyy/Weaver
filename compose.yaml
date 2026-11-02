@@ -41,6 +41,10 @@ services:
       # The app is served same-origin through Caddy, so this only matters
       # for some other web origin calling the API directly.
       Cors__AllowedOrigins__0: ${CORS_ALLOWED_ORIGIN:-https://${WEAVER_DOMAIN:-localhost}}
+      # Nobody can register, so the first start creates this admin. Ignored
+      # once any account exists.
+      FirstAdmin__Username: ${WEAVER_FIRST_ADMIN_USERNAME:-}
+      FirstAdmin__Password: ${WEAVER_FIRST_ADMIN_PASSWORD:-}
     healthcheck:
       # /health includes a database check.
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]

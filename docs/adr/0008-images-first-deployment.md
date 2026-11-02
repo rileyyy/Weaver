@@ -19,7 +19,8 @@ another one.
   - the JWT key
   - the time zone
   - the attachments path, kept separate so it can live on other storage
-  - registration off
+  - the first admin's username and password, since registration is removed
+    and an admin creates every other account (ticket 04)
 - **The backend migrates on startup by default.** An environment variable
   turns that off. This is safe with a single backend instance.
 - **`compose.yaml` stays as a public example**, including Caddy with its

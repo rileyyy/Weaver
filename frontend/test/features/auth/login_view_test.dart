@@ -97,19 +97,12 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('the toggle switches the form to registration', (tester) async {
+  testWidgets('offers no way to create an account', (tester) async {
     await pumpLogin(tester);
 
-    await tester.tap(find.text("Don't have an account? Create one"));
-    await tester.pump();
-    expect(find.text('At least 12 characters'), findsOneWidget);
-
-    await enterCredentials(tester, 'bob');
-    await tester.tap(find.widgetWithText(FilledButton, 'Create account'));
-    await tester.pump();
-
-    expect(repository.registerCalls, ['bob']);
-    expect(repository.loginCalls, isEmpty);
+    expect(find.textContaining('Create'), findsNothing);
+    expect(find.byType(TextButton), findsNothing);
+    expect(find.text('Ask an admin for an account.'), findsOneWidget);
   });
 
   testWidgets('web builds do not ask for a server', (tester) async {

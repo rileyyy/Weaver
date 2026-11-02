@@ -33,6 +33,26 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-02 — Admins create every account
+
+`feature/admin-only-account-creation` (ticket 04 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0004](docs/adr/0004-agent-accounts-and-api-keys.md)).
+
+- **Self-registration is removed.** `POST /api/auth/register` and the login
+  screen's "Create one" toggle are gone; the login screen says to ask an
+  admin for an account.
+- **The first admin comes from configuration.** Until now the first
+  registered account became the admin. Now the backend creates the admin
+  named by `FirstAdmin:Username` / `FirstAdmin:Password`
+  (`WEAVER_FIRST_ADMIN_*` in `.env`) when it starts on a database with no
+  accounts. Development uses `admin` / `development-only-admin-password`.
+- **The user list is cached until invalidated**, like statuses, instead of
+  re-fetched every five minutes; the refresh existed only for people
+  registering while the app was open.
+- Integration tests create their accounts through `/api/admin/users` as
+  the configured first admin.
+
 ## 2026-11-02 — Plan for Spaces, Types and agents
 
 `feature/plan-spaces-and-agents`, docs only. A design review after an

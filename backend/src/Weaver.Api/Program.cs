@@ -58,6 +58,9 @@ builder.Services.AddMcpServer()
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 JwtSigningKeyPolicy.EnsureUsable(jwtOptions.SigningKey, builder.Environment.IsDevelopment());
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
+var firstAdminOptions = builder.Configuration.GetSection(FirstAdminOptions.SectionName).Get<FirstAdminOptions>() ?? new FirstAdminOptions();
+FirstAdminPasswordPolicy.EnsureUsable(firstAdminOptions.Password, builder.Environment.IsDevelopment());
+builder.Services.Configure<FirstAdminOptions>(builder.Configuration.GetSection(FirstAdminOptions.SectionName));
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -123,6 +126,8 @@ if (migrationMode == StartupMigrationMode.MigrateAndExit)
 {
     return;
 }
+
+await app.Services.EnsureFirstAdminAsync();
 
 if (app.Environment.IsDevelopment())
 {

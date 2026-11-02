@@ -3,10 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:weaver/features/auth/auth_view_model.dart';
 
-/// Username/password sign-in and registration in one screen (a toggle
-/// switches which action the submit button performs), rather than two
-/// separate routes — there's nothing else on either screen worth splitting
-/// out for. Native builds also ask for the server's address here.
+/// Username/password sign-in. There is no registration: an admin creates
+/// every account (ADR-0004). Native builds also ask for the server's
+/// address here.
 class LoginView extends StatefulWidget {
   const LoginView({required this.viewModel, super.key});
 
@@ -22,7 +21,6 @@ class _LoginViewState extends State<LoginView> {
   );
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isRegistering = false;
 
   @override
   void dispose() {
@@ -38,19 +36,11 @@ class _LoginViewState extends State<LoginView> {
     if (username.isEmpty || password.isEmpty) return;
 
     final serverAddress = _serverController.text;
-    if (_isRegistering) {
-      await widget.viewModel.register(
-        username,
-        password,
-        serverAddress: serverAddress,
-      );
-    } else {
-      await widget.viewModel.login(
-        username,
-        password,
-        serverAddress: serverAddress,
-      );
-    }
+    await widget.viewModel.login(
+      username,
+      password,
+      serverAddress: serverAddress,
+    );
   }
 
   @override
@@ -101,18 +91,11 @@ class _LoginViewState extends State<LoginView> {
                       const SizedBox(height: 12),
                       TextField(
                         controller: _passwordController,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           labelText: 'Password',
-                          helperText: _isRegistering
-                              ? 'At least 12 characters'
-                              : null,
                         ),
                         obscureText: true,
-                        autofillHints: [
-                          _isRegistering
-                              ? AutofillHints.newPassword
-                              : AutofillHints.password,
-                        ],
+                        autofillHints: const [AutofillHints.password],
                         onSubmitted: (_) => unawaited(_submit()),
                       ),
                       const SizedBox(height: 16),
@@ -131,23 +114,14 @@ class _LoginViewState extends State<LoginView> {
                             ? null
                             : () => unawaited(_submit()),
                         child: Text(
-                          viewModel.isSubmitting
-                              ? 'Please wait…'
-                              : (_isRegistering ? 'Create account' : 'Sign in'),
+                          viewModel.isSubmitting ? 'Please wait…' : 'Sign in',
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: viewModel.isSubmitting
-                            ? null
-                            : () => setState(
-                                () => _isRegistering = !_isRegistering,
-                              ),
-                        child: Text(
-                          _isRegistering
-                              ? 'Already have an account? Sign in'
-                              : "Don't have an account? Create one",
-                        ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Ask an admin for an account.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                        textAlign: TextAlign.center,
                       ),
                     ],
                   );

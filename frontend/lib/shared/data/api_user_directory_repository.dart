@@ -5,44 +5,31 @@ import 'package:weaver/core/network/json_api_client.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
 import 'package:weaver/shared/models/user.dart';
 
-/// Shared by the board and the detail dialog so they don't each fetch
-/// `/users`. People can register while the app is open, so the list is
-/// re-fetched once it's older than [maxAge], or when the app is pointed at
-/// another server. A failed fetch isn't cached.
+/// Accounts only change when an admin changes them, so, like statuses, the
+/// list is fetched once and shared by the board and the detail dialog until
+/// [invalidate] is called (the Admin page does, after every account change)
+/// or the app is pointed at another server. A failed fetch isn't cached.
+/// Another admin's changes show up after a reload of the app.
 @LazySingleton(as: UserDirectoryRepository)
 class ApiUserDirectoryRepository implements UserDirectoryRepository {
-  ApiUserDirectoryRepository(
-    http.Client client,
-    ApiEndpoint endpoint, {
-    @ignoreParam DateTime Function()? now,
-  }) : _endpoint = endpoint,
-       _api = JsonApiClient(client, endpoint),
-       _now = now ?? DateTime.now;
-
-  static const Duration maxAge = Duration(minutes: 5);
+  ApiUserDirectoryRepository(http.Client client, ApiEndpoint endpoint)
+    : _endpoint = endpoint,
+      _api = JsonApiClient(client, endpoint);
 
   final ApiEndpoint _endpoint;
   final JsonApiClient _api;
-  final DateTime Function() _now;
   Future<List<User>>? _users;
-  DateTime? _fetchedAt;
   String? _fetchedFrom;
 
   @override
   Future<List<User>> loadUsers() {
     final baseUrl = _endpoint.baseUrl;
-    final fetchedAt = _fetchedAt;
-    final cached = _users;
-    if (cached != null &&
-        fetchedAt != null &&
-        baseUrl == _fetchedFrom &&
-        _now().difference(fetchedAt) < maxAge) {
-      return cached;
+    if (baseUrl != _fetchedFrom) {
+      _users = null;
+      _fetchedFrom = baseUrl;
     }
 
-    _fetchedAt = _now();
-    _fetchedFrom = baseUrl;
-    return _users = _api
+    return _users ??= _api
         .get(
           '/users',
           (json) => JsonApiClient.listOf(json, User.fromJson),
@@ -50,14 +37,10 @@ class ApiUserDirectoryRepository implements UserDirectoryRepository {
         )
         .onError<Object>((error, stackTrace) {
           _users = null;
-          _fetchedAt = null;
           Error.throwWithStackTrace(error, stackTrace);
         });
   }
 
   @override
-  void invalidate() {
-    _users = null;
-    _fetchedAt = null;
-  }
+  void invalidate() => _users = null;
 }

@@ -85,7 +85,10 @@ backup service are switched off in dev.
 | API | http://localhost:8080 (e.g. `/api/statuses`, `/mcp`, `/health`) |
 | PostgreSQL | `localhost:5432`, database/user/password `weaver` |
 
-Register an account on the login screen to get started. See
+Sign in as `admin` with the password `development-only-admin-password`
+(set in `appsettings.Development.json`); the backend creates that account
+on an empty database. Nobody can register: admins create every other
+account from the Admin page (the gear next to sign-out). See
 [docs/development.md](docs/development.md) for hot-reload limits and other
 dev-environment gotchas.
 
@@ -155,8 +158,9 @@ sections.
 | -------- | -------- | ------- | ------- |
 | `ConnectionStrings__Weaver` | Yes | — | Npgsql connection string, e.g. `Host=db;Port=5432;Database=weaver;Username=weaver;Password=…`. |
 | `Jwt__SigningKey` | Yes | — | Signs access tokens. At least 32 bytes (`openssl rand -base64 48`); the API refuses to start without one. |
+| `FirstAdmin__Username` / `FirstAdmin__Password` | On first start | none | The admin created when the backend starts on a database with no accounts; ignored once any account exists. The password needs at least 12 characters. See [The first admin](#the-first-admin). |
 | `Database__MigrateOnStartup` | No | `true` | Applies pending migrations before serving. If a migration fails, the API exits with the reason in its log instead of serving against an old schema. Set `false` to run migrations as a separate step instead: the image's `migrate` command (e.g. `command: ["migrate"]`) applies them and exits. |
-| `ASPNETCORE_ENVIRONMENT` | No | `Production` | Leave it as `Production`. `Development` maps the OpenAPI document and accepts the public development signing key. |
+| `ASPNETCORE_ENVIRONMENT` | No | `Production` | Leave it as `Production`. `Development` maps the OpenAPI document and accepts the public development signing key and first-admin password. |
 | `Cors__AllowedOrigins__0`, `__1`, … | No | none | Web origins allowed to call the API cross-origin. The web app calls it same-origin through nginx, so this is only for some other web origin. |
 | `RateLimiting__Auth__PermitLimit` | No | `30` | Requests per client IP to the sign-in endpoints per window. |
 | `RateLimiting__Auth__Window` | No | `00:01:00` | The rate-limit window. |
@@ -182,6 +186,7 @@ publicly known secrets.
 | `WEAVER_DOMAIN` | Yes | — | The host name or IP clients use to reach the server, e.g. `weaver.lan` or `192.168.1.20`. Caddy issues the certificate for exactly this name. Checked when Caddy starts rather than by Compose, so a missing value shows up as the `caddy` container exiting with a message. |
 | `POSTGRES_PASSWORD` | Yes | — | `openssl rand -hex 24` (hex keeps it safe inside the connection string). |
 | `JWT_SIGNING_KEY` | Yes | — | Becomes `Jwt__SigningKey`; `openssl rand -base64 48`. |
+| `WEAVER_FIRST_ADMIN_USERNAME` / `WEAVER_FIRST_ADMIN_PASSWORD` | On first start | — | Become `FirstAdmin__Username` / `FirstAdmin__Password`. |
 | `WEAVER_HTTP_PORT` / `WEAVER_HTTPS_PORT` | No | `80` / `443` | Host ports for Caddy, if those are taken. |
 | `CORS_ALLOWED_ORIGIN` | No | `https://$WEAVER_DOMAIN` | Becomes `Cors__AllowedOrigins__0`. |
 | `BACKUP_DIR` | No | `./backups` | Host directory for database dumps. |
@@ -221,6 +226,21 @@ reports healthy on `/health`) → frontend → Caddy. If a migration fails,
 the backend exits without serving (Compose keeps restarting it) and the
 frontend doesn't start; `docker compose logs backend` shows why. The app
 is then at `https://<WEAVER_DOMAIN>`.
+
+### The first admin
+
+Nobody can register: an admin creates every account, human or agent, from
+the Admin page ([ADR-0004](docs/adr/0004-agent-accounts-and-api-keys.md)).
+To get the first admin, set `WEAVER_FIRST_ADMIN_USERNAME` and
+`WEAVER_FIRST_ADMIN_PASSWORD` in `.env` before the first start. When the
+backend starts on a database with no accounts it creates that account as
+an admin; once any account exists it ignores both values, so you can
+remove them afterwards. If they are missing on an empty database, the
+backend still starts but logs a warning, and nobody can sign in until you
+set them and restart it (`docker compose up -d backend`).
+
+Deployments that don't use the example compose file set the same thing on
+the backend container as `FirstAdmin__Username` and `FirstAdmin__Password`.
 
 ### Update to a new release
 

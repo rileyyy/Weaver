@@ -2,6 +2,8 @@ using System.Net;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Weaver.Infrastructure;
@@ -35,7 +37,10 @@ public class StartupMigrationTests
     [Test]
     public async Task TurnedOff_StartupLeavesTheSchemaAlone()
     {
+        // One migration behind rather than empty: with migrations off the operator keeps the
+        // schema current, and startup reads the accounts table to bootstrap the first admin.
         var connectionString = await CreateEmptyDatabaseAsync();
+        await MigrateAllButTheNewestAsync(connectionString);
         using var factory = Host(connectionString, migrateOnStartup: "false");
 
         var health = await factory.CreateClient().GetAsync("/health");
@@ -86,6 +91,14 @@ public class StartupMigrationTests
 
         shared.Database = name;
         return shared.ConnectionString;
+    }
+
+    private static async Task MigrateAllButTheNewestAsync(string connectionString)
+    {
+        var options = new DbContextOptionsBuilder<WeaverDbContext>().UseNpgsql(connectionString).Options;
+        await using var db = new WeaverDbContext(options);
+        var migrations = db.Database.GetMigrations().ToList();
+        await db.GetService<IMigrator>().MigrateAsync(migrations[^2]);
     }
 
     private static async Task<IReadOnlyList<string>> PendingMigrationsAsync(WebApplicationFactory<Program> factory)

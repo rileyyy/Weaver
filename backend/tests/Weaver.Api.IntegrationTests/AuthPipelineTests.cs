@@ -27,7 +27,7 @@ public class AuthPipelineTests
     }
 
     [Test]
-    public async Task Register_ThenAuthorizedCall_ResolvesTheUser()
+    public async Task AnAdminCreatedAccount_ThenAuthorizedCall_ResolvesTheUser()
     {
         var (client, auth) = await ApiClient.SignedInAsync();
 
@@ -37,19 +37,37 @@ public class AuthPipelineTests
     }
 
     [Test]
-    public async Task Login_WithRegisteredCredentials_ReturnsWorkingTokens()
+    public async Task Login_WithAnAdminCreatedAccount_ReturnsWorkingTokens()
     {
-        var (_, registered) = await ApiClient.SignedInAsync();
+        var (_, created) = await ApiClient.SignedInAsync();
         var client = ApiClient.Anonymous();
 
         var login = await (await client.PostJsonAsync(
             "/api/auth/login",
-            new LoginRequest(registered.User.Username, ApiClient.Password))).ReadAsync<AuthResponse>();
+            new LoginRequest(created.User.Username, ApiClient.Password))).ReadAsync<AuthResponse>();
         var refreshed = await (await client.PostJsonAsync(
             "/api/auth/refresh",
             new RefreshRequest(login.RefreshToken))).ReadAsync<AuthResponse>();
 
-        Assert.That(refreshed.User.Id, Is.EqualTo(registered.User.Id));
+        Assert.That(refreshed.User.Id, Is.EqualTo(created.User.Id));
+    }
+
+    [Test]
+    public async Task SelfRegistration_IsGone()
+    {
+        // Signed in, because the fallback policy answers any anonymous request with a 401 and
+        // would hide whether the route exists.
+        var (client, _) = await ApiClient.SignedInAsync();
+        var username = ApiClient.UniqueUsername();
+
+        var response = await client.PostJsonAsync("/api/auth/register", new LoginRequest(username, ApiClient.Password));
+        var login = await ApiClient.Anonymous().PostJsonAsync("/api/auth/login", new LoginRequest(username, ApiClient.Password));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+            Assert.That(login.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+        });
     }
 
     [Test]

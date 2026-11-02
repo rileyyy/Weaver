@@ -1,6 +1,6 @@
 import 'package:weaver/shared/models/user.dart';
 
-/// The result of a successful login/register/refresh: a short-lived access
+/// The result of a successful login/refresh: a short-lived access
 /// token to send with API calls, and a longer-lived refresh token used to
 /// silently obtain a new one. Neither is persisted by this class itself —
 /// see `AuthRepository`/`SecureTokenStore` for where the refresh token is

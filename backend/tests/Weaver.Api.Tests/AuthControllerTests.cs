@@ -31,22 +31,6 @@ public class AuthControllerTests
         "refresh-token");
 
     [Test]
-    public async Task Register_DelegatesToServiceAndReturnsOkWithTokens()
-    {
-        var user = MakeUser();
-        _auth.Setup(a => a.RegisterAsync("alice", "a valid password", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(MakeAuthResult(user));
-
-        var result = await _controller.Register(new RegisterRequest("alice", "a valid password"));
-
-        var ok = result.Result as OkObjectResult;
-        Assert.That(ok, Is.Not.Null);
-        var body = ok!.Value as AuthResponse;
-        Assert.That(body!.User.Username, Is.EqualTo("alice"));
-        Assert.That(body.RefreshToken, Is.EqualTo("refresh-token"));
-    }
-
-    [Test]
     public async Task Login_DelegatesToServiceAndReturnsOkWithTokens()
     {
         var user = MakeUser();

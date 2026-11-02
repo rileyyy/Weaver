@@ -15,10 +15,6 @@ class _UnusedAuthRepository implements AuthRepository {
       throw UnimplementedError();
 
   @override
-  Future<AuthSession> register(String username, String password) =>
-      throw UnimplementedError();
-
-  @override
   Future<AuthSession> refresh(String refreshToken) =>
       throw UnimplementedError();
 
