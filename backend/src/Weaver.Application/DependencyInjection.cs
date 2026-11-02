@@ -18,6 +18,7 @@ public static class DependencyInjection
             .AddScoped<IUserAdministrationService, UserAdministrationService>()
             .AddScoped<IAgentAccountService, AgentAccountService>()
             .AddScoped<IApiKeyAuthenticator, ApiKeyAuthenticator>()
+            .AddScoped<ICallerIdentityService, CallerIdentityService>()
             .AddScoped<IFirstAdminBootstrapper, FirstAdminBootstrapper>()
             .AddScoped<ICommentService, CommentService>()
             .AddScoped<IWorkItemLinkService, WorkItemLinkService>()

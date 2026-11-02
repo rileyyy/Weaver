@@ -1,5 +1,9 @@
 using System.Net;
+using System.Text.Json;
 using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
+using Weaver.Api.Contracts;
+using Weaver.Domain;
 
 namespace Weaver.Api.IntegrationTests;
 
@@ -48,6 +52,61 @@ public class McpTests
             Assert.That(result.IsError, Is.Not.True);
             Assert.That(settingsTools, Is.EqualTo(new[] { "get_server_settings" }));
         });
+    }
+
+    [Test]
+    public async Task Mcp_WithAnApiKey_WhoamiNamesTheAgentTheKeyAndItsScope()
+    {
+        var (admin, _) = await ApiClient.SignedInAdminAsync();
+        var agentName = $"Claude Code ({Guid.NewGuid():N})"[..40];
+        var agent = await (await admin.PostJsonAsync("/api/admin/agents", new CreateAgentAccountRequest(agentName, null)))
+            .ReadAsync<AgentAccountDto>();
+        var issued = await (await admin.PostJsonAsync(
+                $"/api/admin/agents/{agent.Id}/keys",
+                new CreateApiKeyRequest("laptop", ApiKeyScope.ReadOnly)))
+            .ReadAsync<IssuedApiKeyDto>();
+        await using var mcp = await ConnectAsync(ApiClient.WithApiKey(issued.Key));
+
+        var whoami = await CallAsync<WhoAmIDto>(mcp, "whoami");
+
+        Assert.That(whoami, Is.EqualTo(new WhoAmIDto(agentName, UserKind.Agent, "laptop", ApiKeyScope.ReadOnly)));
+    }
+
+    [Test]
+    public async Task Mcp_WithAnAccessToken_WhoamiNamesTheHumanAndNoKey()
+    {
+        var (client, auth) = await ApiClient.SignedInAsync();
+        await using var mcp = await ConnectAsync(client);
+
+        var whoami = await CallAsync<WhoAmIDto>(mcp, "whoami");
+
+        Assert.That(whoami, Is.EqualTo(new WhoAmIDto(auth.User.Username, UserKind.Human, KeyLabel: null, Scope: null)));
+    }
+
+    [Test]
+    public async Task Mcp_WithARevokedKey_Returns401()
+    {
+        var (admin, _) = await ApiClient.SignedInAdminAsync();
+        var agent = await (await admin.PostJsonAsync(
+                "/api/admin/agents",
+                new CreateAgentAccountRequest($"Revoked ({Guid.NewGuid():N})"[..40], null)))
+            .ReadAsync<AgentAccountDto>();
+        var issued = await (await admin.PostJsonAsync(
+                $"/api/admin/agents/{agent.Id}/keys",
+                new CreateApiKeyRequest("laptop", ApiKeyScope.ReadWrite)))
+            .ReadAsync<IssuedApiKeyDto>();
+        await admin.DeleteAsync($"/api/admin/agents/{agent.Id}/keys/{issued.ApiKey.Id}");
+
+        var response = await ApiClient.WithApiKey(issued.Key).PostAsync("/mcp", new StringContent("{}"));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+    }
+
+    private static async Task<T> CallAsync<T>(McpClient mcp, string tool)
+    {
+        var result = await mcp.CallToolAsync(tool, new Dictionary<string, object?>());
+        Assert.That(result.IsError, Is.Not.True, () => string.Join("\n", result.Content.OfType<TextContentBlock>().Select(c => c.Text)));
+        return JsonSerializer.Deserialize<T>(result.Content.OfType<TextContentBlock>().Single().Text, ApiClient.Json)!;
     }
 
     private static Task<McpClient> ConnectAsync(HttpClient client) =>
