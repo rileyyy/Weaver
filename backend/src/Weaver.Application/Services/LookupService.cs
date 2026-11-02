@@ -19,12 +19,12 @@ public abstract class LookupService<T> : ILookupService<T> where T : LookupValue
     {
         Db = db;
         _admins = admins;
-        Caller = caller;
+        CallerContext = caller;
     }
 
     protected IWeaverDbContext Db { get; }
 
-    protected ICallerContext? Caller { get; }
+    protected ICallerContext? CallerContext { get; }
 
     protected abstract DbSet<T> Values { get; }
 
