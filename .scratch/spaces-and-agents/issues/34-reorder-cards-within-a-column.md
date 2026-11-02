@@ -6,8 +6,8 @@
 
 **Status:** ready-for-agent
 
-- [ ] Dropping a card above or below another in the same cell reorders it, with a drop indicator
-- [ ] Order is persisted with the existing rank mechanism, including respacing on ties
-- [ ] Moving between columns can also place the card at a chosen position
-- [ ] Failed reorders roll back without disturbing other cards
-- [ ] Widget tests for in-cell drag
+- [x] Dropping a card above or below another in the same cell reorders it, with a drop indicator
+- [x] Order is persisted with the existing rank mechanism, including respacing on ties
+- [x] Moving between columns can also place the card at a chosen position
+- [x] Failed reorders roll back without disturbing other cards
+- [x] Widget tests for in-cell drag
