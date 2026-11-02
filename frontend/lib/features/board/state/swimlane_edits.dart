@@ -77,8 +77,7 @@ extension SwimlaneEdits on List<Swimlane> {
 
   /// Moves the card to [statusId] within its lane, directly after [afterId]
   /// in that cell, or at the top of the cell when [afterId] is null or
-  /// isn't in the cell. No other card moves, so it can also undo a
-  /// placement without disturbing anything placed since.
+  /// isn't in the cell. No other card moves.
   List<Swimlane> withCardPlaced(
     String cardId,
     String statusId, {
@@ -101,11 +100,12 @@ extension SwimlaneEdits on List<Swimlane> {
     final insertAt = anchorIndex != -1
         ? anchorIndex + 1
         : (topIndex == -1 ? rest.length : topIndex);
+    final cards = rest..insert(insertAt, placed);
 
     return [
       for (final lane in this)
         if (lane.parentId == owner.parentId)
-          lane.copyWithCards(rest..insert(insertAt, placed))
+          lane.copyWithCards(cards)
         else
           lane,
     ];

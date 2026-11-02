@@ -23,9 +23,9 @@ class CardDropZones extends StatelessWidget {
 
   final bool Function(WorkItemCard dragged) accepts;
 
-  /// Whether dropping on [CardDropSide] would put the dragged card somewhere
-  /// new. A drop that wouldn't is still accepted, so it can't fall through
-  /// to the cell and send the card to the end, but shows no indicator.
+  /// Whether a drop on that side would put the dragged card somewhere new.
+  /// A drop that wouldn't is still accepted, so it can't fall through to
+  /// the cell and send the card to the end, but shows no indicator.
   final bool Function(WorkItemCard dragged, CardDropSide side) movesCard;
   final void Function(WorkItemCard dragged, CardDropSide side) onDropped;
   final Widget child;

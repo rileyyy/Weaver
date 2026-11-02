@@ -144,13 +144,14 @@ class StatusColumn extends StatelessWidget {
     Widget child,
   ) {
     final index = shownCards.indexOf(card);
-    // The shown card a drop on [side] lands before; null is the end.
-    WorkItemCard? cardAfterDrop(CardDropSide side) {
+    // The shown cards either side of the gap a drop on [side] fills; null
+    // past either end of the cell.
+    WorkItemCard? followingDrop(CardDropSide side) {
       final position = side == CardDropSide.before ? index : index + 1;
       return position < shownCards.length ? shownCards[position] : null;
     }
 
-    WorkItemCard? cardBeforeDrop(CardDropSide side) {
+    WorkItemCard? precedingDrop(CardDropSide side) {
       final position = side == CardDropSide.before ? index - 1 : index;
       return position >= 0 ? shownCards[position] : null;
     }
@@ -159,13 +160,13 @@ class StatusColumn extends StatelessWidget {
       accepts: _isInThisLane,
       movesCard: (dragged, side) =>
           dragged.statusId != status.id ||
-          (cardBeforeDrop(side)?.id != dragged.id &&
-              cardAfterDrop(side)?.id != dragged.id),
+          (precedingDrop(side)?.id != dragged.id &&
+              followingDrop(side)?.id != dragged.id),
       onDropped: (dragged, side) => unawaited(
         onCardDropped(
           dragged,
           status.id,
-          beforeCardId: cardAfterDrop(side)?.id,
+          beforeCardId: followingDrop(side)?.id,
         ),
       ),
       child: child,
