@@ -225,6 +225,62 @@ public class WorkItemHistoryTests
     }
 
     [Test]
+    public async Task Links_RecordAddAndRemoveOnBothItems_NamingTheOtherSide()
+    {
+        var links = new WorkItemLinkService(_db, _caller);
+        var item = await CreateAsync("Item");
+        var other = await CreateAsync("Other");
+
+        var link = await links.CreateAsync(item.Id, other.Id);
+        await links.DeleteAsync(link.Id);
+
+        var itemEntries = (await _history.ListForWorkItemAsync(item.Id)).Take(2).ToList();
+        var otherEntries = (await _history.ListForWorkItemAsync(other.Id)).Take(2).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(itemEntries.Select(e => e.Field), Is.All.EqualTo(WorkItemHistoryField.Link));
+            Assert.That(itemEntries[0].OldValue?.GetGuid(), Is.EqualTo(other.Id));
+            Assert.That(itemEntries[0].NewValue, Is.Null);
+            Assert.That(itemEntries[1].NewValue?.GetGuid(), Is.EqualTo(other.Id));
+            Assert.That(itemEntries[1].NewName, Is.EqualTo($"#{other.Number} Other"));
+            Assert.That(otherEntries[1].NewValue?.GetGuid(), Is.EqualTo(item.Id));
+            Assert.That(otherEntries[0].OldValue?.GetGuid(), Is.EqualTo(item.Id));
+        });
+    }
+
+    [Test]
+    public async Task Delete_RecordsTheLinkRemovedOnTheItemThatSurvives()
+    {
+        var links = new WorkItemLinkService(_db, _caller);
+        var item = await CreateAsync("Item");
+        var survivor = await CreateAsync("Survivor");
+        await links.CreateAsync(survivor.Id, item.Id);
+
+        await _workItems.DeleteAsync(item.Id);
+
+        var entry = (await _history.ListForWorkItemAsync(survivor.Id)).First();
+        Assert.Multiple(() =>
+        {
+            Assert.That(entry.Field, Is.EqualTo(WorkItemHistoryField.Link));
+            Assert.That(entry.OldValue?.GetGuid(), Is.EqualTo(item.Id));
+            Assert.That(entry.NewValue, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task Link_ThatFails_RecordsNothing()
+    {
+        var links = new WorkItemLinkService(_db, _caller);
+        var item = await CreateAsync("Item");
+        var other = await CreateAsync("Other");
+        await links.CreateAsync(item.Id, other.Id);
+
+        Assert.ThrowsAsync<DuplicateWorkItemLinkException>(() => links.CreateAsync(other.Id, item.Id));
+
+        Assert.That(await ChangesAsync(item.Id), Has.Count.EqualTo(1));
+    }
+
+    [Test]
     public void List_ForAnItemThatNeverExisted_ThrowsNotFound()
     {
         Assert.ThrowsAsync<EntityNotFoundException>(() => _history.ListForWorkItemAsync(Guid.NewGuid()));

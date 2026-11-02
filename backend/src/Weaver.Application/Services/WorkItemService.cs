@@ -232,7 +232,29 @@ public class WorkItemService : IWorkItemService
         {
             _history.Record(deleted.Id, WorkItemHistoryField.Deleted, deleted.Title, null);
         }
+
+        RecordLinksLostBySurvivors(links, deletedIds);
         await SaveWorkItemChangesAsync(id, ct);
+    }
+
+    /// <summary>
+    /// An item outside the deleted subtree loses its link to the deleted one, which is a change
+    /// to that item too.
+    /// </summary>
+    private void RecordLinksLostBySurvivors(IEnumerable<WorkItemLink> links, IReadOnlyCollection<Guid> deletedIds)
+    {
+        foreach (var link in links)
+        {
+            if (!deletedIds.Contains(link.WorkItemId))
+            {
+                _history.Record(link.WorkItemId, WorkItemHistoryField.Link, link.LinkedWorkItemId, null);
+            }
+
+            if (!deletedIds.Contains(link.LinkedWorkItemId))
+            {
+                _history.Record(link.LinkedWorkItemId, WorkItemHistoryField.Link, link.WorkItemId, null);
+            }
+        }
     }
 
     /// <summary>
