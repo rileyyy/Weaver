@@ -130,51 +130,97 @@ on a homelab (managed by Komodo, with Tailscale names and certificates
 from tsdproxy) and is reachable over Tailscale only. See
 [ADR-0008](docs/adr/0008-images-first-deployment.md).
 
-Using the example compose file, the server needs only two files: `compose.yaml` and `.env`. **Never copy
+### Deployment reference
+
+Everything needed to run the images under any compose file. A minimal
+deployment is three services, `db`, `backend` and `frontend`, plus the
+environment and volumes below.
+
+**Images**
+
+| Image | Port | Notes |
+| ----- | ---- | ----- |
+| `ghcr.io/<owner>/weaver-backend` | 8080 | The API, including `/mcp` and `/health`. Runs as a non-root user and keeps no state of its own. |
+| `ghcr.io/<owner>/weaver-frontend` | 8080 | nginx (uid 101) serving the web app. It proxies `/api/` and `/mcp` to `http://backend:8080`, so the API must be reachable under the service name `backend`. Takes no configuration. |
+| `postgres:16-alpine` | 5432 | The database. Any PostgreSQL 16 works. |
+
+`<owner>` is the GitHub account that publishes the images, lowercased.
+Both Weaver images are tagged `latest` (newest `master` build), with a
+version such as `1.2.0`, and `sha-<commit>`.
+
+**Backend environment.** `__` separates ASP.NET Core configuration
+sections.
+
+| Variable | Required | Default | Purpose |
+| -------- | -------- | ------- | ------- |
+| `ConnectionStrings__Weaver` | Yes | — | Npgsql connection string, e.g. `Host=db;Port=5432;Database=weaver;Username=weaver;Password=…`. |
+| `Jwt__SigningKey` | Yes | — | Signs access tokens. At least 32 bytes (`openssl rand -base64 48`); the API refuses to start without one. |
+| `Database__MigrateOnStartup` | No | `true` | Applies pending migrations before serving. If a migration fails, the API exits with the reason in its log instead of serving against an old schema. Set `false` to run migrations as a separate step instead: the image's `migrate` command (e.g. `command: ["migrate"]`) applies them and exits. |
+| `ASPNETCORE_ENVIRONMENT` | No | `Production` | Leave it as `Production`. `Development` maps the OpenAPI document and accepts the public development signing key. |
+| `Cors__AllowedOrigins__0`, `__1`, … | No | none | Web origins allowed to call the API cross-origin. The web app calls it same-origin through nginx, so this is only for some other web origin. |
+| `RateLimiting__Auth__PermitLimit` | No | `30` | Requests per client IP to the sign-in endpoints per window. |
+| `RateLimiting__Auth__Window` | No | `00:01:00` | The rate-limit window. |
+| `Jwt__AccessTokenLifetime` | No | `00:15:00` | How long an access token lasts. |
+| `Jwt__RefreshTokenLifetime` | No | `30.00:00:00` | How long a refresh token lasts. |
+| `Jwt__Issuer` / `Jwt__Audience` | No | `weaver-api` / `weaver-client` | Written into and checked on every token. Changing either signs everyone out. |
+| `AllowedHosts` | No | `*` | Host names the API answers to. Leave it: requests reach the API through nginx. |
+| `Logging__LogLevel__Default` | No | `Information` | Standard ASP.NET Core log levels. |
+
+The image sets `ASPNETCORE_HTTP_PORTS=8080` and
+`DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true`; don't override them.
+
+**Example compose (`.env`).** `compose.yaml` builds the services'
+environment from these. The required ones ship empty in `.env.example` on
+purpose, so an unedited copy fails at startup instead of running with
+publicly known secrets.
+
+| Variable | Required | Default | Purpose |
+| -------- | -------- | ------- | ------- |
+| `BACKEND_IMAGE` | Yes | — | `ghcr.io/<owner>/weaver-backend` |
+| `FRONTEND_IMAGE` | Yes | — | `ghcr.io/<owner>/weaver-frontend` |
+| `WEAVER_IMAGE_TAG` | No | `latest` | A tag from the images table. |
+| `WEAVER_DOMAIN` | Yes | — | The host name or IP clients use to reach the server, e.g. `weaver.lan` or `192.168.1.20`. Caddy issues the certificate for exactly this name. Checked when Caddy starts rather than by Compose, so a missing value shows up as the `caddy` container exiting with a message. |
+| `POSTGRES_PASSWORD` | Yes | — | `openssl rand -hex 24` (hex keeps it safe inside the connection string). |
+| `JWT_SIGNING_KEY` | Yes | — | Becomes `Jwt__SigningKey`; `openssl rand -base64 48`. |
+| `WEAVER_HTTP_PORT` / `WEAVER_HTTPS_PORT` | No | `80` / `443` | Host ports for Caddy, if those are taken. |
+| `CORS_ALLOWED_ORIGIN` | No | `https://$WEAVER_DOMAIN` | Becomes `Cors__AllowedOrigins__0`. |
+| `BACKUP_DIR` | No | `./backups` | Host directory for database dumps. |
+| `BACKUP_HOUR_UTC` | No | `2` | Hour (UTC) of the nightly backup. |
+| `BACKUP_KEEP_DAYS` | No | `7` | Days of daily dumps to keep. |
+| `BACKUP_KEEP_WEEKS` | No | `4` | Weeks of Sunday dumps to keep. |
+| `BACKUP_MAX_AGE_HOURS` | No | `36` | The backup service reports unhealthy once its newest dump is older than this. |
+
+The example compose needs Docker Engine 25 or later: older engines ignore
+the backup healthcheck's `start_interval`, so it reports healthy up to
+five minutes after the startup dump instead of seconds after.
+
+**Volumes**
+
+| Volume (example compose) | Mounted at | Holds |
+| ------------------------ | ---------- | ----- |
+| `pgdata` | `db:/var/lib/postgresql/data` | The database. Whoever runs the images backs it up. |
+| `caddy-data` | `caddy:/data` | Caddy's local CA keys and certificates. |
+| `$BACKUP_DIR` (bind mount) | `backup:/backups` | The backup service's dumps. |
+
+### Using the example compose file
+
+The server needs only two files: `compose.yaml` and `.env`. **Never copy
 `compose.override.yaml` to the server** — Compose would load it
 automatically and switch to building from source. If it is present for
 some reason, run every command as `docker compose -f compose.yaml ...`.
 
-### Configure `.env`
-
-Copy `.env.example` to `.env` and fill in every value. They ship empty on
-purpose, so an unedited copy fails at startup instead of running with
-publicly known secrets.
-
-| Variable | Value |
-| -------- | ----- |
-| `BACKEND_IMAGE` | `ghcr.io/<owner>/weaver-backend` (`<owner>` lowercased) |
-| `FRONTEND_IMAGE` | `ghcr.io/<owner>/weaver-frontend` |
-| `WEAVER_IMAGE_TAG` | `latest` (default), a version such as `1.2.0`, or `sha-<commit>` |
-| `WEAVER_DOMAIN` | The host name or IP clients use to reach the server, e.g. `weaver.lan` or `192.168.1.20`. Caddy issues the certificate for exactly this name. |
-| `POSTGRES_PASSWORD` | `openssl rand -hex 24` (hex keeps it safe inside the connection string) |
-| `JWT_SIGNING_KEY` | `openssl rand -base64 48`. The API refuses to start with a key under 32 bytes. |
-
-Optional:
-
-| Variable | Default | Purpose |
-| -------- | ------- | ------- |
-| `WEAVER_HTTP_PORT` / `WEAVER_HTTPS_PORT` | `80` / `443` | Host ports for Caddy, if those are taken. |
-| `BACKUP_DIR` | `./backups` | Host directory for database dumps. |
-| `BACKUP_HOUR_UTC` | `2` | Hour (UTC) of the nightly backup. |
-| `BACKUP_KEEP_DAYS` | `7` | Days of daily dumps to keep. |
-| `BACKUP_KEEP_WEEKS` | `4` | Weeks of Sunday dumps to keep. |
-| `CORS_ALLOWED_ORIGIN` | `https://$WEAVER_DOMAIN` | Only needed if a web app on another origin calls the API directly. |
-
-`WEAVER_DOMAIN` is checked when Caddy starts rather than by Compose, so a
-missing value shows up as the `caddy` container exiting with a message.
-
-### Start
+Copy `.env.example` to `.env`, fill it in (see the table above), and
+start:
 
 ```sh
 docker compose pull && docker compose up -d
 ```
 
-Startup is ordered: db → `migrate` (applies database migrations once, then
-exits) → backend (reports healthy on `/health`) → frontend → Caddy. If a
-migration fails, `migrate` exits non-zero and the backend doesn't start;
-`docker compose logs migrate` shows why. The app is then at
-`https://<WEAVER_DOMAIN>`.
+Startup is ordered: db → backend (applies database migrations, then
+reports healthy on `/health`) → frontend → Caddy. If a migration fails,
+the backend exits without serving (Compose keeps restarting it) and the
+frontend doesn't start; `docker compose logs backend` shows why. The app
+is then at `https://<WEAVER_DOMAIN>`.
 
 ### Update to a new release
 
@@ -184,9 +230,9 @@ docker compose pull && docker compose up -d
 
 With `WEAVER_IMAGE_TAG=latest` this picks up the newest build from
 `master`. To pin or roll back, set `WEAVER_IMAGE_TAG` to a version or
-`sha-…` tag and run the same command. The `migrate` step applies the new
-release's migrations before its backend starts; take a backup first if the
-release changes the database.
+`sha-…` tag and run the same command. The new backend applies the
+release's migrations when it starts; take a backup first if the release
+changes the database.
 
 ### What's exposed
 
@@ -244,6 +290,12 @@ older than `BACKUP_KEEP_WEEKS` weeks are deleted. A dump is written as
 `.partial` and renamed only when `pg_dump` succeeds, so a crash never
 leaves a truncated file that looks like a backup. `docker compose logs
 backup` shows each result.
+
+The service turns unhealthy in `docker compose ps` (and in Komodo) when
+its newest daily dump is older than `BACKUP_MAX_AGE_HOURS` (36 by
+default), so a backup that keeps failing doesn't go unnoticed. It's
+checked every 5 minutes; `docker inspect --format '{{json
+.State.Health}}' <backup container>` shows the newest dump's age.
 
 To restore a dump (the backend is stopped so nothing writes during the
 restore):

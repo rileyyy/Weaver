@@ -6,7 +6,7 @@
 
 **Status:** ready-for-agent
 
-- [ ] The backup service has a healthcheck that fails when the newest dump is older than a configurable age (default comfortably over one day)
-- [ ] It's healthy straight after the startup dump
-- [ ] The threshold is listed in the README's deployment reference
+- [x] The backup service has a healthcheck that fails when the newest dump is older than a configurable age (default comfortably over one day)
+- [x] It's healthy straight after the startup dump
+- [x] The threshold is listed in the README's deployment reference
 - [ ] Verified by hand: aging the newest dump, or lowering the threshold, turns the service unhealthy

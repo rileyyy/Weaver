@@ -23,14 +23,14 @@ and [adr/](adr/); sections describing something that plan replaces say so.
   networking, dates, `ViewModel` base, theme) and `shared/` (what several
   features use: the `WorkItemStatus` and `User` models, cached lookup
   repositories, the `CurrentUser` interface and `WorkItemDetailOpener`).
-- **Database:** PostgreSQL 16 through EF Core (Npgsql). Migrations are an
-  explicit step: `dotnet Weaver.Api.dll migrate` applies them and exits,
-  and Compose runs it as a one-shot `migrate` service before the backend.
-  Only Development applies them at API startup
-  (`Database:MigrateOnStartup`), because `dotnet watch` restarts often.
-  Milestone 16 makes migrating on startup the default, with an environment
-  variable to opt out; with a single backend instance there are no
-  replicas to race ([ADR-0008](adr/0008-images-first-deployment.md)).
+- **Database:** PostgreSQL 16 through EF Core (Npgsql). The API applies
+  pending migrations when it starts, unless `Database__MigrateOnStartup`
+  is `false`; with a single backend instance there are no replicas to race
+  ([ADR-0008](adr/0008-images-first-deployment.md)). A failed migration
+  stops startup with one error naming the cause, rather than serving
+  against an old schema. `dotnet Weaver.Api.dll migrate` applies them and
+  exits, for deployments that want an explicit step. The decision is
+  `StartupMigrationPolicy`, unit-tested without a database.
 - **Deployment:** the published images. The example `compose.yaml` runs
   `db`, `backend`, `frontend` (nginx), `caddy` (TLS) and `backup`.
 
@@ -930,18 +930,24 @@ from tsdproxy ([ADR-0008](adr/0008-images-first-deployment.md)).
 ### Startup, health and backups
 
 - **Startup is ordered by health.** The API exposes an anonymous `/health`
-  with a database check, not proxied by nginx. Compose runs db → `migrate`
-  (on `service_completed_successfully`) → backend → frontend → caddy (on
+  with a database check, not proxied by nginx. Compose runs db → backend
+  (which migrates before serving) → frontend → caddy (each on
   `service_healthy`), so Caddy never serves a frontend whose API isn't
-  ready. The dev override makes `migrate` a no-op (dev migrates at API
-  startup) and relaxes the frontend's wait to `service_started`, because
-  the first `dotnet watch` build can outlast the healthcheck.
+  ready. There is no separate `migrate` service: it was the hardest part
+  of the example to copy into another compose file. The dev override
+  relaxes the frontend's wait to `service_started`, because the first
+  `dotnet watch` build can outlast the healthcheck.
 - **Backups belong to whoever runs the images**; the reference homelab
   does its own. The example compose has an inline `backup` service on
   `postgres:16-alpine`, which already has `pg_dump`. A third-party backup
   image would need the database password, and inline configuration keeps
   the server at `compose.yaml` + `.env`. Schedule, retention and restore
   are in the README.
+- **A stale backup makes the `backup` service unhealthy.** A failed dump
+  only logs and the loop carries on, so the container would otherwise look
+  fine indefinitely. Its healthcheck fails once the newest daily dump is
+  older than `BACKUP_MAX_AGE_HOURS` (default 36: a nightly schedule plus
+  slack), which surfaces in `docker compose ps` and Komodo.
 
 ### Images and GHCR naming
 

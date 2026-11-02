@@ -9,13 +9,6 @@
 # and gets hot-reloading build-from-source containers instead. See
 # docs/architecture.md for the reasoning.
 
-# Shared by the migrate step and the API, which need the same database and
-# configuration.
-x-backend-environment: &backend-environment
-  ASPNETCORE_ENVIRONMENT: Production
-  ConnectionStrings__Weaver: Host=db;Port=5432;Database=weaver;Username=weaver;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (copy .env.example) before starting}
-  Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env (copy .env.example) before starting}
-
 services:
   db:
     image: postgres:16-alpine
@@ -32,29 +25,19 @@ services:
       timeout: 5s
       retries: 10
 
-  # Applies pending database migrations once, then exits; the backend only
-  # starts after it succeeds. Keeping schema changes out of API startup means
-  # replicas can't race to migrate, and a failed migration stops the deploy
-  # visibly instead of crash-looping the API.
-  migrate:
-    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE in .env (copy .env.example) before starting}:${WEAVER_IMAGE_TAG:-latest}
-    restart: "no"
-    depends_on:
-      db:
-        condition: service_healthy
-    environment: *backend-environment
-    command: ["migrate"]
-
   backend:
     image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE in .env (copy .env.example) before starting}:${WEAVER_IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
+    # Applies pending migrations before serving (Database__MigrateOnStartup,
+    # on by default). If a migration fails the container exits with the
+    # reason in its log rather than serving against an old schema.
     environment:
-      <<: *backend-environment
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Weaver: Host=db;Port=5432;Database=weaver;Username=weaver;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (copy .env.example) before starting}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env (copy .env.example) before starting}
       # The app is served same-origin through Caddy, so this only matters
       # for some other web origin calling the API directly.
       Cors__AllowedOrigins__0: ${CORS_ALLOWED_ORIGIN:-https://${WEAVER_DOMAIN:-localhost}}
@@ -64,7 +47,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      # Long enough for the migrations it applies on startup; a quick start
+      # still reports healthy at the first passing check.
+      start_period: 5m
     # No published ports: the API (including /mcp) is only reachable through
     # Caddy -> nginx, so it always sits behind TLS.
 
@@ -130,8 +115,34 @@ services:
       BACKUP_HOUR_UTC: ${BACKUP_HOUR_UTC:-2}
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-7}
       BACKUP_KEEP_WEEKS: ${BACKUP_KEEP_WEEKS:-4}
+      BACKUP_MAX_AGE_HOURS: ${BACKUP_MAX_AGE_HOURS:-36}
     volumes:
       - ${BACKUP_DIR:-./backups}:/backups
+    # A failed dump only logs, so the loop keeps running and the container
+    # looks fine. Checking the newest dump's age makes a backup that has
+    # stopped working show up as unhealthy in `docker compose ps`. The
+    # start period covers the startup dump of a large database; the first
+    # check that finds it marks the service healthy.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - |
+          newest=$$(ls -t /backups/daily/weaver-*.dump 2>/dev/null | head -n 1)
+          if [ -z "$$newest" ]; then
+            echo "No backup in /backups/daily" >&2
+            exit 1
+          fi
+          age=$$(( $$(date +%s) - $$(stat -c %Y "$$newest") ))
+          if [ "$$age" -gt $$(( BACKUP_MAX_AGE_HOURS * 3600 )) ]; then
+            echo "Newest backup $$newest is $$(( age / 3600 ))h old, over BACKUP_MAX_AGE_HOURS=$$BACKUP_MAX_AGE_HOURS" >&2
+            exit 1
+          fi
+          echo "Newest backup $$newest is $$(( age / 3600 ))h old"
+      interval: 5m
+      timeout: 10s
+      retries: 1
+      start_period: 15m
+      start_interval: 10s
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
