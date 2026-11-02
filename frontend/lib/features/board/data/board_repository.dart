@@ -18,7 +18,7 @@ abstract class BoardRepository {
   /// Hierarchy view to build a full parent/child tree client-side.
   Future<List<HierarchyItem>> loadAllItems();
 
-  /// Every registered user, for resolving a work item's assignee to a
+  /// Every active user, for resolving a work item's assignee to a
   /// display name/initial on the board.
   Future<List<User>> loadUsers();
 

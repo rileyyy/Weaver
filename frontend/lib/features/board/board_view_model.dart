@@ -71,7 +71,7 @@ class BoardViewModel extends ViewModel {
   List<WorkItemStatus> get statuses => _statuses;
   List<Swimlane> get swimlanes => _swimlanes;
 
-  /// Every registered user, for building an assignee picker. Empty until
+  /// Every active user, for building an assignee picker. Empty until
   /// [load] resolves the user directory (best-effort — see [load]).
   List<User> get users => _users.users;
 

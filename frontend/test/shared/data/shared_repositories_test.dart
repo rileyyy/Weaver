@@ -148,12 +148,10 @@ void main() {
 
   group('ApiUserDirectoryRepository', () {
     late int calls;
-    late DateTime now;
     late ApiUserDirectoryRepository repository;
 
     setUp(() {
       calls = 0;
-      now = DateTime(2026, 9, 26, 12);
       final client = MockClient((_) async {
         calls++;
         return http.Response(
@@ -168,23 +166,21 @@ void main() {
           200,
         );
       });
-      repository = ApiUserDirectoryRepository(
-        client,
-        _endpoint,
-        now: () => now,
-      );
+      repository = ApiUserDirectoryRepository(client, _endpoint);
     });
 
-    test('reuses the list while it is fresh', () async {
+    test('fetches users once and shares the result', () async {
+      final results = await Future.wait([
+        repository.loadUsers(),
+        repository.loadUsers(),
+      ]);
       await repository.loadUsers();
-      now = now.add(const Duration(minutes: 4));
-      final users = await repository.loadUsers();
 
       expect(calls, 1);
-      expect(users.single.username, 'alice');
+      expect(results.first.single.username, 'alice');
     });
 
-    test('fetches again after invalidate, even while fresh', () async {
+    test('fetches again after invalidate', () async {
       await repository.loadUsers();
       repository.invalidate();
       await repository.loadUsers();
@@ -198,35 +194,34 @@ void main() {
       expect(users.single.isAdmin, isFalse);
     });
 
-    test(
-      'fetches again from a newly chosen server, even while fresh',
-      () async {
-        final hosts = <String>[];
-        final client = MockClient((request) async {
-          hosts.add(request.url.host);
-          return http.Response(jsonEncode([]), 200);
-        });
-        final server = _switchableServer();
-        final switching = ApiUserDirectoryRepository(
-          client,
-          server,
-          now: () => now,
-        );
+    test('fetches again from a newly chosen server', () async {
+      final hosts = <String>[];
+      final client = MockClient((request) async {
+        hosts.add(request.url.host);
+        return http.Response(jsonEncode([]), 200);
+      });
+      final server = _switchableServer();
+      final switching = ApiUserDirectoryRepository(client, server);
 
-        await switching.loadUsers();
-        server.use('https://second.example');
-        await switching.loadUsers();
+      await switching.loadUsers();
+      server.use('https://second.example');
+      await switching.loadUsers();
 
-        expect(hosts, ['first.example', 'second.example']);
-      },
-    );
+      expect(hosts, ['first.example', 'second.example']);
+    });
 
-    test('fetches again once the list is older than maxAge', () async {
-      await repository.loadUsers();
-      now = now.add(ApiUserDirectoryRepository.maxAge);
-      await repository.loadUsers();
+    test('does not cache a failure', () async {
+      var fail = true;
+      final client = MockClient(
+        (_) async =>
+            fail ? http.Response('', 500) : http.Response(jsonEncode([]), 200),
+      );
+      final failing = ApiUserDirectoryRepository(client, _endpoint);
 
-      expect(calls, 2);
+      await expectLater(failing.loadUsers(), throwsA(isA<ApiException>()));
+      fail = false;
+
+      expect(await failing.loadUsers(), isEmpty);
     });
   });
 }
