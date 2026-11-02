@@ -47,7 +47,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      # Long enough for the migrations it applies on startup; a quick start
+      # still reports healthy at the first passing check.
+      start_period: 5m
     # No published ports: the API (including /mcp) is only reachable through
     # Caddy -> nginx, so it always sits behind TLS.
 

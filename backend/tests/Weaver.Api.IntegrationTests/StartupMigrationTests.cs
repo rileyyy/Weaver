@@ -38,9 +38,14 @@ public class StartupMigrationTests
         var connectionString = await CreateEmptyDatabaseAsync();
         using var factory = Host(connectionString, migrateOnStartup: "false");
 
-        factory.CreateClient();
+        var health = await factory.CreateClient().GetAsync("/health");
+        var pending = await PendingMigrationsAsync(factory);
 
-        Assert.That(await PendingMigrationsAsync(factory), Is.Not.Empty);
+        Assert.Multiple(() =>
+        {
+            Assert.That(health.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(pending, Is.Not.Empty);
+        });
     }
 
     [Test]

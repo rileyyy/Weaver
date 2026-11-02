@@ -162,6 +162,8 @@ sections.
 | `RateLimiting__Auth__Window` | No | `00:01:00` | The rate-limit window. |
 | `Jwt__AccessTokenLifetime` | No | `00:15:00` | How long an access token lasts. |
 | `Jwt__RefreshTokenLifetime` | No | `30.00:00:00` | How long a refresh token lasts. |
+| `Jwt__Issuer` / `Jwt__Audience` | No | `weaver-api` / `weaver-client` | Written into and checked on every token. Changing either signs everyone out. |
+| `AllowedHosts` | No | `*` | Host names the API answers to. Leave it: requests reach the API through nginx. |
 | `Logging__LogLevel__Default` | No | `Information` | Standard ASP.NET Core log levels. |
 
 The image sets `ASPNETCORE_HTTP_PORTS=8080` and
@@ -188,6 +190,10 @@ publicly known secrets.
 | `BACKUP_KEEP_WEEKS` | No | `4` | Weeks of Sunday dumps to keep. |
 | `BACKUP_MAX_AGE_HOURS` | No | `36` | The backup service reports unhealthy once its newest dump is older than this. |
 
+The example compose needs Docker Engine 25 or later: older engines ignore
+the backup healthcheck's `start_interval`, so it reports healthy up to
+five minutes after the startup dump instead of seconds after.
+
 **Volumes**
 
 | Volume (example compose) | Mounted at | Holds |
@@ -213,7 +219,8 @@ docker compose pull && docker compose up -d
 Startup is ordered: db → backend (applies database migrations, then
 reports healthy on `/health`) → frontend → Caddy. If a migration fails,
 the backend exits without serving (Compose keeps restarting it) and the
-frontend doesn't start; `docker compose logs backend` shows why. The app is then at `https://<WEAVER_DOMAIN>`.
+frontend doesn't start; `docker compose logs backend` shows why. The app
+is then at `https://<WEAVER_DOMAIN>`.
 
 ### Update to a new release
 
