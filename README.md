@@ -186,6 +186,7 @@ publicly known secrets.
 | `BACKUP_HOUR_UTC` | No | `2` | Hour (UTC) of the nightly backup. |
 | `BACKUP_KEEP_DAYS` | No | `7` | Days of daily dumps to keep. |
 | `BACKUP_KEEP_WEEKS` | No | `4` | Weeks of Sunday dumps to keep. |
+| `BACKUP_MAX_AGE_HOURS` | No | `36` | The backup service reports unhealthy once its newest dump is older than this. |
 
 **Volumes**
 
@@ -282,6 +283,12 @@ older than `BACKUP_KEEP_WEEKS` weeks are deleted. A dump is written as
 `.partial` and renamed only when `pg_dump` succeeds, so a crash never
 leaves a truncated file that looks like a backup. `docker compose logs
 backup` shows each result.
+
+The service turns unhealthy in `docker compose ps` (and in Komodo) when
+its newest daily dump is older than `BACKUP_MAX_AGE_HOURS` (36 by
+default), so a backup that keeps failing doesn't go unnoticed. It's
+checked every 5 minutes; `docker inspect --format '{{json
+.State.Health}}' <backup container>` shows the newest dump's age.
 
 To restore a dump (the backend is stopped so nothing writes during the
 restore):

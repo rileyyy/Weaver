@@ -935,6 +935,11 @@ from tsdproxy ([ADR-0008](adr/0008-images-first-deployment.md)).
   image would need the database password, and inline configuration keeps
   the server at `compose.yaml` + `.env`. Schedule, retention and restore
   are in the README.
+- **A stale backup makes the `backup` service unhealthy.** A failed dump
+  only logs and the loop carries on, so the container would otherwise look
+  fine indefinitely. Its healthcheck fails once the newest daily dump is
+  older than `BACKUP_MAX_AGE_HOURS` (default 36: a nightly schedule plus
+  slack), which surfaces in `docker compose ps` and Komodo.
 
 ### Images and GHCR naming
 
