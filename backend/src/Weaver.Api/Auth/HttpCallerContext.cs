@@ -21,7 +21,7 @@ public sealed class HttpCallerContext : ICallerContext
         get
         {
             var principal = _httpContextAccessor.HttpContext?.User ?? throw new InvalidAccessTokenException();
-            return new Caller(principal.GetUserId(), ApiKeyId: null, ActorLabel: null);
+            return new Caller(principal.GetUserId(), principal.GetApiKeyId(), ActorLabel: null);
         }
     }
 }

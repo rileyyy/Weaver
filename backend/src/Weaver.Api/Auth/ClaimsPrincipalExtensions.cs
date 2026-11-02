@@ -16,4 +16,8 @@ public static class ClaimsPrincipalExtensions
         Guid.TryParse(principal.FindFirstValue(JwtRegisteredClaimNames.Sub), out var id)
             ? id
             : throw new InvalidAccessTokenException();
+
+    /// <summary>The API key an agent signed in with, or null for an access token.</summary>
+    public static Guid? GetApiKeyId(this ClaimsPrincipal principal) =>
+        Guid.TryParse(principal.FindFirstValue(WeaverClaimTypes.ApiKeyId), out var id) ? id : null;
 }
