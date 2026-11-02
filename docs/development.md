@@ -185,10 +185,9 @@ dotnet ef migrations add <Name> \
     --project src/Weaver.Infrastructure --startup-project src/Weaver.Api
 ```
 
-In dev they're applied automatically when the API starts; the example
-compose applies them with its one-shot `migrate` service. **Always read the
-generated migration before committing**; the generator has been wrong
-here more than once:
+The API applies them when it starts, in dev and in the example compose
+alike. **Always read the generated migration before committing**; the
+generator has been wrong here more than once:
 
 - **A new enum column's default is the enum's first member (ordinal 0),
   not the C# property's default.** `WorkItem.Priority`, then an enum,
