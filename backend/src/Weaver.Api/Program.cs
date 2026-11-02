@@ -8,6 +8,7 @@ using Weaver.Api.Background;
 using Weaver.Api.Mcp;
 using Weaver.Api.Middleware;
 using Weaver.Api.RateLimiting;
+using Weaver.Api.Startup;
 using Weaver.Application;
 using Weaver.Application.Auth;
 using Weaver.Infrastructure;
@@ -110,15 +111,15 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 var app = builder.Build();
 
-if (args.Contains(DatabaseMigrations.Command))
+var migrationMode = StartupMigrationPolicy.Decide(args, app.Configuration);
+if (migrationMode != StartupMigrationMode.Skip)
 {
     await app.Services.MigrateWeaverDatabaseAsync();
-    return;
 }
 
-if (app.Configuration.GetValue<bool>(DatabaseMigrations.MigrateOnStartupSetting))
+if (migrationMode == StartupMigrationMode.MigrateAndExit)
 {
-    await app.Services.MigrateWeaverDatabaseAsync();
+    return;
 }
 
 if (app.Environment.IsDevelopment())
