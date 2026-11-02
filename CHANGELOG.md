@@ -6,27 +6,51 @@ What shipped, newest first. Design reasoning lives in
 
 ## Milestone status
 
-| Milestone | Status      | Result                        |
-| --------- | ----------- | ----------------------------- |
-| 0         | Done        | Architecture + repo + Docker  |
-| 1         | Done        | Database + domain model       |
-| 2         | Done        | API                           |
-| 3         | Done        | Flutter shell                 |
-| 4         | Done        | Standalone swimlane prototype |
-| 5         | Done        | API-connected board           |
-| 6         | Done        | Hierarchy                     |
-| 7         | Done        | Time-frame filter             |
-| 8         | Done        | Search/filter/sort            |
-| 9         | Done        | Work-item details             |
-| 10        | Done        | Authentication                |
-| 11        | Done        | Comments/links                |
-| 12        | Skipped     | Attachments                   |
-| 13        | Done        | MCP                           |
-| 14        | In progress | Mobile refinement             |
-| 15        | Not started | Production deployment         |
+| Milestone | Status      | Result                                      |
+| --------- | ----------- | ------------------------------------------- |
+| 0         | Done        | Architecture + repo + Docker                |
+| 1         | Done        | Database + domain model                     |
+| 2         | Done        | API                                         |
+| 3         | Done        | Flutter shell                               |
+| 4         | Done        | Standalone swimlane prototype               |
+| 5         | Done        | API-connected board                         |
+| 6         | Done        | Hierarchy                                   |
+| 7         | Done        | Time-frame filter                           |
+| 8         | Done        | Search/filter/sort                          |
+| 9         | Done        | Work-item details                           |
+| 10        | Done        | Authentication                              |
+| 11        | Done        | Comments/links                              |
+| 12        | Skipped     | Attachments (now in 19)                     |
+| 13        | Done        | MCP                                         |
+| 14        | Partly done | Mobile refinement (rest in 19)              |
+| 15        | Done        | Production deployment pieces                |
+| 16        | Planned     | Foundations: Spaces, Types, history, agents |
+| 17        | Planned     | Agent surface                               |
+| 18        | Planned     | Human UX: Views, Backlog, When              |
+| 19        | Planned     | Attachments, mobile polish, cleanup         |
+| 20        | Later       | Reminders, export, autonomous agents        |
 
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
+
+## 2026-11-02 — Plan for Spaces, Types and agents
+
+`feature/plan-spaces-and-agents`, docs only. A design review after an
+audit of the code planned Milestones 16–20; the decisions are in
+[the spec](.scratch/spaces-and-agents/spec.md), nine ADRs in
+[docs/adr/](docs/adr/) and a new [GLOSSARY.md](GLOSSARY.md).
+
+- `project_design.md` gains rules for Spaces, Types, history, agent
+  accounts and the Trash, and the time-filtering rule changes: from
+  Milestone 16, items with no dates live in the Backlog instead of
+  matching every time frame.
+- `docs/open-questions.md` moves the questions the review settled into a
+  "Settled on 2026-11-02" list pointing at the ADRs.
+- `.scratch/` is no longer gitignored, so specs and tickets are committed.
+- Milestone 14's remaining mobile checks and the skipped attachments
+  milestone are folded into Milestone 19. Milestone 15 is marked done:
+  its deployment pieces shipped and its remaining question, the access
+  model, is settled in ADR-0004 and ADR-0008.
 
 ## 2026-10-19 — Board refinements
 

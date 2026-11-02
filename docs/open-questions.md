@@ -2,31 +2,39 @@
 
 Product and design decisions that are still open. Each entry states what
 the system does today and what would need deciding. Settled decisions are
-in [architecture.md](architecture.md); code-level defects and refactors
-are tracked in [code_review_findings.md](../code_review_findings.md).
+in [architecture.md](architecture.md) and [adr/](adr/); code-level defects
+and refactors are tracked in [code_review_findings.md](../code_review_findings.md).
+
+## Settled on 2026-11-02
+
+These were open until the design review recorded in
+[the Spaces and agents spec](../.scratch/spaces-and-agents/spec.md):
+
+- **Registration is open:** self-registration is turned off and admins
+  create every account; there are no per-Space permissions.
+  ([ADR-0004](adr/0004-agent-accounts-and-api-keys.md))
+- **Agent users can't be created:** each agent runtime gets an agent
+  account with scoped API keys, and writes carry an optional actor label.
+  ([ADR-0004](adr/0004-agent-accounts-and-api-keys.md))
+- **MCP tools for admins:** agents can read admin data but never change
+  it. ([ADR-0004](adr/0004-agent-accounts-and-api-keys.md))
+- **Links are untyped, and added by raw id:** links become typed
+  (related, blocks, duplicates) plus URL links, added through a search
+  picker. ([ADR-0009](adr/0009-typed-links-and-dependency-flags.md))
+- **Attachments:** wanted; stored under their own path so they can live on
+  separate storage. (Milestone 19 in the spec.)
+- **"Today" is the server's UTC date:** an admin sets one server-wide time
+  zone. (Milestone 16 in the spec.)
+- **Tag filter semantics:** the server-side query supports both OR and AND.
+  ([ADR-0006](adr/0006-server-side-query-and-views.md))
+- **Items without dates have no Roadmap bar:** undated items live in the
+  Backlog, and an undated parent is shown when a child matches.
+  ([ADR-0003](adr/0003-when-and-backlog.md))
+- **Production deployment access model:** registration off, Tailscale-only
+  reach; the published images are the product.
+  ([ADR-0008](adr/0008-images-first-deployment.md))
 
 ## Accounts and access
-
-### Registration is open
-- **Today:** anyone who can reach the server can register with a username
-  and password (`POST /api/auth/register`), and every account can read and
-  change every work item. The first account on a database is an admin and
-  admins can create, deactivate and delete accounts from the Admin page,
-  but there is no invite or per-board access control.
-- **Decided (2026-09-27):** kept open as an accepted risk while Weaver
-  serves a single team on a trusted network. Revisit before exposing a
-  deployment more widely: now that admins exist, the simplest gate is a
-  config flag that turns self-registration off and leaves account creation
-  to admins; invite codes are the alternative. Access could later be
-  scoped per board or team. (B-M6 in the code review.)
-
-### Agent users can't be created
-- **Today:** `User.Kind` has `Human` and `Agent`, but registration always
-  creates `Human` and nothing else creates users. MCP clients log in with
-  a human account's password and act as that person.
-- **To decide:** how an automated agent gets its own identity: an API key
-  or service-account flow, who can create one, and whether agent actions
-  should be distinguishable in the UI.
 
 ### No self-service password reset
 - **Today:** an admin can set a new password from the Admin page, which
@@ -42,38 +50,27 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
   but doesn't stop someone deliberately locking out known usernames.
 - **To decide:** whether lockout should be scoped per client (IP and
   username) or replaced by progressive delays, if deliberate lockouts
-  become a real problem.
+  become a real problem. Agents moving to API keys removes the main
+  accidental source of lockouts.
 
 ### Admin changes
 - **Today:** other people's open apps keep their cached statuses until
   they reload, and a deactivated user's current access token keeps working
   for up to 15 minutes. Admin changes aren't recorded anywhere beyond
-  their effect, and lookup and account changes are REST-only, not MCP
-  tools.
+  their effect.
 - **To decide:** whether any of these matter enough to address: pushing
-  lookup changes to open clients, checking the user on every request, an
-  audit log of admin actions, and MCP tools for admins.
+  lookup changes to open clients, checking the user on every request, and
+  an audit log of admin actions (work-item history is decided in
+  [ADR-0005](adr/0005-change-history.md); admin actions aren't covered by
+  it).
 
 ## Work items
-
-### Links are untyped, and added by raw id
-- **Today:** a link is a symmetric "related to" association between two
-  work items (not a URL, not an attachment), with no relationship types
-  such as "blocks" or "duplicates". The detail dialog's "add link" field
-  takes the target item's id; there is no search or picker, because there
-  is no general work-item search endpoint.
-- **To decide:** whether link types are needed, and whether to build a
-  search endpoint so links can be added by title.
 
 ### Comment moderation
 - **Today:** only a comment's author can edit or delete it, admins
   included.
 - **To decide:** whether admins (or item owners) should be able to
   moderate comments.
-
-### Attachments
-- **Today:** none. Milestone 12 (attachments) was skipped.
-- **To decide:** whether they're wanted, and where files would be stored.
 
 ### Repeating items
 - **Lead time is fixed at seven days** (`WorkItemRecurrence.LeadDays`). To
@@ -85,18 +82,10 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
 - **Editing a schedule doesn't touch copies already created**, even ones
   dated after a new end date. To decide: whether edits should remove
   not-yet-started future copies.
-- **"Today" is the server's UTC date.** To decide: whether a configured
-  team time zone is needed.
 - **The Repeating tab ignores the header's search and filters.** To
-  decide: whether it should apply them.
+  decide: whether it should apply them, or become a View.
 
 ## Tags
-
-### Tag filter semantics
-- **Today:** the Filters dialog's tag filter is OR ("any selected tag
-  matches"); an empty selection applies no tag filter.
-- **To decide:** whether AND ("all selected tags") is needed, as an option
-  or instead.
 
 ### Tag casing
 - **Today:** tags are case-insensitive everywhere: the server
@@ -107,7 +96,8 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
   there is no rename or merge UI short of removing and re-adding the tag
   on each item.
 - **To decide:** whether tags should be canonicalised across items, and
-  whether a rename/merge tool is needed.
+  whether a rename/merge tool is needed. Tags are not per-Space today;
+  whether they should be is open too.
 
 ## Views
 
@@ -116,19 +106,13 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
   resizable by dragging header dividers, and lanes and tree nodes can be
   collapsed, but all of it resets on reload.
 - **To decide:** whether layout should persist per user (locally or
-  server-side).
+  server-side), possibly as part of a saved View.
 
 ### Roadmap quarter/year precision
 - **Today:** Quarter and Year zoom levels use approximate 7- and 30-day
   columns, not true calendar weeks and months, so a bar can be a day or
   two off at those levels.
 - **To decide:** whether calendar-aware bucketing is worth it.
-
-### Items without dates have no Roadmap bar
-- **Today:** an item with neither a start nor an end date shows its row
-  but no bar.
-- **To decide:** whether such items need some marker, or a way to schedule
-  them from the Roadmap.
 
 ### Roadmap title/tags split
 - **Today:** the Roadmap's fixed 260 px left column splits title and tags
@@ -145,15 +129,10 @@ are tracked in [code_review_findings.md](../code_review_findings.md).
 
 ## Roadmap items not yet started
 
-- **Milestone 14, mobile refinement (in progress):** cards move with a
-  long press on phones, native builds ask for the server at sign-in, and
-  release APKs build. Still to check on a real device: safe areas
-  (nothing in the app uses `SafeArea` yet), the keyboard covering dialog
-  fields, and the back button. Hierarchy column resizing is mouse-only,
-  and is deferred. iOS isn't a target yet: it would also need an App
-  Transport Security exception for plain-http dev servers.
-- **Milestone 15, production deployment:** the deployment pieces exist
-  (TLS, backups, health-ordered startup, an explicit migrate step,
-  hardened images, integration tests against Postgres). What's left is
-  deciding the access model before exposing a deployment beyond one team
-  (see [Registration is open](#registration-is-open)).
+Milestones 16–20 are planned in
+[the Spaces and agents spec](../.scratch/spaces-and-agents/spec.md).
+Milestone 14's remaining mobile work (safe areas, the keyboard covering
+dialog fields, the back button, a full-screen detail view on phones) is
+folded into Milestone 19. Hierarchy column resizing on touch is still
+deferred, and iOS isn't a target yet: it would also need an App Transport
+Security exception for plain-http dev servers.
