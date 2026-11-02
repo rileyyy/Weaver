@@ -69,7 +69,8 @@ builder.Services.Configure<MvcOptions>(options => options.Filters.Add<WriteAcces
 // port. No separate transport/process/auth story to maintain.
 builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
-    .WithToolsFromAssembly(serializerOptions: McpJsonSerializerOptions.Default);
+    .WithToolsFromAssembly(serializerOptions: McpJsonSerializerOptions.Default)
+    .WithRequestFilters(filters => filters.AddCallToolFilter(WriteAccessToolFilter.Apply));
 
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 JwtSigningKeyPolicy.EnsureUsable(jwtOptions.SigningKey, builder.Environment.IsDevelopment());
