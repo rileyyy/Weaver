@@ -45,4 +45,18 @@ public class AgentAccountTests
                 () => User.CreateAgent("Nightly triage", new string('a', User.MaxDescriptionLength + 1)));
         });
     }
+
+    [Test]
+    public void GrantAdmin_RefusesAnAgent()
+    {
+        var agent = User.CreateAgent("Nightly triage", null);
+
+        var ex = Assert.Throws<NotAHumanAccountException>(agent.GrantAdmin);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex!.Kind, Is.EqualTo(DomainErrorKind.Conflict));
+            Assert.That(agent.IsAdmin, Is.False);
+        });
+    }
 }

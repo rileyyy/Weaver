@@ -107,8 +107,17 @@ public class User : IHasUpdatedAt
         NormalizedUsername = normalizedUsername;
     }
 
+    /// <summary>
+    /// Only humans can be administrators: an agent's key would otherwise pass every admin check,
+    /// and agents must never change admin data (ADR-0004).
+    /// </summary>
     public void GrantAdmin()
     {
+        if (Kind == UserKind.Agent)
+        {
+            throw new NotAHumanAccountException(Username, "Agent accounts can't be administrators.");
+        }
+
         IsAdmin = true;
     }
 
