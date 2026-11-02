@@ -9,6 +9,16 @@ import 'package:weaver/features/board/views/swimlane/widgets/card_drop_zones.dar
 import 'package:weaver/features/board/widgets/board_card.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
+/// A drop on a card passes the card it landed before ([beforeCardId] null
+/// for the end of the cell); a drop on the cell's free space passes none,
+/// which also means the end.
+typedef CardDropCallback =
+    Future<void> Function(
+      WorkItemCard card,
+      String newStatusId, {
+      String? beforeCardId,
+    });
+
 class StatusColumn extends StatelessWidget {
   const StatusColumn({
     super.key,
@@ -38,15 +48,7 @@ class StatusColumn extends StatelessWidget {
 
   final bool isCollapsed;
 
-  /// A drop on a card passes the card it landed before ([beforeCardId]
-  /// null for the end of the cell); a drop on the cell's free space passes
-  /// none, which also means the end.
-  final Future<void> Function(
-    WorkItemCard card,
-    String newStatusId, {
-    String? beforeCardId,
-  })
-  onCardDropped;
+  final CardDropCallback onCardDropped;
   final void Function(WorkItemCard card) onCardDetailsOpened;
   final void Function(String workItemId, String? currentAssigneeId)
   onAssignRequested;
@@ -96,9 +98,18 @@ class StatusColumn extends StatelessWidget {
           unawaited(onCardDropped(details.data, status.id)),
       builder: (context, candidateData, rejectedData) {
         final colorScheme = Theme.of(context).colorScheme;
+        final draggedOverFreeSpace = candidateData.firstOrNull;
+        final endIndicatorShown =
+            isManualOrder &&
+            draggedOverFreeSpace != null &&
+            cards.isNotEmpty &&
+            cards.last.id != draggedOverFreeSpace.id;
         return Container(
           margin: const EdgeInsets.all(statusColumnMargin),
-          padding: const EdgeInsets.all(cardGridSpacing),
+          // Each card slot pads itself by the other half of the spacing, so
+          // the gaps between cards belong to the cards' drop zones and a
+          // drop in a gap lands where its indicator shows.
+          padding: const EdgeInsets.all(cardGridSpacing / 2),
           decoration: BoxDecoration(
             color: candidateData.isNotEmpty
                 ? colorScheme.primaryContainer.withValues(alpha: 0.4)
@@ -109,16 +120,16 @@ class StatusColumn extends StatelessWidget {
           // busiest column's cards plus a free slot, so this Wrap never
           // needs to scroll internally; it just fills the space given.
           child: Wrap(
-            spacing: cardGridSpacing,
-            runSpacing: cardGridSpacing,
             children: [
               for (final card in cards)
-                SizedBox(
-                  width: cardWidth,
-                  child: isManualOrder
-                      ? _withDropZones(cards, card, _boardCard(card))
-                      : _boardCard(card),
-                ),
+                isManualOrder
+                    ? _withDropZones(
+                        cards,
+                        card,
+                        showsIndicatorAfter:
+                            endIndicatorShown && card == cards.last,
+                      )
+                    : _cardSlot(card),
             ],
           ),
         );
@@ -128,21 +139,27 @@ class StatusColumn extends StatelessWidget {
 
   bool _isInThisLane(WorkItemCard card) => card.parentId == swimlane.parentId;
 
-  Widget _boardCard(WorkItemCard card) => BoardCard(
-    card: card,
-    height: cardHeight,
-    assigneeInitial: assigneeInitialFor(card.assignedToUserId),
-    layerColor: layerColorFor(card.layerId),
-    onOpenDetails: () => onCardDetailsOpened(card),
-    onAssignTapped: () => onAssignRequested(card.id, card.assignedToUserId),
-    onAddTagTapped: () => onAddTagsRequested(card.id, card.tags),
+  Widget _cardSlot(WorkItemCard card) => Padding(
+    padding: const EdgeInsets.all(cardGridSpacing / 2),
+    child: SizedBox(
+      width: cardWidth,
+      child: BoardCard(
+        card: card,
+        height: cardHeight,
+        assigneeInitial: assigneeInitialFor(card.assignedToUserId),
+        layerColor: layerColorFor(card.layerId),
+        onOpenDetails: () => onCardDetailsOpened(card),
+        onAssignTapped: () => onAssignRequested(card.id, card.assignedToUserId),
+        onAddTagTapped: () => onAddTagsRequested(card.id, card.tags),
+      ),
+    ),
   );
 
   Widget _withDropZones(
     List<WorkItemCard> shownCards,
-    WorkItemCard card,
-    Widget child,
-  ) {
+    WorkItemCard card, {
+    required bool showsIndicatorAfter,
+  }) {
     final index = shownCards.indexOf(card);
     // The shown cards either side of the gap a drop on [side] fills; null
     // past either end of the cell.
@@ -158,6 +175,7 @@ class StatusColumn extends StatelessWidget {
 
     return CardDropZones(
       accepts: _isInThisLane,
+      showsIndicatorAfter: showsIndicatorAfter,
       movesCard: (dragged, side) =>
           dragged.statusId != status.id ||
           (precedingDrop(side)?.id != dragged.id &&
@@ -169,7 +187,7 @@ class StatusColumn extends StatelessWidget {
           beforeCardId: followingDrop(side)?.id,
         ),
       ),
-      child: child,
+      child: _cardSlot(card),
     );
   }
 }

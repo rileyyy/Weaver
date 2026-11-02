@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/core/platform/touch_platform.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
+import 'package:weaver/features/board/views/swimlane/swimlane_layout.dart';
 import 'package:weaver/features/board/views/swimlane/swimlane_view.dart';
 import 'package:weaver/features/board/views/swimlane/widgets/card_drop_zones.dart';
 import 'package:weaver/features/board/views/swimlane/widgets/status_column.dart';
@@ -337,24 +338,107 @@ void main() {
     );
   });
 
-  testWidgets(
-    'dropping on free space in its own cell moves the card to the end',
-    (tester) async {
-      await pumpBoard(
-        tester,
-        laneACards: [
-          _cardIn('card-1', 'lane-a', 'todo'),
-          _cardIn('card-2', 'lane-a', 'todo'),
-        ],
-      );
+  group('dropping in a gap', () {
+    // card-1 card-2 / card-3, as above.
+    final threeInTodo = [
+      _cardIn('card-1', 'lane-a', 'todo'),
+      _cardIn('card-2', 'lane-a', 'todo'),
+      _cardIn('card-3', 'lane-a', 'todo'),
+    ];
+    const quarterGap = cardGridSpacing / 4;
 
-      final cellRect = tester.getRect(cell('lane-a', 'todo'));
+    testWidgets('between two cards in a row lands between them', (
+      tester,
+    ) async {
+      await pumpBoard(tester, laneACards: threeInTodo);
+      final first = tester.getRect(boardCard('card-1'));
+      final second = tester.getRect(boardCard('card-2'));
+
       await dragCardToPoint(
         tester,
-        Offset(cellRect.center.dx, cellRect.bottom - 10),
+        Offset(first.right + quarterGap, first.center.dy),
+        cardId: 'card-3',
+      );
+      await dragCardToPoint(
+        tester,
+        Offset(second.left - quarterGap, second.center.dy),
+        cardId: 'card-3',
       );
 
+      expect(statusDrops, [
+        ('card-3', 'todo', 'card-2'),
+        ('card-3', 'todo', 'card-2'),
+      ]);
+    }, variant: _touchAndDesktop);
+
+    testWidgets('above a card lands before it', (tester) async {
+      await pumpBoard(tester, laneACards: threeInTodo);
+
+      await dragCardToPoint(
+        tester,
+        leftHalfOf(tester, boardCard('card-3')) -
+            Offset(0, tester.getRect(boardCard('card-3')).height / 2) -
+            const Offset(0, quarterGap),
+      );
+
+      expect(statusDrops, [('card-1', 'todo', 'card-3')]);
+    });
+
+    testWidgets('shows the indicator while hovering the gap', (tester) async {
+      await pumpBoard(tester, laneACards: threeInTodo);
+      final first = tester.getRect(boardCard('card-1'));
+      final gesture = await pickUp(tester, cardId: 'card-3');
+
+      await gesture.moveTo(Offset(first.right + quarterGap, first.center.dy));
+      await tester.pump();
+
+      expect(find.byKey(cardDropIndicatorKey), findsOneWidget);
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+  });
+
+  group('dropping on free space in its own cell', () {
+    final twoInTodo = [
+      _cardIn('card-1', 'lane-a', 'todo'),
+      _cardIn('card-2', 'lane-a', 'todo'),
+    ];
+
+    Offset freeSpace(WidgetTester tester) {
+      final cellRect = tester.getRect(cell('lane-a', 'todo'));
+      return Offset(cellRect.center.dx, cellRect.bottom - 10);
+    }
+
+    testWidgets('moves the card to the end', (tester) async {
+      await pumpBoard(tester, laneACards: twoInTodo);
+
+      await dragCardToPoint(tester, freeSpace(tester));
+
       expect(statusDrops, [('card-1', 'todo', null)]);
-    },
-  );
+    });
+
+    testWidgets('shows the indicator at the end, unless the card is there', (
+      tester,
+    ) async {
+      await pumpBoard(tester, laneACards: twoInTodo);
+
+      final first = await pickUp(tester);
+      await first.moveTo(freeSpace(tester));
+      await tester.pump();
+      expect(find.byKey(cardDropIndicatorKey), findsOneWidget);
+      expect(
+        tester.getCenter(find.byKey(cardDropIndicatorKey)).dx,
+        greaterThan(tester.getRect(boardCard('card-2')).right),
+      );
+      await first.up();
+      await tester.pumpAndSettle();
+
+      final last = await pickUp(tester, cardId: 'card-2');
+      await last.moveTo(freeSpace(tester));
+      await tester.pump();
+      expect(find.byKey(cardDropIndicatorKey), findsNothing);
+      await last.up();
+      await tester.pumpAndSettle();
+    });
+  });
 }

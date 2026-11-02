@@ -5,8 +5,12 @@ import 'package:weaver/features/board/views/swimlane/widgets/card_drop_side.dart
 
 const cardDropIndicatorKey = Key('card-drop-indicator');
 
-/// Splits [child], a card in a status cell, into a leading and a trailing
-/// drop zone, so a dragged card can be dropped before or after it.
+/// Splits [child], a card's slot in a status cell, into a leading and a
+/// trailing drop zone, so a dragged card can be dropped before or after it.
+///
+/// [child] is expected to include the card's half of the gaps around it
+/// ([cardGridSpacing] / 2 on every side): the zones cover the whole slot,
+/// so a drop in a gap lands where the indicator in that gap shows.
 ///
 /// Cards sit two to a row, so the halves are left and right: in reading
 /// order that is the same as before and after. The zones are drag targets
@@ -18,6 +22,7 @@ class CardDropZones extends StatelessWidget {
     required this.accepts,
     required this.movesCard,
     required this.onDropped,
+    this.showsIndicatorAfter = false,
     required this.child,
   });
 
@@ -28,12 +33,16 @@ class CardDropZones extends StatelessWidget {
   /// the cell and send the card to the end, but shows no indicator.
   final bool Function(WorkItemCard dragged, CardDropSide side) movesCard;
   final void Function(WorkItemCard dragged, CardDropSide side) onDropped;
+
+  /// Shows the trailing indicator without a drag over this card: the cell
+  /// sets it on its last card while a card hovers the cell's free space,
+  /// since a drop there lands at the end.
+  final bool showsIndicatorAfter;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return Stack(
-      clipBehavior: Clip.none,
       children: [
         child,
         Positioned.fill(
@@ -56,7 +65,9 @@ class CardDropZones extends StatelessWidget {
       },
       builder: (context, candidateData, rejectedData) {
         final dragged = candidateData.firstOrNull;
-        if (dragged == null || !movesCard(dragged, side)) {
+        final hoveredWithAMove = dragged != null && movesCard(dragged, side);
+        final forcedAfter = side == CardDropSide.after && showsIndicatorAfter;
+        if (!hoveredWithAMove && !forcedAfter) {
           return const SizedBox.expand();
         }
         return _indicator(context, side);
@@ -64,20 +75,20 @@ class CardDropZones extends StatelessWidget {
     );
   }
 
-  /// A bar centred in the gap beside the card, where the dropped card goes.
   Widget _indicator(BuildContext context, CardDropSide side) {
     const width = 3.0;
-    const offset = (cardGridSpacing + width) / 2;
+    // The slot's outer edge is the middle of the gap beside the card.
+    const edge = -width / 2;
     return IgnorePointer(
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Positioned(
             key: cardDropIndicatorKey,
-            top: 0,
-            bottom: 0,
-            left: side == CardDropSide.before ? -offset : null,
-            right: side == CardDropSide.after ? -offset : null,
+            top: cardGridSpacing / 2,
+            bottom: cardGridSpacing / 2,
+            left: side == CardDropSide.before ? edge : null,
+            right: side == CardDropSide.after ? edge : null,
             width: width,
             child: DecoratedBox(
               decoration: BoxDecoration(

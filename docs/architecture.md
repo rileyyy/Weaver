@@ -847,9 +847,15 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   `SwimlaneEdits.rankAnchorForDrop` turns that into the `afterId` for
   `PUT /work-items/{id}/status`. A reorder within a cell is the same call
   with the card's own status, so the existing rank and tie-respacing logic
-  covers it and there's no separate reorder endpoint. The anchor is taken
-  from the whole cell, hidden cards included, so the card lands directly
-  before the card it was dropped on whatever the filters hide.
+  covers it and there's no separate reorder endpoint.
+  - The zones cover each card's half of the gaps around it (the cell's
+    `Wrap` has no spacing; every card slot pads itself), so a drop in a
+    gap lands where the indicator there shows instead of falling through
+    to the cell. Over the cell's free space the indicator shows after the
+    last card, since that drop means the end.
+  - The anchor is taken from the whole cell, hidden cards included, so
+    the card lands directly before the card it was dropped on whatever
+    the filters hide.
   - A drop that changes nothing (onto the card itself or beside where it
     already is) shows no indicator and sends no request, but is still
     accepted, so it can't fall through to the cell and send the card to
@@ -857,9 +863,10 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   - While a sort is applied the cell isn't shown in rank order, so cards
     carry no drop zones and the cell only takes cards from other columns,
     appending them. Sorting still never touches `Rank`.
-  - A failed move puts the card back after the nearest of its old
-    predecessors still in the cell (`withCardRestored`), moving no other
-    card, so a move that succeeded meanwhile stays.
+  - A failed move puts the card back after whichever of its old
+    predecessors is now latest in the cell, else before whichever old
+    successor is now earliest, else at the end (`withCardRestored`). No
+    other card moves, so a move that succeeded meanwhile stays.
 - **Roadmap is a hand-rolled Gantt widget** reusing
   `BoardViewModel.hierarchyRoots`, so it gets the same search, filters and
   collapse tree as Hierarchy. Its timeframe (zoom) and visible window are
