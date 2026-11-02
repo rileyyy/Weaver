@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Weaver.Application.Auth;
 using Weaver.Application.Persistence;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
@@ -7,7 +8,8 @@ namespace Weaver.Application.Services;
 
 public class StatusService : LookupService<Status>, IStatusService
 {
-    public StatusService(IWeaverDbContext db, IAdminAuthorizer admins) : base(db, admins)
+    public StatusService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext? caller = null)
+        : base(db, admins, caller)
     {
     }
 

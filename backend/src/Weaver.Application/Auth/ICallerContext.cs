@@ -6,6 +6,11 @@ namespace Weaver.Application.Auth;
 /// The caller of the current request, resolved once per request so services can read it
 /// instead of each controller and MCP tool passing it along by hand.
 /// </summary>
+/// <remarks>
+/// Mutating services take it as an optional constructor argument for now: nothing reads it
+/// yet, and tests that build services directly predate it. Once history records the caller,
+/// it should become required.
+/// </remarks>
 public interface ICallerContext
 {
     /// <summary>

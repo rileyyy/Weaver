@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Weaver.Application.Auth;
 using Weaver.Application.Persistence;
 using Weaver.Domain;
 
@@ -6,7 +7,8 @@ namespace Weaver.Application.Services;
 
 public class WorkItemPriorityService : LookupService<WorkItemPriority>, IWorkItemPriorityService
 {
-    public WorkItemPriorityService(IWeaverDbContext db, IAdminAuthorizer admins) : base(db, admins)
+    public WorkItemPriorityService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext? caller = null)
+        : base(db, admins, caller)
     {
     }
 
