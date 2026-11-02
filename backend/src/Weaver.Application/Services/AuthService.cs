@@ -39,37 +39,6 @@ public class AuthService : IAuthService
         _clock = clock;
     }
 
-    public async Task<AuthResult> RegisterAsync(string username, string password, CancellationToken ct = default)
-    {
-        var (trimmed, normalized) = UserCredentials.NormalizeUsername(username);
-        UserCredentials.ValidatePassword(password);
-
-        if (await _db.Users.AnyAsync(u => u.NormalizedUsername == normalized, ct))
-        {
-            throw new UsernameTakenException(username);
-        }
-
-        // Registration is open and every later account starts without admin rights, so the
-        // first account on a fresh database is the admin; otherwise nobody could ever manage
-        // users or lookups without editing the database.
-        var isFirstUser = !await _db.Users.AnyAsync(ct);
-        var user = User.CreateHuman(trimmed, normalized, isAdmin: isFirstUser);
-        user.SetPasswordHash(_passwordHasher.HashPassword(user, password));
-
-        _db.Users.Add(user);
-        try
-        {
-            await _db.SaveChangesAsync(ct);
-        }
-        catch (UniqueConstraintViolationException ex)
-        {
-            // A concurrent registration took the name between the check above and this save.
-            throw new UsernameTakenException(username, ex);
-        }
-
-        return await IssueTokensAsync(user, ct);
-    }
-
     public async Task<AuthResult> LoginAsync(string username, string password, CancellationToken ct = default)
     {
         var (_, normalized) = UserCredentials.NormalizeUsername(username);
@@ -87,7 +56,7 @@ public class AuthService : IAuthService
         var verification = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
         if (verification == PasswordVerificationResult.Failed)
         {
-            await RegisterFailedLoginAsync(user, ct);
+            await RecordFailedLoginAsync(user, ct);
             throw new InvalidCredentialsException();
         }
 
@@ -182,7 +151,7 @@ public class AuthService : IAuthService
         }
     }
 
-    private async Task RegisterFailedLoginAsync(User user, CancellationToken ct)
+    private async Task RecordFailedLoginAsync(User user, CancellationToken ct)
     {
         user.RecordFailedLogin(_clock.GetUtcNow());
         await _db.SaveChangesAsync(ct);

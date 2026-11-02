@@ -35,7 +35,7 @@ public class WeaverApiFactory : WebApplicationFactory<Program>
         // The only way into a fresh database; every other test account is created by this admin.
         builder.UseSetting("FirstAdmin:Username", FirstAdminUsername);
         builder.UseSetting("FirstAdmin:Password", FirstAdminPassword);
-        // Every test registers from the same in-process "IP"; RateLimitingTests checks the limit.
+        // Every test signs in from the same in-process "IP"; RateLimitingTests checks the limit.
         builder.UseSetting("RateLimiting:Auth:PermitLimit", "100000");
     }
 }

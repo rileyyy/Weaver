@@ -5,9 +5,9 @@ using Weaver.Application.Services;
 namespace Weaver.Api.Controllers;
 
 /// <summary>
-/// Read-only listing of registered users, for pickers such as the
+/// Read-only listing of active users, for pickers such as the
 /// work-item assignee field. Account management itself lives under
-/// <c>/api/auth</c>.
+/// <c>/api/admin/users</c>.
 /// </summary>
 [ApiController]
 [Route("api/users")]

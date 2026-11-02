@@ -4,7 +4,7 @@ using Weaver.Domain.Exceptions;
 namespace Weaver.Domain;
 
 /// <summary>
-/// Username and password rules, shared by self-registration and admin-created accounts so
+/// Username and password rules, shared by admin-created accounts and the configured first admin so
 /// the two can't drift.
 /// </summary>
 public static partial class UserCredentials

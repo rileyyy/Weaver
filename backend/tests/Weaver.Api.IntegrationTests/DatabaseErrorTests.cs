@@ -23,18 +23,19 @@ public class DatabaseErrorTests
     }
 
     [Test]
-    public async Task ConcurrentRegistrations_OfOneName_NeverReturn500()
+    public async Task ConcurrentAccountCreations_OfOneName_NeverReturn500()
     {
-        var name = ApiClient.UniqueUsername();
+        var admin = await ApiClient.FirstAdminAsync();
+        var request = new CreateUserRequest(ApiClient.UniqueUsername(), ApiClient.Password, IsAdmin: false);
 
         var responses = await Task.WhenAll(Enumerable.Range(0, 5).Select(_ =>
-            ApiClient.Anonymous().PostJsonAsync("/api/auth/register", new RegisterRequest(name, ApiClient.Password))));
+            admin.PostJsonAsync("/api/admin/users", request)));
 
         Assert.Multiple(() =>
         {
-            Assert.That(responses.Count(r => r.StatusCode == HttpStatusCode.OK), Is.EqualTo(1));
+            Assert.That(responses.Count(r => r.StatusCode == HttpStatusCode.Created), Is.EqualTo(1));
             Assert.That(
-                responses.Where(r => r.StatusCode != HttpStatusCode.OK).Select(r => r.StatusCode),
+                responses.Where(r => r.StatusCode != HttpStatusCode.Created).Select(r => r.StatusCode),
                 Is.All.EqualTo(HttpStatusCode.Conflict));
         });
     }

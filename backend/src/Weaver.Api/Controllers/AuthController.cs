@@ -12,7 +12,6 @@ namespace Weaver.Api.Controllers;
 [Route("api/auth")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized, "application/problem+json")]
-[ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests, "application/problem+json")]
 public class AuthController : ControllerBase
 {
@@ -21,15 +20,6 @@ public class AuthController : ControllerBase
     public AuthController(IAuthService auth)
     {
         _auth = auth;
-    }
-
-    [HttpPost("register")]
-    [AllowAnonymous]
-    [EnableRateLimiting(AuthRateLimiting.PolicyName)]
-    public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request)
-    {
-        var result = await _auth.RegisterAsync(request.Username, request.Password);
-        return Ok(AuthResponse.FromResult(result));
     }
 
     [HttpPost("login")]

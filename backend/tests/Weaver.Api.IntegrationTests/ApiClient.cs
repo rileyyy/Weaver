@@ -2,10 +2,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Weaver.Api.Contracts;
-using Weaver.Infrastructure;
 
 namespace Weaver.Api.IntegrationTests;
 
@@ -23,33 +20,37 @@ public static class ApiClient
 
     public static string UniqueUsername() => $"user-{Guid.NewGuid():N}"[..30];
 
-    /// <summary>Registers a fresh user and returns a client that sends their access token.</summary>
-    public static async Task<(HttpClient Client, AuthResponse Auth)> SignedInAsync()
+    /// <summary>
+    /// A fresh account created by the configured first admin, the way every account is made,
+    /// and a client that sends its access token.
+    /// </summary>
+    public static Task<(HttpClient Client, AuthResponse Auth)> SignedInAsync() => CreateAndSignInAsync(isAdmin: false);
+
+    public static Task<(HttpClient Client, AuthResponse Auth)> SignedInAdminAsync() => CreateAndSignInAsync(isAdmin: true);
+
+    /// <summary>Signs in as the admin the test host creates on its empty database.</summary>
+    public static async Task<HttpClient> FirstAdminAsync()
+    {
+        var (client, _) = await SignInAsync(WeaverApiFactory.FirstAdminUsername, WeaverApiFactory.FirstAdminPassword);
+        return client;
+    }
+
+    public static async Task<(HttpClient Client, AuthResponse Auth)> SignInAsync(string username, string password)
     {
         var client = Anonymous();
-        var response = await client.PostAsJsonAsync(
-            "/api/auth/register",
-            new RegisterRequest(UniqueUsername(), Password),
-            Json);
-        response.EnsureSuccessStatusCode();
-        var auth = (await response.Content.ReadFromJsonAsync<AuthResponse>(Json))!;
+        var auth = await (await client.PostJsonAsync("/api/auth/login", new LoginRequest(username, password)))
+            .ReadAsync<AuthResponse>();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
         return (client, auth);
     }
 
-    /// <summary>
-    /// A fresh user promoted to admin straight in the database: only the first account on a
-    /// database is an admin, and which test registers first isn't fixed.
-    /// </summary>
-    public static async Task<(HttpClient Client, AuthResponse Auth)> SignedInAdminAsync()
+    private static async Task<(HttpClient Client, AuthResponse Auth)> CreateAndSignInAsync(bool isAdmin)
     {
-        var (client, auth) = await SignedInAsync();
-        using var scope = IntegrationTestEnvironment.Factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<WeaverDbContext>();
-        var user = await db.Users.SingleAsync(u => u.Id == auth.User.Id);
-        user.GrantAdmin();
-        await db.SaveChangesAsync();
-        return (client, auth);
+        var admin = await FirstAdminAsync();
+        var username = UniqueUsername();
+        var created = await admin.PostJsonAsync("/api/admin/users", new CreateUserRequest(username, Password, isAdmin));
+        created.EnsureSuccessStatusCode();
+        return await SignInAsync(username, Password);
     }
 
     public static async Task<T> ReadAsync<T>(this HttpResponseMessage response)
