@@ -10,3 +10,11 @@
 - [ ] Admin writes are rejected for every agent account, whatever its scope
 - [ ] Enforcement lives in one place, not repeated per controller and tool, so new endpoints are covered by default
 - [ ] Tests cover read-only write rejection, read-write success, and agent admin-write rejection, over both REST and MCP
+
+## Comments
+
+**2026-11-02, from ticket 05 (caller context):**
+
+- `ICallerContext` (Application) / `HttpCallerContext` (Api) is the natural single place to enforce scopes: one check on the caller, not per controller or tool.
+- Services that don't receive the context yet: `UserAdministrationService` (accounts and privileges), `BoardService`, and ticket 01's `ServerSettingsService`. Admin writes in all three must be refused for agents, so they need it.
+- The context is an optional constructor argument (`ICallerContext? caller = null`) so ticket 05 could leave existing tests untouched. Don't rely on it being non-null: make it required here or in ticket 10.

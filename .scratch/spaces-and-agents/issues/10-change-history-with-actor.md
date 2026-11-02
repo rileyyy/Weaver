@@ -12,3 +12,12 @@
 - [ ] The History tab lists entries newest first, with who (agent badge and actor label), when, and field old → new
 - [ ] Tests assert history for each kind of change, and that a failed write records nothing
 - [ ] Later tickets that add fields or operations (Spaces, Types, custom fields, When, Trash, attachments) must record history; note this in the glossary or architecture docs so it isn't missed
+
+## Comments
+
+**2026-11-02, from ticket 05 (caller context):**
+
+- Make `ICallerContext` a required constructor argument on the services when history starts reading it. Existing tests that construct services directly will need a fake; that edit tracks this ticket's behaviour change.
+- `HttpCallerContext.Current` throws `InvalidAccessTokenException` when there's no HttpContext. Writes from `RecurrenceGenerationWorker` (generated occurrences) have no request, so history needs a system caller for them.
+- No test proves MCP calls populate the context. Add an integration test that writes over `/mcp` and asserts the history entry's account.
+- The services still take explicit `userId` / `actorUserId` parameters alongside the context, and `CommentTools` reads the user id off `IHttpContextAccessor` by hand. Replace both with the context here so there's one source of "who".

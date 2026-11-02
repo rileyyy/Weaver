@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Weaver.Application.Auth;
 using Weaver.Application.Persistence;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
@@ -14,13 +15,16 @@ public abstract class LookupService<T> : ILookupService<T> where T : LookupValue
 {
     private readonly IAdminAuthorizer _admins;
 
-    protected LookupService(IWeaverDbContext db, IAdminAuthorizer admins)
+    protected LookupService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext? caller)
     {
         Db = db;
         _admins = admins;
+        CallerContext = caller;
     }
 
     protected IWeaverDbContext Db { get; }
+
+    protected ICallerContext? CallerContext { get; }
 
     protected abstract DbSet<T> Values { get; }
 

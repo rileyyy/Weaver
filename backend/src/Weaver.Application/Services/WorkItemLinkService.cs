@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Weaver.Application.Auth;
 using Weaver.Application.Persistence;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
@@ -8,10 +9,12 @@ namespace Weaver.Application.Services;
 public class WorkItemLinkService : IWorkItemLinkService
 {
     private readonly IWeaverDbContext _db;
+    private readonly ICallerContext? _caller;
 
-    public WorkItemLinkService(IWeaverDbContext db)
+    public WorkItemLinkService(IWeaverDbContext db, ICallerContext? caller = null)
     {
         _db = db;
+        _caller = caller;
     }
 
     public Task<IReadOnlyList<WorkItemLinkView>> ListForWorkItemAsync(Guid workItemId, CancellationToken ct = default) =>

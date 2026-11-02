@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Weaver.Application.Auth;
 using Weaver.Application.Persistence;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
@@ -11,12 +12,18 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
     private readonly IWeaverDbContext _db;
     private readonly TimeProvider _time;
     private readonly ILogger<WorkItemRecurrenceService> _logger;
+    private readonly ICallerContext? _caller;
 
-    public WorkItemRecurrenceService(IWeaverDbContext db, TimeProvider time, ILogger<WorkItemRecurrenceService> logger)
+    public WorkItemRecurrenceService(
+        IWeaverDbContext db,
+        TimeProvider time,
+        ILogger<WorkItemRecurrenceService> logger,
+        ICallerContext? caller = null)
     {
         _db = db;
         _time = time;
         _logger = logger;
+        _caller = caller;
     }
 
     public async Task<RecurringWorkItem?> GetAsync(Guid workItemId, CancellationToken ct = default)

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Weaver.Application.Auth;
 using Weaver.Application.Persistence;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
@@ -9,11 +10,13 @@ public class CommentService : ICommentService
 {
     private readonly IWeaverDbContext _db;
     private readonly TimeProvider _clock;
+    private readonly ICallerContext? _caller;
 
-    public CommentService(IWeaverDbContext db, TimeProvider clock)
+    public CommentService(IWeaverDbContext db, TimeProvider clock, ICallerContext? caller = null)
     {
         _db = db;
         _clock = clock;
+        _caller = caller;
     }
 
     public async Task<IReadOnlyList<CommentView>> ListForWorkItemAsync(Guid workItemId, CancellationToken ct = default) =>

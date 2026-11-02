@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Weaver.Application.Auth;
 using Weaver.Application.Persistence;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
@@ -12,11 +13,13 @@ public class WorkItemService : IWorkItemService
 
     private readonly IWeaverDbContext _db;
     private readonly IWorkItemHierarchy _hierarchy;
+    private readonly ICallerContext? _caller;
 
-    public WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy)
+    public WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, ICallerContext? caller = null)
     {
         _db = db;
         _hierarchy = hierarchy;
+        _caller = caller;
     }
 
     public Task<WorkItem?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
