@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] The register endpoint and the register UI are removed, not just hidden
 - [x] A fresh deployment still has a way to get its first admin (keep or document the existing bootstrap path)

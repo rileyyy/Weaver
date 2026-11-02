@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Server settings persist a time zone (IANA id), defaulting to UTC, editable only by admins over REST and on the Admin page
 - [x] An invalid time-zone id is rejected with a validation error

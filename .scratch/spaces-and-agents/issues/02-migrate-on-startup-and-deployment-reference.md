@@ -4,11 +4,11 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] The backend migrates on startup by default; one documented env var turns it off
 - [x] The dedicated migrate command still works for deployments that want an explicit step
 - [x] Startup fails clearly if migration fails, rather than serving against an old schema
 - [x] The README has a single reference section listing the images, every env var (default, and whether required) and every volume
 - [x] The example `compose.yaml` still works, either dropping its one-shot migrate service or keeping it with migrate-on-startup off
-- [ ] Integration test covers startup with migration on and off (written in `StartupMigrationTests` and compiles; not yet run, as it needs Docker)
+- [x] Integration test covers startup with migration on and off (`StartupMigrationTests`)
