@@ -326,6 +326,66 @@ public class WorkItemHistoryTests
     }
 
     [Test]
+    public async Task DeletingALookupValue_RecordsTheMoveOnEachItemUsingIt()
+    {
+        var admin = SignInAdmin();
+        var item = await CreateAsync("Task");
+        await _workItems.ChangeStatusAsync(item.Id, StatusConfiguration.DoingId);
+        await _workItems.UpdateDetailsAsync(item.Id, new WorkItemDetailsPatch
+        {
+            LayerId = WorkItemLayerConfiguration.TaskId,
+            PriorityId = WorkItemPriorityConfiguration.LowId,
+        });
+
+        await new StatusService(_db, new AdminAuthorizer(_db), _caller).DeleteAsync(admin.Id, StatusConfiguration.DoingId, StatusConfiguration.DoneId);
+        await new WorkItemLayerService(_db, new AdminAuthorizer(_db), _caller).DeleteAsync(admin.Id, WorkItemLayerConfiguration.TaskId, null);
+        await new WorkItemPriorityService(_db, new AdminAuthorizer(_db), _caller).DeleteAsync(admin.Id, WorkItemPriorityConfiguration.LowId, WorkItemPriorityConfiguration.HighId);
+
+        var entries = (await _history.ListForWorkItemAsync(item.Id)).Take(3).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(entries.Select(e => e.Field), Is.EqualTo(new[]
+            {
+                WorkItemField.PriorityId, WorkItemField.LayerId, WorkItemField.StatusId,
+            }));
+            Assert.That(entries.Select(e => e.AccountId), Is.All.EqualTo(admin.Id));
+            Assert.That(entries[0].NewName, Is.EqualTo("High"));
+            Assert.That(entries[1].NewValue, Is.Null);
+            Assert.That(entries[2].NewName, Is.EqualTo("Done"));
+        });
+    }
+
+    [Test]
+    public async Task DeactivatingAUser_RecordsTheUnassignmentOfTheirItems()
+    {
+        var item = await CreateAsync("Task");
+        await _workItems.AssignAsync(item.Id, _alice.Id);
+        var admin = SignInAdmin();
+
+        await UserAdministration().SetActiveAsync(admin.Id, _alice.Id, isActive: false);
+
+        var entry = (await _history.ListForWorkItemAsync(item.Id)).First();
+        Assert.Multiple(() =>
+        {
+            Assert.That(entry.Field, Is.EqualTo(WorkItemField.AssignedToUserId));
+            Assert.That(entry.OldValue?.GetGuid(), Is.EqualTo(_alice.Id));
+            Assert.That(entry.NewValue, Is.Null);
+            Assert.That(entry.AccountId, Is.EqualTo(admin.Id));
+        });
+    }
+
+    [Test]
+    public async Task DeletingAUserWithHistory_IsRefusedAndChangesNothing()
+    {
+        await CreateAsync("Task");
+        var admin = SignInAdmin();
+
+        Assert.ThrowsAsync<UserHasHistoryException>(() => UserAdministration().DeleteAsync(admin.Id, _alice.Id));
+
+        Assert.That(_db.Users.Any(u => u.Id == _alice.Id), Is.True);
+    }
+
+    [Test]
     public void List_ForAnItemThatNeverExisted_ThrowsNotFound()
     {
         Assert.ThrowsAsync<EntityNotFoundException>(() => _history.ListForWorkItemAsync(Guid.NewGuid()));
@@ -336,6 +396,17 @@ public class WorkItemHistoryTests
 
     private const string MonthlyJson =
         "{\"frequency\":\"Monthly\",\"daysOfWeek\":[],\"startDate\":\"2027-01-04\",\"endDate\":null}";
+
+    /// <summary>Adds an admin and makes it the caller.</summary>
+    private User SignInAdmin()
+    {
+        var admin = TestUsers.Add(_db, "root", isAdmin: true);
+        _caller.Current = new Caller(admin.Id, null, null);
+        return admin;
+    }
+
+    private UserAdministrationService UserAdministration() =>
+        new(_db, new AdminAuthorizer(_db), new CountingPasswordHasher(), _clock, _caller);
 
     private WorkItemRecurrenceService RecurrenceService() => new(
         _db,

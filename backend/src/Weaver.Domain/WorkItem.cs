@@ -151,15 +151,19 @@ public class WorkItem : IHasUpdatedAt
     }
 
     /// <summary>Used when an admin deletes the item's layer and picks a replacement (or none).</summary>
-    public void ChangeLayer(Guid? layerId)
+    public IReadOnlyList<FieldChange> ChangeLayer(Guid? layerId)
     {
-        LayerId = layerId;
+        var changed = new ChangedFields();
+        LayerId = changed.Set(WorkItemField.LayerId, LayerId, layerId);
+        return changed.Changes;
     }
 
     /// <summary>Used when an admin deletes the item's priority and picks a replacement (or none).</summary>
-    public void ChangePriority(Guid? priorityId)
+    public IReadOnlyList<FieldChange> ChangePriority(Guid? priorityId)
     {
-        PriorityId = priorityId;
+        var changed = new ChangedFields();
+        PriorityId = changed.Set(WorkItemField.PriorityId, PriorityId, priorityId);
+        return changed.Changes;
     }
 
     /// <summary>

@@ -19,7 +19,7 @@ public class WorkItemLayerServiceTests
     public void SetUp()
     {
         _db = TestDatabase.Create(new FixedTimeProvider(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero)));
-        _layers = new WorkItemLayerService(_db, new AdminAuthorizer(_db));
+        _layers = new WorkItemLayerService(_db, new AdminAuthorizer(_db), FakeCallerContext.Anyone());
         _admin = TestUsers.Add(_db, "admin", isAdmin: true);
     }
 

@@ -23,7 +23,7 @@ public class WorkItemPriorityServiceTests
     public void SetUp()
     {
         _db = TestDatabase.Create(new FixedTimeProvider(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero)));
-        _priorities = new WorkItemPriorityService(_db, new AdminAuthorizer(_db));
+        _priorities = new WorkItemPriorityService(_db, new AdminAuthorizer(_db), FakeCallerContext.Anyone());
         _admin = TestUsers.Add(_db, "admin", isAdmin: true);
         _member = TestUsers.Add(_db, "member");
     }
