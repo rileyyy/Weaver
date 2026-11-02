@@ -32,3 +32,8 @@
 
 - Every `WorkItem` write method (`UpdateDetails`, `Reschedule`, `SetTags`, `AssignTo`, `MoveToStatus`, `MoveToParent`) already returns the names of the fields it actually changed (`WorkItemField`, matching the JSON names), collected by `ChangedFields` in `Weaver.Domain`. History needs old and new values too: extending `ChangedFields` to record them where it already compares old and new is the natural place, rather than diffing in the service.
 - A no-op write (every field set to its current value) changes nothing and doesn't move the version, so it shouldn't write history either.
+
+**2026-11-02, from ticket 07 (key scopes and agent admin restrictions):**
+
+- `Caller` gained a fourth positional member, `ApiKeyScope? ApiKeyScope = null`, after `ActorLabel`, and `HttpCallerContext` fills it from a `weaver_api_key_scope` claim. If this branch also edits `Caller` or `HttpCallerContext` (e.g. to fill `ActorLabel`), expect a small merge conflict there; keep both.
+- Scope is enforced at the transport edge (`WriteAccessFilter` for REST, `WriteAccessToolFilter` for MCP), not in services, so history doesn't need to check it. A refused write never reaches a service, so it never records history.

@@ -451,13 +451,13 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   the token via `User.GetUserId()`) and throw
   `CommentAuthorMismatchException` (403) for anyone but the author.
 - **`ICallerContext` (Application) says who is calling**: account, API key
-  (for an agent signed in with one) and actor label (null until write tools
-  take one). `HttpCallerContext` (Api, scoped) reads it from the
-  authenticated principal's `sub` and `weaver_api_key_id` claims, so REST
-  and MCP share one mapping. It's read lazily and throws `InvalidAccessTokenException`
+  and its scope (for an agent signed in with one) and actor label (null
+  until write tools take one). `HttpCallerContext` (Api, scoped) reads it
+  from the authenticated principal's `sub`, `weaver_api_key_id` and
+  `weaver_api_key_scope` claims, so REST and MCP share one mapping. It's read lazily and throws `InvalidAccessTokenException`
   without a signed-in caller, so the background worker can still resolve the
   services. The mutating work item, recurrence, comment, link and lookup
-  services receive it (optionally, for now) for history and key scopes;
+  services receive it (optionally, for now) for history;
   they still take explicit user ids too.
 
 ### Administrators and accounts
@@ -485,7 +485,9 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   interactive shells.
 - **The admin check reads the database** (`IAdminAuthorizer`), not a token
   claim. Revoking someone's admin rights takes effect on their next
-  request, not when their access token expires. The client's `isAdmin`
+  request, not when their access token expires. It refuses every agent
+  account (`AgentAdministrationException`, 403) before looking at
+  `IsAdmin`; see [Agent accounts and API keys](#agent-accounts-and-api-keys). The client's `isAdmin`
   (from the auth response) only decides whether the gear is shown.
 - **`/api/admin/users`** lists every account (including deactivated ones,
   with any lockout still in force) and creates, renames, resets passwords,
@@ -522,9 +524,12 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   (stored as the username, so it shares the unique index with humans) and
   an optional `Description`, made by `User.CreateAgent`. Keeping one table
   means `FirstAdminBootstrapper`'s "no accounts yet" check and every
-  user lookup work unchanged. Agents have no password hash, and
-  `AuthService.LoginAsync` refuses them with the usual uniform failure even
-  if an admin set one through `/api/admin/users`.
+  user lookup work unchanged. Agents have no password hash:
+  `User.SetPasswordHash` refuses them, so a reset through `/api/admin/users`
+  is a 409 (`NotAHumanAccountException`), and `AuthService.LoginAsync`
+  refuses them with the usual uniform failure anyway, for rows given a
+  password before that. Renaming one through `/api/admin/users` still
+  applies the human username rules.
 - **`/api/admin/agents`** (`IAgentAccountService`, admins only) lists and
   creates agents, deactivates or reactivates them (`PUT {id}/active`, which
   reuses the human rules: unassign, end sessions), and lists, issues
@@ -549,8 +554,35 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   `GetUserId()` and `IAdminAuthorizer` treat both alike.
 - **Deactivating an agent doesn't revoke its keys**; they stop working
   while it's inactive and work again if it's reactivated.
-- **Scope isn't enforced yet**: a read-only key can still write (ticket 07
-  of the spec).
+- **A read-only key reads everything and writes nothing.** The key's scope
+  is read from its row while it's authenticated and carried as a
+  `weaver_api_key_scope` claim, so checking a write needs no second lookup.
+  The rule is one method, `Caller.EnsureCanWrite`
+  (`ReadOnlyApiKeyException`, 403), applied once per transport, each
+  covering every endpoint by default:
+  - **REST:** `WriteAccessFilter`, a global MVC authorization filter, for
+    every action that isn't GET, HEAD or OPTIONS. It runs before model
+    binding, so a read-only key gets the same 403 whatever it sends.
+  - **MCP:** `WriteAccessToolFilter`, a call-tool filter, for every tool not
+    marked `ReadOnly = true`, answering with a tool error. Every MCP call is
+    a POST to `/mcp`, so the HTTP method can't tell reads from writes there.
+    A tool that doesn't say counts as a write; marking a write tool
+    `ReadOnly` would open a hole, so an integration test allows the
+    annotation only on `list_`/`get_`/`whoami` tools.
+  - Why not in each service: a call per write method is easy to forget on
+    the next one, and a `SaveChanges` hook would also catch the key
+    lookup's own `LastUsedAtUtc` write and turn a forbidden write into a 400
+    or 404 when validation ran first.
+- **No agent changes admin data, whatever its scope.** Every admin
+  operation already goes through `IAdminAuthorizer`, over REST and MCP
+  alike, so that one check refuses agents. `User.GrantAdmin` refuses them
+  too (409), so an agent can't be made an admin. An agent flagged as an
+  admin before that rule doesn't count as "another admin" when the last
+  human admin is demoted, deactivated or deleted. MCP has no admin write
+  tools at all, and an integration test holds every MCP write tool to work
+  items, comments and boards. A new admin write (Spaces' statuses, Types,
+  retention) must call `IAdminAuthorizer`; purging the Trash is human-only
+  but not admin-only, so it needs its own agent check.
 
 ## MCP
 
@@ -566,7 +598,9 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   comments, links, repeating items and server settings. Lookups, users and
   server settings (`get_server_settings`) are read-only over MCP, and agents
   will never be able to change admin data
-  ([ADR-0004](adr/0004-agent-accounts-and-api-keys.md)). Auth endpoints are
+  ([ADR-0004](adr/0004-agent-accounts-and-api-keys.md)). A read tool must
+  be marked `ReadOnly = true`, or a read-only key is refused it
+  ([Agent accounts and API keys](#agent-accounts-and-api-keys)). Auth endpoints are
   not tools; they're how a client gets its token. `whoami` names the
   caller's account and kind, and the label and scope of the key it used.
   `list_all_work_items` pages through every item like `GET
