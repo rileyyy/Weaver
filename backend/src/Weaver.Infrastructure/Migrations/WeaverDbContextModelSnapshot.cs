@@ -379,6 +379,54 @@ namespace Weaver.Infrastructure.Migrations
                     b.ToTable("WorkItems");
                 });
 
+            modelBuilder.Entity("Weaver.Domain.WorkItemHistoryEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid?>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActorLabel")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid?>("ApiKeyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Field")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("NewValue")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("OldValue")
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("WorkItemId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("ApiKeyId");
+
+                    b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("WorkItemId", "Id");
+
+                    b.ToTable("WorkItemHistory", (string)null);
+                });
+
             modelBuilder.Entity("Weaver.Domain.WorkItemLayer", b =>
                 {
                     b.Property<Guid>("Id")
@@ -627,6 +675,23 @@ namespace Weaver.Infrastructure.Migrations
                     b.Navigation("RecurrenceSource");
 
                     b.Navigation("Status");
+                });
+
+            modelBuilder.Entity("Weaver.Domain.WorkItemHistoryEntry", b =>
+                {
+                    b.HasOne("Weaver.Domain.User", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Weaver.Domain.ApiKey", "ApiKey")
+                        .WithMany()
+                        .HasForeignKey("ApiKeyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Account");
+
+                    b.Navigation("ApiKey");
                 });
 
             modelBuilder.Entity("Weaver.Domain.WorkItemLink", b =>

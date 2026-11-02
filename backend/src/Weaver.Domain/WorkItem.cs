@@ -135,7 +135,7 @@ public class WorkItem : IHasUpdatedAt
     /// The descriptive fields share no invariant with status, parent, schedule or assignee,
     /// so they are safe to change together. Returns the fields whose value changed.
     /// </summary>
-    public IReadOnlyList<string> UpdateDetails(WorkItemDetailsPatch patch)
+    public IReadOnlyList<FieldChange> UpdateDetails(WorkItemDetailsPatch patch)
     {
         if (patch.Title.HasValue)
         {
@@ -147,7 +147,7 @@ public class WorkItem : IHasUpdatedAt
         Description = changed.Apply(WorkItemField.Description, Description, patch.Description);
         LayerId = changed.Apply(WorkItemField.LayerId, LayerId, patch.LayerId);
         PriorityId = changed.Apply(WorkItemField.PriorityId, PriorityId, patch.PriorityId);
-        return changed.Names;
+        return changed.Changes;
     }
 
     /// <summary>Used when an admin deletes the item's layer and picks a replacement (or none).</summary>
@@ -166,12 +166,12 @@ public class WorkItem : IHasUpdatedAt
     /// Moves the item to another column. Never touches <see cref="ParentId"/>: that is what
     /// guarantees a drag between columns can never reparent the item.
     /// </summary>
-    public IReadOnlyList<string> MoveToStatus(Guid statusId, double rank)
+    public IReadOnlyList<FieldChange> MoveToStatus(Guid statusId, double rank)
     {
         var changed = new ChangedFields();
         StatusId = changed.Set(WorkItemField.StatusId, StatusId, statusId);
         Rank = changed.Set(WorkItemField.Rank, Rank, rank);
-        return changed.Names;
+        return changed.Changes;
     }
 
     /// <summary>
@@ -179,7 +179,7 @@ public class WorkItem : IHasUpdatedAt
     /// checked the new parent isn't one of this item's descendants; an item being its own
     /// parent is rejected here.
     /// </summary>
-    public IReadOnlyList<string> MoveToParent(Guid? parentId, double rank)
+    public IReadOnlyList<FieldChange> MoveToParent(Guid? parentId, double rank)
     {
         if (parentId == Id)
         {
@@ -189,7 +189,7 @@ public class WorkItem : IHasUpdatedAt
         var changed = new ChangedFields();
         ParentId = changed.Set(WorkItemField.ParentId, ParentId, parentId);
         Rank = changed.Set(WorkItemField.Rank, Rank, rank);
-        return changed.Names;
+        return changed.Changes;
     }
 
     /// <summary>Changes the item's place within its current board cell.</summary>
@@ -203,7 +203,7 @@ public class WorkItem : IHasUpdatedAt
     /// rule is checked against the dates the item ends up with. Returns the fields whose
     /// value changed.
     /// </summary>
-    public IReadOnlyList<string> Reschedule(Optional<DateOnly?> startDate, Optional<DateOnly?> endDate)
+    public IReadOnlyList<FieldChange> Reschedule(Optional<DateOnly?> startDate, Optional<DateOnly?> endDate)
     {
         var newStart = startDate.GetValueOr(StartDate);
         var newEnd = endDate.GetValueOr(EndDate);
@@ -215,14 +215,14 @@ public class WorkItem : IHasUpdatedAt
         var changed = new ChangedFields();
         StartDate = changed.Set(WorkItemField.StartDate, StartDate, newStart);
         EndDate = changed.Set(WorkItemField.EndDate, EndDate, newEnd);
-        return changed.Names;
+        return changed.Changes;
     }
 
-    public IReadOnlyList<string> AssignTo(Guid? userId)
+    public IReadOnlyList<FieldChange> AssignTo(Guid? userId)
     {
         var changed = new ChangedFields();
         AssignedToUserId = changed.Set(WorkItemField.AssignedToUserId, AssignedToUserId, userId);
-        return changed.Names;
+        return changed.Changes;
     }
 
     /// <summary>
@@ -255,7 +255,7 @@ public class WorkItem : IHasUpdatedAt
     /// keeping the first spelling; a blank tag is rejected. Returns the fields whose value
     /// changed.
     /// </summary>
-    public IReadOnlyList<string> SetTags(IEnumerable<string> tags)
+    public IReadOnlyList<FieldChange> SetTags(IEnumerable<string> tags)
     {
         var normalized = new List<string>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -285,7 +285,8 @@ public class WorkItem : IHasUpdatedAt
             return [];
         }
 
+        var previous = _tags;
         _tags = normalized;
-        return [WorkItemField.Tags];
+        return [new FieldChange(WorkItemField.Tags, previous, normalized)];
     }
 }

@@ -38,6 +38,8 @@ public class WeaverDbContext : DbContext, IWeaverDbContext
 
     public DbSet<ServerSettings> ServerSettings => Set<ServerSettings>();
 
+    public DbSet<WorkItemHistoryEntry> WorkItemHistory => Set<WorkItemHistoryEntry>();
+
     public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default) =>
         Database.BeginTransactionAsync(cancellationToken);
 
@@ -90,5 +92,6 @@ public class WeaverDbContext : DbContext, IWeaverDbContext
         modelBuilder.ApplyConfiguration(new WorkItemLinkConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemRecurrenceConfiguration());
         modelBuilder.ApplyConfiguration(new ServerSettingsConfiguration());
+        modelBuilder.ApplyConfiguration(new WorkItemHistoryEntryConfiguration());
     }
 }
