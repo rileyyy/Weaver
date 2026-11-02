@@ -37,4 +37,20 @@ public class AdminAgentsController : ControllerBase
         var agent = await _agents.CreateAsync(request.Name, request.Description);
         return CreatedAtAction(nameof(GetAll), AgentAccountDto.FromEntity(agent));
     }
+
+    [HttpGet("{id:guid}/keys")]
+    public async Task<ActionResult<IReadOnlyList<ApiKeyDto>>> GetKeys(Guid id)
+    {
+        var keys = await _agents.ListKeysAsync(id);
+        return Ok(keys.Select(ApiKeyDto.FromEntity));
+    }
+
+    /// <summary>The response is the only time the key is shown; the Location header points at the key list.</summary>
+    [HttpPost("{id:guid}/keys")]
+    [ProducesResponseType<IssuedApiKeyDto>(StatusCodes.Status201Created)]
+    public async Task<ActionResult<IssuedApiKeyDto>> CreateKey(Guid id, CreateApiKeyRequest request)
+    {
+        var issued = await _agents.IssueKeyAsync(id, request.Label, request.Scope);
+        return CreatedAtAction(nameof(GetKeys), new { id }, IssuedApiKeyDto.FromIssued(issued));
+    }
 }

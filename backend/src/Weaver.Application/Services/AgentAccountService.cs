@@ -52,5 +52,40 @@ public class AgentAccountService : IAgentAccountService
         return agent;
     }
 
+    public async Task<IReadOnlyList<ApiKey>> ListKeysAsync(Guid agentId, CancellationToken ct = default)
+    {
+        await EnsureAdminAsync(ct);
+        await FindAgentAsync(agentId, ct);
+
+        return await _db.ApiKeys.AsNoTracking()
+            .Where(k => k.UserId == agentId)
+            .OrderBy(k => k.CreatedAtUtc)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IssuedApiKey> IssueKeyAsync(
+        Guid agentId,
+        string label,
+        ApiKeyScope scope,
+        CancellationToken ct = default)
+    {
+        await EnsureAdminAsync(ct);
+        var agent = await FindAgentAsync(agentId, ct);
+
+        var key = ApiKeySecret.Generate();
+        var apiKey = ApiKey.Issue(agent, label, scope, ApiKeySecret.Hash(key));
+        _db.ApiKeys.Add(apiKey);
+        await _db.SaveChangesAsync(ct);
+
+        return new IssuedApiKey(apiKey, key);
+    }
+
+    private async Task<User> FindAgentAsync(Guid agentId, CancellationToken ct)
+    {
+        var account = await _db.Users.FindAsync([agentId], ct)
+            ?? throw new EntityNotFoundException("Agent account", agentId);
+        return account.Kind == UserKind.Agent ? account : throw new NotAnAgentAccountException(account.Username);
+    }
+
     private Task EnsureAdminAsync(CancellationToken ct) => _admins.EnsureAdminAsync(_caller.Current.AccountId, ct);
 }
