@@ -10,6 +10,8 @@ public class WorkItemTests
 
     private static WorkItem NewItem(Guid? parentId = null) => WorkItem.Create("Task", null, parentId, ToDo, rank: 1.0);
 
+    private static IEnumerable<string> Fields(IEnumerable<FieldChange> changes) => changes.Select(c => c.Field);
+
     [TestCase("")]
     [TestCase("   ")]
     public void Create_WithABlankTitle_IsRejected(string title)
@@ -133,7 +135,7 @@ public class WorkItemTests
             Assert.That(item.Description, Is.EqualTo("Keep me"));
             Assert.That(item.LayerId, Is.EqualTo(layerId));
             Assert.That(item.PriorityId, Is.EqualTo(priorityId));
-            Assert.That(changed, Is.EqualTo(new[] { WorkItemField.Title }));
+            Assert.That(Fields(changed), Is.EqualTo(new[] { WorkItemField.Title }));
         });
     }
 
@@ -150,7 +152,7 @@ public class WorkItemTests
             Assert.That(item.Description, Is.Null);
             Assert.That(item.LayerId, Is.Null);
             Assert.That(item.PriorityId, Is.Null);
-            Assert.That(changed, Is.EqualTo(new[] { WorkItemField.Description, WorkItemField.LayerId, WorkItemField.PriorityId }));
+            Assert.That(Fields(changed), Is.EqualTo(new[] { WorkItemField.Description, WorkItemField.LayerId, WorkItemField.PriorityId }));
         });
     }
 
@@ -184,7 +186,7 @@ public class WorkItemTests
         {
             Assert.That(item.StartDate, Is.EqualTo(new DateOnly(2026, 9, 1)));
             Assert.That(item.EndDate, Is.EqualTo(new DateOnly(2026, 9, 10)));
-            Assert.That(changed, Is.EqualTo(new[] { WorkItemField.EndDate }));
+            Assert.That(Fields(changed), Is.EqualTo(new[] { WorkItemField.EndDate }));
         });
     }
 
@@ -200,7 +202,7 @@ public class WorkItemTests
         {
             Assert.That(item.StartDate, Is.Null);
             Assert.That(item.EndDate, Is.EqualTo(new DateOnly(2026, 9, 5)));
-            Assert.That(changed, Is.EqualTo(new[] { WorkItemField.StartDate }));
+            Assert.That(Fields(changed), Is.EqualTo(new[] { WorkItemField.StartDate }));
         });
     }
 
@@ -224,7 +226,7 @@ public class WorkItemTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(first, Is.EqualTo(new[] { WorkItemField.Tags }));
+            Assert.That(Fields(first), Is.EqualTo(new[] { WorkItemField.Tags }));
             Assert.That(same, Is.Empty);
         });
     }
@@ -240,7 +242,7 @@ public class WorkItemTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(assigned, Is.EqualTo(new[] { WorkItemField.AssignedToUserId }));
+            Assert.That(Fields(assigned), Is.EqualTo(new[] { WorkItemField.AssignedToUserId }));
             Assert.That(again, Is.Empty);
         });
     }
@@ -255,8 +257,8 @@ public class WorkItemTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(moved, Is.EqualTo(new[] { WorkItemField.StatusId }));
-            Assert.That(reordered, Is.EqualTo(new[] { WorkItemField.Rank }));
+            Assert.That(Fields(moved), Is.EqualTo(new[] { WorkItemField.StatusId }));
+            Assert.That(Fields(reordered), Is.EqualTo(new[] { WorkItemField.Rank }));
         });
     }
 
@@ -267,6 +269,36 @@ public class WorkItemTests
 
         var changed = item.MoveToParent(Guid.NewGuid(), rank: 3.0);
 
-        Assert.That(changed, Is.EqualTo(new[] { WorkItemField.ParentId, WorkItemField.Rank }));
+        Assert.That(Fields(changed), Is.EqualTo(new[] { WorkItemField.ParentId, WorkItemField.Rank }));
+    }
+
+    [Test]
+    public void UpdateDetails_ReportsEachChangedFieldsOldAndNewValue()
+    {
+        var item = WorkItem.Create("Task", "Old notes", null, ToDo, 1.0);
+
+        var changed = item.UpdateDetails(new WorkItemDetailsPatch { Title = "Renamed", Description = null });
+
+        Assert.That(changed, Is.EqualTo(new[]
+        {
+            new FieldChange(WorkItemField.Title, "Task", "Renamed"),
+            new FieldChange(WorkItemField.Description, "Old notes", null),
+        }));
+    }
+
+    [Test]
+    public void SetTags_ReportsTheOldAndNewTagLists()
+    {
+        var item = NewItem();
+        item.SetTags(["urgent"]);
+
+        var change = item.SetTags(["urgent", "later"]).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(change.Field, Is.EqualTo(WorkItemField.Tags));
+            Assert.That(change.OldValue, Is.EqualTo(new[] { "urgent" }));
+            Assert.That(change.NewValue, Is.EqualTo(new[] { "urgent", "later" }));
+        });
     }
 }

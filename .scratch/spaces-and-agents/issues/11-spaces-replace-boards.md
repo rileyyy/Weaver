@@ -14,3 +14,9 @@
 - [ ] Admins create and rename Spaces in the UI; agents can list Spaces over MCP but not change them
 - [ ] Space creation and item Space are recorded in history
 - [ ] Integration tests cover cross-Space reparent rejection
+
+## Comments
+
+**2026-11-02, from ticket 10 (change history with actor):**
+
+- Anything that changes a work item must record history (`WorkItemHistoryRecorder`, see "Change history" in `docs/architecture.md`). A Space on a work item is a field like any other: return `FieldChange`s from the domain method and record them, and add the id field to `HistoryValueNames` so the History tab shows the Space's name, not its id. Board create/delete records nothing today (boards aren't work items).

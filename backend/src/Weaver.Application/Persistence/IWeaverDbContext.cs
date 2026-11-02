@@ -37,6 +37,9 @@ public interface IWeaverDbContext
 
     DbSet<ServerSettings> ServerSettings { get; }
 
+    /// <summary>Append-only: services add entries and never update or remove them.</summary>
+    DbSet<WorkItemHistoryEntry> WorkItemHistory { get; }
+
     /// <summary>Lets a long-running job discard a failed unit of work and carry on.</summary>
     ChangeTracker ChangeTracker { get; }
 

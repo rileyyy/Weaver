@@ -1,14 +1,14 @@
 namespace Weaver.Domain;
 
 /// <summary>
-/// Collects which fields a write actually changed, so setting a field to its current value
-/// isn't reported as a change.
+/// Collects which fields a write actually changed, with their old and new values, so setting
+/// a field to its current value isn't reported as a change.
 /// </summary>
 internal sealed class ChangedFields
 {
-    private readonly List<string> _names = [];
+    private readonly List<FieldChange> _changes = [];
 
-    public IReadOnlyList<string> Names => _names;
+    public IReadOnlyList<FieldChange> Changes => _changes;
 
     /// <summary>The patched value, or <paramref name="current"/> when the patch leaves it out.</summary>
     public T Apply<T>(string field, T current, Optional<T> patch) =>
@@ -18,7 +18,7 @@ internal sealed class ChangedFields
     {
         if (!EqualityComparer<T>.Default.Equals(current, next))
         {
-            _names.Add(field);
+            _changes.Add(new FieldChange(field, current, next));
         }
 
         return next;

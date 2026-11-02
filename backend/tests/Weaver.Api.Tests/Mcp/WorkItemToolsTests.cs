@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Http;
 using System.Text.Json;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using Moq;
 using Weaver.Api.Contracts;
+using Weaver.Api.Auth;
 using Weaver.Api.Mcp;
 using Weaver.Application.Services;
 using Weaver.Domain;
@@ -21,7 +23,7 @@ public class WorkItemToolsTests
     public void SetUp()
     {
         _workItems = new Mock<IWorkItemService>(MockBehavior.Strict);
-        _tools = new WorkItemTools(_workItems.Object);
+        _tools = new WorkItemTools(_workItems.Object, new HttpCallerContext(new HttpContextAccessor()));
     }
 
     private static WorkItem MakeWorkItem() => WorkItem.Create("A work item", null, null, Guid.NewGuid(), rank: 1.0);
@@ -109,7 +111,7 @@ public class WorkItemToolsTests
             .ReturnsAsync(created);
 
         var result = await _tools.CreateWorkItem(
-            "Title", statusId, "Description", parentId, afterId, layerId, priorityId, CancellationToken.None);
+            "Title", statusId, "Description", parentId, afterId, layerId, priorityId, ct: CancellationToken.None);
 
         Assert.That(result.Id, Is.EqualTo(created.Id));
     }

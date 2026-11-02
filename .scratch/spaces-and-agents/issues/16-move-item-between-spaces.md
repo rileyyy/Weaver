@@ -12,3 +12,9 @@
 - [ ] Recorded in history for every moved item
 - [ ] Available in the detail dialog and over MCP
 - [ ] Ordinary reparenting still can't cross Spaces
+
+## Comments
+
+**2026-11-02, from ticket 10 (change history with actor):**
+
+- Moving an item between Spaces must record history for the item (and every descendant it moves), attributed to the caller.

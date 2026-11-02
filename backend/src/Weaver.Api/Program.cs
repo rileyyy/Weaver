@@ -51,11 +51,11 @@ builder.Services.AddHealthChecks().AddDbContextCheck<WeaverDbContext>();
 
 builder.Services.AddHostedService<RecurrenceGenerationWorker>();
 
-// CommentTools reads the calling user's id off the current request the same way
-// CommentsController does (User.GetUserId()) — MCP tools don't get a ControllerBase's
-// User property for free, so they resolve it via the accessor instead.
+// The services read who is calling from ICallerContext. MCP write tools also resolve the
+// concrete HttpCallerContext, to hand it the actor label they take as an argument.
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ICallerContext, HttpCallerContext>();
+builder.Services.AddScoped<HttpCallerContext>();
+builder.Services.AddScoped<ICallerContext>(services => services.GetRequiredService<HttpCallerContext>());
 
 // A read-only API key may not write (ADR-0004). Both transports apply Caller.EnsureCanWrite to
 // every write by default, so a new endpoint or tool is covered without opting in: REST to every

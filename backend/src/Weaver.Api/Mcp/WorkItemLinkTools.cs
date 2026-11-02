@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using ModelContextProtocol.Server;
+using Weaver.Api.Auth;
 using Weaver.Api.Contracts;
 using Weaver.Application.Services;
 
@@ -9,10 +10,12 @@ namespace Weaver.Api.Mcp;
 public class WorkItemLinkTools
 {
     private readonly IWorkItemLinkService _links;
+    private readonly HttpCallerContext _caller;
 
-    public WorkItemLinkTools(IWorkItemLinkService links)
+    public WorkItemLinkTools(IWorkItemLinkService links, HttpCallerContext caller)
     {
         _links = links;
+        _caller = caller;
     }
 
     [McpServerTool(Name = "list_work_item_links", ReadOnly = true)]
@@ -31,9 +34,11 @@ public class WorkItemLinkTools
     public Task<WorkItemLinkDto> CreateWorkItemLink(
         [Description("Id of the first work item.")] Guid workItemId,
         [Description("Id of the work item to link it to.")] Guid targetWorkItemId,
+        [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
+            _caller.UseActorLabel(actorLabel);
             var link = await _links.CreateAsync(workItemId, targetWorkItemId, ct);
             return WorkItemLinkDto.FromView(link);
         });
@@ -42,6 +47,11 @@ public class WorkItemLinkTools
     [Description("Removes a link between two work items.")]
     public Task DeleteWorkItemLink(
         [Description("The link's id.")] Guid id,
+        [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
-        McpExceptionTranslation.TranslateAsync(() => _links.DeleteAsync(id, ct));
+        McpExceptionTranslation.TranslateAsync(() =>
+        {
+            _caller.UseActorLabel(actorLabel);
+            return _links.DeleteAsync(id, ct);
+        });
 }

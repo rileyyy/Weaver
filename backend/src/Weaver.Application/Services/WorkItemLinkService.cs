@@ -9,12 +9,12 @@ namespace Weaver.Application.Services;
 public class WorkItemLinkService : IWorkItemLinkService
 {
     private readonly IWeaverDbContext _db;
-    private readonly ICallerContext? _caller;
+    private readonly WorkItemHistoryRecorder _history;
 
-    public WorkItemLinkService(IWeaverDbContext db, ICallerContext? caller = null)
+    public WorkItemLinkService(IWeaverDbContext db, ICallerContext caller)
     {
         _db = db;
-        _caller = caller;
+        _history = new WorkItemHistoryRecorder(db, caller);
     }
 
     public Task<IReadOnlyList<WorkItemLinkView>> ListForWorkItemAsync(Guid workItemId, CancellationToken ct = default) =>
@@ -49,6 +49,8 @@ public class WorkItemLinkService : IWorkItemLinkService
         }
 
         _db.WorkItemLinks.Add(link);
+        _history.Record(workItemId, WorkItemHistoryField.Link, null, targetWorkItemId);
+        _history.Record(targetWorkItemId, WorkItemHistoryField.Link, null, workItemId);
         await _db.SaveChangesAsync(ct);
         return (await ProjectAsync(_db.WorkItemLinks.Where(l => l.Id == link.Id), workItemId, ct)).Single();
     }
@@ -59,6 +61,8 @@ public class WorkItemLinkService : IWorkItemLinkService
             ?? throw new EntityNotFoundException(nameof(WorkItemLink), id);
 
         _db.WorkItemLinks.Remove(link);
+        _history.Record(link.WorkItemId, WorkItemHistoryField.Link, link.LinkedWorkItemId, null);
+        _history.Record(link.LinkedWorkItemId, WorkItemHistoryField.Link, link.WorkItemId, null);
         await _db.SaveChangesAsync(ct);
     }
 

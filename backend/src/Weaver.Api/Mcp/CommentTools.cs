@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using Weaver.Api.Auth;
 using Weaver.Api.Contracts;
@@ -11,17 +10,13 @@ namespace Weaver.Api.Mcp;
 public class CommentTools
 {
     private readonly ICommentService _comments;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly HttpCallerContext _caller;
 
-    public CommentTools(ICommentService comments, IHttpContextAccessor httpContextAccessor)
+    public CommentTools(ICommentService comments, HttpCallerContext caller)
     {
         _comments = comments;
-        _httpContextAccessor = httpContextAccessor;
+        _caller = caller;
     }
-
-    private Guid CurrentUserId =>
-        (_httpContextAccessor.HttpContext ?? throw new McpException("No HTTP request is available to authenticate this call."))
-        .User.GetUserId();
 
     [McpServerTool(Name = "list_comments", ReadOnly = true)]
     [Description("Lists every comment on a work item.")]
@@ -38,10 +33,12 @@ public class CommentTools
     public Task<CommentDto> AddComment(
         [Description("The work item's id.")] Guid workItemId,
         [Description("The comment's text.")] string body,
+        [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
-            var comment = await _comments.CreateAsync(workItemId, CurrentUserId, body, ct);
+            _caller.UseActorLabel(actorLabel);
+            var comment = await _comments.CreateAsync(workItemId, body, ct);
             return CommentDto.FromView(comment);
         });
 
@@ -50,10 +47,12 @@ public class CommentTools
     public Task<CommentDto> UpdateComment(
         [Description("The comment's id.")] Guid id,
         [Description("The comment's new text.")] string body,
+        [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
-            var comment = await _comments.UpdateAsync(id, CurrentUserId, body, ct);
+            _caller.UseActorLabel(actorLabel);
+            var comment = await _comments.UpdateAsync(id, body, ct);
             return CommentDto.FromView(comment);
         });
 
@@ -61,6 +60,11 @@ public class CommentTools
     [Description("Deletes a comment. Only the comment's own author may do this.")]
     public Task DeleteComment(
         [Description("The comment's id.")] Guid id,
+        [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
-        McpExceptionTranslation.TranslateAsync(() => _comments.DeleteAsync(id, CurrentUserId, ct));
+        McpExceptionTranslation.TranslateAsync(() =>
+        {
+            _caller.UseActorLabel(actorLabel);
+            return _comments.DeleteAsync(id, ct);
+        });
 }

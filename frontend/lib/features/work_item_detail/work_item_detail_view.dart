@@ -8,12 +8,14 @@ import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/repeat_settings_view_model.dart';
 import 'package:weaver/features/work_item_detail/widgets/comments_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/confirm_dialogs.dart';
+import 'package:weaver/features/work_item_detail/widgets/history_tab.dart';
 import 'package:weaver/features/work_item_detail/widgets/links_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/repeat_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/schedule_fields.dart';
 import 'package:weaver/features/work_item_detail/widgets/sub_items_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/tags_editor.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
+import 'package:weaver/features/work_item_detail/work_item_history_view_model.dart';
 import 'package:weaver/shared/recurrence/widgets/confirm_stop_repeating.dart';
 import 'package:weaver/shared/widgets/field_label.dart';
 
@@ -70,6 +72,7 @@ class WorkItemDetailView extends StatefulWidget {
     this.onChanged,
     this.viewModel,
     this.repeatViewModel,
+    this.historyViewModel,
     super.key,
   });
 
@@ -91,16 +94,30 @@ class WorkItemDetailView extends StatefulWidget {
   /// Normally resolved from DI; tests pass one in.
   final RepeatSettingsViewModel? repeatViewModel;
 
+  /// Normally resolved from DI when the History tab is first shown; tests
+  /// pass one in.
+  final WorkItemHistoryViewModel? historyViewModel;
+
   @override
   State<WorkItemDetailView> createState() => _WorkItemDetailViewState();
 }
 
-class _WorkItemDetailViewState extends State<WorkItemDetailView> {
+class _WorkItemDetailViewState extends State<WorkItemDetailView>
+    with SingleTickerProviderStateMixin {
+  static const int _historyTabIndex = 1;
+
   late final WorkItemDetailViewModel _viewModel =
       widget.viewModel ?? getIt<WorkItemDetailViewModel>();
   late final RepeatSettingsViewModel _repeat =
       widget.repeatViewModel ?? getIt<RepeatSettingsViewModel>();
   bool _repeatLoadStarted = false;
+
+  late final TabController _tabs = TabController(length: 2, vsync: this)
+    ..addListener(_onTabChanged);
+
+  /// Created when the History tab is first shown, so the dialog doesn't
+  /// fetch history nobody looks at.
+  WorkItemHistoryViewModel? _history;
 
   // The details form (title, description, layer, priority) is edited
   // locally and saved with "Save details"; every other field saves as soon
@@ -125,6 +142,21 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
   }
 
   void _onFormEdited() => setState(() {});
+
+  /// Reloads on every visit, so changes saved on the Details tab since
+  /// the last one show up.
+  void _onTabChanged() {
+    if (_tabs.indexIsChanging || _tabs.index != _historyTabIndex) return;
+    final history = _history ??= _createHistoryViewModel();
+    unawaited(history.load(widget.workItemId));
+  }
+
+  WorkItemHistoryViewModel _createHistoryViewModel() {
+    final history =
+        widget.historyViewModel ?? getIt<WorkItemHistoryViewModel>();
+    setState(() {});
+    return history;
+  }
 
   void _onViewModelChanged() {
     final item = _viewModel.item;
@@ -179,6 +211,8 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
     _repeat
       ..removeListener(_onRepeatChanged)
       ..dispose();
+    _history?.dispose();
+    _tabs.dispose();
     _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
@@ -205,8 +239,24 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView> {
                 onPressed: () => unawaited(_drillInto(onDrillInto)),
               ),
           ],
+          bottom: TabBar(
+            controller: _tabs,
+            tabs: const [
+              Tab(text: 'Details'),
+              Tab(text: 'History'),
+            ],
+          ),
         ),
-        body: _buildBody(context),
+        body: TabBarView(
+          controller: _tabs,
+          children: [
+            _buildBody(context),
+            switch (_history) {
+              final history? => HistoryTab(viewModel: history),
+              null => const SizedBox.shrink(),
+            },
+          ],
+        ),
       ),
     );
   }

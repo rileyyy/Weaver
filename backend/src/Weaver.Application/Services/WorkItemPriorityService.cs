@@ -7,7 +7,7 @@ namespace Weaver.Application.Services;
 
 public class WorkItemPriorityService : LookupService<WorkItemPriority>, IWorkItemPriorityService
 {
-    public WorkItemPriorityService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext? caller = null)
+    public WorkItemPriorityService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller)
         : base(db, admins, caller)
     {
     }
@@ -27,7 +27,7 @@ public class WorkItemPriorityService : LookupService<WorkItemPriority>, IWorkIte
         var items = await Db.WorkItems.Where(w => w.PriorityId == deleted.Id).ToListAsync(ct);
         foreach (var item in items)
         {
-            item.ChangePriority(replacementId);
+            History.RecordChanges(item.Id, item.ChangePriority(replacementId));
         }
     }
 }

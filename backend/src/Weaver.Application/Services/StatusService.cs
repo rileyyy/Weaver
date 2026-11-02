@@ -8,7 +8,7 @@ namespace Weaver.Application.Services;
 
 public class StatusService : LookupService<Status>, IStatusService
 {
-    public StatusService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext? caller = null)
+    public StatusService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller)
         : base(db, admins, caller)
     {
     }
@@ -71,7 +71,7 @@ public class StatusService : LookupService<Status>, IStatusService
         {
             var cellKey = item.ParentId ?? Guid.Empty;
             var rank = RankCalculator.GetRankBetween(lastRankByParent.GetValueOrDefault(cellKey), null);
-            item.MoveToStatus(replacement, rank);
+            History.RecordChanges(item.Id, item.MoveToStatus(replacement, rank));
             lastRankByParent[cellKey] = rank;
         }
     }

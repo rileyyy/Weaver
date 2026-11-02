@@ -22,6 +22,7 @@ public static class DependencyInjection
             .AddScoped<IFirstAdminBootstrapper, FirstAdminBootstrapper>()
             .AddScoped<ICommentService, CommentService>()
             .AddScoped<IWorkItemLinkService, WorkItemLinkService>()
+            .AddScoped<IWorkItemHistoryService, WorkItemHistoryService>()
             .AddScoped<IBoardService, BoardService>()
             .AddScoped<IStatusService, StatusService>()
             .AddScoped<IWorkItemLayerService, WorkItemLayerService>()

@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart';
+import 'package:weaver/features/work_item_detail/data/work_item_history_repository.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_history_entry.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/features/work_item_detail/repeat_settings_view_model.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
+import 'package:weaver/features/work_item_detail/work_item_history_view_model.dart';
 import 'package:weaver/shared/data/current_user.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
@@ -70,9 +74,45 @@ class _LoadOnlyRepository implements WorkItemDetailRepository {
       throw UnimplementedError('${invocation.memberName}');
 }
 
+class _FakeHistoryRepository implements WorkItemHistoryRepository {
+  _FakeHistoryRepository(this.entries);
+
+  final List<WorkItemHistoryEntry> entries;
+  final List<String> loads = [];
+
+  @override
+  Future<List<WorkItemHistoryEntry>> loadHistory(String workItemId) async {
+    loads.add(workItemId);
+    return entries;
+  }
+}
+
+WorkItemHistoryEntry _historyEntry({
+  required int id,
+  required String field,
+  Object? oldValue,
+  Object? newValue,
+  String accountName = 'alice',
+  UserKind accountKind = UserKind.human,
+  String? actorLabel,
+}) => WorkItemHistoryEntry(
+  id: id,
+  changedAt: DateTime(2026, 9, 2, 14, 30),
+  accountName: accountName,
+  accountKind: accountKind,
+  apiKeyLabel: null,
+  actorLabel: actorLabel,
+  field: field,
+  oldValue: oldValue,
+  newValue: newValue,
+  oldName: null,
+  newName: null,
+);
+
 Future<void> _openDetails(
   WidgetTester tester, {
   FakeRecurrenceRepository? recurrences,
+  WorkItemHistoryRepository? history,
 }) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
@@ -91,6 +131,9 @@ Future<void> _openDetails(
                 ),
                 repeatViewModel: RepeatSettingsViewModel(
                   recurrences ?? FakeRecurrenceRepository(),
+                ),
+                historyViewModel: WorkItemHistoryViewModel(
+                  history ?? _FakeHistoryRepository(const []),
                 ),
               ),
             ),
@@ -195,5 +238,49 @@ void main() {
 
     expect(recurrences.removeCalls, ['item-1']);
     expect(find.text('Repeat this item'), findsOneWidget);
+  });
+
+  testWidgets('the History tab lists changes newest first, marking agents', (
+    tester,
+  ) async {
+    final history = _FakeHistoryRepository([
+      _historyEntry(
+        id: 2,
+        field: 'title',
+        oldValue: 'Original title',
+        newValue: 'Renamed',
+        accountName: 'Claude Code',
+        accountKind: UserKind.agent,
+        actorLabel: 'sub-agent: test-writer',
+      ),
+      _historyEntry(id: 1, field: 'created', newValue: 'Original title'),
+    ]);
+    await _openDetails(tester, history: history);
+    expect(history.loads, isEmpty);
+
+    await tester.tap(find.text('History'));
+    await tester.pumpAndSettle();
+
+    expect(history.loads, ['item-1']);
+    final rename = find.text('Title: Original title → Renamed');
+    final created = find.text('Created "Original title"');
+    expect(rename, findsOneWidget);
+    expect(created, findsOneWidget);
+    expect(
+      tester.getTopLeft(rename).dy,
+      lessThan(tester.getTopLeft(created).dy),
+    );
+    expect(find.text('Agent'), findsOneWidget);
+    expect(find.text('sub-agent: test-writer'), findsOneWidget);
+    expect(find.text('alice'), findsOneWidget);
+  });
+
+  testWidgets('an empty history says so', (tester) async {
+    await _openDetails(tester);
+
+    await tester.tap(find.text('History'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No changes recorded yet.'), findsOneWidget);
   });
 }

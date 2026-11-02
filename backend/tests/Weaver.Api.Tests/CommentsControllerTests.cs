@@ -60,11 +60,11 @@ public class CommentsControllerTests
     }
 
     [Test]
-    public async Task Create_UsesTheAuthenticatedUserAsAuthor()
+    public async Task Create_DelegatesToTheServiceAndReturnsCreated()
     {
         var workItemId = Guid.NewGuid();
         var comment = MakeComment(workItemId, _userId);
-        _comments.Setup(c => c.CreateAsync(workItemId, _userId, "Hello", It.IsAny<CancellationToken>()))
+        _comments.Setup(c => c.CreateAsync(workItemId, "Hello", It.IsAny<CancellationToken>()))
             .ReturnsAsync(comment);
 
         var result = await _controller.Create(workItemId, new CreateCommentRequest("Hello"));
@@ -76,11 +76,11 @@ public class CommentsControllerTests
     }
 
     [Test]
-    public async Task Update_PassesTheAuthenticatedUserAsTheRequestingUser()
+    public async Task Update_DelegatesToTheServiceAndReturnsOk()
     {
         var workItemId = Guid.NewGuid();
         var comment = MakeComment(workItemId, _userId);
-        _comments.Setup(c => c.UpdateAsync(comment.Id, _userId, "Edited", It.IsAny<CancellationToken>()))
+        _comments.Setup(c => c.UpdateAsync(comment.Id, "Edited", It.IsAny<CancellationToken>()))
             .ReturnsAsync(comment);
 
         var result = await _controller.Update(comment.Id, new UpdateCommentRequest("Edited"));
@@ -90,10 +90,10 @@ public class CommentsControllerTests
     }
 
     [Test]
-    public async Task Delete_PassesTheAuthenticatedUserAsTheRequestingUser_AndReturnsNoContent()
+    public async Task Delete_DelegatesToTheServiceAndReturnsNoContent()
     {
         var commentId = Guid.NewGuid();
-        _comments.Setup(c => c.DeleteAsync(commentId, _userId, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _comments.Setup(c => c.DeleteAsync(commentId, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var result = await _controller.Delete(commentId);
 

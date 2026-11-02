@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Http;
 using ModelContextProtocol;
 using Moq;
+using Weaver.Api.Auth;
 using Weaver.Api.Mcp;
 using Weaver.Application.Services;
 using Weaver.Domain.Exceptions;
@@ -16,7 +18,7 @@ public class WorkItemLinkToolsTests
     public void SetUp()
     {
         _links = new Mock<IWorkItemLinkService>(MockBehavior.Strict);
-        _tools = new WorkItemLinkTools(_links.Object);
+        _tools = new WorkItemLinkTools(_links.Object, new HttpCallerContext(new HttpContextAccessor()));
     }
 
     private static WorkItemLinkView MakeLink(Guid linkedWorkItemId) => new(Guid.NewGuid(), linkedWorkItemId, "B");
@@ -41,7 +43,7 @@ public class WorkItemLinkToolsTests
         _links.Setup(l => l.CreateAsync(workItemId, workItemId, It.IsAny<CancellationToken>())).ThrowsAsync(domainException);
 
         var thrown = Assert.ThrowsAsync<McpException>(() =>
-            _tools.CreateWorkItemLink(workItemId, workItemId, CancellationToken.None));
+            _tools.CreateWorkItemLink(workItemId, workItemId, ct: CancellationToken.None));
 
         Assert.That(thrown!.Message, Is.EqualTo(domainException.Message));
     }

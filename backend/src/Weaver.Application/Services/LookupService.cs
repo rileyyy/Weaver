@@ -15,16 +15,17 @@ public abstract class LookupService<T> : ILookupService<T> where T : LookupValue
 {
     private readonly IAdminAuthorizer _admins;
 
-    protected LookupService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext? caller)
+    protected LookupService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller)
     {
         Db = db;
         _admins = admins;
-        CallerContext = caller;
+        History = new WorkItemHistoryRecorder(db, caller);
     }
 
     protected IWeaverDbContext Db { get; }
 
-    protected ICallerContext? CallerContext { get; }
+    /// <summary>Moving work items off a deleted value changes them, so each move is recorded.</summary>
+    private protected WorkItemHistoryRecorder History { get; }
 
     protected abstract DbSet<T> Values { get; }
 

@@ -4,14 +4,14 @@
 
 **Blocked by:** 05, 06
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] History is append-only: there is no API to edit or delete entries
-- [ ] Every mutating work-item, comment and link service method records entries in the same transaction as the change
-- [ ] MCP write tools take an optional actor label; REST writes may send one too
-- [ ] The History tab lists entries newest first, with who (agent badge and actor label), when, and field old → new
-- [ ] Tests assert history for each kind of change, and that a failed write records nothing
-- [ ] Later tickets that add fields or operations (Spaces, Types, custom fields, When, Trash, attachments) must record history; note this in the glossary or architecture docs so it isn't missed
+- [x] History is append-only: there is no API to edit or delete entries
+- [x] Every mutating work-item, comment and link service method records entries in the same transaction as the change
+- [x] MCP write tools take an optional actor label; REST writes may send one too
+- [x] The History tab lists entries newest first, with who (agent badge and actor label), when, and field old → new
+- [x] Tests assert history for each kind of change, and that a failed write records nothing
+- [x] Later tickets that add fields or operations (Spaces, Types, custom fields, When, Trash, attachments) must record history; note this in the glossary or architecture docs so it isn't missed
 
 ## Comments
 

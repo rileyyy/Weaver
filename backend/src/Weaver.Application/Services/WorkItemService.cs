@@ -13,13 +13,13 @@ public class WorkItemService : IWorkItemService
 
     private readonly IWeaverDbContext _db;
     private readonly IWorkItemHierarchy _hierarchy;
-    private readonly ICallerContext? _caller;
+    private readonly WorkItemHistoryRecorder _history;
 
-    public WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, ICallerContext? caller = null)
+    public WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, ICallerContext caller)
     {
         _db = db;
         _hierarchy = hierarchy;
-        _caller = caller;
+        _history = new WorkItemHistoryRecorder(db, caller);
     }
 
     public Task<WorkItem?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
@@ -101,6 +101,7 @@ public class WorkItemService : IWorkItemService
         var item = WorkItem.Create(title, description, parentId, statusId, rank, layerId, priorityId);
 
         _db.WorkItems.Add(item);
+        _history.Record(item.Id, WorkItemHistoryField.Created, null, item.Title);
         await _db.SaveChangesAsync(ct);
         return item;
     }
@@ -199,8 +200,8 @@ public class WorkItemService : IWorkItemService
         CancellationToken ct = default)
     {
         var item = await FindForWriteAsync(id, expectedVersion, ct);
-        var changed = tags.HasValue ? item.SetTags(tags.Value) : [];
-        return await SaveWriteAsync(item, changed, ct);
+        var changes = tags.HasValue ? item.SetTags(tags.Value) : [];
+        return await SaveWriteAsync(item, changes, ct);
     }
 
     public async Task DeleteAsync(Guid id, bool cascade = false, uint? expectedVersion = null, CancellationToken ct = default)
@@ -227,7 +228,33 @@ public class WorkItemService : IWorkItemService
         _db.WorkItemLinks.RemoveRange(links);
         _db.WorkItems.RemoveRange(descendants);
         _db.WorkItems.Remove(item);
+        foreach (var deleted in descendants.Append(item))
+        {
+            _history.Record(deleted.Id, WorkItemHistoryField.Deleted, deleted.Title, null);
+        }
+
+        RecordLinksLostBySurvivors(links, deletedIds);
         await SaveWorkItemChangesAsync(id, ct);
+    }
+
+    /// <summary>
+    /// An item outside the deleted subtree loses its link to the deleted one, which is a change
+    /// to that item too.
+    /// </summary>
+    private void RecordLinksLostBySurvivors(IEnumerable<WorkItemLink> links, IReadOnlyCollection<Guid> deletedIds)
+    {
+        foreach (var link in links)
+        {
+            if (!deletedIds.Contains(link.WorkItemId))
+            {
+                _history.Record(link.WorkItemId, WorkItemHistoryField.Link, link.LinkedWorkItemId, null);
+            }
+
+            if (!deletedIds.Contains(link.LinkedWorkItemId))
+            {
+                _history.Record(link.LinkedWorkItemId, WorkItemHistoryField.Link, link.WorkItemId, null);
+            }
+        }
     }
 
     /// <summary>
@@ -267,11 +294,12 @@ public class WorkItemService : IWorkItemService
 
     private async Task<WorkItemWriteResult> SaveWriteAsync(
         WorkItem item,
-        IReadOnlyList<string> changedFields,
+        IReadOnlyList<FieldChange> changes,
         CancellationToken ct)
     {
+        _history.RecordChanges(item.Id, changes);
         await SaveWorkItemChangesAsync(item.Id, ct);
-        return new WorkItemWriteResult(item, changedFields);
+        return new WorkItemWriteResult(item, changes.Select(c => c.Field).ToList());
     }
 
     private async Task EnsureDetailLookupsExistAsync(Guid? layerId, Guid? priorityId, CancellationToken ct)

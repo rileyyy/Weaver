@@ -7,9 +7,9 @@ namespace Weaver.Application.Auth;
 /// instead of each controller and MCP tool passing it along by hand.
 /// </summary>
 /// <remarks>
-/// Mutating services take it as an optional constructor argument for now: nothing reads it
-/// yet, and tests that build services directly predate it. Once history records the caller,
-/// it should become required.
+/// Every service that changes a work item takes it as a required constructor argument, since
+/// the history it records names the caller. Work with no caller (background recurrence
+/// generation) records as <see cref="Domain.HistoryActor.System"/> and never reads it.
 /// </remarks>
 public interface ICallerContext
 {

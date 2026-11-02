@@ -53,12 +53,18 @@ import 'package:weaver/features/board/data/board_repository.dart' as _i522;
 import 'package:weaver/features/board/repeating_items_view_model.dart' as _i87;
 import 'package:weaver/features/work_item_detail/data/api_work_item_detail_repository.dart'
     as _i335;
+import 'package:weaver/features/work_item_detail/data/api_work_item_history_repository.dart'
+    as _i511;
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart'
     as _i982;
+import 'package:weaver/features/work_item_detail/data/work_item_history_repository.dart'
+    as _i814;
 import 'package:weaver/features/work_item_detail/repeat_settings_view_model.dart'
     as _i60;
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart'
     as _i194;
+import 'package:weaver/features/work_item_detail/work_item_history_view_model.dart'
+    as _i415;
 import 'package:weaver/shared/data/api_layer_repository.dart' as _i284;
 import 'package:weaver/shared/data/api_status_repository.dart' as _i209;
 import 'package:weaver/shared/data/api_user_directory_repository.dart' as _i982;
@@ -133,6 +139,12 @@ extension GetItInjectableX on _i174.GetIt {
       () =>
           _i284.ApiLayerRepository(gh<_i519.Client>(), gh<_i202.ApiEndpoint>()),
     );
+    gh.lazySingleton<_i814.WorkItemHistoryRepository>(
+      () => _i511.ApiWorkItemHistoryRepository(
+        gh<_i519.Client>(),
+        gh<_i202.ApiEndpoint>(),
+      ),
+    );
     gh.lazySingleton<_i65.RecurrenceRepository>(
       () => _i919.ApiRecurrenceRepository(
         gh<_i519.Client>(),
@@ -190,6 +202,10 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factoryParam<_i281.LookupAdminViewModel, _i54.LookupKind, dynamic>(
       (kind, _) =>
           _i281.LookupAdminViewModel(gh<_i377.LookupAdminRepository>(), kind),
+    );
+    gh.factory<_i415.WorkItemHistoryViewModel>(
+      () =>
+          _i415.WorkItemHistoryViewModel(gh<_i814.WorkItemHistoryRepository>()),
     );
     gh.lazySingleton<_i522.BoardRepository>(
       () => _i436.ApiBoardRepository(

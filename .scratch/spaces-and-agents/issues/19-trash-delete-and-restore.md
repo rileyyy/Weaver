@@ -13,3 +13,10 @@
 - [ ] Delete and restore are recorded in history
 - [ ] A Trash page lists trashed items with who deleted them and when, with restore
 - [ ] MCP can list and restore Trash; read-only keys can list only
+
+## Comments
+
+**2026-11-02, from ticket 10 (change history with actor):**
+
+- Delete records a `deleted` entry (old value: the title) for the item and every descendant, plus a `link` removal on items outside the subtree that lose a link. History has no foreign key to `WorkItems`, so it already outlives a hard delete. Add a `restored` name to `WorkItemHistoryField` (and the Flutter `change` text) for restore.
+- An account with history can't be hard-deleted (`UserHasHistoryException`), so "who deleted it" on the Trash page can join `WorkItemHistory` to `Users` safely.

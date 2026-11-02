@@ -11,3 +11,9 @@
 - [ ] The Admin page manages Types per Space
 - [ ] Type changes on an item are recorded in history
 - [ ] Any Type can be nested under any other, with a test
+
+## Comments
+
+**2026-11-02, from ticket 10 (change history with actor):**
+
+- History stores `layerId` changes under that name, and old entries will keep it after layers become Types. Decide whether `typeId` replaces it (and map `layerId` in `HistoryValueNames` and the Flutter `WorkItemHistoryEntry._fieldLabels`) or old entries keep showing as "Layer".

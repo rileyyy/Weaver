@@ -7,7 +7,7 @@ namespace Weaver.Application.Services;
 
 public class WorkItemLayerService : LookupService<WorkItemLayer>, IWorkItemLayerService
 {
-    public WorkItemLayerService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext? caller = null)
+    public WorkItemLayerService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller)
         : base(db, admins, caller)
     {
     }
@@ -36,7 +36,7 @@ public class WorkItemLayerService : LookupService<WorkItemLayer>, IWorkItemLayer
         var items = await Db.WorkItems.Where(w => w.LayerId == deleted.Id).ToListAsync(ct);
         foreach (var item in items)
         {
-            item.ChangeLayer(replacementId);
+            History.RecordChanges(item.Id, item.ChangeLayer(replacementId));
         }
     }
 }

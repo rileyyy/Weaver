@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Weaver.Application.Auth;
 using Weaver.Application.Persistence;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
@@ -12,17 +13,20 @@ public class UserAdministrationService : IUserAdministrationService
     private readonly IAdminAuthorizer _admins;
     private readonly IPasswordHasher<User> _passwordHasher;
     private readonly TimeProvider _clock;
+    private readonly WorkItemHistoryRecorder _history;
 
     public UserAdministrationService(
         IWeaverDbContext db,
         IAdminAuthorizer admins,
         IPasswordHasher<User> passwordHasher,
-        TimeProvider clock)
+        TimeProvider clock,
+        ICallerContext caller)
     {
         _db = db;
         _admins = admins;
         _passwordHasher = passwordHasher;
         _clock = clock;
+        _history = new WorkItemHistoryRecorder(db, caller);
     }
 
     public async Task<IReadOnlyList<User>> ListAsync(Guid actorUserId, CancellationToken ct = default)
@@ -150,6 +154,11 @@ public class UserAdministrationService : IUserAdministrationService
             throw new UserHasCommentsException(user.Username, commentCount);
         }
 
+        if (await _db.WorkItemHistory.AnyAsync(e => e.AccountId == userId, ct))
+        {
+            throw new UserHasHistoryException(user.Username);
+        }
+
         // The database would null the assignments and cascade the tokens and keys by itself;
         // doing it here keeps the tracked entities (and the InMemory tests) consistent with it.
         await UnassignWorkItemsAsync(userId, ct);
@@ -220,7 +229,7 @@ public class UserAdministrationService : IUserAdministrationService
         var assigned = await _db.WorkItems.Where(w => w.AssignedToUserId == userId).ToListAsync(ct);
         foreach (var item in assigned)
         {
-            item.AssignTo(null);
+            _history.RecordChanges(item.Id, item.AssignTo(null));
         }
     }
 

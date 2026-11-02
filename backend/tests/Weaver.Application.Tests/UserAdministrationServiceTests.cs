@@ -25,7 +25,7 @@ public class UserAdministrationServiceTests
         _clock = new FixedTimeProvider(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
         _hasher = new CountingPasswordHasher();
         _db = TestDatabase.Create(_clock);
-        _service = new UserAdministrationService(_db, new AdminAuthorizer(_db), _hasher, _clock);
+        _service = new UserAdministrationService(_db, new AdminAuthorizer(_db), _hasher, _clock, FakeCallerContext.Anyone());
         _admin = TestUsers.Add(_db, "admin", isAdmin: true);
         _member = TestUsers.Add(_db, "member");
     }
