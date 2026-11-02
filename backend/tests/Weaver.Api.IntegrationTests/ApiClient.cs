@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Weaver.Api.Contracts;
+using Weaver.Domain;
 
 namespace Weaver.Api.IntegrationTests;
 
@@ -41,6 +42,24 @@ public static class ApiClient
         var client = Anonymous();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", key);
         return client;
+    }
+
+    /// <summary>
+    /// A fresh agent account, created by the first admin, and a client that signs every
+    /// request with a newly issued key of the given scope.
+    /// </summary>
+    public static async Task<(HttpClient Client, AgentAccountDto Agent)> SignedInAgentAsync(ApiKeyScope scope)
+    {
+        var admin = await FirstAdminAsync();
+        var agent = await (await admin.PostJsonAsync(
+                "/api/admin/agents",
+                new CreateAgentAccountRequest($"Agent ({Guid.NewGuid():N})"[..40], null)))
+            .ReadAsync<AgentAccountDto>();
+        var issued = await (await admin.PostJsonAsync(
+                $"/api/admin/agents/{agent.Id}/keys",
+                new CreateApiKeyRequest("test", scope)))
+            .ReadAsync<IssuedApiKeyDto>();
+        return (WithApiKey(issued.Key), agent);
     }
 
     public static async Task<(HttpClient Client, AuthResponse Auth)> SignInAsync(string username, string password)

@@ -107,8 +107,17 @@ public class User : IHasUpdatedAt
         NormalizedUsername = normalizedUsername;
     }
 
+    /// <summary>
+    /// Only humans can be administrators: an agent's key would otherwise pass every admin check,
+    /// and agents must never change admin data (ADR-0004).
+    /// </summary>
     public void GrantAdmin()
     {
+        if (Kind == UserKind.Agent)
+        {
+            throw new NotAHumanAccountException(Username, "Agent accounts can't be administrators.");
+        }
+
         IsAdmin = true;
     }
 
@@ -127,8 +136,16 @@ public class User : IHasUpdatedAt
         DeactivatedAtUtc = null;
     }
 
+    /// <summary>
+    /// Agents sign in with API keys only, so a password on one would be stored and never used.
+    /// </summary>
     public void SetPasswordHash(string passwordHash)
     {
+        if (Kind == UserKind.Agent)
+        {
+            throw new NotAHumanAccountException(Username, "Agent accounts sign in with API keys, not a password.");
+        }
+
         PasswordHash = passwordHash;
     }
 

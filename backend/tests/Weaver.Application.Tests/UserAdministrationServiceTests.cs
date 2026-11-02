@@ -210,6 +210,25 @@ public class UserAdministrationServiceTests
     }
 
     [Test]
+    public void SetAdminAsync_AnAgentFlaggedAsAdminDoesNotCountAsAnotherAdmin()
+    {
+        TestUsers.AddAgentFlaggedAsAdmin(_db, "Nightly triage");
+
+        Assert.ThrowsAsync<LastAdminException>(() => _service.SetAdminAsync(_admin.Id, _admin.Id, false));
+    }
+
+    [Test]
+    public async Task SetAdminAsync_GrantingAnAgentAdmin_IsAConflict()
+    {
+        var agent = User.CreateAgent("Nightly triage", null);
+        _db.Users.Add(agent);
+        await _db.SaveChangesAsync();
+
+        Assert.ThrowsAsync<NotAHumanAccountException>(() => _service.SetAdminAsync(_admin.Id, agent.Id, true));
+        Assert.That((await Reload(agent)).IsAdmin, Is.False);
+    }
+
+    [Test]
     public async Task SetActiveAsync_Deactivating_UnassignsWorkAndRevokesSessions()
     {
         var item = WorkItem.Create("Assigned", null, null, StatusConfiguration.ToDoId, 1);

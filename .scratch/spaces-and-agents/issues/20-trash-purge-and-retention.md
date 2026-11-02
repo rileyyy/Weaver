@@ -21,3 +21,8 @@
 - MCP only has the read-only `get_server_settings` tool; don't add a write. A unit test asserts every tool on `ServerSettingsTools` is read-only.
 - Retention is stored in the database, not an env var, so "default stated in the deployment reference" means a note in the README rather than a row in the environment tables (ticket 02's reference is env-var shaped).
 - Decide whether expiry counts whole days in the server time zone (`IServerCalendar.TodayAsync`) or elapsed time since deletion; either is fine, but say which.
+
+**2026-11-02, from ticket 07 (key scopes and agent admin restrictions):**
+
+- Retention: route `SetRetentionAsync` through `IAdminAuthorizer` and agents are refused already; it now rejects every agent account, whatever its scope.
+- Purge is human-only, not admin-only, so `IAdminAuthorizer` doesn't fit. Read-only keys are already refused (it's a write), but a read-write agent passes the write filters. Purge needs its own check on the caller's account `Kind` (e.g. via `ICallerContext`), in the service so REST, MCP and any tool share it. If there's an MCP purge tool at all, it must not be marked `ReadOnly`.

@@ -353,8 +353,11 @@ disk.
   ```
 
   The second response's `key` (it starts with `wvr_`) is shown only this
-  once; Weaver keeps just a hash of it. The scope is `ReadOnly` or
-  `ReadWrite`. Send the key as `Authorization: Bearer <key>` on every MCP
+  once; Weaver keeps just a hash of it. The scope is `ReadOnly` (reads
+  only; every write is refused) or `ReadWrite` (what a non-admin person can
+  do). No agent can change admin data (server settings, statuses,
+  priorities, layers, accounts or admin rights), whatever its scope, and an
+  agent account can't be made an admin. Send the key as `Authorization: Bearer <key>` on every MCP
   request. It doesn't expire, so there's nothing to refresh; revoke it with
   `DELETE /api/admin/agents/<agent id>/keys/<key id>`, or deactivate the
   whole agent with `PUT /api/admin/agents/<agent id>/active`.

@@ -14,3 +14,10 @@ To decide before this is ready:
 
 - [ ] Decisions recorded, here or as an ADR
 - [ ] One scheduled agent (e.g. nightly When resolution with a local model) runs against Weaver, verified on the homelab
+
+## Comments
+
+**2026-11-02, from ticket 07 (key scopes and agent admin restrictions):**
+
+- A propose-only agent can run on a read-only key if proposing means reading and reporting outside Weaver; adding a comment is a write, so a commenting agent needs a read-write key. A narrower "comment-only" scope doesn't exist; it would be a new `ApiKeyScope` value and a change to `Caller.EnsureCanWrite`.
+- MCP decides reads from writes by each tool's `ReadOnly` annotation. Any new read tool for these agents (e.g. "changes since T") must be marked `ReadOnly = true`, or read-only keys are refused it.

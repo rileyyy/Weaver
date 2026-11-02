@@ -102,6 +102,113 @@ public class McpTests
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
     }
 
+    [Test]
+    public async Task Mcp_WithAReadOnlyKey_WriteToolsAreRefused_AndNothingChanges()
+    {
+        var (human, _) = await ApiClient.SignedInAsync();
+        var item = await human.CreateWorkItemAsync("Leave me alone");
+        var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadOnly);
+        await using var mcp = await ConnectAsync(agent);
+
+        var create = await mcp.CallToolAsync("create_work_item", new Dictionary<string, object?>
+        {
+            ["title"] = "Not allowed",
+            ["statusId"] = SeededStatuses.ToDo,
+        });
+        var delete = await mcp.CallToolAsync("delete_work_item", new Dictionary<string, object?> { ["id"] = item.Id });
+        var stillThere = await human.GetAsync($"/api/work-items/{item.Id}");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(create.IsError, Is.True);
+            Assert.That(TextOf(create), Does.Contain("read-only"));
+            Assert.That(delete.IsError, Is.True);
+            Assert.That(TextOf(delete), Does.Contain("read-only"));
+            Assert.That(stillThere.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        });
+    }
+
+    [Test]
+    public async Task Mcp_WithAReadOnlyKey_ReadToolsStillWork()
+    {
+        var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadOnly);
+        await using var mcp = await ConnectAsync(agent);
+
+        var items = await mcp.CallToolAsync("list_all_work_items", new Dictionary<string, object?>());
+        var settings = await mcp.CallToolAsync("get_server_settings", new Dictionary<string, object?>());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(items.IsError, Is.Not.True, () => TextOf(items));
+            Assert.That(settings.IsError, Is.Not.True, () => TextOf(settings));
+        });
+    }
+
+    [Test]
+    public async Task Mcp_WithAReadWriteKey_WriteToolsWork()
+    {
+        var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadWrite);
+        await using var mcp = await ConnectAsync(agent);
+
+        var create = await mcp.CallToolAsync("create_work_item", new Dictionary<string, object?>
+        {
+            ["title"] = "Written over MCP",
+            ["statusId"] = SeededStatuses.ToDo,
+        });
+        var created = JsonSerializer.Deserialize<WorkItemDto>(TextOf(create), ApiClient.Json)!;
+        var delete = await mcp.CallToolAsync("delete_work_item", new Dictionary<string, object?> { ["id"] = created.Id });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(create.IsError, Is.Not.True, () => TextOf(create));
+            Assert.That(created.Title, Is.EqualTo("Written over MCP"));
+            Assert.That(delete.IsError, Is.Not.True, () => TextOf(delete));
+        });
+    }
+
+    // Marking a tool ReadOnly is what lets a read-only key call it, so a write tool marked that
+    // way would be a hole. Tools are named for what they do, which makes the mistake visible.
+    [Test]
+    public async Task Mcp_OnlyReadingToolsAreMarkedReadOnly()
+    {
+        var (client, _) = await ApiClient.SignedInAsync();
+        await using var mcp = await ConnectAsync(client);
+
+        var tools = await mcp.ListToolsAsync();
+        var readOnly = tools.Where(t => t.ProtocolTool.Annotations?.ReadOnlyHint == true).Select(t => t.Name).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(readOnly, Is.Not.Empty);
+            Assert.That(
+                readOnly,
+                Has.All.Matches<string>(n => n.StartsWith("list_") || n.StartsWith("get_") || n == "whoami"));
+        });
+    }
+
+    // Agents never change admin data (ADR-0004). AdminAuthorizer refuses them anyway, but no MCP
+    // tool should offer the change: every write is on work items, their comments, or boards.
+    [Test]
+    public async Task Mcp_OffersAReadWriteAgentNoAdminWriteTools()
+    {
+        var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadWrite);
+        await using var mcp = await ConnectAsync(agent);
+
+        var tools = await mcp.ListToolsAsync();
+        var writes = tools.Where(t => t.ProtocolTool.Annotations?.ReadOnlyHint != true).Select(t => t.Name).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(writes, Does.Contain("create_work_item"));
+            Assert.That(
+                writes,
+                Has.All.Matches<string>(n => n.Contains("work_item") || n.EndsWith("_comment") || n.EndsWith("_board")));
+        });
+    }
+
+    private static string TextOf(CallToolResult result) =>
+        string.Join("\n", result.Content.OfType<TextContentBlock>().Select(c => c.Text));
+
     private static async Task<T> CallAsync<T>(McpClient mcp, string tool)
     {
         var result = await mcp.CallToolAsync(tool, new Dictionary<string, object?>());

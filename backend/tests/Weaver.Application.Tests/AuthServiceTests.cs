@@ -281,6 +281,18 @@ public class AuthServiceTests
         Assert.That(remainingUserIds.Count(id => id == bob.User.Id), Is.EqualTo(1));
     }
 
+    // Before SetPasswordHash refused agents, an admin could give one a password.
+    [Test]
+    public async Task LoginAsync_ForAnAgentWithAStoredPassword_FailsLikeAWrongPassword()
+    {
+        var agent = User.CreateAgent("nightly", null);
+        _db.Users.Add(agent);
+        _db.Entry(agent).Property(u => u.PasswordHash).CurrentValue = _hasher.HashPassword(agent, ValidPassword);
+        await _db.SaveChangesAsync();
+
+        Assert.ThrowsAsync<InvalidCredentialsException>(() => _service.LoginAsync("nightly", ValidPassword));
+    }
+
     private User AddUser(string username)
     {
         var (trimmed, normalized) = UserCredentials.NormalizeUsername(username);

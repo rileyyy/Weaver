@@ -10,7 +10,7 @@ namespace Weaver.Api.Auth;
 /// <summary>
 /// Signs an agent in from <c>Authorization: Bearer wvr_…</c> (ADR-0004). The principal carries
 /// the same <c>sub</c> claim an access token would, so everything downstream of authentication
-/// treats both alike, plus the key's id.
+/// treats both alike, plus the key's id and scope.
 /// </summary>
 public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
@@ -46,6 +46,7 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationS
             [
                 new Claim(JwtRegisteredClaimNames.Sub, signIn.AccountId.ToString()),
                 new Claim(WeaverClaimTypes.ApiKeyId, signIn.ApiKeyId.ToString()),
+                new Claim(WeaverClaimTypes.ApiKeyScope, signIn.Scope.ToString()),
             ],
             SchemeName);
         return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName));

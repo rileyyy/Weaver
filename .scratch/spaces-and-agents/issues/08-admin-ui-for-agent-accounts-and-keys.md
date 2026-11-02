@@ -25,3 +25,8 @@
 - Deactivating an agent doesn't revoke its keys; they stop working until it's reactivated. Say so next to the toggle.
 - Agent names are free text (up to 50 characters, e.g. "Claude Code (desktop)"), not username-shaped, so don't apply the username validator to them. Descriptions are optional, up to 500.
 - Agents also appear in `GET /api/admin/users` and `GET /api/users` with `kind: "Agent"`. The generic account actions there (rename, reset password, grant admin) still accept agents; hide them on agent rows (ticket 07 should refuse at least granting admin).
+
+**2026-11-02, from ticket 07 (key scopes and agent admin restrictions):**
+
+- `PUT /api/admin/users/{id}/admin` with `isAdmin: true` and `PUT /api/admin/users/{id}/password` now answer 409 for an agent. Rename (`PUT {id}/username`) still accepts agents and applies the human username rules, which most agent names fail (spaces, parentheses). If the agent rows need renaming, add it under `/api/admin/agents` with `User.CreateAgent`'s name rules and then refuse it on `/api/admin/users`.
+- Explain the scopes next to the picker: a read-only key reads everything and writes nothing; a read-write key does what a non-admin person can. Neither can change admin data.

@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Weaver.Api.Auth;
 using Weaver.Application.Auth;
+using Weaver.Domain;
 using Weaver.Domain.Exceptions;
 
 namespace Weaver.Api.Tests;
@@ -21,16 +22,36 @@ public class HttpCallerContextTests
     }
 
     [Test]
-    public void Current_ForAnAgentSignedInWithAKey_CarriesTheKey()
+    public void Current_ForAnAgentSignedInWithAKey_CarriesTheKeyAndItsScope()
     {
         var accountId = Guid.NewGuid();
         var keyId = Guid.NewGuid();
 
         var caller = ContextFor(SignedIn(
             new Claim(JwtRegisteredClaimNames.Sub, accountId.ToString()),
-            new Claim(WeaverClaimTypes.ApiKeyId, keyId.ToString()))).Current;
+            new Claim(WeaverClaimTypes.ApiKeyId, keyId.ToString()),
+            new Claim(WeaverClaimTypes.ApiKeyScope, "ReadWrite"))).Current;
 
-        Assert.That(caller, Is.EqualTo(new Caller(accountId, ApiKeyId: keyId, ActorLabel: null)));
+        Assert.That(caller, Is.EqualTo(new Caller(accountId, ApiKeyId: keyId, ActorLabel: null, ApiKeyScope.ReadWrite)));
+    }
+
+    [TestCase(null)]
+    [TestCase("Everything")]
+    public void Current_ForAKeyWithoutAReadableScope_IsReadOnly(string? scope)
+    {
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()),
+            new(WeaverClaimTypes.ApiKeyId, Guid.NewGuid().ToString()),
+        };
+        if (scope is not null)
+        {
+            claims.Add(new Claim(WeaverClaimTypes.ApiKeyScope, scope));
+        }
+
+        var caller = ContextFor(SignedIn([.. claims])).Current;
+
+        Assert.That(caller.ApiKeyScope, Is.EqualTo(ApiKeyScope.ReadOnly));
     }
 
     [Test]

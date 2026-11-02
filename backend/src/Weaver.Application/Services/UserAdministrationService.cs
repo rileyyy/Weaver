@@ -174,7 +174,9 @@ public class UserAdministrationService : IUserAdministrationService
 
     /// <summary>
     /// Removing, deactivating or demoting an active admin must leave at least one other,
-    /// or nobody could manage accounts again without editing the database.
+    /// or nobody could manage accounts again without editing the database. Only a human counts:
+    /// an agent never passes the admin check, even if it was flagged as an admin before
+    /// <see cref="User.GrantAdmin"/> refused agents.
     /// </summary>
     private async Task EnsureAnotherActiveAdminAsync(User user, CancellationToken ct)
     {
@@ -184,7 +186,7 @@ public class UserAdministrationService : IUserAdministrationService
         }
 
         var hasAnother = await _db.Users.AnyAsync(
-            u => u.Id != user.Id && u.IsAdmin && u.DeactivatedAtUtc == null,
+            u => u.Id != user.Id && u.IsAdmin && u.DeactivatedAtUtc == null && u.Kind == UserKind.Human,
             ct);
         if (!hasAnother)
         {

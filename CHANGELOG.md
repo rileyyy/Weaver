@@ -33,6 +33,25 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-02 — Key scopes and agent admin restrictions
+
+`feature/key-scopes-and-agent-admin-restrictions` (ticket 07 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0004](docs/adr/0004-agent-accounts-and-api-keys.md)).
+
+- **Read-only keys can't write.** Every REST request other than GET, HEAD
+  or OPTIONS gets a 403 problem+json, and every MCP tool not marked
+  read-only returns a tool error with the same message. New endpoints and
+  tools are covered without opting in.
+- **Read-write keys write like a non-admin person**: work items, comments,
+  links, repeating items and boards.
+- **No agent can change admin data**, whatever its key's scope. The admin
+  check refuses every agent account, and an agent can no longer be made an
+  admin (409). An agent flagged as admin earlier gains nothing from it and
+  doesn't count towards keeping one admin.
+- **An agent can't be given a password** through
+  `PUT /api/admin/users/{id}/password` (409); it was stored and never used.
+
 ## 2026-11-02 — Patch updates and `expectedVersion` on every write
 
 `feature/patch-semantics-and-expected-version` (ticket 09 of

@@ -4,12 +4,12 @@
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Every write is rejected for read-only keys with a clear forbidden error (problem+json over REST, a tool error over MCP)
-- [ ] Admin writes are rejected for every agent account, whatever its scope
-- [ ] Enforcement lives in one place, not repeated per controller and tool, so new endpoints are covered by default
-- [ ] Tests cover read-only write rejection, read-write success, and agent admin-write rejection, over both REST and MCP
+- [x] Every write is rejected for read-only keys with a clear forbidden error (problem+json over REST, a tool error over MCP)
+- [x] Admin writes are rejected for every agent account, whatever its scope
+- [x] Enforcement lives in one place, not repeated per controller and tool, so new endpoints are covered by default
+- [x] Tests cover read-only write rejection, read-write success, and agent admin-write rejection, over both REST and MCP
 
 ## Comments
 
