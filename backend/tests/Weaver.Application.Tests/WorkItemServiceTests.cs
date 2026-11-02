@@ -387,6 +387,53 @@ public class WorkItemServiceTests
     }
 
     [Test]
+    public async Task ChangeStatusAsync_ToItsOwnStatus_ReordersWithinTheCell()
+    {
+        var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId);
+        var first = await _service.CreateAsync("First", null, parent.Id, StatusConfiguration.ToDoId);
+        var second = await _service.CreateAsync("Second", null, parent.Id, StatusConfiguration.ToDoId, afterId: first.Id);
+        var third = await _service.CreateAsync("Third", null, parent.Id, StatusConfiguration.ToDoId, afterId: second.Id);
+
+        await _service.ChangeStatusAsync(third.Id, StatusConfiguration.ToDoId, afterId: first.Id);
+
+        var cell = (await _service.GetChildrenAsync(parent.Id)).Select(w => w.Id);
+        Assert.That(cell, Is.EqualTo(new[] { first.Id, third.Id, second.Id }));
+    }
+
+    [Test]
+    public async Task ChangeStatusAsync_ToItsOwnStatusWithoutAnchor_MovesToTheTopOfTheCell()
+    {
+        var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId);
+        var first = await _service.CreateAsync("First", null, parent.Id, StatusConfiguration.ToDoId);
+        var second = await _service.CreateAsync("Second", null, parent.Id, StatusConfiguration.ToDoId, afterId: first.Id);
+
+        await _service.ChangeStatusAsync(second.Id, StatusConfiguration.ToDoId, afterId: null);
+
+        var cell = (await _service.GetChildrenAsync(parent.Id)).Select(w => w.Id);
+        Assert.That(cell, Is.EqualTo(new[] { second.Id, first.Id }));
+    }
+
+    [Test]
+    public async Task ChangeStatusAsync_AfterASiblingThatSharesItsRank_RespacesTheCell()
+    {
+        var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId);
+        var first = await _service.CreateAsync("First", null, parent.Id, StatusConfiguration.ToDoId);
+        var second = await _service.CreateAsync("Second", null, parent.Id, StatusConfiguration.ToDoId, afterId: first.Id);
+        var moving = await _service.CreateAsync("Moving", null, parent.Id, StatusConfiguration.ToDoId, afterId: second.Id);
+        second.Reposition(first.Rank);
+        await _db.SaveChangesAsync();
+
+        await _service.ChangeStatusAsync(moving.Id, StatusConfiguration.ToDoId, afterId: first.Id);
+
+        var cell = (await _service.GetChildrenAsync(parent.Id)).Select(w => w.Id).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(new[] { first.Rank, second.Rank, moving.Rank }, Is.Unique);
+            Assert.That(cell.IndexOf(moving.Id), Is.EqualTo(cell.IndexOf(first.Id) + 1));
+        });
+    }
+
+    [Test]
     public async Task CreateAsync_WithLayerId_SetsTheLayer()
     {
         var item = await _service.CreateAsync(
