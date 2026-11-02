@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using ModelContextProtocol;
 using Moq;
+using Weaver.Api.Auth;
 using Weaver.Api.Mcp;
 using Weaver.Application.Services;
 using Weaver.Domain.Exceptions;
@@ -13,6 +14,7 @@ public class CommentToolsTests
 {
     private Mock<ICommentService> _comments = null!;
     private CommentTools _tools = null!;
+    private HttpCallerContext _caller = null!;
     private Guid _userId;
 
     [SetUp]
@@ -27,7 +29,8 @@ public class CommentToolsTests
             HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) },
         };
 
-        _tools = new CommentTools(_comments.Object, httpContextAccessor);
+        _caller = new HttpCallerContext(httpContextAccessor);
+        _tools = new CommentTools(_comments.Object, _caller);
     }
 
     private static CommentView MakeComment(Guid workItemId, Guid authorUserId) =>
@@ -46,15 +49,16 @@ public class CommentToolsTests
     }
 
     [Test]
-    public async Task AddComment_UsesTheAuthenticatedUserAsAuthor()
+    public async Task AddComment_PassesTheActorLabelToTheCallerContext()
     {
         var workItemId = Guid.NewGuid();
         var comment = MakeComment(workItemId, _userId);
-        _comments.Setup(c => c.CreateAsync(workItemId, _userId, "Hello", It.IsAny<CancellationToken>())).ReturnsAsync(comment);
+        _comments.Setup(c => c.CreateAsync(workItemId, "Hello", It.IsAny<CancellationToken>())).ReturnsAsync(comment);
 
-        var result = await _tools.AddComment(workItemId, "Hello", CancellationToken.None);
+        var result = await _tools.AddComment(workItemId, "Hello", "sub-agent: reviewer", CancellationToken.None);
 
         Assert.That(result.Id, Is.EqualTo(comment.Id));
+        Assert.That(_caller.Current.ActorLabel, Is.EqualTo("sub-agent: reviewer"));
         _comments.VerifyAll();
     }
 
@@ -63,19 +67,19 @@ public class CommentToolsTests
     {
         var commentId = Guid.NewGuid();
         var domainException = new CommentAuthorMismatchException(commentId);
-        _comments.Setup(c => c.UpdateAsync(commentId, _userId, "Edited", It.IsAny<CancellationToken>())).ThrowsAsync(domainException);
+        _comments.Setup(c => c.UpdateAsync(commentId, "Edited", It.IsAny<CancellationToken>())).ThrowsAsync(domainException);
 
         var thrown = Assert.ThrowsAsync<McpException>(() =>
-            _tools.UpdateComment(commentId, "Edited", CancellationToken.None));
+            _tools.UpdateComment(commentId, "Edited", ct: CancellationToken.None));
 
         Assert.That(thrown!.Message, Is.EqualTo(domainException.Message));
     }
 
     [Test]
-    public async Task DeleteComment_PassesTheAuthenticatedUserAsTheRequestingUser()
+    public async Task DeleteComment_DelegatesToTheService()
     {
         var commentId = Guid.NewGuid();
-        _comments.Setup(c => c.DeleteAsync(commentId, _userId, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _comments.Setup(c => c.DeleteAsync(commentId, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         await _tools.DeleteComment(commentId, ct: CancellationToken.None);
 

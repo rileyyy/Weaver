@@ -55,6 +55,30 @@ public class HttpCallerContextTests
     }
 
     [Test]
+    public void Current_WithAnActorLabelHeader_CarriesTheLabel()
+    {
+        var id = Guid.NewGuid();
+        var http = new DefaultHttpContext { User = SignedIn(new Claim(JwtRegisteredClaimNames.Sub, id.ToString())) };
+        http.Request.Headers[HttpCallerContext.ActorLabelHeader] = "sub-agent: test-writer";
+
+        var caller = new HttpCallerContext(new HttpContextAccessor { HttpContext = http }).Current;
+
+        Assert.That(caller.ActorLabel, Is.EqualTo("sub-agent: test-writer"));
+    }
+
+    [Test]
+    public void Current_AfterUseActorLabel_PrefersItOverTheHeader()
+    {
+        var http = new DefaultHttpContext { User = SignedIn(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString())) };
+        http.Request.Headers[HttpCallerContext.ActorLabelHeader] = "from the header";
+        var context = new HttpCallerContext(new HttpContextAccessor { HttpContext = http });
+
+        context.UseActorLabel("from the tool call");
+
+        Assert.That(context.Current.ActorLabel, Is.EqualTo("from the tool call"));
+    }
+
+    [Test]
     public void Current_ForAnAnonymousRequest_ThrowsInvalidAccessToken()
     {
         var context = new HttpCallerContext(new HttpContextAccessor { HttpContext = new DefaultHttpContext() });

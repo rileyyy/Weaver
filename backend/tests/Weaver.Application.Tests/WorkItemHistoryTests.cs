@@ -193,6 +193,38 @@ public class WorkItemHistoryTests
     }
 
     [Test]
+    public async Task Comments_RecordAddEditAndDeleteWithTheBody()
+    {
+        var comments = new CommentService(_db, _clock, _caller);
+        var item = await CreateAsync("Task");
+
+        var comment = await comments.CreateAsync(item.Id, "First draft");
+        await comments.UpdateAsync(comment.Id, "Second draft");
+        await comments.DeleteAsync(comment.Id);
+
+        Assert.That(await ChangesAsync(item.Id), Is.EqualTo(new[]
+        {
+            (WorkItemHistoryField.Comment, (string?)"\"Second draft\"", (string?)null),
+            (WorkItemHistoryField.Comment, "\"First draft\"", "\"Second draft\""),
+            (WorkItemHistoryField.Comment, null, "\"First draft\""),
+        }));
+    }
+
+    [Test]
+    public async Task Comment_ThatFails_RecordsNothing()
+    {
+        var comments = new CommentService(_db, _clock, _caller);
+        var item = await CreateAsync("Task");
+        var comment = await comments.CreateAsync(item.Id, "Mine");
+        _caller.Current = new Caller(Guid.NewGuid(), null, null);
+
+        Assert.ThrowsAsync<CommentAuthorMismatchException>(() => comments.UpdateAsync(comment.Id, "Not yours"));
+        Assert.ThrowsAsync<CommentAuthorMismatchException>(() => comments.DeleteAsync(comment.Id));
+
+        Assert.That(await ChangesAsync(item.Id), Has.Count.EqualTo(1));
+    }
+
+    [Test]
     public void List_ForAnItemThatNeverExisted_ThrowsNotFound()
     {
         Assert.ThrowsAsync<EntityNotFoundException>(() => _history.ListForWorkItemAsync(Guid.NewGuid()));

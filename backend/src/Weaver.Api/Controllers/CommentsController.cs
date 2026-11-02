@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Weaver.Api.Auth;
 using Weaver.Api.Contracts;
 using Weaver.Application.Services;
 
@@ -38,7 +37,7 @@ public class CommentsController : ControllerBase
     [ProducesResponseType<CommentDto>(StatusCodes.Status201Created)]
     public async Task<ActionResult<CommentDto>> Create(Guid workItemId, CreateCommentRequest request)
     {
-        var comment = await _comments.CreateAsync(workItemId, User.GetUserId(), request.Body);
+        var comment = await _comments.CreateAsync(workItemId, request.Body);
         var dto = CommentDto.FromView(comment);
         return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
     }
@@ -46,7 +45,7 @@ public class CommentsController : ControllerBase
     [HttpPut("api/comments/{id:guid}")]
     public async Task<ActionResult<CommentDto>> Update(Guid id, UpdateCommentRequest request)
     {
-        var comment = await _comments.UpdateAsync(id, User.GetUserId(), request.Body);
+        var comment = await _comments.UpdateAsync(id, request.Body);
         return Ok(CommentDto.FromView(comment));
     }
 
@@ -54,7 +53,7 @@ public class CommentsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(Guid id)
     {
-        await _comments.DeleteAsync(id, User.GetUserId());
+        await _comments.DeleteAsync(id);
         return NoContent();
     }
 }

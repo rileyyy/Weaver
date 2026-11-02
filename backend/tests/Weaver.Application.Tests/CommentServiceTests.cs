@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Weaver.Application.Auth;
 using Weaver.Application.Services;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
@@ -12,6 +13,7 @@ public class CommentServiceTests
 {
     private FixedTimeProvider _clock = null!;
     private WeaverDbContext _db = null!;
+    private FakeCallerContext _caller = null!;
     private CommentService _comments = null!;
     private WorkItemService _workItems = null!;
     private Guid _authorId;
@@ -22,7 +24,8 @@ public class CommentServiceTests
     {
         _clock = new FixedTimeProvider(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
         _db = TestDatabase.Create(_clock);
-        _comments = new CommentService(_db, _clock);
+        _caller = FakeCallerContext.Anyone();
+        _comments = new CommentService(_db, _clock, _caller);
         _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), FakeCallerContext.Anyone());
 
         var alice = User.CreateHuman("alice", "alice");
@@ -36,12 +39,19 @@ public class CommentServiceTests
     [TearDown]
     public void TearDown() => _db.Dispose();
 
+    /// <summary>The service, called by <paramref name="userId"/>.</summary>
+    private CommentService As(Guid userId)
+    {
+        _caller.Current = new Caller(userId, null, null);
+        return _comments;
+    }
+
     [Test]
-    public async Task CreateAsync_AddsACommentAuthoredByTheGivenUser()
+    public async Task CreateAsync_AddsACommentAuthoredByTheCaller()
     {
         var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
 
-        var comment = await _comments.CreateAsync(item.Id, _authorId, "Looks good");
+        var comment = await As(_authorId).CreateAsync(item.Id, "Looks good");
 
         Assert.That(comment.Body, Is.EqualTo("Looks good"));
         Assert.That(comment.AuthorUserId, Is.EqualTo(_authorId));
@@ -52,15 +62,15 @@ public class CommentServiceTests
     public void CreateAsync_WhenWorkItemNotFound_ThrowsEntityNotFoundException()
     {
         Assert.ThrowsAsync<EntityNotFoundException>(() =>
-            _comments.CreateAsync(Guid.NewGuid(), _authorId, "Looks good"));
+            As(_authorId).CreateAsync(Guid.NewGuid(), "Looks good"));
     }
 
     [Test]
     public async Task ListForWorkItemAsync_ReturnsCommentsOldestFirst()
     {
         var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
-        var first = await _comments.CreateAsync(item.Id, _authorId, "First");
-        var second = await _comments.CreateAsync(item.Id, _otherUserId, "Second");
+        var first = await As(_authorId).CreateAsync(item.Id, "First");
+        var second = await As(_otherUserId).CreateAsync(item.Id, "Second");
 
         var comments = await _comments.ListForWorkItemAsync(item.Id);
 
@@ -71,10 +81,10 @@ public class CommentServiceTests
     public async Task UpdateAsync_ByTheAuthor_ChangesTheBodyAndSetsUpdatedAtUtc()
     {
         var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
-        var comment = await _comments.CreateAsync(item.Id, _authorId, "Original");
+        var comment = await As(_authorId).CreateAsync(item.Id, "Original");
         _clock.Advance(TimeSpan.FromMinutes(5));
 
-        var updated = await _comments.UpdateAsync(comment.Id, _authorId, "Edited");
+        var updated = await As(_authorId).UpdateAsync(comment.Id, "Edited");
 
         Assert.That(updated.Body, Is.EqualTo("Edited"));
         Assert.That(updated.UpdatedAtUtc, Is.EqualTo(_clock.GetUtcNow()));
@@ -85,19 +95,19 @@ public class CommentServiceTests
     public async Task UpdateAsync_ByAnotherUser_ThrowsCommentAuthorMismatchException()
     {
         var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
-        var comment = await _comments.CreateAsync(item.Id, _authorId, "Original");
+        var comment = await As(_authorId).CreateAsync(item.Id, "Original");
 
         Assert.ThrowsAsync<CommentAuthorMismatchException>(() =>
-            _comments.UpdateAsync(comment.Id, _otherUserId, "Hijacked"));
+            As(_otherUserId).UpdateAsync(comment.Id, "Hijacked"));
     }
 
     [Test]
     public async Task DeleteAsync_ByTheAuthor_RemovesTheComment()
     {
         var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
-        var comment = await _comments.CreateAsync(item.Id, _authorId, "Original");
+        var comment = await As(_authorId).CreateAsync(item.Id, "Original");
 
-        await _comments.DeleteAsync(comment.Id, _authorId);
+        await As(_authorId).DeleteAsync(comment.Id);
 
         Assert.That(await _comments.ListForWorkItemAsync(item.Id), Is.Empty);
     }
@@ -106,17 +116,17 @@ public class CommentServiceTests
     public async Task DeleteAsync_ByAnotherUser_ThrowsCommentAuthorMismatchException()
     {
         var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
-        var comment = await _comments.CreateAsync(item.Id, _authorId, "Original");
+        var comment = await As(_authorId).CreateAsync(item.Id, "Original");
 
         Assert.ThrowsAsync<CommentAuthorMismatchException>(() =>
-            _comments.DeleteAsync(comment.Id, _otherUserId));
+            As(_otherUserId).DeleteAsync(comment.Id));
     }
 
     [Test]
     public void DeleteAsync_WhenNotFound_ThrowsEntityNotFoundException()
     {
         Assert.ThrowsAsync<EntityNotFoundException>(() =>
-            _comments.DeleteAsync(Guid.NewGuid(), _authorId));
+            As(_authorId).DeleteAsync(Guid.NewGuid()));
     }
 
     [TestCase("")]
@@ -125,7 +135,7 @@ public class CommentServiceTests
     {
         var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
 
-        Assert.ThrowsAsync<DomainValidationException>(() => _comments.CreateAsync(item.Id, _authorId, body));
+        Assert.ThrowsAsync<DomainValidationException>(() => As(_authorId).CreateAsync(item.Id, body));
     }
 
     [Test]
@@ -134,16 +144,16 @@ public class CommentServiceTests
         var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
         var body = new string('a', Comment.BodyMaxLength + 1);
 
-        Assert.ThrowsAsync<DomainValidationException>(() => _comments.CreateAsync(item.Id, _authorId, body));
+        Assert.ThrowsAsync<DomainValidationException>(() => As(_authorId).CreateAsync(item.Id, body));
     }
 
     [Test]
     public async Task UpdateAsync_WithBlankBody_ThrowsAndKeepsTheOriginalBody()
     {
         var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
-        var comment = await _comments.CreateAsync(item.Id, _authorId, "Looks good");
+        var comment = await As(_authorId).CreateAsync(item.Id, "Looks good");
 
-        Assert.ThrowsAsync<DomainValidationException>(() => _comments.UpdateAsync(comment.Id, _authorId, " "));
+        Assert.ThrowsAsync<DomainValidationException>(() => As(_authorId).UpdateAsync(comment.Id, " "));
 
         _db.ChangeTracker.Clear();
         Assert.That((await _db.Comments.SingleAsync()).Body, Is.EqualTo("Looks good"));
