@@ -23,6 +23,8 @@ public interface IWeaverDbContext
 
     DbSet<RefreshToken> RefreshTokens { get; }
 
+    DbSet<ApiKey> ApiKeys { get; }
+
     DbSet<WorkItemLayer> WorkItemLayers { get; }
 
     DbSet<WorkItemPriority> WorkItemPriorities { get; }

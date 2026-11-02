@@ -1,7 +1,11 @@
+using Weaver.Domain.Exceptions;
+
 namespace Weaver.Domain;
 
 public class User : IHasUpdatedAt
 {
+    public const int MaxUsernameLength = 50;
+    public const int MaxDescriptionLength = 500;
     public const int MaxFailedLoginAttempts = 5;
     public static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
 
@@ -26,6 +30,9 @@ public class User : IHasUpdatedAt
     public string PasswordHash { get; private set; }
 
     public UserKind Kind { get; private set; } = UserKind.Human;
+
+    /// <summary>What an agent account is for, e.g. which machine it runs on. Humans have none.</summary>
+    public string? Description { get; private set; }
 
     /// <summary>May manage lookups (statuses, priorities, layers) and other users.</summary>
     public bool IsAdmin { get; private set; }
@@ -59,6 +66,36 @@ public class User : IHasUpdatedAt
         Kind = UserKind.Human,
         IsAdmin = isAdmin,
     };
+
+    /// <summary>
+    /// A new agent account (ADR-0004). It has no password, so it can only sign in with an API
+    /// key. Its name is shown wherever a username would be, but unlike a username it is free
+    /// text, because agent runtimes are named like "Claude Code (desktop)".
+    /// </summary>
+    public static User CreateAgent(string name, string? description)
+    {
+        var trimmedName = name?.Trim() ?? string.Empty;
+        TextValidation.RequireText(trimmedName, "Name", MaxUsernameLength);
+        if (trimmedName.Any(char.IsControl))
+        {
+            throw new DomainValidationException("Name must be a single line of text.");
+        }
+
+        var trimmedDescription = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+        if (trimmedDescription is not null)
+        {
+            TextValidation.RequireMaxLength(trimmedDescription, "Description", MaxDescriptionLength);
+        }
+
+        return new User
+        {
+            Id = Guid.NewGuid(),
+            Username = trimmedName,
+            NormalizedUsername = trimmedName.ToLowerInvariant(),
+            Kind = UserKind.Agent,
+            Description = trimmedDescription,
+        };
+    }
 
     /// <summary>
     /// Username rules and normalization are <see cref="UserCredentials"/>' concern, as for
