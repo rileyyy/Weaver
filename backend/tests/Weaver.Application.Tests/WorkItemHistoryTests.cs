@@ -1,4 +1,5 @@
 using static Weaver.Application.Tests.Patches;
+using Microsoft.Extensions.Logging.Abstractions;
 using Weaver.Application.Auth;
 using Weaver.Application.Services;
 using Weaver.Domain;
@@ -281,10 +282,66 @@ public class WorkItemHistoryTests
     }
 
     [Test]
+    public async Task Recurrence_RecordsStartingChangingAndStoppingWithTheSchedule()
+    {
+        var recurrences = RecurrenceService();
+        var item = await CreateAsync("Report");
+        var start = new DateOnly(2027, 1, 4);
+
+        await recurrences.SetAsync(item.Id, RecurrenceFrequency.Weekly, [DayOfWeek.Monday], start, null);
+        await recurrences.SetAsync(item.Id, RecurrenceFrequency.Weekly, [DayOfWeek.Monday], start, null);
+        await recurrences.SetAsync(item.Id, RecurrenceFrequency.Monthly, [], start, null);
+        await recurrences.RemoveAsync(item.Id);
+
+        Assert.That(await ChangesAsync(item.Id), Is.EqualTo(new[]
+        {
+            (WorkItemHistoryField.Recurrence, (string?)MonthlyJson, (string?)null),
+            (WorkItemHistoryField.Recurrence, WeeklyJson, MonthlyJson),
+            (WorkItemHistoryField.Recurrence, null, WeeklyJson),
+        }));
+    }
+
+    [Test]
+    public async Task Recurrence_OccurrencesGeneratedInTheBackground_AreCreatedByTheSystem()
+    {
+        var recurrences = RecurrenceService();
+        var item = await CreateAsync("Report");
+        await recurrences.SetAsync(item.Id, RecurrenceFrequency.Weekly, [DayOfWeek.Monday], new DateOnly(2026, 9, 1), null);
+        var setUpOccurrence = _db.WorkItems.Single(w => w.RecurrenceSourceId == item.Id);
+        _clock.Advance(TimeSpan.FromDays(7));
+
+        await recurrences.GenerateDueAsync();
+
+        var generated = _db.WorkItems.Single(w => w.RecurrenceSourceId == item.Id && w.Id != setUpOccurrence.Id);
+        var byCaller = (await _history.ListForWorkItemAsync(setUpOccurrence.Id)).Single();
+        var bySystem = (await _history.ListForWorkItemAsync(generated.Id)).Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(byCaller.Field, Is.EqualTo(WorkItemHistoryField.Created));
+            Assert.That(byCaller.AccountId, Is.EqualTo(_alice.Id));
+            Assert.That(bySystem.Field, Is.EqualTo(WorkItemHistoryField.Created));
+            Assert.That(bySystem.AccountId, Is.Null);
+            Assert.That(bySystem.NewValue?.GetString(), Is.EqualTo("Report"));
+        });
+    }
+
+    [Test]
     public void List_ForAnItemThatNeverExisted_ThrowsNotFound()
     {
         Assert.ThrowsAsync<EntityNotFoundException>(() => _history.ListForWorkItemAsync(Guid.NewGuid()));
     }
+
+    private const string WeeklyJson =
+        "{\"frequency\":\"Weekly\",\"daysOfWeek\":[\"Monday\"],\"startDate\":\"2027-01-04\",\"endDate\":null}";
+
+    private const string MonthlyJson =
+        "{\"frequency\":\"Monthly\",\"daysOfWeek\":[],\"startDate\":\"2027-01-04\",\"endDate\":null}";
+
+    private WorkItemRecurrenceService RecurrenceService() => new(
+        _db,
+        new ServerCalendar(new ServerSettingsService(_db, new AdminAuthorizer(_db)), _clock),
+        NullLogger<WorkItemRecurrenceService>.Instance,
+        _caller);
 
     private Task<WorkItem> CreateAsync(string title, Guid? parentId = null) =>
         _workItems.CreateAsync(title, null, parentId, StatusConfiguration.ToDoId);

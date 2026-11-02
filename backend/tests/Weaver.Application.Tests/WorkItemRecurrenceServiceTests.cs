@@ -27,7 +27,7 @@ public class WorkItemRecurrenceServiceTests
         _time = new FixedTimeProvider(new DateTimeOffset(2026, 9, 26, 12, 0, 0, TimeSpan.Zero));
         _db = TestDatabase.Create(_time);
         var calendar = new ServerCalendar(new ServerSettingsService(_db, new AdminAuthorizer(_db)), _time);
-        _recurrences = new WorkItemRecurrenceService(_db, calendar, NullLogger<WorkItemRecurrenceService>.Instance);
+        _recurrences = new WorkItemRecurrenceService(_db, calendar, NullLogger<WorkItemRecurrenceService>.Instance, FakeCallerContext.Anyone());
         _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), FakeCallerContext.Anyone());
     }
 

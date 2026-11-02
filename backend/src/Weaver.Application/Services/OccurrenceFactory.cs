@@ -7,17 +7,22 @@ namespace Weaver.Application.Services;
 /// <summary>
 /// Adds one occurrence of a repeating work item to the context (without saving): a copy of
 /// the template and its sub-item tree, each starting in the first status and scheduled on
-/// the occurrence date. Comments, links and repetitions are not copied.
+/// the occurrence date. Comments, links and repetitions are not copied. Each copy records its
+/// creation in history, attributed to the actor the factory was made for.
 /// </summary>
 internal sealed class OccurrenceFactory
 {
     private readonly IWeaverDbContext _db;
+    private readonly WorkItemHistoryRecorder _history;
+    private readonly HistoryActor _actor;
     private readonly Dictionary<(Guid? ParentId, Guid StatusId), double?> _lastRankByCell = new();
     private Guid? _firstStatusId;
 
-    public OccurrenceFactory(IWeaverDbContext db)
+    public OccurrenceFactory(IWeaverDbContext db, WorkItemHistoryRecorder history, HistoryActor actor)
     {
         _db = db;
+        _history = history;
+        _actor = actor;
     }
 
     public async Task<WorkItem> AddOccurrenceAsync(WorkItem template, DateOnly date, CancellationToken ct)
@@ -63,6 +68,7 @@ internal sealed class OccurrenceFactory
     {
         var copy = source.CopyForOccurrence(parentId, statusId, await NextRankAtEndAsync(parentId, statusId, ct), date);
         _db.WorkItems.Add(copy);
+        _history.Record(copy.Id, _actor, WorkItemHistoryField.Created, null, copy.Title);
         return copy;
     }
 

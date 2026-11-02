@@ -12,18 +12,18 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
     private readonly IWeaverDbContext _db;
     private readonly IServerCalendar _calendar;
     private readonly ILogger<WorkItemRecurrenceService> _logger;
-    private readonly ICallerContext? _caller;
+    private readonly WorkItemHistoryRecorder _history;
 
     public WorkItemRecurrenceService(
         IWeaverDbContext db,
         IServerCalendar calendar,
         ILogger<WorkItemRecurrenceService> logger,
-        ICallerContext? caller = null)
+        ICallerContext caller)
     {
         _db = db;
         _calendar = calendar;
         _logger = logger;
-        _caller = caller;
+        _history = new WorkItemHistoryRecorder(db, caller);
     }
 
     public async Task<RecurringWorkItem?> GetAsync(Guid workItemId, CancellationToken ct = default)
@@ -71,6 +71,7 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
         }
 
         var recurrence = await _db.WorkItemRecurrences.FindAsync([workItemId], ct);
+        var previous = recurrence?.Schedule;
         if (recurrence is null)
         {
             recurrence = WorkItemRecurrence.Create(workItemId, schedule);
@@ -80,10 +81,15 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
         {
             recurrence.ApplySchedule(schedule);
         }
+
+        if (previous != schedule)
+        {
+            _history.Record(workItemId, WorkItemHistoryField.Recurrence, HistoryValue(previous), HistoryValue(schedule));
+        }
         await _db.SaveChangesAsync(ct);
 
         var today = await _calendar.TodayAsync(ct);
-        await GenerateForAsync(recurrence, item, new OccurrenceFactory(_db), today, ct);
+        await GenerateForAsync(recurrence, item, NewOccurrenceFactory(_history.CurrentActor), today, ct);
         return Describe(recurrence, item, await ParentTitleAsync(item, ct), today);
     }
 
@@ -97,6 +103,7 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
         }
 
         _db.WorkItemRecurrences.Remove(recurrence);
+        _history.Record(workItemId, WorkItemHistoryField.Recurrence, HistoryValue(recurrence.Schedule), null);
         await _db.SaveChangesAsync(ct);
     }
 
@@ -116,7 +123,8 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
             try
             {
                 var recurrence = await _db.WorkItemRecurrences.Include(r => r.WorkItem).FirstAsync(r => r.WorkItemId == id, ct);
-                created += await GenerateForAsync(recurrence, recurrence.WorkItem!, new OccurrenceFactory(_db), today, ct);
+                created += await GenerateForAsync(
+                    recurrence, recurrence.WorkItem!, NewOccurrenceFactory(HistoryActor.System), today, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -161,6 +169,15 @@ public class WorkItemRecurrenceService : IWorkItemRecurrenceService
         await _db.SaveChangesAsync(ct);
         return dates.Count;
     }
+
+    /// <summary>Background generation has no caller: its occurrences are created by Weaver itself.</summary>
+    private OccurrenceFactory NewOccurrenceFactory(HistoryActor actor) => new(_db, _history, actor);
+
+    /// <summary>The schedule in the shape the API shows it.</summary>
+    private static object? HistoryValue(RecurrenceSchedule? schedule) =>
+        schedule is null
+            ? null
+            : new { schedule.Frequency, schedule.DaysOfWeek, schedule.StartDate, schedule.EndDate };
 
     private static RecurringWorkItem Describe(
         WorkItemRecurrence recurrence,
