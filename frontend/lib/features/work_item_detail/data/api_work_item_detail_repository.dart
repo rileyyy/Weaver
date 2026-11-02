@@ -34,6 +34,11 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   static WorkItemDetail _detail(Object? json) =>
       WorkItemDetail.fromJson(json as Map<String, dynamic>);
 
+  /// Every write answers with the item and the fields it changed; the
+  /// dialog only needs the item, which carries the new version.
+  static WorkItemDetail _writtenItem(Object? json) =>
+      _detail((json as Map<String, dynamic>)['item']);
+
   @override
   Future<WorkItemDetail> getItem(String id) => _api.get(
     '/work-items/$id',
@@ -50,9 +55,13 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   );
 
   @override
-  Future<void> deleteItem(String id, {bool cascade = false}) => _api.delete(
+  Future<void> deleteItem(
+    String id, {
+    bool cascade = false,
+    required int expectedVersion,
+  }) => _api.delete(
     '/work-items/$id',
-    query: {'cascade': '$cascade'},
+    query: {'cascade': '$cascade', 'expectedVersion': '$expectedVersion'},
     failureMessage: 'Failed to delete work item',
   );
 
@@ -80,7 +89,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     required String? layerId,
     required String? priorityId,
     required int expectedVersion,
-  }) => _api.put(
+  }) => _api.patch(
     '/work-items/$id/details',
     {
       'title': title,
@@ -89,15 +98,19 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
       'priorityId': priorityId,
       'expectedVersion': expectedVersion,
     },
-    _detail,
+    _writtenItem,
     failureMessage: 'Failed to update work item',
   );
 
   @override
-  Future<WorkItemDetail> assign(String id, String? userId) => _api.put(
+  Future<WorkItemDetail> assign(
+    String id,
+    String? userId, {
+    required int expectedVersion,
+  }) => _api.put(
     '/work-items/$id/assignee',
-    {'userId': userId},
-    _detail,
+    {'userId': userId, 'expectedVersion': expectedVersion},
+    _writtenItem,
     failureMessage: 'Failed to assign work item',
   );
 
@@ -107,14 +120,14 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     DateTime? startDate,
     DateTime? endDate, {
     required int expectedVersion,
-  }) => _api.put(
+  }) => _api.patch(
     '/work-items/$id/schedule',
     {
       'startDate': formatCalendarDate(startDate),
       'endDate': formatCalendarDate(endDate),
       'expectedVersion': expectedVersion,
     },
-    _detail,
+    _writtenItem,
     failureMessage: 'Failed to reschedule work item',
   );
 
@@ -123,10 +136,10 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     String id,
     List<String> tags, {
     required int expectedVersion,
-  }) => _api.put(
+  }) => _api.patch(
     '/work-items/$id/tags',
     {'tags': tags, 'expectedVersion': expectedVersion},
-    _detail,
+    _writtenItem,
     failureMessage: 'Failed to set tags',
   );
 

@@ -53,6 +53,21 @@ class JsonApiClient {
     decode,
   );
 
+  /// A partial update: the server leaves a field missing from [body]
+  /// unchanged and clears one sent as null.
+  Future<T> patch<T>(
+    String path,
+    Object? body,
+    T Function(Object? json) decode, {
+    required String failureMessage,
+  }) => _send(
+    path,
+    () =>
+        _http.patch(_uri(path), headers: _jsonHeaders, body: jsonEncode(body)),
+    failureMessage,
+    decode,
+  );
+
   /// A POST whose response body the caller doesn't need.
   Future<void> postIgnoringBody(
     String path,
@@ -66,6 +81,13 @@ class JsonApiClient {
     Object? body, {
     required String failureMessage,
   }) => put(path, body, (_) {}, failureMessage: failureMessage);
+
+  /// A PATCH whose response body the caller doesn't need.
+  Future<void> patchIgnoringBody(
+    String path,
+    Object? body, {
+    required String failureMessage,
+  }) => patch(path, body, (_) {}, failureMessage: failureMessage);
 
   Future<void> delete(
     String path, {

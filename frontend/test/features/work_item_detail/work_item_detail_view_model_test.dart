@@ -87,7 +87,12 @@ class _FakeRepository implements WorkItemDetailRepository {
       List.of(childrenList);
 
   @override
-  Future<void> deleteItem(String id, {bool cascade = false}) async {
+  Future<void> deleteItem(
+    String id, {
+    bool cascade = false,
+    required int expectedVersion,
+  }) async {
+    expectedVersions.add(expectedVersion);
     final error = saveError;
     if (error != null) throw error;
     deleted = true;
@@ -142,8 +147,13 @@ class _FakeRepository implements WorkItemDetailRepository {
   }
 
   @override
-  Future<WorkItemDetail> assign(String id, String? userId) async {
+  Future<WorkItemDetail> assign(
+    String id,
+    String? userId, {
+    required int expectedVersion,
+  }) async {
     assignCalls.add(userId);
+    expectedVersions.add(expectedVersion);
     await assignGate?.future;
     final error = saveError;
     if (error != null) throw error;
@@ -450,6 +460,37 @@ void main() {
     expect(ok, isTrue);
     expect(viewModel.item!.assignedToUserId, 'user-1');
     expect(repository.assignCalls, ['user-1']);
+  });
+
+  test('saveAssignee and deleteItem send the loaded version', () async {
+    final repository = _FakeRepository()..item = _item(version: 5);
+    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    await viewModel.load('item-1');
+
+    await viewModel.saveAssignee('user-1');
+    repository.item = _item(version: 9);
+    await viewModel.load('item-1');
+    await viewModel.deleteItem();
+
+    expect(repository.expectedVersions, [5, 9]);
+  });
+
+  test('a delete conflict reloads the latest item', () async {
+    final repository = _FakeRepository(
+      saveError: const ApiException('changed', statusCode: 409),
+    );
+    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    await viewModel.load('item-1');
+    repository.item = _item(title: "Someone else's title", version: 9);
+
+    final ok = await viewModel.deleteItem();
+
+    expect(ok, isFalse);
+    expect(viewModel.item!.version, 9);
+    expect(
+      viewModel.saveError,
+      contains('Someone else changed this work item'),
+    );
   });
 
   test('saveTags updates the tag list on success', () async {

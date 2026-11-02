@@ -99,7 +99,7 @@ class ApiBoardRepository implements BoardRepository {
     String itemId,
     DateTime? startDate,
     DateTime? endDate,
-  ) => _api.putIgnoringBody('/work-items/$itemId/schedule', {
+  ) => _api.patchIgnoringBody('/work-items/$itemId/schedule', {
     'startDate': formatCalendarDate(startDate),
     'endDate': formatCalendarDate(endDate),
   }, failureMessage: 'Failed to reschedule item');
@@ -127,7 +127,7 @@ class ApiBoardRepository implements BoardRepository {
 
   @override
   Future<void> setTags(String workItemId, List<String> tags) =>
-      _api.putIgnoringBody('/work-items/$workItemId/tags', {
+      _api.patchIgnoringBody('/work-items/$workItemId/tags', {
         'tags': tags,
       }, failureMessage: 'Failed to set tags');
 
