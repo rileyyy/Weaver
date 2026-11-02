@@ -244,7 +244,7 @@ void main() {
     },
   );
 
-  test('changeStatus puts the new status and succeeds on 200', () async {
+  test('changeStatus puts the new status and rank anchor', () async {
     http.Request? sentRequest;
     final client = MockClient((request) async {
       sentRequest = request;
@@ -258,12 +258,15 @@ void main() {
       ApiLayerRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
-    await repository.changeStatus('card-1', 'status-done');
+    await repository.changeStatus('card-1', 'status-done', afterId: 'card-2');
 
     expect(sentRequest, isNotNull);
     expect(sentRequest!.method, 'PUT');
     expect(sentRequest!.url.path, '/api/work-items/card-1/status');
-    expect(jsonDecode(sentRequest!.body), {'statusId': 'status-done'});
+    expect(jsonDecode(sentRequest!.body), {
+      'statusId': 'status-done',
+      'afterId': 'card-2',
+    });
   });
 
   test('changeStatus throws an ApiException on failure', () async {
@@ -280,7 +283,7 @@ void main() {
     );
 
     await expectLater(
-      repository.changeStatus('card-1', 'status-done'),
+      repository.changeStatus('card-1', 'status-done', afterId: null),
       throwsA(isA<ApiException>()),
     );
   });

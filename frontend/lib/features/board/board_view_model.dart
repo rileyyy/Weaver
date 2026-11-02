@@ -304,31 +304,52 @@ class BoardViewModel extends ViewModel {
   }
 
   /// Moves [card] to [newStatusId], within whichever swimlane already owns
-  /// it. There is no swimlane parameter to pass — that's what makes a
-  /// cross-swimlane move structurally impossible here, the same way the
-  /// backend's `ChangeStatus`/`Reparent` split keeps a status change from
-  /// ever touching `ParentId`. Applies the move optimistically, then rolls
-  /// it back if the backend rejects it.
-  Future<void> moveCard(WorkItemCard card, String newStatusId) {
-    if (card.statusId == newStatusId || !_swimlanes.hasLane(card.parentId)) {
-      return Future.value();
-    }
+  /// it, placing it directly before [beforeCardId] in that cell, or at the
+  /// end of the cell when that is null. [newStatusId] may be the card's own
+  /// status, which only reorders it. There is no swimlane parameter to
+  /// pass — that's what makes a cross-swimlane move structurally impossible
+  /// here, the same way the backend's `ChangeStatus`/`Reparent` split keeps
+  /// a status change from ever touching `ParentId`. Applies the move
+  /// optimistically, then puts the card back if the backend rejects it.
+  Future<void> moveCard(
+    WorkItemCard card,
+    String newStatusId, {
+    String? beforeCardId,
+  }) {
+    if (!_swimlanes.hasLane(card.parentId)) return Future.value();
+
+    final originalCellIds = _swimlanes.cellIdsOf(card.id);
+    final originalIndex = originalCellIds.indexOf(card.id);
+    final originalAnchor = originalIndex > 0
+        ? originalCellIds[originalIndex - 1]
+        : null;
+    final afterId = _swimlanes.rankAnchorForDrop(
+      card.id,
+      newStatusId,
+      beforeCardId: beforeCardId,
+    );
+    final isAlreadyThere =
+        newStatusId == card.statusId && afterId == originalAnchor;
+    if (isAlreadyThere) return Future.value();
 
     return _optimistic(
       apply: () {
-        _swimlanes = _swimlanes.withCard(
+        _swimlanes = _swimlanes.withCardPlaced(
           card.id,
-          (c) => c.copyWith(statusId: newStatusId),
+          newStatusId,
+          afterId: afterId,
         );
         _hierarchyItems = _withHierarchyItem(
           card.id,
           (item) => item.withStatus(newStatusId),
         );
       },
-      persist: () => _repository.changeStatus(card.id, newStatusId),
-      revertLanes: () => _swimlanes = _swimlanes.withCard(
+      persist: () =>
+          _repository.changeStatus(card.id, newStatusId, afterId: afterId),
+      revertLanes: () => _swimlanes = _swimlanes.withCardRestored(
         card.id,
-        (c) => c.copyWith(statusId: card.statusId),
+        card.statusId,
+        originalCellIds: originalCellIds,
       ),
       revertHierarchy: () => _hierarchyItems = _withHierarchyItem(
         card.id,

@@ -9,9 +9,9 @@ the API.
 
 ## Features
 
-- **Swimlane board with drill-down.** Cards move between status columns by
-  drag and drop; a card can be dropped on another lane's label to reparent
-  it. Tapping the current breadcrumb ("Board" at the top) picks a lane to
+- **Swimlane board with drill-down.** Cards move between status columns,
+  and up or down within one, by drag and drop, landing where they're
+  dropped; a card can be dropped on another lane's label to reparent it. Tapping the current breadcrumb ("Board" at the top) picks a lane to
   drill into, as does "View sub-items" in a card's detail dialog, so its
   children become the lanes. Earlier breadcrumbs lead back up. Each card's
   left bar shows its layer's colour.

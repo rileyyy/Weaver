@@ -23,8 +23,14 @@ abstract class BoardRepository {
   Future<List<User>> loadUsers();
 
   /// Moves the work item identified by [cardId] to [newStatusId], within
-  /// whichever parent already owns it. Throws on failure.
-  Future<void> changeStatus(String cardId, String newStatusId);
+  /// whichever parent already owns it, ranked directly after [afterId] in
+  /// that cell, or first when [afterId] is null. [newStatusId] may be the
+  /// item's current status, which only reorders it. Throws on failure.
+  Future<void> changeStatus(
+    String cardId,
+    String newStatusId, {
+    required String? afterId,
+  });
 
   /// Moves the work item identified by [itemId] to [newParentId], keeping
   /// its current status. Throws on failure.

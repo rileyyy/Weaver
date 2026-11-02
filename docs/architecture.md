@@ -699,8 +699,8 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   a rebuild doesn't redo the tree or scan the user list per card. Search
   input is debounced by 200 ms in `BoardView`.
 
-- **`BoardViewModel.moveCard(card, newStatusId)` takes no lane
-  parameter**; it uses the card's own `parentId`, so a status move can't
+- **`BoardViewModel.moveCard(card, newStatusId, beforeCardId:)` takes no
+  lane parameter**; it uses the card's own `parentId`, so a status move can't
   cross lanes. The UI adds a second layer: the `StatusColumn` drag target
   only accepts cards whose `parentId` matches its lane. Reparenting uses a
   separate drag target on `SwimlaneLabel` that only accepts cards from
@@ -839,7 +839,34 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   children: there's no `hasChildren` flag, and computing one only to grey
   out leaves would cost an extra fetch or a denormalised count.
 - **Drag and drop uses Flutter's `Draggable` / `DragTarget`**, no package.
-  There's no reordering within a column yet.
+- **Cards are placed where they're dropped.** Each card in a cell carries
+  two drop zones (`CardDropZones`), its left and right halves: cards sit
+  two to a row, so those are before and after in reading order. A drop
+  passes the card it landed before, or none for the end of the cell (also
+  what a drop on the cell's free space means), and
+  `SwimlaneEdits.rankAnchorForDrop` turns that into the `afterId` for
+  `PUT /work-items/{id}/status`. A reorder within a cell is the same call
+  with the card's own status, so the existing rank and tie-respacing logic
+  covers it and there's no separate reorder endpoint.
+  - The zones cover each card's half of the gaps around it (the cell's
+    `Wrap` has no spacing; every card slot pads itself), so a drop in a
+    gap lands where the indicator there shows instead of falling through
+    to the cell. Over the cell's free space the indicator shows after the
+    last card, since that drop means the end.
+  - The anchor is taken from the whole cell, hidden cards included, so
+    the card lands directly before the card it was dropped on whatever
+    the filters hide.
+  - A drop that changes nothing (onto the card itself or beside where it
+    already is) shows no indicator and sends no request, but is still
+    accepted, so it can't fall through to the cell and send the card to
+    the end.
+  - While a sort is applied the cell isn't shown in rank order, so cards
+    carry no drop zones and the cell only takes cards from other columns,
+    appending them. Sorting still never touches `Rank`.
+  - A failed move puts the card back after whichever of its old
+    predecessors is now latest in the cell, else before whichever old
+    successor is now earliest, else at the end (`withCardRestored`). No
+    other card moves, so a move that succeeded meanwhile stays.
 - **Roadmap is a hand-rolled Gantt widget** reusing
   `BoardViewModel.hierarchyRoots`, so it gets the same search, filters and
   collapse tree as Hierarchy. Its timeframe (zoom) and visible window are

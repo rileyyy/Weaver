@@ -45,7 +45,7 @@ Widget _board(
             ),
             const Swimlane(parentId: 'lane-b', title: 'Lane B', cards: []),
           ],
-          onCardDropped: (_, _) async {},
+          onCardDropped: (_, _, {beforeCardId}) async {},
           onCardReparented: (_, _) async {},
           onCardDetailsOpened: (_) {},
           onSwimlaneLabelTapped: (_) {},
