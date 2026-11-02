@@ -14,3 +14,11 @@
 - [ ] MCP `whoami` returns the account name and kind, the key label and the scope
 - [ ] Integration tests against real Postgres cover create, authenticate, revoke and deactivated account
 - [ ] Docs show an example `.mcp.json` that reads the key from an environment variable
+
+## Comments
+
+**2026-11-02, from ticket 04 (admin-only accounts):**
+
+- Self-registration is gone; integration tests get accounts through `ApiClient.SignedInAsync` / `SignedInAdminAsync`, which sign in as the configured first admin (`FirstAdmin:*`) and create users over `POST /api/admin/users`. Agent-account tests should build on the same helpers rather than seeding the database.
+- `FirstAdminBootstrapper` only runs while the Users table is empty and always creates a human. Keep agent accounts in the same table (or update its emptiness check) so a deployment with only agents doesn't get a second "first" admin.
+- From ticket 05: `HttpCallerContext` always sets `ApiKeyId` to null; filling it from the key-authenticated principal is this ticket's "the caller context carries the key".

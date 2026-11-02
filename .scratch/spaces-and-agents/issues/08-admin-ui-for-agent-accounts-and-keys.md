@@ -11,3 +11,9 @@
 - [ ] Keys list their label, scope, created and last used; revoking asks for confirmation
 - [ ] Assignee pickers and user lists mark agent accounts
 - [ ] Widget tests cover the create-and-reveal flow and revoke
+
+## Comments
+
+**2026-11-02, from ticket 04 (admin-only accounts):**
+
+- The app's user list (`ApiUserDirectoryRepository`) no longer refreshes every five minutes; it's cached until something clears it, and `ApiUserAdminRepository` clears it after every account change. Creating, renaming or deactivating agent accounts must clear it too, or new agents won't appear in assignee pickers until a reload.
