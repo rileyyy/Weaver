@@ -45,9 +45,10 @@ public class AuthService : IAuthService
         var user = await _db.Users.FirstOrDefaultAsync(u => u.NormalizedUsername == normalized, ct);
 
         // Same generic failure, and the same password-hashing cost, for "no such user",
-        // "wrong password", "locked out" and "deactivated": a response that differed in
+        // "wrong password", "locked out", "deactivated" and "agent": a response that differed in
         // content or timing would let a caller enumerate usernames or learn an account's state.
-        if (user is null || !user.IsActive || user.IsLockedOutAt(_clock.GetUtcNow()))
+        // Agents sign in with API keys only (ADR-0004), even if an admin gave one a password.
+        if (user is null || user.Kind == UserKind.Agent || !user.IsActive || user.IsLockedOutAt(_clock.GetUtcNow()))
         {
             VerifyAgainstDummyHash(password);
             throw new InvalidCredentialsException();

@@ -11,12 +11,21 @@ public class AgentAccountService : IAgentAccountService
     private readonly IWeaverDbContext _db;
     private readonly IAdminAuthorizer _admins;
     private readonly ICallerContext _caller;
+    private readonly IUserAdministrationService _users;
+    private readonly TimeProvider _clock;
 
-    public AgentAccountService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller)
+    public AgentAccountService(
+        IWeaverDbContext db,
+        IAdminAuthorizer admins,
+        ICallerContext caller,
+        IUserAdministrationService users,
+        TimeProvider clock)
     {
         _db = db;
         _admins = admins;
         _caller = caller;
+        _users = users;
+        _clock = clock;
     }
 
     public async Task<IReadOnlyList<User>> ListAsync(CancellationToken ct = default)
@@ -52,6 +61,15 @@ public class AgentAccountService : IAgentAccountService
         return agent;
     }
 
+    public async Task<User> SetActiveAsync(Guid agentId, bool isActive, CancellationToken ct = default)
+    {
+        await EnsureAdminAsync(ct);
+        await FindAgentAsync(agentId, ct);
+
+        // Deactivation's other rules (unassigning work, ending sessions) are the same as a human's.
+        return await _users.SetActiveAsync(_caller.Current.AccountId, agentId, isActive, ct);
+    }
+
     public async Task<IReadOnlyList<ApiKey>> ListKeysAsync(Guid agentId, CancellationToken ct = default)
     {
         await EnsureAdminAsync(ct);
@@ -78,6 +96,18 @@ public class AgentAccountService : IAgentAccountService
         await _db.SaveChangesAsync(ct);
 
         return new IssuedApiKey(apiKey, key);
+    }
+
+    public async Task RevokeKeyAsync(Guid agentId, Guid keyId, CancellationToken ct = default)
+    {
+        await EnsureAdminAsync(ct);
+        await FindAgentAsync(agentId, ct);
+
+        var apiKey = await _db.ApiKeys.FirstOrDefaultAsync(k => k.Id == keyId && k.UserId == agentId, ct)
+            ?? throw new EntityNotFoundException(nameof(ApiKey), keyId);
+        apiKey.Revoke(_clock.GetUtcNow());
+
+        await _db.SaveChangesAsync(ct);
     }
 
     private async Task<User> FindAgentAsync(Guid agentId, CancellationToken ct)

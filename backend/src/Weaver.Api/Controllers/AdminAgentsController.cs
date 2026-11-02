@@ -38,6 +38,10 @@ public class AdminAgentsController : ControllerBase
         return CreatedAtAction(nameof(GetAll), AgentAccountDto.FromEntity(agent));
     }
 
+    [HttpPut("{id:guid}/active")]
+    public async Task<ActionResult<AgentAccountDto>> SetActive(Guid id, SetUserActiveRequest request) =>
+        Ok(AgentAccountDto.FromEntity(await _agents.SetActiveAsync(id, request.IsActive)));
+
     [HttpGet("{id:guid}/keys")]
     public async Task<ActionResult<IReadOnlyList<ApiKeyDto>>> GetKeys(Guid id)
     {
@@ -52,5 +56,14 @@ public class AdminAgentsController : ControllerBase
     {
         var issued = await _agents.IssueKeyAsync(id, request.Label, request.Scope);
         return CreatedAtAction(nameof(GetKeys), new { id }, IssuedApiKeyDto.FromIssued(issued));
+    }
+
+    /// <summary>Revokes rather than deletes: the key stays in the list, marked revoked.</summary>
+    [HttpDelete("{id:guid}/keys/{keyId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> RevokeKey(Guid id, Guid keyId)
+    {
+        await _agents.RevokeKeyAsync(id, keyId);
+        return NoContent();
     }
 }

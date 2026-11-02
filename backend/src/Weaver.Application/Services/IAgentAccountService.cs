@@ -13,9 +13,18 @@ public interface IAgentAccountService
 
     Task<User> CreateAsync(string name, string? description, CancellationToken ct = default);
 
+    /// <summary>
+    /// A deactivated agent's keys stop working but aren't revoked, so reactivating it brings
+    /// them back. Otherwise as for <see cref="IUserAdministrationService.SetActiveAsync"/>.
+    /// </summary>
+    Task<User> SetActiveAsync(Guid agentId, bool isActive, CancellationToken ct = default);
+
     /// <summary>The agent's keys, revoked ones included, oldest first.</summary>
     Task<IReadOnlyList<ApiKey>> ListKeysAsync(Guid agentId, CancellationToken ct = default);
 
     /// <summary>Only the hash is stored, so the returned plaintext is the only copy there will be.</summary>
     Task<IssuedApiKey> IssueKeyAsync(Guid agentId, string label, ApiKeyScope scope, CancellationToken ct = default);
+
+    /// <summary>Revoked keys stay listed, so what they did stays attributable; revoking twice is a no-op.</summary>
+    Task RevokeKeyAsync(Guid agentId, Guid keyId, CancellationToken ct = default);
 }

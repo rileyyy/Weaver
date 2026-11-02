@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Weaver.Application.Auth;
 using Weaver.Application.Services;
 using Weaver.Domain;
 
@@ -16,6 +17,7 @@ public static class DependencyInjection
             .AddScoped<IAdminAuthorizer, AdminAuthorizer>()
             .AddScoped<IUserAdministrationService, UserAdministrationService>()
             .AddScoped<IAgentAccountService, AgentAccountService>()
+            .AddScoped<IApiKeyAuthenticator, ApiKeyAuthenticator>()
             .AddScoped<IFirstAdminBootstrapper, FirstAdminBootstrapper>()
             .AddScoped<ICommentService, CommentService>()
             .AddScoped<IWorkItemLinkService, WorkItemLinkService>()
