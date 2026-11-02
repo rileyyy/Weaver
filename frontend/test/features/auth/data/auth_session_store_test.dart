@@ -21,10 +21,6 @@ class _FakeAuthRepository implements AuthRepository {
       throw UnimplementedError();
 
   @override
-  Future<AuthSession> register(String username, String password) =>
-      throw UnimplementedError();
-
-  @override
   Future<AuthSession> refresh(String refreshToken) async {
     refreshCalls.add(refreshToken);
     final error = refreshError;
@@ -44,10 +40,6 @@ class _GatedAuthRepository implements AuthRepository {
 
   @override
   Future<AuthSession> login(String username, String password) =>
-      throw UnimplementedError();
-
-  @override
-  Future<AuthSession> register(String username, String password) =>
       throw UnimplementedError();
 
   @override

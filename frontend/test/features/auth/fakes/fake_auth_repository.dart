@@ -18,13 +18,11 @@ AuthSession fakeSession(String username, {bool isAdmin = false}) => AuthSession(
 );
 
 class FakeAuthRepository implements AuthRepository {
-  FakeAuthRepository({this.loginError, this.registerError, this.logoutError});
+  FakeAuthRepository({this.loginError, this.logoutError});
 
   final Exception? loginError;
-  final Exception? registerError;
   final Exception? logoutError;
   final List<String> loginCalls = [];
-  final List<String> registerCalls = [];
 
   /// When set, [login] waits on it, so a test can observe the in-flight
   /// state.
@@ -35,14 +33,6 @@ class FakeAuthRepository implements AuthRepository {
     loginCalls.add(username);
     await loginGate?.future;
     final error = loginError;
-    if (error != null) throw error;
-    return fakeSession(username);
-  }
-
-  @override
-  Future<AuthSession> register(String username, String password) async {
-    registerCalls.add(username);
-    final error = registerError;
     if (error != null) throw error;
     return fakeSession(username);
   }

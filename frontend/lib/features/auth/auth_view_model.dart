@@ -69,17 +69,6 @@ class AuthViewModel extends ViewModel {
     errorMessage: 'Could not sign in. Check your username and password.',
   );
 
-  /// See [login] for [serverAddress].
-  Future<void> register(
-    String username,
-    String password, {
-    String serverAddress = '',
-  }) => _submit(
-    () => _repository.register(username, password),
-    serverAddress: serverAddress,
-    errorMessage: 'Could not create an account. Try a different username.',
-  );
-
   Future<void> logout() async {
     final refreshToken = _sessionStore.current?.refreshToken;
     await _sessionStore.clear();

@@ -69,19 +69,6 @@ void main() {
     },
   );
 
-  test('register posts credentials to the register endpoint', () async {
-    http.Request? sentRequest;
-    final client = MockClient((request) async {
-      sentRequest = request;
-      return _jsonResponse(_authBody());
-    });
-
-    final repository = ApiAuthRepository(client, endpoint);
-    await repository.register('alice', 'a valid password');
-
-    expect(sentRequest!.url.path, '/api/auth/register');
-  });
-
   test('refresh posts the refresh token to the refresh endpoint', () async {
     http.Request? sentRequest;
     final client = MockClient((request) async {

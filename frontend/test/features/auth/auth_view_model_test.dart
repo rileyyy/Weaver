@@ -65,28 +65,6 @@ void main() {
     expect(viewModel.errorMessage, wait);
   });
 
-  test('register on success authenticates the same as login', () async {
-    await viewModel.register('newuser', 'a valid password');
-
-    expect(viewModel.isAuthenticated, isTrue);
-    expect(viewModel.currentUser!.username, 'newuser');
-  });
-
-  test('register on failure sets an error message', () async {
-    viewModel = AuthViewModel(
-      FakeAuthRepository(
-        registerError: const ApiException('taken', statusCode: 409),
-      ),
-      sessionStore,
-      webServerSettings(),
-    );
-
-    await viewModel.register('alice', 'a valid password');
-
-    expect(viewModel.isAuthenticated, isFalse);
-    expect(viewModel.errorMessage, isNotNull);
-  });
-
   test('logout clears the session', () async {
     await viewModel.login('alice', 'a valid password');
 
@@ -106,7 +84,7 @@ void main() {
   });
 
   test(
-    'reacts to session changes made outside of its own login/register/logout',
+    'reacts to session changes made outside of its own login/logout',
     () async {
       var notified = false;
       viewModel.addListener(() => notified = true);
@@ -173,17 +151,6 @@ void main() {
 
       expect(viewModel.isAuthenticated, isTrue);
       expect(serverSettings.baseUrl, 'https://weaver.example.ts.net/api');
-      expect(originStore.origin, 'https://weaver.example.ts.net');
-    });
-
-    test('registers against the typed server too', () async {
-      await viewModel.register(
-        'bob',
-        'a valid password',
-        serverAddress: 'https://weaver.example.ts.net',
-      );
-
-      expect(repository.registerCalls, ['bob']);
       expect(originStore.origin, 'https://weaver.example.ts.net');
     });
 
