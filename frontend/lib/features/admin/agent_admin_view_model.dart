@@ -85,6 +85,7 @@ class AgentAdminViewModel extends ViewModel {
   }
 
   /// The server's order: case-insensitive by name.
-  static List<AgentAccount> _sorted(List<AgentAccount> agents) => [...agents]
-    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  static List<AgentAccount> _sorted(List<AgentAccount> agents) =>
+      [...agents]
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 }

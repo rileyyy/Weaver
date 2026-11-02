@@ -3,6 +3,7 @@ import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/admin/models/new_user.dart';
 import 'package:weaver/features/admin/user_admin_view_model.dart';
 import 'package:weaver/shared/data/current_user.dart';
+import 'package:weaver/shared/models/user_kind.dart';
 
 import 'fakes/fake_user_admin_repository.dart';
 
@@ -31,6 +32,18 @@ void main() {
   test('knows which user is signed in', () {
     expect(viewModel.isCurrentUser(viewModel.users[0]), isTrue);
     expect(viewModel.isCurrentUser(viewModel.users[1]), isFalse);
+  });
+
+  test('lists people only; agents are on the Agents tab', () async {
+    repository.users = [
+      adminUser('admin', isAdmin: true),
+      adminUser('bot', kind: UserKind.agent),
+      adminUser('carol'),
+    ];
+
+    await viewModel.load();
+
+    expect(viewModel.users.map((u) => u.id), ['admin', 'carol']);
   });
 
   test('a failed load reports an error', () async {

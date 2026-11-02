@@ -7,13 +7,14 @@ import 'package:weaver/shared/models/user_kind.dart';
 AdminUser adminUser(
   String id, {
   String? username,
+  UserKind kind = UserKind.human,
   bool isAdmin = false,
   bool isActive = true,
   DateTime? lockedUntil,
 }) => AdminUser(
   id: id,
   username: username ?? id,
-  kind: UserKind.human,
+  kind: kind,
   isAdmin: isAdmin,
   isActive: isActive,
   lockedUntil: lockedUntil,

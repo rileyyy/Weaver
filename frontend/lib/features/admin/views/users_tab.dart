@@ -26,8 +26,9 @@ class UsersTab extends StatelessWidget {
         loadError: viewModel.loadError,
         onRetry: viewModel.load,
         description:
-            'Everyone who can sign in. Deactivated accounts keep their '
-            'comments but can’t sign in or be assigned work.',
+            'The people who can sign in; agents are on the Agents tab. '
+            'Deactivated accounts keep their comments but can’t sign in or '
+            'be assigned work.',
         addLabel: 'Add user',
         onAdd: () => unawaited(
           showCreateUserDialog(context, onCreate: viewModel.create),
