@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Weaver.Api.Auth;
 using Weaver.Api.Background;
@@ -55,6 +56,11 @@ builder.Services.AddHostedService<RecurrenceGenerationWorker>();
 // User property for free, so they resolve it via the accessor instead.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICallerContext, HttpCallerContext>();
+
+// A read-only API key may not write (ADR-0004). Both transports apply Caller.EnsureCanWrite to
+// every write by default, so a new endpoint or tool is covered without opting in: REST to every
+// non-GET action, MCP to every tool not marked ReadOnly.
+builder.Services.Configure<MvcOptions>(options => options.Filters.Add<WriteAccessFilter>());
 
 // MCP tool classes are discovered via [McpServerToolType] from this assembly (Weaver.Api,
 // the calling assembly) — see the Mcp/ folder. Stateless mode means each MCP call is just a

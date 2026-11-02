@@ -32,6 +32,6 @@ public class ApiKeyAuthenticator : IApiKeyAuthenticator
             await _db.SaveChangesAsync(ct);
         }
 
-        return new ApiKeySignIn(apiKey.UserId, apiKey.Id);
+        return new ApiKeySignIn(apiKey.UserId, apiKey.Id, apiKey.Scope);
     }
 }
