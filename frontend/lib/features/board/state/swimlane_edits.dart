@@ -52,6 +52,98 @@ extension SwimlaneEdits on List<Swimlane> {
     ];
   }
 
+  /// The card that [cardId], dropped in its lane's [statusId] cell, should
+  /// be ranked directly after: the one before [beforeCardId], or the cell's
+  /// last card when [beforeCardId] is null or no longer in the cell. Null
+  /// means the top of the cell, which is also what the backend reads a
+  /// missing `afterId` as.
+  String? rankAnchorForDrop(
+    String cardId,
+    String statusId, {
+    String? beforeCardId,
+  }) {
+    final cellIds = [
+      for (final card in _laneOf(cardId)?.cards ?? const <WorkItemCard>[])
+        if (card.statusId == statusId) card.id,
+    ];
+    final beforeIndex = beforeCardId == null
+        ? -1
+        : cellIds.indexOf(beforeCardId);
+    final idsAhead = beforeIndex == -1
+        ? cellIds
+        : cellIds.sublist(0, beforeIndex);
+    return idsAhead.where((id) => id != cardId).lastOrNull;
+  }
+
+  /// Moves the card to [statusId] within its lane, directly after [afterId]
+  /// in that cell, or at the top of the cell when [afterId] is null or
+  /// isn't in the cell. No other card moves, so it can also undo a
+  /// placement without disturbing anything placed since.
+  List<Swimlane> withCardPlaced(
+    String cardId,
+    String statusId, {
+    required String? afterId,
+  }) {
+    final owner = _laneOf(cardId);
+    if (owner == null) return this;
+
+    final placed = owner.cards
+        .firstWhere((c) => c.id == cardId)
+        .copyWith(statusId: statusId);
+    final rest = [
+      for (final c in owner.cards)
+        if (c.id != cardId) c,
+    ];
+    final anchorIndex = rest.indexWhere(
+      (c) => c.id == afterId && c.statusId == statusId,
+    );
+    final topIndex = rest.indexWhere((c) => c.statusId == statusId);
+    final insertAt = anchorIndex != -1
+        ? anchorIndex + 1
+        : (topIndex == -1 ? rest.length : topIndex);
+
+    return [
+      for (final lane in this)
+        if (lane.parentId == owner.parentId)
+          lane.copyWithCards(rest..insert(insertAt, placed))
+        else
+          lane,
+    ];
+  }
+
+  /// The ids of the cards before [cardId] in its cell, in rank order.
+  List<String> cellIdsBefore(String cardId) {
+    final cards = _laneOf(cardId)?.cards ?? const <WorkItemCard>[];
+    final card = cards.where((c) => c.id == cardId).firstOrNull;
+    if (card == null) return const [];
+    return [
+      for (final c in cards.takeWhile((c) => c.id != cardId))
+        if (c.statusId == card.statusId) c.id,
+    ];
+  }
+
+  /// Puts the card back in [statusId] after the last of [predecessorIds]
+  /// still in that cell, so undoing a move doesn't depend on its old
+  /// neighbour not having moved since.
+  List<Swimlane> withCardRestored(
+    String cardId,
+    String statusId, {
+    required List<String> predecessorIds,
+  }) {
+    final cellIds = {
+      for (final card in _laneOf(cardId)?.cards ?? const <WorkItemCard>[])
+        if (card.statusId == statusId && card.id != cardId) card.id,
+    };
+    return withCardPlaced(
+      cardId,
+      statusId,
+      afterId: predecessorIds.where(cellIds.contains).lastOrNull,
+    );
+  }
+
+  Swimlane? _laneOf(String cardId) =>
+      where((lane) => lane.cards.any((c) => c.id == cardId)).firstOrNull;
+
   /// Sets the assignee wherever [workItemId] appears: as a lane's own item,
   /// a card, or both.
   List<Swimlane> withAssignee(String workItemId, String? userId) => [

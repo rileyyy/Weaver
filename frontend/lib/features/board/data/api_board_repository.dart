@@ -79,10 +79,14 @@ class ApiBoardRepository implements BoardRepository {
   Future<List<User>> loadUsers() => _users.loadUsers();
 
   @override
-  Future<void> changeStatus(String cardId, String newStatusId) =>
-      _api.putIgnoringBody('/work-items/$cardId/status', {
-        'statusId': newStatusId,
-      }, failureMessage: 'Failed to change status');
+  Future<void> changeStatus(
+    String cardId,
+    String newStatusId, {
+    required String? afterId,
+  }) => _api.putIgnoringBody('/work-items/$cardId/status', {
+    'statusId': newStatusId,
+    'afterId': afterId,
+  }, failureMessage: 'Failed to change status');
 
   @override
   Future<void> reparentItem(String itemId, String newParentId) =>

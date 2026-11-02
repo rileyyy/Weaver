@@ -58,6 +58,36 @@ const _rootBoard = BoardData(
   ],
 );
 
+WorkItemCard _laneACard(String id, String statusId) => WorkItemCard(
+  id: id,
+  number: 1,
+  title: id,
+  parentId: 'lane-a',
+  statusId: statusId,
+);
+
+/// One lane whose To Do cell holds t1, t2, t3 and whose Done cell holds
+/// d1, d2, in rank order.
+final _reorderBoard = BoardData(
+  statuses: const [
+    WorkItemStatus(id: 'todo', name: 'To Do', order: 0),
+    WorkItemStatus(id: 'done', name: 'Done', order: 1),
+  ],
+  swimlanes: [
+    Swimlane(
+      parentId: 'lane-a',
+      title: 'Lane A',
+      cards: [
+        _laneACard('t1', 'todo'),
+        _laneACard('d1', 'done'),
+        _laneACard('t2', 'todo'),
+        _laneACard('t3', 'todo'),
+        _laneACard('d2', 'done'),
+      ],
+    ),
+  ],
+);
+
 const _card1Children = BoardData(
   statuses: [WorkItemStatus(id: 'todo', name: 'To Do', order: 0)],
   swimlanes: [
@@ -92,7 +122,10 @@ class _TestBoardRepository implements BoardRepository {
     this.hierarchyItems = const [],
     this.hierarchyError,
     this.users = const [],
+    this.rootBoard = _rootBoard,
   });
+
+  final BoardData rootBoard;
 
   final Exception? changeStatusError;
   final Exception? reparentError;
@@ -104,6 +137,9 @@ class _TestBoardRepository implements BoardRepository {
   final Exception? hierarchyError;
   List<User> users;
   final List<String> statusChanges = [];
+
+  /// The `afterId` sent with each of [statusChanges], in the same order.
+  final List<String?> statusChangeAnchors = [];
   final List<String> reparents = [];
   final List<String> reschedules = [];
   final List<String?> requestedScopes = [];
@@ -135,7 +171,7 @@ class _TestBoardRepository implements BoardRepository {
   Future<BoardData> loadBoard(String? scopeItemId) async {
     requestedScopes.add(scopeItemId);
     await loadGates[scopeItemId]?.future;
-    if (scopeItemId == null) return _rootBoard;
+    if (scopeItemId == null) return rootBoard;
     if (scopeItemId == 'card-1') return _card1Children;
     throw ApiException('No fixture for scope $scopeItemId', statusCode: 404);
   }
@@ -158,8 +194,13 @@ class _TestBoardRepository implements BoardRepository {
   Future<List<User>> loadUsers() => Future.value(users);
 
   @override
-  Future<void> changeStatus(String cardId, String newStatusId) async {
+  Future<void> changeStatus(
+    String cardId,
+    String newStatusId, {
+    required String? afterId,
+  }) async {
     statusChanges.add('$cardId->$newStatusId');
+    statusChangeAnchors.add(afterId);
     await statusGates[cardId]?.future;
     final error = changeStatusError;
     if (error != null) throw error;
@@ -228,8 +269,11 @@ class _FailingLoadRepository implements BoardRepository {
   Future<List<User>> loadUsers() => Future.value(const []);
 
   @override
-  Future<void> changeStatus(String cardId, String newStatusId) =>
-      Future.value();
+  Future<void> changeStatus(
+    String cardId,
+    String newStatusId, {
+    required String? afterId,
+  }) => Future.value();
 
   @override
   Future<void> reparentItem(String itemId, String newParentId) =>
@@ -1529,6 +1573,132 @@ void main() {
         expect(viewModel.moveError, isNotNull);
       },
     );
+  });
+
+  group('reordering cards', () {
+    late _TestBoardRepository reorderRepository;
+    late BoardViewModel reorderViewModel;
+
+    setUp(() async {
+      reorderRepository = _TestBoardRepository(rootBoard: _reorderBoard);
+      reorderViewModel = BoardViewModel(reorderRepository);
+      await reorderViewModel.load();
+    });
+
+    WorkItemCard cardById(String id) =>
+        reorderViewModel.swimlanes.single.cards.firstWhere((c) => c.id == id);
+
+    List<String> cell(String statusId) => [
+      for (final card in reorderViewModel.swimlanes.single.cards)
+        if (card.statusId == statusId) card.id,
+    ];
+
+    test(
+      'dropping before a card in the same cell reorders and persists it',
+      () async {
+        await reorderViewModel.moveCard(
+          cardById('t3'),
+          'todo',
+          beforeCardId: 't2',
+        );
+
+        expect(cell('todo'), ['t1', 't3', 't2']);
+        expect(reorderRepository.statusChanges, ['t3->todo']);
+        expect(reorderRepository.statusChangeAnchors, ['t1']);
+      },
+    );
+
+    test('dropping at the top of the cell sends no anchor', () async {
+      await reorderViewModel.moveCard(
+        cardById('t2'),
+        'todo',
+        beforeCardId: 't1',
+      );
+
+      expect(cell('todo'), ['t2', 't1', 't3']);
+      expect(reorderRepository.statusChangeAnchors, [null]);
+    });
+
+    test('dropping a card where it already is sends nothing', () async {
+      await reorderViewModel.moveCard(
+        cardById('t2'),
+        'todo',
+        beforeCardId: 't3',
+      );
+      await reorderViewModel.moveCard(
+        cardById('t2'),
+        'todo',
+        beforeCardId: 't2',
+      );
+      await reorderViewModel.moveCard(cardById('t3'), 'todo');
+
+      expect(cell('todo'), ['t1', 't2', 't3']);
+      expect(reorderRepository.statusChanges, isEmpty);
+    });
+
+    test(
+      'moving to another status places the card at the drop position',
+      () async {
+        await reorderViewModel.moveCard(
+          cardById('t1'),
+          'done',
+          beforeCardId: 'd2',
+        );
+
+        expect(cell('todo'), ['t2', 't3']);
+        expect(cell('done'), ['d1', 't1', 'd2']);
+        expect(reorderRepository.statusChangeAnchors, ['d1']);
+      },
+    );
+
+    test(
+      'moving to another status without a position appends the card',
+      () async {
+        await reorderViewModel.moveCard(cardById('t1'), 'done');
+
+        expect(cell('done'), ['d1', 'd2', 't1']);
+        expect(reorderRepository.statusChangeAnchors, ['d2']);
+      },
+    );
+
+    test('a failed move returns the card to its old position', () async {
+      final failing = _TestBoardRepository(
+        rootBoard: _reorderBoard,
+        changeStatusError: const ApiException('rejected'),
+      );
+      reorderViewModel = BoardViewModel(failing);
+      await reorderViewModel.load();
+
+      await reorderViewModel.moveCard(
+        cardById('t2'),
+        'done',
+        beforeCardId: 'd1',
+      );
+
+      expect(cell('todo'), ['t1', 't2', 't3']);
+      expect(cell('done'), ['d1', 'd2']);
+      expect(reorderViewModel.moveError, isNotNull);
+    });
+
+    test('a failed reorder restores only the moved card, keeping a move that '
+        'succeeded meanwhile', () async {
+      reorderRepository.statusGates['t3'] = Completer<void>();
+      final failing = reorderViewModel.moveCard(
+        cardById('t3'),
+        'todo',
+        beforeCardId: 't1',
+      );
+      await reorderViewModel.moveCard(cardById('t2'), 'done');
+
+      reorderRepository.statusGates['t3']!.completeError(
+        const ApiException('rejected'),
+      );
+      await failing;
+
+      expect(cell('todo'), ['t1', 't3']);
+      expect(cell('done'), ['d1', 'd2', 't2']);
+      expect(reorderViewModel.moveError, isNotNull);
+    });
   });
 
   group('hierarchy stays in step with board mutations', () {
