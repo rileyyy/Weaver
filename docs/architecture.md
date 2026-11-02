@@ -386,14 +386,12 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   message, and the first two paths also verify the password against a
   dummy hash so they take as long as a real check. Neither the response
   nor its timing tells a caller whether a username exists or is locked.
-  (Registration still reveals a taken name with a 409; that goes away when
-  self-registration is turned off in Milestone 16, see
-  [ADR-0004](adr/0004-agent-accounts-and-api-keys.md).)
+  Only an admin creating an account learns that a name is taken (409).
 - **Lockout:** five consecutive failures lock the account for 15 minutes
   (`User.RecordFailedLogin`). An expired lockout starts a fresh count, so
   the first mistake afterwards doesn't re-lock immediately.
-- **Auth endpoints are rate-limited per client IP** (`register`, `login`,
-  `refresh`, `logout`): 30 requests a minute by default, configurable under
+- **Auth endpoints are rate-limited per client IP** (`login`, `refresh`,
+  `logout`): 30 requests a minute by default, configurable under
   `RateLimiting:Auth`, answered with 429, a `Retry-After` header and a
   problem-details message the login screen shows. The limit is generous
   enough for a team behind one NAT; the per-account lockout is what stops
@@ -402,7 +400,7 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   `AddAuthorization(options => options.FallbackPolicy = ...
   RequireAuthenticatedUser())`. A new controller is protected
   automatically. `AuthController` opts out per action with
-  `[AllowAnonymous]` (register, login, refresh, logout); `/health` opts out
+  `[AllowAnonymous]` (login, refresh, logout); `/health` opts out
   with `.AllowAnonymous()`.
   - **Pitfall:** never put `[AllowAnonymous]` on a controller that has
     authenticated actions. It wins unconditionally anywhere in the chain;
@@ -447,11 +445,24 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
 - **`User.IsAdmin`** gates the Admin page and every lookup or account
   change. Before admins existed everyone could do everything, so the
   `AdminUsersAndDeactivation` migration made every existing account an
-  admin. On a fresh database the first registered account is the admin;
-  later registrations aren't. Its `Down` drops the flag, so going down and
-  up again makes everyone an admin. Self-registration is open today;
-  Milestone 16 turns it off so admins create every account
-  ([ADR-0004](adr/0004-agent-accounts-and-api-keys.md)).
+  admin. Its `Down` drops the flag, so going down and up again makes
+  everyone an admin.
+- **There is no self-registration.** An admin creates every account
+  ([ADR-0004](adr/0004-agent-accounts-and-api-keys.md)); the API has no
+  register endpoint and the login screen offers none.
+- **The first admin comes from configuration.** On every start, after
+  any startup migration, `FirstAdminBootstrapper` checks the database: if
+  it has no accounts at all and `FirstAdmin:Username` and
+  `FirstAdmin:Password` are set, it creates that account as an admin; if
+  they aren't set it logs a warning. Once any account exists the settings
+  are ignored, so they can be left in place or cleared. The password must
+  follow the usual rules, or startup fails. Development sets
+  `admin` / `development-only-admin-password` in
+  `appsettings.Development.json`; the example `compose.yaml` passes
+  `WEAVER_FIRST_ADMIN_USERNAME` / `WEAVER_FIRST_ADMIN_PASSWORD` from
+  `.env`. A configuration value was chosen over a CLI command because the
+  reference deployment (Komodo) is driven by environment variables, not
+  interactive shells.
 - **The admin check reads the database** (`IAdminAuthorizer`), not a token
   claim. Revoking someone's admin rights takes effect on their next
   request, not when their access token expires. The client's `isAdmin`
@@ -460,7 +471,7 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   with any lockout still in force) and creates, renames, resets passwords,
   unlocks, grants or revokes admin, deactivates or reactivates, and
   deletes. Username and password rules are `UserCredentials`, shared with
-  registration.
+  the configured first admin.
 - **Deactivate instead of delete.** Comments must keep their author
   (`Restrict`), so deactivation is the normal way to remove someone:
   `DeactivatedAtUtc` blocks login (the same uniform
@@ -544,10 +555,10 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
 - **Statuses and users are fetched through shared, cached repositories**
   (`StatusRepository`, `UserDirectoryRepository`) that the feature
   repositories delegate to. Statuses are cached until `invalidate()`,
-  which the Admin page's repositories call after every successful write;
-  the user list is re-fetched after five minutes because people can
-  register while the app is open, or after `invalidate()`. A failed fetch
-  is never cached. Another person's admin changes show up after a reload.
+  which the Admin page's repositories call after every successful write.
+  The user list works the same way: only admins change accounts, and the
+  Admin page invalidates it after each change. A failed fetch is never
+  cached. Another person's admin changes show up after a reload.
 
 - **`ViewModel`** (`lib/core/presentation/view_model.dart`) is a thin
   `ChangeNotifier` that adds `notifyIfActive()`: async work can finish

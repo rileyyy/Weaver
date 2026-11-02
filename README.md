@@ -85,7 +85,10 @@ backup service are switched off in dev.
 | API | http://localhost:8080 (e.g. `/api/statuses`, `/mcp`, `/health`) |
 | PostgreSQL | `localhost:5432`, database/user/password `weaver` |
 
-Register an account on the login screen to get started. See
+Sign in as `admin` with the password `development-only-admin-password`
+(set in `appsettings.Development.json`); the backend creates that account
+on an empty database. Nobody can register: admins create every other
+account from the Admin page (the gear next to sign-out). See
 [docs/development.md](docs/development.md) for hot-reload limits and other
 dev-environment gotchas.
 
@@ -149,6 +152,7 @@ publicly known secrets.
 | `WEAVER_DOMAIN` | The host name or IP clients use to reach the server, e.g. `weaver.lan` or `192.168.1.20`. Caddy issues the certificate for exactly this name. |
 | `POSTGRES_PASSWORD` | `openssl rand -hex 24` (hex keeps it safe inside the connection string) |
 | `JWT_SIGNING_KEY` | `openssl rand -base64 48`. The API refuses to start with a key under 32 bytes. |
+| `WEAVER_FIRST_ADMIN_USERNAME` / `WEAVER_FIRST_ADMIN_PASSWORD` | The first admin account (see [The first admin](#the-first-admin)). The password needs at least 12 characters. |
 
 Optional:
 
@@ -175,6 +179,21 @@ exits) → backend (reports healthy on `/health`) → frontend → Caddy. If a
 migration fails, `migrate` exits non-zero and the backend doesn't start;
 `docker compose logs migrate` shows why. The app is then at
 `https://<WEAVER_DOMAIN>`.
+
+### The first admin
+
+Nobody can register: an admin creates every account, human or agent, from
+the Admin page ([ADR-0004](docs/adr/0004-agent-accounts-and-api-keys.md)).
+To get the first admin, set `WEAVER_FIRST_ADMIN_USERNAME` and
+`WEAVER_FIRST_ADMIN_PASSWORD` in `.env` before the first start. When the
+backend starts on a database with no accounts it creates that account as
+an admin; once any account exists it ignores both values, so you can
+remove them afterwards. If they are missing on an empty database, the
+backend still starts but logs a warning, and nobody can sign in until you
+set them and restart it (`docker compose up -d backend`).
+
+Deployments that don't use the example compose file set the same thing on
+the backend container as `FirstAdmin__Username` and `FirstAdmin__Password`.
 
 ### Update to a new release
 
