@@ -52,6 +52,27 @@ because Milestone 9's "assigned to" field needs Milestone 10's users.
 - **Assignee pickers mark agents** with a badge, on the board and in the
   detail dialog.
 
+## 2026-11-02 — Markdown and task lists
+
+`feature/markdown-and-task-lists` (ticket 35 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md)).
+
+- **Descriptions and comments render Markdown.** The description shows
+  rendered by default; its edit button switches to the raw text, and
+  edits are still saved with **Save details**. Editing a comment shows
+  its raw text.
+- **Task lists in a description can be ticked.** `- [ ] milk` draws a
+  checkbox; ticking it changes exactly that line and saves just the
+  description with `expectedVersion`. If someone else changed the item
+  first, the dialog reloads it and says so. History records the tick as a
+  description change. Boxes in comments, and in a description with
+  unsaved edits, are read-only.
+- **Rendered Markdown is safe to show**: raw HTML is shown as text,
+  images show their alt text instead of being fetched, and only `http`,
+  `https` and `mailto` links open, outside the app.
+- New packages: `flutter_markdown_plus` (the maintained fork of the
+  discontinued `flutter_markdown`), `markdown` and `url_launcher`.
+
 ## 2026-11-02 — Change history with actor
 
 `feature/change-history-with-actor` (ticket 10 of
@@ -254,7 +275,7 @@ settling four entries from [open-questions.md](docs/open-questions.md).
   table seeded with Low / Medium / High / Urgent, like layers.
   `WorkItemDto.Priority` (an enum name) became `PriorityId`; new items have
   no priority unless one is set (they used to default to Medium). `GET
-  /api/work-item-priorities` and the `list_work_item_priorities` MCP tool
+/api/work-item-priorities` and the `list_work_item_priorities` MCP tool
   list them. Migration `ConfigurablePriorities` keeps every existing
   item's priority; Up and Down were verified against the dev Postgres.
 - **Quick tagging.** A "+" at the end of the tags on board cards, Hierarchy
@@ -301,6 +322,7 @@ Fixes for the [2026-09-25 code review](code_review_findings.md), each on
 its own branch merged to `master`.
 
 ### Backend
+
 - **Deleting linked items and board scopes** (B-H2,
   `bugfix/delete-linked-work-item`): deleting a work item removes its links
   (and its cascaded descendants' links) instead of failing with a 500;
@@ -324,6 +346,7 @@ its own branch merged to `master`.
   picked day.
 
 ### Frontend
+
 - **Token refresh stampede** (F-H1, F-M1,
   `bugfix/token-refresh-stampede`): concurrent requests share one refresh;
   a failed refresh or a 401 only clears the session it started with;
@@ -345,6 +368,7 @@ its own branch merged to `master`.
   update the Hierarchy/Roadmap data.
 
 ### Deployment and infrastructure
+
 - **TLS and exposure** (I-H1, I-M3, I-L3,
   `bugfix/deploy-exposure-and-tls`): Caddy with an internal CA terminates
   TLS on 80/443 and redirects HTTP; the backend publishes no port; nginx
@@ -371,6 +395,7 @@ its own branch merged to `master`.
   `claude.md` for case-sensitive tooling.
 
 ### Docs
+
 - Documentation restructured (I-L2): top-level README, `docs/`, this
   changelog; `agent_notes.md` retired.
 
@@ -379,6 +404,7 @@ its own branch merged to `master`.
 Requested polish rounds, not numbered milestones.
 
 ### Board UI and views (2026-09-19/20)
+
 - Tapping a card opens a detail dialog with every attribute; drilling in
   moved to the dialog's "View sub-items" action. Swimlane labels open the
   lane's own item.
@@ -400,6 +426,7 @@ Requested polish rounds, not numbered milestones.
   the existing rows and new items continued the sequence.
 
 ### View improvements
+
 - Assignee avatars tappable everywhere to assign; an unassigned
   silhouette on swimlane labels and Hierarchy rows.
 - Hierarchy columns (Number, Title, Status, Assigned To) with headers and
@@ -412,17 +439,20 @@ Requested polish rounds, not numbered milestones.
   addresses that.
 
 ### Tags (2026-09-21)
+
 - Free-text tags on work items (`text[]` column, set as a whole,
   normalised server-side), shown as badges on cards, Hierarchy and
   Roadmap; edited in the detail dialog; included in search; a tag filter
   in the Filters dialog.
 
 ### Cleanup (2026-09-23/24)
+
 - Split multi-class files; chained DI registrations.
 - Detail dialog redesigned as a responsive two-column layout with a
   Sub-Items section.
 
 ## Milestone 13 — MCP (2026-09-19)
+
 - `IBoardService`, `IStatusService`, `IWorkItemLayerService` extracted
   first, so MCP could reuse services for every resource. The only REST
   change: an invalid board `ScopeItemId` returns the standard 404 body.
@@ -436,9 +466,11 @@ Requested polish rounds, not numbered milestones.
   caught an options bug that stopped the API from starting.
 
 ## Milestone 12 — Attachments
+
 Skipped.
 
 ## Milestone 11 — Comments and links (2026-09-19)
+
 - Comments on work items, editable and deletable only by their author.
 - Symmetric work-item links: listed from either side, duplicates in
   either direction and self-links rejected. Added by raw id.
@@ -446,6 +478,7 @@ Skipped.
   own-comment controls; links appear under "Related work items".
 
 ## Milestone 9 — Work-item details (2026-09-19)
+
 - `WorkItemLayer` lookup table (Project / Goal / Task), `Priority` enum,
   assignee, and `PUT /work-items/{id}/details`.
 - Detail screen with layer and priority dropdowns and per-field saves.
@@ -453,6 +486,7 @@ Skipped.
   priority `Low` instead of `Medium`; fixed before it left local dev.
 
 ## Milestone 10 — Authentication (2026-09-19)
+
 - Users with hashed passwords, JWT access tokens, rotating refresh tokens,
   lockout after failed logins, authentication required by default, CORS
   narrowed to configured origins.
@@ -464,36 +498,43 @@ Skipped.
   `docker compose restart`.
 
 ## Milestone 8 — Search, filter and sort (2026-09-18)
+
 - Client-side search over title and description, per-status column
   show/hide, and display-only sort (Manual, Title, Start date, Due date).
 - Verified in a browser against seeded data.
 
 ## Milestone 7 — Time-frame filter (2026-09-18)
+
 - Optional `StartDate` / `EndDate` on work items, set via `POST
-  /work-items/{id}/schedule`.
+/work-items/{id}/schedule`.
 - A from/to overlap filter instead of a sprint system. Fixed a 1 px
   column overflow found while verifying.
 
 ## Milestone 6 — Hierarchy (2026-09-18)
+
 - Drill into a card to make its children the lanes, breadcrumb
   navigation, reparent by dropping a card on another lane's label. No
   backend changes were needed.
 - Verified end to end, including the new parent persisting across reload.
 
 ## Milestone 5 — API-connected board (2026-09-18)
+
 - `ApiBoardRepository` replaced the fake in-memory repository; optimistic
   status moves with rollback; CORS enabled (later narrowed).
 
 ## Milestone 4 — Swimlane prototype (2026-09-18)
+
 - Standalone board with fixture data, drag between status columns within
   a lane, cross-lane drops rejected. Verified with coordinate-based mouse
   simulation in a headless browser.
 
 ## Milestone 3 — Flutter shell (2026-09-18)
+
 - App shell with the `ViewModel` base, `get_it` + `injectable` DI, and
   strict lint rules.
 
 ## Milestones 0–2 — Architecture, domain model, API (2026-09-18)
+
 - ASP.NET Core solution (Domain / Infrastructure / Api), EF Core with
   PostgreSQL, the work-item tree with separate status and parent
   operations, cycle detection, explicit cascade delete, fractional rank,

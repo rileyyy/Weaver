@@ -31,6 +31,9 @@ the API.
   number.
 - **Tags, comments and links.** Free-text tags; comments editable by their
   author; symmetric "related to" links between work items.
+- **Markdown and checklists.** Descriptions and comments render Markdown.
+  `- [ ]` task lines in a description are checkboxes you can tick, for
+  checklists and shopping lists.
 - **Change history.** Every change to a work item is recorded: who made it
   (agents are marked, with the key and actor label they used), when, and
   the old and new value. The detail dialog's History tab lists it, and it

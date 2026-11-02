@@ -814,6 +814,24 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   they sent), when, and the change. `WorkItemHistoryEntry.change` turns
   the raw JSON values into text, preferring the names the server sends
   for id values.
+- **User-written Markdown goes through `MarkdownText`**
+  (`shared/markdown/`, on `flutter_markdown_plus`, the maintained fork of
+  the discontinued `flutter_markdown`). Raw HTML stays text, images show
+  their alt text rather than being fetched from wherever the author
+  pointed them, and only `http`, `https` and `mailto` links open, outside
+  the app (`url_launcher` opens them with `noopener` on web).
+- **Ticking a task box edits one source line.** `toggleTask`
+  (`shared/markdown/task_list.dart`) is a pure function that finds task
+  lines the way the renderer does (skipping fenced and indented code) and
+  flips the nth one. The renderer builds a list item's box *after* its
+  nested items, so boxes are numbered by their order in the element tree
+  (`TaskToggleScope`), not by builder calls. Where the line scan and the
+  renderer's box count disagree (e.g. a task line inside an HTML block),
+  ticking is turned off rather than risk changing the wrong line. A tick
+  sends only the description with `expectedVersion`, built from the
+  saved description, so it never carries the form's unsaved edits; the
+  boxes are read-only while the description has unsaved edits or a save
+  is in flight.
 - **Comment and link changes in the detail dialog apply the server's
   response locally** instead of reloading the list. A reload that failed
   after a successful POST used to show as a failure, and retrying created
