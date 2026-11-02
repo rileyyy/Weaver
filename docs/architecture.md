@@ -1,17 +1,21 @@
 # Architecture
 
-How Weaver is built and why. Each section records the decisions that
+How Weaver is built today and why. Each section records the decisions that
 aren't obvious from the code alone, and the pitfalls behind them. The
 design rules themselves are in [project_design.md](../project_design.md);
-the history is in [CHANGELOG.md](../CHANGELOG.md).
+the history is in [CHANGELOG.md](../CHANGELOG.md). Milestones 16–20 are
+planned in [the Spaces and agents spec](../.scratch/spaces-and-agents/spec.md)
+and [adr/](adr/); sections describing something that plan replaces say so.
 
 ## Overview and layers
 
-- **Backend:** ASP.NET Core 9, three projects under `backend/src/`:
+- **Backend:** ASP.NET Core 9, four projects under `backend/src/`:
   - `Weaver.Domain`: entities, enums, domain exceptions, `RankCalculator`,
     `TextValidation`. No dependencies on EF Core or ASP.NET.
+  - `Weaver.Application`: the service interfaces and implementations,
+    `IWeaverDbContext`, `IWorkItemHierarchy` and `JwtOptions`.
   - `Weaver.Infrastructure`: `WeaverDbContext`, EF configurations and
-    migrations, JWT token service, and the application services.
+    migrations, the Postgres hierarchy queries and the JWT token service.
   - `Weaver.Api`: controllers, DTOs (`Contracts/`), MCP tools (`Mcp/`),
     `ApiExceptionMiddleware`, `Program.cs`.
 - **Frontend:** Flutter (`frontend/lib/`), organised by feature (`auth`,
@@ -24,10 +28,11 @@ the history is in [CHANGELOG.md](../CHANGELOG.md).
   and Compose runs it as a one-shot `migrate` service before the backend.
   Only Development applies them at API startup
   (`Database:MigrateOnStartup`), because `dotnet watch` restarts often.
-  Applying them on every boot would let replicas race and would crash-loop
-  the API on a failed migration.
-- **Deployment:** Docker Compose: `db`, `backend`, `frontend` (nginx),
-  `caddy` (TLS), `backup`.
+  Milestone 16 makes migrating on startup the default, with an environment
+  variable to opt out; with a single backend instance there are no
+  replicas to race ([ADR-0008](adr/0008-images-first-deployment.md)).
+- **Deployment:** the published images. The example `compose.yaml` runs
+  `db`, `backend`, `frontend` (nginx), `caddy` (TLS) and `backup`.
 
 **Projects follow the layers.** `Weaver.Domain` has the entities and
 domain exceptions. `Weaver.Application` has the service interfaces
@@ -54,9 +59,10 @@ and it is what allows MCP tools to reuse the same business logic (see
   top-level items when it is null); its cards are each swimlane's direct
   children. Depth-from-root was rejected: hierarchy depth is unrestricted
   and branches can have different depths, so "level N" doesn't generalise.
-  Scoping by a node means any card can become the scope of a future board
-  with no schema change, and drilling into a card on the frontend is just
-  loading a different scope.
+  Drilling into a card on the frontend is just loading a different scope.
+  The app only reads the first `Board`. The Board entity is removed in
+  Milestone 16: the Board becomes a layout of a View, and items are split
+  into Spaces ([ADR-0001](adr/0001-spaces.md)).
 - **`ChangeStatus` and `Reparent` are separate operations**
   (`ChangeStatusAsync` / `ReparentAsync`, `PUT /work-items/{id}/status` /
   `/parent`), each touching only `StatusId` or `ParentId`. That a column
@@ -81,6 +87,8 @@ and it is what allows MCP tools to reuse the same business logic (see
   `WorkItemHasChildrenException` (409). There is no silent subtree loss. A
   cascade loads all descendants and removes them in one `SaveChanges`; EF
   topologically sorts tracked deletes against the `Restrict` parent FK.
+  Deletes are permanent today; Milestone 16 moves them to the Trash
+  ([ADR-0007](adr/0007-trash.md)).
 - **Delete removes links and refuses to delete a board's scope.**
   - Both `WorkItemLink` FKs are `Restrict`, because EF rejects two
     `Cascade`/`SetNull` paths from one table to the same principal. So
@@ -92,19 +100,25 @@ and it is what allows MCP tools to reuse the same business logic (see
     `WorkItemIsBoardScopeException` (409). A board is a saved view other
     users rely on; silently deleting it or widening it to top level would
     be a surprising side effect of deleting a card.
-  - The InMemory provider doesn't enforce FKs, so these paths were
-    verified by hand against Postgres (see [Testing](#testing-strategy)).
+  - The InMemory provider doesn't enforce FKs, so these paths are covered
+    by the integration tests against Postgres (see
+    [Testing](#testing-strategy)).
 - **Rank is a fractional `double` scoped to `(ParentId, StatusId)`**, not
   globally unique. Drag-and-drop can insert between two siblings without
   rewriting anyone else's rank (`RankCalculator`). There is no rebalancing
-  job; ties from concurrent inserts at the same spot currently make
-  `RankCalculator` throw (B-M5 in the code review).
+  job; when two siblings share a rank (concurrent inserts at the same
+  spot), placing next to them respaces that cell
+  (`RankCalculator.EvenlySpaced`).
 - **`Number` is a Postgres identity column** (`GENERATED ALWAYS AS
   IDENTITY`, unique), set only by the database and used for display
   (`#N`). `Id` (a GUID) remains the key everywhere else. The InMemory
-  provider doesn't generate it, so it has no unit test.
+  provider doesn't generate it, so only the integration tests cover it.
 
 ### Layers, priority and other fields
+
+Layers, and the global statuses and priorities, are replaced by per-Space
+Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
+[ADR-0002](adr/0002-types-and-custom-fields.md)).
 
 - **`WorkItemLayer` is a lookup table** (`Id`, `Name`, `Order`, `Color`),
   seeded with Project / Goal / Task via `HasData`, the same pattern as
@@ -132,9 +146,9 @@ and it is what allows MCP tools to reuse the same business logic (see
     option labels it "Due date").
   - There is no stored `ProjectId`: "which project is this under" is the
     nearest ancestor whose layer is Project. Storing it would duplicate the
-    hierarchy and drift on reparent. A project concept independent of the
-    tree would be a separate feature.
-  - The requested `Type` field is `LayerId`.
+    hierarchy and drift on reparent. Spaces are the planned top-level
+    container ([ADR-0001](adr/0001-spaces.md)).
+  - The requested `Type` field is `LayerId` until Types replace Layers.
   - `CreatedAtUtc` / `UpdatedAtUtc` are the created/updated timestamps.
 - **Statuses** are seeded (To Do, Doing, Done) with a per-row `Color`, so
   colours can be changed without a schema change.
@@ -154,7 +168,8 @@ and it is what allows MCP tools to reuse the same business logic (see
   `/work-item-priorities`), `PUT /{id}` (statuses and layers take a
   `color` alongside the `name`), `PUT /order` with every id in its
   new order, `DELETE /{id}?replacementId=`. None of this is exposed over
-  MCP yet; agents can still read the lists.
+  MCP: agents can read the lists but never change them
+  ([ADR-0004](adr/0004-agent-accounts-and-api-keys.md)).
 - **Deleting moves the items, it doesn't orphan them.** Work items using
   the deleted value move to `replacementId`. Items may go without a layer
   or priority, so omitting it clears them. Every item needs a status, so a
@@ -175,8 +190,11 @@ and it is what allows MCP tools to reuse the same business logic (see
 
 - **`Tags` is a `List<string>` mapped to a Postgres `text[]` column**, the
   first scalar-list field on `WorkItem`. No join table and no index: all
-  tag search and filtering happens on the client over data it already has.
-- **Tags are set as a whole** (`SetTagsAsync`, `POST
+  tag search and filtering happens on the client over data it already has
+  until the server-side query replaces it
+  ([ADR-0006](adr/0006-server-side-query-and-views.md)). Tags stay global
+  across Spaces.
+- **Tags are set as a whole** (`SetTagsAsync`, `PUT
   /work-items/{id}/tags`); there is no add/remove-one endpoint. The client
   always sends the complete list.
 - **Normalisation is server-side:** each tag is trimmed, blank tags are
@@ -195,8 +213,9 @@ and it is what allows MCP tools to reuse the same business logic (see
   item, so a link created from A is listed from B with the same id.
   Creating a duplicate in either direction (`DuplicateWorkItemLinkException`,
   409) or a self-link (`SelfWorkItemLinkException`, 400) is rejected.
-- Links are untyped "related to" associations, not URLs or attachments
-  (see [open-questions.md](open-questions.md)).
+- Links are untyped "related to" associations, added by the target's raw
+  id. Typed links, URL links and a search picker come in Milestones 16–18
+  ([ADR-0009](adr/0009-typed-links-and-dependency-flags.md)).
 - Comments cascade-delete with their work item; editing is restricted to
   the author (see [Authentication](#authentication)).
 
@@ -208,13 +227,15 @@ and it is what allows MCP tools to reuse the same business logic (see
   converted to UTC, so east of UTC the stored value was the previous day.
   A day on a schedule is not an instant; storing it as one invites
   time-zone bugs.
-- **They're set by their own operation**, `RescheduleAsync` (`POST
+- **They're set by their own operation**, `RescheduleAsync` (`PUT
   /work-items/{id}/schedule`), separate from status, parent and create.
   The only rule (start not after end, when both are set) is checked before
   the entity lookup, so a bad range is reported even for a nonexistent id
   instead of being masked by a 404.
 - **A missing date is open-ended, not "unscheduled"** (see the time
-  filter under [Frontend](#frontend)).
+  filter under [Frontend](#frontend)). Milestone 16 reverses this for items
+  with no dates at all, which move to the Backlog
+  ([ADR-0003](adr/0003-when-and-backlog.md)).
 
 ### Repeating work items
 
@@ -263,15 +284,16 @@ and it is what allows MCP tools to reuse the same business logic (see
 - **"Today" is the server's UTC date**, via `TimeProvider` (injected, so
   the lead window is testable). With a seven-day lead that's close enough;
   only the "next occurrence" label can be a day off around midnight.
+  Milestone 16 replaces UTC with an admin-set server time zone.
 - **Schedule saves are last-write-wins**, like status and assignee: a
   schedule is one small form with no version token yet.
 
 ## API
 
-- **Operation-oriented endpoints** for state changes: `POST
+- **Operation-oriented endpoints** for state changes: `PUT
   /work-items/{id}/status`, `/parent`, `/schedule`, `/assignee`, `/tags`,
-  and `PUT /work-items/{id}/details` for title, description, layer and
-  priority together. Those four share an endpoint because none of them
+  and `/details` for title, description, layer and priority together.
+  Those four share an endpoint because none of them
   carries the cross-cutting risk that keeps status and parent apart.
 - **DTOs only** (`Weaver.Api/Contracts`); EF entities are never
   serialised.
@@ -329,6 +351,10 @@ and it is what allows MCP tools to reuse the same business logic (see
   the description.
 - `ExpectedVersion` is optional so MCP clients that don't track versions
   keep working.
+- `PUT /details` (`update_work_item_details`) replaces all four fields, so
+  a description, layer or priority the caller leaves out is cleared.
+  Milestone 16 moves field updates to patch semantics and accepts
+  `expectedVersion` on every write.
 - The detail dialog sends it; on a conflict it reloads the item and
   re-seeds its form fields so the next save can't overwrite the other
   change with stale values. The board's own tag and reschedule calls don't
@@ -360,8 +386,9 @@ and it is what allows MCP tools to reuse the same business logic (see
   message, and the first two paths also verify the password against a
   dummy hash so they take as long as a real check. Neither the response
   nor its timing tells a caller whether a username exists or is locked.
-  (Registration still reveals a taken name with a 409; that follows from
-  open registration, see [open-questions.md](open-questions.md).)
+  (Registration still reveals a taken name with a 409; that goes away when
+  self-registration is turned off in Milestone 16, see
+  [ADR-0004](adr/0004-agent-accounts-and-api-keys.md).)
 - **Lockout:** five consecutive failures lock the account for 15 minutes
   (`User.RecordFailedLogin`). An expired lockout starts a fresh count, so
   the first mistake afterwards doesn't re-lock immediately.
@@ -407,8 +434,8 @@ and it is what allows MCP tools to reuse the same business logic (see
   are kept, because reuse detection needs them.
 - **CORS** allows only `Cors:AllowedOrigins`, with no default, so a
   deployment that forgets it allows no cross-origin calls rather than all
-  of them. In production the app is same-origin through Caddy, so this
-  only matters for another web origin calling the API
+  of them. The web app is served same-origin with the API (nginx proxies
+  `/api`), so this only matters for another web origin calling the API
   (`CORS_ALLOWED_ORIGIN`, defaulting to `https://$WEAVER_DOMAIN`).
 - **Comment edit/delete authorisation is in `CommentService`**, not the
   controller: `UpdateAsync` / `DeleteAsync` take the caller's user id (from
@@ -422,7 +449,9 @@ and it is what allows MCP tools to reuse the same business logic (see
   `AdminUsersAndDeactivation` migration made every existing account an
   admin. On a fresh database the first registered account is the admin;
   later registrations aren't. Its `Down` drops the flag, so going down and
-  up again makes everyone an admin.
+  up again makes everyone an admin. Self-registration is open today;
+  Milestone 16 turns it off so admins create every account
+  ([ADR-0004](adr/0004-agent-accounts-and-api-keys.md)).
 - **The admin check reads the database** (`IAdminAuthorizer`), not a token
   claim. Revoking someone's admin rights takes effect on their next
   request, not when their access token expires. The client's `isAdmin`
@@ -459,16 +488,23 @@ and it is what allows MCP tools to reuse the same business logic (see
   behaves exactly as it does for a controller. `CommentTools` reads the
   caller's id through `IHttpContextAccessor`.
 - **Coverage:** work items, boards, statuses, layers, priorities, users,
-  comments and links. Lookups and users are read-only over MCP; their admin
-  changes are REST-only for now. Auth endpoints are not tools; they're how a client gets its token.
+  comments, links and repeating items. Lookups and users are read-only over
+  MCP, and agents will never be able to change admin data
+  ([ADR-0004](adr/0004-agent-accounts-and-api-keys.md)). Auth endpoints are
+  not tools; they're how a client gets its token.
   `list_all_work_items` pages through every item like `GET
   /work-items/all` (same `offset`/`limit`, default 500, at most 1000, from
   `WorkItemService`), so an agent can rebuild the whole tree;
   `list_work_item_children` with `parentId` omitted returns top-level items.
+  There is no search, filter or `#Number` lookup yet; the server-side query
+  replaces this paging in Milestone 16
+  ([ADR-0006](adr/0006-server-side-query-and-views.md)).
 - **Auth is the REST API's.** `app.MapMcp("/mcp")` sits in the same
   pipeline after `UseAuthentication()` / `UseAuthorization()`, so it
   inherits the fallback policy. A request with no bearer token gets a plain
-  401 before reaching MCP handling.
+  401 before reaching MCP handling. Today an agent logs in with a human
+  account's password; agent accounts with API keys replace this in
+  Milestone 16 ([ADR-0004](adr/0004-agent-accounts-and-api-keys.md)).
 - **Pitfall: enum serialisation options.** `WithToolsFromAssembly` takes
   its own `JsonSerializerOptions`; without one, enums go out as ints.
   `McpJsonSerializerOptions.Default` adds `JsonStringEnumConverter`, and it
@@ -488,7 +524,7 @@ and it is what allows MCP tools to reuse the same business logic (see
 - **Stateless Streamable HTTP** (`options.Stateless = true`) on the API's
   own port, not a separate stdio process. Each MCP call is an ordinary
   request with no server-side session, matching the stateless REST API. In
-  production it's reached through Caddy → nginx; nginx proxies `/mcp`
+  production it's reached through the frontend's nginx, which proxies `/mcp`
   unbuffered with a one-hour read timeout because responses can be
   server-sent event streams.
 
@@ -733,10 +769,13 @@ and it is what allows MCP tools to reuse the same business logic (see
   Rank is only unique within a (parent, status) cell, so the read queries
   order by `Rank, Number` to stay deterministic across columns.
 - **Search, status filter, tag filter, sort and the time-frame filter are
-  client-side.** The board already fetches each lane's full child list,
+  client-side today.** The board already fetches each lane's full child list,
   and the Hierarchy/Roadmap views page through `GET /work-items/all`
   (`offset`/`limit`, at most 1000 per page, 500 by default), so these are
   predicates and comparators over data in hand. None of them is persisted.
+  This breaks the rule that business logic stays out of the client, and is
+  replaced by the server-side query and saved Views
+  ([ADR-0006](adr/0006-server-side-query-and-views.md)).
 - **Time-frame filter semantics are interval overlap, not containment**,
   with a missing bound (the item's or the filter's) open-ended. An item
   with only a start date matches any frame ending at or after it; one with
@@ -746,7 +785,8 @@ and it is what allows MCP tools to reuse the same business logic (see
   inclusive whole days, each can be cleared on its own, and an inverted
   range can't be picked (and is swapped if set programmatically). It is not a
   sprint system: there is no fixed-length cycle, and the frame isn't
-  saved.
+  saved. From Milestone 16 an item with no dates is in the Backlog and
+  matches no frame ([ADR-0003](adr/0003-when-and-backlog.md)).
 - **`CardSortOption.manual` has a `null` comparator** and `StatusColumn`
   skips sorting entirely in that case. Dart's `List.sort` isn't stable, so
   an always-0 comparator could reshuffle the rank order. Sorting never
@@ -798,12 +838,17 @@ and it is what allows MCP tools to reuse the same business logic (see
 
 ## Deployment and infrastructure
 
+The published images are the product; `compose.yaml` is a public example
+of running them. The reference deployment runs the images under its own
+compose file on a homelab, managed by Komodo, with Tailscale names and TLS
+from tsdproxy ([ADR-0008](adr/0008-images-first-deployment.md)).
+
 ### Compose file split
 
-- **`compose.yaml` is the deployment definition.** It only references
+- **`compose.yaml` is the example deployment.** It only references
   pre-built images (`BACKEND_IMAGE` / `FRONTEND_IMAGE` at
-  `WEAVER_IMAGE_TAG`), with no `build:` and no source mounts. It is what
-  the server runs with `docker compose pull && docker compose up -d`.
+  `WEAVER_IMAGE_TAG`), with no `build:` and no source mounts. A server
+  using it runs `docker compose pull && docker compose up -d`.
 - **`compose.override.yaml` is the dev overlay.** Compose loads it
   automatically on `docker compose up`; it swaps in `build:`, bind mounts,
   dev commands and published ports, and disables `caddy` and `backup` with
@@ -823,18 +868,19 @@ and it is what allows MCP tools to reuse the same business logic (see
 
 ### TLS and request path
 
-- **Caddy with its internal CA terminates TLS.** The server is LAN-only
-  with no public domain, so Let's Encrypt isn't an option. `caddy` runs
+- **In the example compose, Caddy with its internal CA terminates TLS.**
+  It targets a LAN server with no public domain, where Let's Encrypt isn't
+  an option. `caddy` runs
   `caddy reverse-proxy --from https://$WEAVER_DOMAIN --to frontend:8080
   --internal-certs`, owns host ports 80/443 and redirects HTTP to HTTPS.
   It's configured on the command line so the server still needs only
   `compose.yaml` and `.env`. The CA keys live in the `caddy-data` volume;
   each device trusts the root once (see the README).
-- **The backend publishes no port in production.** Everything, including
-  `/mcp`, goes Caddy → nginx → backend, so nothing reaches the API without
-  TLS. nginx passes Caddy's `X-Forwarded-Proto` through (falling back to
-  its own scheme), and the API trusts forwarded headers from up to two
-  proxies (`UseForwardedHeaders`, `ForwardLimit = 2`, known networks and
+- **The backend publishes no port in the example compose.** Everything,
+  including `/mcp`, goes Caddy → nginx → backend, so nothing reaches the
+  API without TLS. nginx passes Caddy's `X-Forwarded-Proto` through
+  (falling back to its own scheme), and the API trusts forwarded headers
+  from up to two proxies (`UseForwardedHeaders`, `ForwardLimit = 2`, known networks and
   proxies cleared because Compose IPs aren't fixed). There is no
   `UseHttpsRedirection`: TLS ends at Caddy, and in-container redirection
   only logged a warning.
@@ -842,8 +888,8 @@ and it is what allows MCP tools to reuse the same business logic (see
   to `backend:8080`, so no API URL is baked into the frontend image; the
   domain is only known at deploy time.
 - **Both frontend images listen on 8080** so prod and dev share one mental
-  model; only the host side differs (Caddy → 8080 in prod, `8082:8080` in
-  dev).
+  model; only the host side differs (Caddy → 8080 in the example compose,
+  `8082:8080` in dev).
 
 ### Frontend image (nginx)
 
@@ -882,11 +928,12 @@ and it is what allows MCP tools to reuse the same business logic (see
   ready. The dev override makes `migrate` a no-op (dev migrates at API
   startup) and relaxes the frontend's wait to `service_started`, because
   the first `dotnet watch` build can outlast the healthcheck.
-- **Backups are an inline `backup` service on `postgres:16-alpine`**,
-  which already has `pg_dump`. A third-party backup image would need the
-  database password, and inline configuration keeps the server at
-  `compose.yaml` + `.env`. Schedule, retention and restore are in the
-  README.
+- **Backups belong to whoever runs the images**; the reference homelab
+  does its own. The example compose has an inline `backup` service on
+  `postgres:16-alpine`, which already has `pg_dump`. A third-party backup
+  image would need the database password, and inline configuration keeps
+  the server at `compose.yaml` + `.env`. Schedule, retention and restore
+  are in the README.
 
 ### Images and GHCR naming
 
@@ -939,14 +986,16 @@ and it is what allows MCP tools to reuse the same business logic (see
   create/read/update/delete semantics. Mocking `DbContext` / `DbSet` only
   re-asserts the mock's setup.
 - **InMemory limits:** it doesn't enforce foreign keys, doesn't generate
-  `xmin` or identity columns, and has no `text[]` or unique-index
-  behaviour. So link/board-scope deletes, `WorkItem.Version` conflicts, the
-  refresh-token race and `Number` generation were verified manually against
-  real Postgres, not by automated tests.
-- **Integration tests are still missing** (T-1 in the code review): no
-  `WebApplicationFactory` + Testcontainers suite covering the auth
-  pipeline, JSON enum serialisation, Postgres-specific behaviour or MCP
-  over HTTP.
+  `xmin` or identity columns, and has no `text[]`, transaction or
+  unique-index behaviour.
+- **Integration tests cover what InMemory can't.**
+  `Weaver.Api.IntegrationTests` runs `WebApplicationFactory<Program>`
+  against a Testcontainers `postgres:16-alpine` in the `Production`
+  environment: the auth pipeline, JSON enum serialisation, link and
+  board-scope deletes, `WorkItem.Version` conflicts, `Number` generation,
+  tags, rank ties, the recursive hierarchy queries, lookup reordering,
+  startup configuration and MCP over HTTP. The refresh-token race was
+  verified manually against Postgres.
 - **Frontend:** view-model and repository unit tests with stub
   repositories and `MockClient`, including `Completer`-based concurrency
   tests for the shared refresh and for the board's overlapping loads and

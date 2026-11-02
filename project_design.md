@@ -7,7 +7,8 @@ The application consists of:
 - ASP.NET Core backend
 - PostgreSQL database
 - Flutter frontend
-- Docker Compose deployment
+- Published container images, with an example Docker Compose deployment
+  ([ADR-0008](docs/adr/0008-images-first-deployment.md))
 - MCP integration implemented in C#
 
 The application uses a layered architecture:
@@ -77,8 +78,9 @@ A generated occurrence must not itself be given a schedule.
 
 ## Board
 
-The primary board is a swimlane board. It is a layout of a View (a saved
-query over one or more Spaces), not a stored entity of its own.
+The primary board is a swimlane board. *From Milestone 16* it is a
+layout of a View (a saved query over one or more Spaces), not a stored
+entity of its own.
 
 Each parent work item is represented by one swimlane.
 
@@ -170,7 +172,7 @@ Every state-changing application operation requires tests for:
 
 ## Inspiration
 
-Azure DevOps projet management (specifically sprint boards and heirarchy views)
+Azure DevOps project management (specifically sprint boards and hierarchy views)
 and
 https://sneekes.app/posts/building-my-own-kanban-self-hosted/
 
@@ -179,6 +181,8 @@ https://sneekes.app/posts/building-my-own-kanban-self-hosted/
 These rules are the constraints; the rest lives elsewhere.
 [CHANGELOG.md](CHANGELOG.md) has the milestone status and what shipped,
 [docs/architecture.md](docs/architecture.md) records the design decisions
-made along the way and why, and
+made along the way and why,
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md) and
+[docs/adr/](docs/adr/) plan Milestones 16–20, and
 [docs/open-questions.md](docs/open-questions.md) lists the decisions that
 are still open.

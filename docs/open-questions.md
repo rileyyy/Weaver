@@ -27,6 +27,9 @@ These were open until the design review recorded in
   zone. (Milestone 16 in the spec.)
 - **Tag filter semantics:** the server-side query supports both OR and AND.
   ([ADR-0006](adr/0006-server-side-query-and-views.md))
+- **Whether tags are per-Space:** tags stay global across Spaces; they
+  aren't part of a Space's configuration.
+  ([ADR-0001](adr/0001-spaces.md))
 - **Items without dates have no Roadmap bar:** undated items live in the
   Backlog, and an undated parent is shown when a child matches.
   ([ADR-0003](adr/0003-when-and-backlog.md))
@@ -96,8 +99,7 @@ These were open until the design review recorded in
   there is no rename or merge UI short of removing and re-adding the tag
   on each item.
 - **To decide:** whether tags should be canonicalised across items, and
-  whether a rename/merge tool is needed. Tags are not per-Space today;
-  whether they should be is open too.
+  whether a rename/merge tool is needed.
 
 ## Views
 

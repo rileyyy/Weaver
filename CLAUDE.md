@@ -239,7 +239,7 @@ above and this file itself.
 
 ### Issue tracker
 
-Issues and specs live as local markdown files under `.scratch/<feature>/` (gitignored, so they stay on your machine). See `docs/agents/issue-tracker.md`.
+Issues and specs live as markdown files under `.scratch/<feature>/`, which is committed so they travel with the repo. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

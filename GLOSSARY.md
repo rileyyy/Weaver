@@ -33,8 +33,8 @@ single select, multi-select, user, or URL.
 the sum of that field over the parent's descendants.
 
 **Status category**
-: To Do, Doing or Done. Every status has one. Done-category statuses record
-a completion date and drive done-hiding.
+: To Do, Doing or Done. Every status has one. From Milestone 16,
+Done-category statuses record a completion date and drive done-hiding.
 
 **View** *(planned)*
 : A saved, shared query that picks one or more Spaces, filters and a layout.
@@ -42,7 +42,8 @@ Each user picks a default View.
 
 **Board**
 : The swimlane layout of a View. Each parent is a lane and its children are
-cards that move between status columns. It's no longer a stored entity.
+cards that move between status columns. From Milestone 16 it's no longer
+a stored entity.
 
 **Overview** *(planned)*
 : The built-in View of all scheduled and in-progress work across every
@@ -61,10 +62,15 @@ don't show Backlog items.
 **Resolving** a When sets the item's dates and/or adds a blocked-by link.
 _Avoid:_ sprint, iteration, focus period.
 
+**Tag**
+: A free-text label on a work item. Tags are global: the same tag can be
+used and filtered on across every Space.
+
 **Link**
-: A typed relationship between two work items (related, blocks/blocked by,
-duplicates), which can cross Spaces. A **URL link** points outside Weaver
-instead.
+: A relationship between two work items. Today it's untyped ("related
+to"); from Milestone 16 it's typed (related, blocks/blocked by,
+duplicates) and can cross Spaces. A **URL link** *(planned)* points outside
+Weaver instead.
 
 **Dependency conflict** *(planned)*
 : A blocked item scheduled to start before its blocker ends. Weaver flags it

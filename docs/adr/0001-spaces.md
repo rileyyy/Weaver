@@ -17,7 +17,9 @@ about different areas.
   a forest of work-item trees of any depth, and drill-down works inside it
   as it does now. Every work item belongs to exactly one Space.
 - **Configuration lives on the Space only, not on nodes inside it.** Each
-  Space owns its statuses, priorities, Types and done-hiding period.
+  Space owns its statuses, priorities, Types and done-hiding period. Tags
+  aren't Space configuration: they stay global, so one tag can be used and
+  filtered on across Spaces.
 - **Reparenting never crosses a Space boundary.** Moving an item to another
   Space is a separate, explicit operation that maps its status, Type and
   custom fields onto the target Space's configuration.

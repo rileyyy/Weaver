@@ -3,6 +3,7 @@
 **Date:** 2026-09-25 · **Revision reviewed:** `master` @ `55dd9ce`
 **Scope:** `backend/` (.NET 9 API, Domain, Infrastructure, tests), `frontend/` (Flutter app + tests), `docker/`, `compose*.yaml`, `.github/workflows/`.
 No code was changed as part of this review.
+**Status (2026-11-02):** closed apart from F-M7 (frontend, Medium), which is scheduled for Milestone 19 in [the Spaces and agents spec](.scratch/spaces-and-agents/spec.md).
 
 Each finding has a checkbox. Tick it (`[x]`) in the commit that fixes it, and note the branch next to it, so the tick lands on `master` together with the fix.
 

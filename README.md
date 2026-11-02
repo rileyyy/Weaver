@@ -3,8 +3,9 @@
 Weaver is a self-hosted work-item tracker. Work items form a tree of
 arbitrary depth, and the main view is a swimlane board: each parent item is
 a lane, its direct children are cards that move between status columns.
-It runs as a small Docker Compose stack on a LAN server, and AI agents can
-read and change work items through an MCP endpoint built into the API.
+It ships as two container images (API and web app) plus PostgreSQL, and AI
+agents can read and change work items through an MCP endpoint built into
+the API.
 
 ## Features
 
@@ -35,14 +36,18 @@ read and change work items through an MCP endpoint built into the API.
 - **MCP tools for AI agents.** The same operations as the REST API, over
   Streamable HTTP at `/mcp`.
 
+The next phase (Spaces, Types, Views, agent accounts, history and the
+Trash) is planned in
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md).
+
 ## Tech stack and repo layout
 
 | Path | What's there |
 | ---- | ------------ |
-| `backend/` | ASP.NET Core 9 API (`Weaver.Domain`, `Weaver.Infrastructure`, `Weaver.Api`), EF Core with PostgreSQL 16, NUnit tests. The MCP server is hosted inside the API. |
+| `backend/` | ASP.NET Core 9 API (`Weaver.Domain`, `Weaver.Application`, `Weaver.Infrastructure`, `Weaver.Api`), EF Core with PostgreSQL 16, NUnit tests. The MCP server is hosted inside the API. |
 | `frontend/` | Flutter app (web in production; the board is built to work on phone widths too). |
 | `docker/` | Production and dev Dockerfiles, the frontend's `nginx.conf`, and the Flutter dev entrypoint. |
-| `compose.yaml` | The deployment definition (pre-built images, Caddy, backups). |
+| `compose.yaml` | An example deployment of the published images (Caddy, backups). |
 | `compose.override.yaml` | Local-development overlay (build from source, hot reload). |
 | `docs/` | Architecture, development notes and open questions (see [Documentation](#documentation)). |
 
@@ -193,9 +198,10 @@ release changes the database.
 
 ### Trust the Caddy certificate authority
 
-The server is LAN-only with no public domain, so Caddy issues its
-certificate from its own internal CA instead of Let's Encrypt. Each device
-(and each MCP client) must trust that CA's root certificate once.
+The example compose targets a LAN server with no public domain, so Caddy
+issues its certificate from its own internal CA instead of Let's Encrypt.
+Each device (and each MCP client) must trust that CA's root certificate
+once.
 
 The root lives in the `caddy-data` volume. Copy it out on the server:
 
@@ -270,16 +276,18 @@ disk.
   and send the returned `accessToken` as `Authorization: Bearer
   <accessToken>` on every MCP request. There is no separate agent account
   type yet, so an MCP client acts as the human account it logs in with.
+  Agent accounts with API keys replace this in Milestone 16
+  ([ADR-0004](docs/adr/0004-agent-accounts-and-api-keys.md)).
 - **Access tokens last 15 minutes.** A long-running client has to log in
   again (or call `POST /api/auth/refresh` with the `refreshToken`) when
   requests start returning 401.
 - **TLS:** the client (or the machine it runs on) must trust the Caddy
   root certificate, see above.
 
-The tools cover work items, boards, statuses, layers, users, comments and
-links. Updates to details, schedule and tags accept an optional
-`expectedVersion` (the item's `Version` from your last read) to avoid
-overwriting someone else's change.
+The tools cover work items, boards, statuses, layers, priorities, users,
+comments, links and repeating items. Updates to details, schedule and tags
+accept an optional `expectedVersion` (the item's `Version` from your last
+read) to avoid overwriting someone else's change.
 
 ## Documentation
 
@@ -299,7 +307,7 @@ overwriting someone else's change.
 - [project_design.md](project_design.md): the project's design rules
   (layering, board invariants, testing requirements).
 - [code_review_findings.md](code_review_findings.md): the 2026-09-25 code
-  review, with fixed items ticked.
+  review, closed apart from F-M7.
 
 ## Contributing
 

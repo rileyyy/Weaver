@@ -185,14 +185,15 @@ dotnet ef migrations add <Name> \
     --project src/Weaver.Infrastructure --startup-project src/Weaver.Api
 ```
 
-They're applied automatically when the API starts. **Always read the
+In dev they're applied automatically when the API starts; the example
+compose applies them with its one-shot `migrate` service. **Always read the
 generated migration before committing**; the generator has been wrong
 here more than once:
 
 - **A new enum column's default is the enum's first member (ordinal 0),
-  not the C# property's default.** `WorkItem.Priority` defaults to
-  `Medium` in C#, but the generated migration backfilled existing rows
-  with `0`, which is `Low`. Set `defaultValue` by hand.
+  not the C# property's default.** `WorkItem.Priority`, then an enum,
+  defaulted to `Medium` in C#, but the generated migration backfilled
+  existing rows with `0`, which is `Low`. Set `defaultValue` by hand.
 - **A new `NOT NULL` array column got no default at all**, which fails on
   any existing row. `AddWorkItemTags` has a hand-added
   `defaultValueSql: "ARRAY[]::text[]"`.
@@ -223,7 +224,5 @@ SDK causes real problems, not just warnings:
 Install 3.44.0 (e.g. with `fvm`), or run tests and formatting in the dev
 container as shown above.
 
-`frontend/pubspec_overrides.yaml` currently pins `flutter_secure_storage`
-to `^10.3.4` against `pubspec.yaml`'s `^11.2.0`. It was a local
-workaround for an old SDK that got committed; removing it is F-L10 in the
-code review.
+`pubspec.yaml` holds `flutter_secure_storage` on `^10.3.4`; the comment
+there explains why moving to v11 needs its own branch.
