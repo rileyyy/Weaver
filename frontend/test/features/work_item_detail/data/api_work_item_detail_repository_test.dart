@@ -41,6 +41,12 @@ Map<String, dynamic> _itemJson({
   'version': version,
 };
 
+/// The body every work-item write answers with.
+Map<String, dynamic> _writeJson(
+  Map<String, dynamic> item, {
+  List<String> changedFields = const [],
+}) => {'item': item, 'changedFields': changedFields};
+
 Map<String, dynamic> _commentJson({DateTime? updatedAt}) => {
   'id': 'comment-1',
   'workItemId': 'item-1',
@@ -198,45 +204,51 @@ void main() {
     expect(users.single.username, 'alice');
   });
 
-  test('updateDetails puts the new fields and parses the response', () async {
-    http.Request? sentRequest;
-    final client = MockClient((request) async {
-      sentRequest = request;
-      return _jsonResponse(
-        _itemJson(layerId: 'layer-1', priorityId: 'priority-high'),
+  test(
+    'updateDetails patches the new fields and parses the response',
+    () async {
+      http.Request? sentRequest;
+      final client = MockClient((request) async {
+        sentRequest = request;
+        return _jsonResponse(
+          _writeJson(
+            _itemJson(layerId: 'layer-1', priorityId: 'priority-high'),
+          ),
+        );
+      });
+      final repository = ApiWorkItemDetailRepository(
+        client,
+        endpoint,
+        ApiStatusRepository(client, endpoint),
+        ApiLayerRepository(client, endpoint),
+        ApiUserDirectoryRepository(client, endpoint),
       );
-    });
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
 
-    await repository.updateDetails(
-      'item-1',
-      title: 'New title',
-      description: 'New description',
-      layerId: 'layer-1',
-      priorityId: 'priority-high',
-      expectedVersion: 7,
-    );
+      final item = await repository.updateDetails(
+        'item-1',
+        title: 'New title',
+        description: 'New description',
+        layerId: 'layer-1',
+        priorityId: 'priority-high',
+        expectedVersion: 7,
+      );
 
-    expect(sentRequest!.method, 'PUT');
-    expect(sentRequest!.url.path, '/api/work-items/item-1/details');
-    expect(jsonDecode(sentRequest!.body), {
-      'title': 'New title',
-      'description': 'New description',
-      'layerId': 'layer-1',
-      'priorityId': 'priority-high',
-      'expectedVersion': 7,
-    });
-  });
+      expect(item.layerId, 'layer-1');
+      expect(sentRequest!.method, 'PATCH');
+      expect(sentRequest!.url.path, '/api/work-items/item-1/details');
+      expect(jsonDecode(sentRequest!.body), {
+        'title': 'New title',
+        'description': 'New description',
+        'layerId': 'layer-1',
+        'priorityId': 'priority-high',
+        'expectedVersion': 7,
+      });
+    },
+  );
 
   test('updateDetails returns the new version from the response', () async {
     final client = MockClient(
-      (request) async => _jsonResponse(_itemJson(version: 8)),
+      (request) async => _jsonResponse(_writeJson(_itemJson(version: 8))),
     );
     final repository = ApiWorkItemDetailRepository(
       client,
@@ -294,31 +306,43 @@ void main() {
     },
   );
 
-  test('assign posts the userId to the assignee endpoint', () async {
+  test(
+    'assign puts the userId and expected version to the assignee endpoint',
+    () async {
+      http.Request? sentRequest;
+      final client = MockClient((request) async {
+        sentRequest = request;
+        return _jsonResponse(_writeJson(_itemJson(assignedToUserId: 'user-1')));
+      });
+      final repository = ApiWorkItemDetailRepository(
+        client,
+        endpoint,
+        ApiStatusRepository(client, endpoint),
+        ApiLayerRepository(client, endpoint),
+        ApiUserDirectoryRepository(client, endpoint),
+      );
+
+      final item = await repository.assign(
+        'item-1',
+        'user-1',
+        expectedVersion: 7,
+      );
+
+      expect(item.assignedToUserId, 'user-1');
+      expect(sentRequest!.method, 'PUT');
+      expect(sentRequest!.url.path, '/api/work-items/item-1/assignee');
+      expect(jsonDecode(sentRequest!.body), {
+        'userId': 'user-1',
+        'expectedVersion': 7,
+      });
+    },
+  );
+
+  test('updateTags patches the new tag list to the tags endpoint', () async {
     http.Request? sentRequest;
     final client = MockClient((request) async {
       sentRequest = request;
-      return _jsonResponse(_itemJson(assignedToUserId: 'user-1'));
-    });
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
-
-    await repository.assign('item-1', 'user-1');
-
-    expect(sentRequest!.url.path, '/api/work-items/item-1/assignee');
-    expect(jsonDecode(sentRequest!.body), {'userId': 'user-1'});
-  });
-
-  test('updateTags puts the new tag list to the tags endpoint', () async {
-    http.Request? sentRequest;
-    final client = MockClient((request) async {
-      sentRequest = request;
-      return _jsonResponse(_itemJson(tags: ['urgent']));
+      return _jsonResponse(_writeJson(_itemJson(tags: ['urgent'])));
     });
     final repository = ApiWorkItemDetailRepository(
       client,
@@ -332,7 +356,7 @@ void main() {
       'urgent',
     ], expectedVersion: 7);
 
-    expect(sentRequest!.method, 'PUT');
+    expect(sentRequest!.method, 'PATCH');
     expect(sentRequest!.url.path, '/api/work-items/item-1/tags');
     expect(jsonDecode(sentRequest!.body), {
       'tags': ['urgent'],
@@ -341,11 +365,11 @@ void main() {
     expect(item.tags, ['urgent']);
   });
 
-  test('reschedule posts the new dates', () async {
+  test('reschedule patches both dates', () async {
     http.Request? sentRequest;
     final client = MockClient((request) async {
       sentRequest = request;
-      return _jsonResponse(_itemJson());
+      return _jsonResponse(_writeJson(_itemJson()));
     });
     final repository = ApiWorkItemDetailRepository(
       client,
@@ -358,6 +382,7 @@ void main() {
 
     await repository.reschedule('item-1', start, null, expectedVersion: 7);
 
+    expect(sentRequest!.method, 'PATCH');
     expect(sentRequest!.url.path, '/api/work-items/item-1/schedule');
     expect(jsonDecode(sentRequest!.body), {
       'startDate': '2026-02-01',
@@ -446,26 +471,32 @@ void main() {
     expect(sentRequest!.url.path, '/api/comments/comment-1');
   });
 
-  test('deleteItem deletes the work item with the cascade flag', () async {
-    http.Request? sentRequest;
-    final client = MockClient((request) async {
-      sentRequest = request;
-      return http.Response('', 204);
-    });
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+  test(
+    'deleteItem deletes the work item with the cascade flag and version',
+    () async {
+      http.Request? sentRequest;
+      final client = MockClient((request) async {
+        sentRequest = request;
+        return http.Response('', 204);
+      });
+      final repository = ApiWorkItemDetailRepository(
+        client,
+        endpoint,
+        ApiStatusRepository(client, endpoint),
+        ApiLayerRepository(client, endpoint),
+        ApiUserDirectoryRepository(client, endpoint),
+      );
 
-    await repository.deleteItem('item-1', cascade: true);
+      await repository.deleteItem('item-1', cascade: true, expectedVersion: 7);
 
-    expect(sentRequest!.method, 'DELETE');
-    expect(sentRequest!.url.path, '/api/work-items/item-1');
-    expect(sentRequest!.url.queryParameters['cascade'], 'true');
-  });
+      expect(sentRequest!.method, 'DELETE');
+      expect(sentRequest!.url.path, '/api/work-items/item-1');
+      expect(sentRequest!.url.queryParameters, {
+        'cascade': 'true',
+        'expectedVersion': '7',
+      });
+    },
+  );
 
   test('loadLinks parses the link list', () async {
     final client = MockClient(

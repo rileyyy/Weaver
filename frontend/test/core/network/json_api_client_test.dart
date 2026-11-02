@@ -70,6 +70,26 @@ void main() {
     expect(jsonDecode(sent!.body), {'a': 1});
   });
 
+  test('patch sends JSON with the PATCH method and decodes the body', () async {
+    http.Request? sent;
+    final api = _client((request) async {
+      sent = request;
+      return http.Response(jsonEncode({'id': 'a'}), 200);
+    });
+
+    final id = await api.patch(
+      '/x',
+      {'a': null},
+      (json) => (json as Map<String, dynamic>)['id'] as String,
+      failureMessage: 'Failed',
+    );
+
+    expect(id, 'a');
+    expect(sent!.method, 'PATCH');
+    expect(sent!.headers['Content-Type'], startsWith('application/json'));
+    expect(jsonDecode(sent!.body), {'a': null});
+  });
+
   test(
     'a non-2xx response throws ApiException with the problem detail and status',
     () async {

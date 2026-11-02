@@ -19,7 +19,11 @@ abstract class WorkItemDetailRepository {
   /// Deletes the work item identified by [id]. If it has children,
   /// [cascade] must be true or the backend rejects the delete — a subtree
   /// is never silently dropped.
-  Future<void> deleteItem(String id, {bool cascade = false});
+  Future<void> deleteItem(
+    String id, {
+    bool cascade = false,
+    required int expectedVersion,
+  });
 
   Future<List<WorkItemStatus>> loadStatuses();
 
@@ -31,7 +35,7 @@ abstract class WorkItemDetailRepository {
 
   /// [expectedVersion] is the [WorkItemDetail.version] the edit was based
   /// on; the save fails with a 409 [ApiException] if the item has changed
-  /// since. The same applies to [reschedule] and [updateTags].
+  /// since. Every write here takes one, including [deleteItem].
   Future<WorkItemDetail> updateDetails(
     String id, {
     required String title,
@@ -41,7 +45,11 @@ abstract class WorkItemDetailRepository {
     required int expectedVersion,
   });
 
-  Future<WorkItemDetail> assign(String id, String? userId);
+  Future<WorkItemDetail> assign(
+    String id,
+    String? userId, {
+    required int expectedVersion,
+  });
 
   Future<WorkItemDetail> reschedule(
     String id,

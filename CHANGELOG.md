@@ -33,6 +33,23 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-02 — Patch updates and `expectedVersion` on every write
+
+`feature/patch-semantics-and-expected-version` (ticket 09 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md)).
+
+- **Field updates are patches.** Details, schedule and tags change only
+  the fields sent, over REST (now `PATCH`) and MCP; `null` clears a field.
+  An agent renaming an item no longer wipes its description, layer and
+  priority.
+- **Every work-item write takes an optional `expectedVersion`**, including
+  status, parent, assignee and delete, which were last-write-wins. A stale
+  one returns 409.
+- **Writes return `{ item, changedFields }`**: the item with its new
+  version, and the fields the write actually changed.
+- The detail dialog now also sends its version when assigning and
+  deleting. The board doesn't send versions yet (ticket 36).
+
 ## 2026-11-02 — Agent accounts and API keys
 
 `feature/agent-accounts-and-api-keys` (ticket 06 of

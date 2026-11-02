@@ -385,8 +385,11 @@ disk.
 
 The tools cover work items, boards, statuses, layers, priorities, users,
 comments, links and repeating items. Updates to details, schedule and tags
-accept an optional `expectedVersion` (the item's `Version` from your last
-read) to avoid overwriting someone else's change.
+change only the arguments you send: leave one out to keep it, or send
+`null` to clear it. Every work-item write accepts an optional
+`expectedVersion` (the item's `Version` from your last read) to avoid
+overwriting someone else's change, and returns the item with its new
+version and the fields that changed.
 
 ## Documentation
 

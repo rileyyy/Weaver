@@ -454,7 +454,7 @@ void main() {
     await expectLater(repository.loadAllItems(), throwsA(isA<ApiException>()));
   });
 
-  test('rescheduleItem puts the new dates and succeeds on 200', () async {
+  test('rescheduleItem patches the new dates and succeeds on 200', () async {
     http.Request? sentRequest;
     final client = MockClient((request) async {
       sentRequest = request;
@@ -474,7 +474,7 @@ void main() {
     await repository.rescheduleItem('card-1', start, null);
 
     expect(sentRequest, isNotNull);
-    expect(sentRequest!.method, 'PUT');
+    expect(sentRequest!.method, 'PATCH');
     expect(sentRequest!.url.path, '/api/work-items/card-1/schedule');
     expect(jsonDecode(sentRequest!.body), {
       'startDate': '2026-02-01',
@@ -563,7 +563,7 @@ void main() {
     );
   });
 
-  test('setTags puts the new tag list and succeeds on 200', () async {
+  test('setTags patches the new tag list and succeeds on 200', () async {
     http.Request? sentRequest;
     final client = MockClient((request) async {
       sentRequest = request;
@@ -580,7 +580,7 @@ void main() {
     await repository.setTags('card-1', ['urgent', 'needs review']);
 
     expect(sentRequest, isNotNull);
-    expect(sentRequest!.method, 'PUT');
+    expect(sentRequest!.method, 'PATCH');
     expect(sentRequest!.url.path, '/api/work-items/card-1/tags');
     expect(jsonDecode(sentRequest!.body), {
       'tags': ['urgent', 'needs review'],

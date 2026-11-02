@@ -16,3 +16,7 @@
 **2026-11-02, from ticket 01 (server time zone):**
 
 - Resolve quick picks (this weekend, next week, next month) on the server from `IServerCalendar.TodayAsync`, so they agree with repeating items and the Agenda; the app can't convert to the server zone itself.
+
+**2026-11-02, from ticket 09 (patch semantics and `expectedVersion`):**
+
+- When belongs with the descriptive fields: add `Optional<string?> When` to `WorkItemDetailsPatch` and a `WorkItemField.When`, and it's patchable over `PATCH /work-items/{id}/details` and `update_work_item_details` with no new endpoint. A quick pick that sets dates goes through `PATCH /schedule`, which already keeps a date that's left out.

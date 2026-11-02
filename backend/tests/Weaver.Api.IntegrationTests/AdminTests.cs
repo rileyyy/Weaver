@@ -80,7 +80,7 @@ public class AdminTests
         var item = await admin.CreateWorkItemAsync("Card", lane.Id);
         await (await admin.PutJsonAsync(
             $"/api/work-items/{item.Id}/status",
-            new ChangeWorkItemStatusRequest(status.Id, null))).ReadAsync<WorkItemDto>();
+            new ChangeWorkItemStatusRequest(status.Id, null))).ReadAsync<WorkItemWriteResponse>();
 
         var withoutReplacement = await admin.DeleteAsync($"/api/statuses/{status.Id}");
         var withReplacement = await admin.DeleteAsync($"/api/statuses/{status.Id}?replacementId={SeededStatuses.ToDo}");
@@ -125,7 +125,7 @@ public class AdminTests
         var (commenterClient, commenter) = await ApiClient.SignedInAsync();
         var item = await admin.CreateWorkItemAsync("Assigned");
         await (await admin.PutJsonAsync($"/api/work-items/{item.Id}/assignee", new AssignWorkItemRequest(member.User.Id)))
-            .ReadAsync<WorkItemDto>();
+            .ReadAsync<WorkItemWriteResponse>();
         await (await commenterClient.PostJsonAsync($"/api/work-items/{item.Id}/comments", new CreateCommentRequest("Hi")))
             .ReadAsync<CommentDto>();
 

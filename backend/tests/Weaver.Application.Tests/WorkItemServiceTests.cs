@@ -1,3 +1,4 @@
+using static Weaver.Application.Tests.Patches;
 using Microsoft.EntityFrameworkCore;
 using Weaver.Application.Services;
 using Weaver.Domain;
@@ -48,7 +49,7 @@ public class WorkItemServiceTests
         var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId);
         var child = await _service.CreateAsync("Child", null, parent.Id, StatusConfiguration.ToDoId);
 
-        var moved = await _service.ChangeStatusAsync(child.Id, StatusConfiguration.DoingId);
+        var moved = (await _service.ChangeStatusAsync(child.Id, StatusConfiguration.DoingId)).Item;
 
         Assert.That(moved.StatusId, Is.EqualTo(StatusConfiguration.DoingId));
         Assert.That(moved.ParentId, Is.EqualTo(parent.Id));
@@ -61,7 +62,7 @@ public class WorkItemServiceTests
         var newParent = await _service.CreateAsync("New parent", null, null, StatusConfiguration.ToDoId);
         var child = await _service.CreateAsync("Child", null, oldParent.Id, StatusConfiguration.DoingId);
 
-        var moved = await _service.ReparentAsync(child.Id, newParent.Id);
+        var moved = (await _service.ReparentAsync(child.Id, newParent.Id)).Item;
 
         Assert.That(moved.ParentId, Is.EqualTo(newParent.Id));
         Assert.That(moved.StatusId, Is.EqualTo(StatusConfiguration.DoingId));
@@ -92,7 +93,7 @@ public class WorkItemServiceTests
         var child = await _service.CreateAsync("Child", null, root.Id, StatusConfiguration.ToDoId);
         var unrelated = await _service.CreateAsync("Unrelated", null, null, StatusConfiguration.ToDoId);
 
-        var moved = await _service.ReparentAsync(child.Id, unrelated.Id);
+        var moved = (await _service.ReparentAsync(child.Id, unrelated.Id)).Item;
 
         Assert.That(moved.ParentId, Is.EqualTo(unrelated.Id));
     }
@@ -334,7 +335,7 @@ public class WorkItemServiceTests
         var start = new DateOnly(2026, 9, 25);
         var end = start.AddDays(7);
 
-        var rescheduled = await _service.RescheduleAsync(item.Id, start, end);
+        var rescheduled = (await _service.RescheduleAsync(item.Id, start, end)).Item;
 
         Assert.That(rescheduled.StartDate, Is.EqualTo(start));
         Assert.That(rescheduled.EndDate, Is.EqualTo(end));
@@ -348,7 +349,7 @@ public class WorkItemServiceTests
         var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
         await _service.RescheduleAsync(item.Id, new DateOnly(2026, 9, 25), new DateOnly(2026, 9, 26));
 
-        var cleared = await _service.RescheduleAsync(item.Id, null, null);
+        var cleared = (await _service.RescheduleAsync(item.Id, null, null)).Item;
 
         Assert.That(cleared.StartDate, Is.Null);
         Assert.That(cleared.EndDate, Is.Null);
@@ -380,7 +381,7 @@ public class WorkItemServiceTests
         var second = await _service.CreateAsync("Second", null, parent.Id, StatusConfiguration.DoingId, afterId: first.Id);
         var moving = await _service.CreateAsync("Moving", null, parent.Id, StatusConfiguration.ToDoId);
 
-        var moved = await _service.ChangeStatusAsync(moving.Id, StatusConfiguration.DoingId, afterId: first.Id);
+        var moved = (await _service.ChangeStatusAsync(moving.Id, StatusConfiguration.DoingId, afterId: first.Id)).Item;
 
         Assert.That(moved.Rank, Is.GreaterThan(first.Rank));
         Assert.That(moved.Rank, Is.LessThan(second.Rank));
@@ -480,8 +481,8 @@ public class WorkItemServiceTests
     {
         var item = await _service.CreateAsync("Old title", "Old description", null, StatusConfiguration.ToDoId);
 
-        var updated = await _service.UpdateDetailsAsync(
-            item.Id, "New title", "New description", WorkItemLayerConfiguration.GoalId, WorkItemPriorityConfiguration.UrgentId);
+        var updated = (await _service.UpdateDetailsAsync(
+            item.Id, Details("New title", "New description", WorkItemLayerConfiguration.GoalId, WorkItemPriorityConfiguration.UrgentId))).Item;
 
         Assert.That(updated.Title, Is.EqualTo("New title"));
         Assert.That(updated.Description, Is.EqualTo("New description"));
@@ -495,7 +496,7 @@ public class WorkItemServiceTests
         var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId);
         var item = await _service.CreateAsync("Child", null, parent.Id, StatusConfiguration.DoingId);
 
-        var updated = await _service.UpdateDetailsAsync(item.Id, "Renamed", null, null, WorkItemPriorityConfiguration.LowId);
+        var updated = (await _service.UpdateDetailsAsync(item.Id, Details("Renamed", null, null, WorkItemPriorityConfiguration.LowId))).Item;
 
         Assert.That(updated.StatusId, Is.EqualTo(StatusConfiguration.DoingId));
         Assert.That(updated.ParentId, Is.EqualTo(parent.Id));
@@ -505,7 +506,7 @@ public class WorkItemServiceTests
     public void UpdateDetailsAsync_WithUnknownLayerId_ThrowsEntityNotFoundException()
     {
         Assert.ThrowsAsync<EntityNotFoundException>(() =>
-            _service.UpdateDetailsAsync(Guid.NewGuid(), "Title", null, Guid.NewGuid(), null));
+            _service.UpdateDetailsAsync(Guid.NewGuid(), Details("Title", null, Guid.NewGuid(), null)));
     }
 
     [Test]
@@ -515,7 +516,7 @@ public class WorkItemServiceTests
             "Item", null, null, StatusConfiguration.ToDoId, priorityId: WorkItemPriorityConfiguration.LowId);
 
         Assert.ThrowsAsync<EntityNotFoundException>(() =>
-            _service.UpdateDetailsAsync(item.Id, "Item", null, null, Guid.NewGuid()));
+            _service.UpdateDetailsAsync(item.Id, Details("Item", null, null, Guid.NewGuid())));
 
         _db.ChangeTracker.Clear();
         Assert.That((await _db.WorkItems.SingleAsync()).PriorityId, Is.EqualTo(WorkItemPriorityConfiguration.LowId));
@@ -527,7 +528,7 @@ public class WorkItemServiceTests
         var item = await _service.CreateAsync(
             "Item", null, null, StatusConfiguration.ToDoId, priorityId: WorkItemPriorityConfiguration.LowId);
 
-        var updated = await _service.UpdateDetailsAsync(item.Id, "Item", null, null, null);
+        var updated = (await _service.UpdateDetailsAsync(item.Id, Details("Item", null, null, null))).Item;
 
         Assert.That(updated.PriorityId, Is.Null);
     }
@@ -536,7 +537,7 @@ public class WorkItemServiceTests
     public void UpdateDetailsAsync_WhenNotFound_ThrowsEntityNotFoundException()
     {
         Assert.ThrowsAsync<EntityNotFoundException>(() =>
-            _service.UpdateDetailsAsync(Guid.NewGuid(), "Title", null, null, null));
+            _service.UpdateDetailsAsync(Guid.NewGuid(), Details("Title", null, null, null)));
     }
 
     [Test]
@@ -544,8 +545,8 @@ public class WorkItemServiceTests
     {
         var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
 
-        var updated = await _service.UpdateDetailsAsync(
-            item.Id, "Renamed", null, null, WorkItemPriorityConfiguration.HighId, expectedVersion: item.Version);
+        var updated = (await _service.UpdateDetailsAsync(
+            item.Id, Details("Renamed", null, null, WorkItemPriorityConfiguration.HighId), expectedVersion: item.Version)).Item;
 
         Assert.That(updated.Title, Is.EqualTo("Renamed"));
     }
@@ -556,7 +557,7 @@ public class WorkItemServiceTests
         var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
 
         Assert.ThrowsAsync<WorkItemVersionConflictException>(() => _service.UpdateDetailsAsync(
-            item.Id, "Renamed", null, null, WorkItemPriorityConfiguration.HighId, expectedVersion: item.Version + 1));
+            item.Id, Details("Renamed", null, null, WorkItemPriorityConfiguration.HighId), expectedVersion: item.Version + 1));
 
         _db.ChangeTracker.Clear();
         Assert.That((await _db.WorkItems.SingleAsync()).Title, Is.EqualTo("Item"));
@@ -577,7 +578,7 @@ public class WorkItemServiceTests
         var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
 
         Assert.ThrowsAsync<WorkItemVersionConflictException>(() =>
-            _service.SetTagsAsync(item.Id, ["urgent"], expectedVersion: item.Version + 1));
+            _service.SetTagsAsync(item.Id, Tags("urgent"), expectedVersion: item.Version + 1));
     }
 
     [Test]
@@ -588,7 +589,7 @@ public class WorkItemServiceTests
         await _db.SaveChangesAsync();
         var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
 
-        var assigned = await _service.AssignAsync(item.Id, user.Id);
+        var assigned = (await _service.AssignAsync(item.Id, user.Id)).Item;
 
         Assert.That(assigned.AssignedToUserId, Is.EqualTo(user.Id));
     }
@@ -602,7 +603,7 @@ public class WorkItemServiceTests
         var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
         await _service.AssignAsync(item.Id, user.Id);
 
-        var unassigned = await _service.AssignAsync(item.Id, null);
+        var unassigned = (await _service.AssignAsync(item.Id, null)).Item;
 
         Assert.That(unassigned.AssignedToUserId, Is.Null);
     }
@@ -631,7 +632,7 @@ public class WorkItemServiceTests
     {
         var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
 
-        var tagged = await _service.SetTagsAsync(item.Id, ["urgent", "needs review"]);
+        var tagged = (await _service.SetTagsAsync(item.Id, Tags("urgent", "needs review"))).Item;
 
         Assert.That(tagged.Tags, Is.EqualTo(new[] { "urgent", "needs review" }));
     }
@@ -640,9 +641,9 @@ public class WorkItemServiceTests
     public async Task SetTagsAsync_WithEmptyList_ClearsTags()
     {
         var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
-        await _service.SetTagsAsync(item.Id, ["urgent"]);
+        await _service.SetTagsAsync(item.Id, Tags("urgent"));
 
-        var cleared = await _service.SetTagsAsync(item.Id, []);
+        var cleared = (await _service.SetTagsAsync(item.Id, Tags())).Item;
 
         Assert.That(cleared.Tags, Is.Empty);
     }
@@ -652,7 +653,7 @@ public class WorkItemServiceTests
     {
         var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
 
-        var tagged = await _service.SetTagsAsync(item.Id, [" Bug ", "bug", "Feature"]);
+        var tagged = (await _service.SetTagsAsync(item.Id, Tags(" Bug ", "bug", "Feature"))).Item;
 
         Assert.That(tagged.Tags, Is.EqualTo(new[] { "Bug", "Feature" }));
     }
@@ -663,14 +664,14 @@ public class WorkItemServiceTests
         var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
 
         Assert.ThrowsAsync<InvalidWorkItemTagException>(() =>
-            _service.SetTagsAsync(item.Id, ["urgent", "   "]));
+            _service.SetTagsAsync(item.Id, Tags("urgent", "   ")));
     }
 
     [Test]
     public void SetTagsAsync_WhenNotFound_ThrowsEntityNotFoundException()
     {
         Assert.ThrowsAsync<EntityNotFoundException>(() =>
-            _service.SetTagsAsync(Guid.NewGuid(), ["urgent"]));
+            _service.SetTagsAsync(Guid.NewGuid(), Tags("urgent")));
     }
 
     [TestCase("")]
@@ -696,7 +697,7 @@ public class WorkItemServiceTests
         var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
 
         Assert.ThrowsAsync<DomainValidationException>(() =>
-            _service.UpdateDetailsAsync(item.Id, " ", null, null, null));
+            _service.UpdateDetailsAsync(item.Id, Details(" ", null, null, null)));
 
         _db.ChangeTracker.Clear();
         Assert.That((await _db.WorkItems.SingleAsync()).Title, Is.EqualTo("Item"));
@@ -708,7 +709,7 @@ public class WorkItemServiceTests
         var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
 
         Assert.ThrowsAsync<DomainValidationException>(() =>
-            _service.SetTagsAsync(item.Id, [new string('t', WorkItem.TagMaxLength + 1)]));
+            _service.SetTagsAsync(item.Id, Tags(new string('t', WorkItem.TagMaxLength + 1))));
     }
 
     [Test]
@@ -717,7 +718,7 @@ public class WorkItemServiceTests
         var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
         var tags = Enumerable.Range(0, WorkItem.MaxTags + 1).Select(i => $"tag{i}").ToList();
 
-        Assert.ThrowsAsync<DomainValidationException>(() => _service.SetTagsAsync(item.Id, tags));
+        Assert.ThrowsAsync<DomainValidationException>(() => _service.SetTagsAsync(item.Id, Tags([.. tags])));
     }
 
     [Test]
@@ -726,7 +727,7 @@ public class WorkItemServiceTests
         var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
         var tags = Enumerable.Range(0, WorkItem.MaxTags).Select(i => $"tag{i}").Append("TAG0").ToList();
 
-        var tagged = await _service.SetTagsAsync(item.Id, tags);
+        var tagged = (await _service.SetTagsAsync(item.Id, Tags([.. tags]))).Item;
 
         Assert.That(tagged.Tags, Has.Count.EqualTo(WorkItem.MaxTags));
     }
@@ -759,5 +760,100 @@ public class WorkItemServiceTests
 
         Assert.That(swimlanes.Single().Lane.Id, Is.EqualTo(top.Id));
         Assert.That(swimlanes.Single().Cards.Single().Id, Is.EqualTo(card.Id));
+    }
+
+    [Test]
+    public async Task UpdateDetailsAsync_WithOnlyATitle_KeepsTheOtherDetailsAndReportsTheTitleChanged()
+    {
+        var item = await _service.CreateAsync(
+            "Item", "Keep me", null, StatusConfiguration.ToDoId,
+            layerId: WorkItemLayerConfiguration.TaskId, priorityId: WorkItemPriorityConfiguration.HighId);
+
+        var result = await _service.UpdateDetailsAsync(item.Id, new WorkItemDetailsPatch { Title = "Renamed" });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Item.Title, Is.EqualTo("Renamed"));
+            Assert.That(result.Item.Description, Is.EqualTo("Keep me"));
+            Assert.That(result.Item.LayerId, Is.EqualTo(WorkItemLayerConfiguration.TaskId));
+            Assert.That(result.Item.PriorityId, Is.EqualTo(WorkItemPriorityConfiguration.HighId));
+            Assert.That(result.ChangedFields, Is.EqualTo(new[] { WorkItemField.Title }));
+        });
+    }
+
+    [Test]
+    public async Task SetTagsAsync_LeftOut_LeavesTheTagsAlone()
+    {
+        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
+        await _service.SetTagsAsync(item.Id, Tags("urgent"));
+
+        var result = await _service.SetTagsAsync(item.Id, Optional<IReadOnlyList<string>>.Unset);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Item.Tags, Is.EqualTo(new[] { "urgent" }));
+            Assert.That(result.ChangedFields, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task ChangeStatusAsync_WithStaleExpectedVersion_ThrowsAndLeavesItemUnchanged()
+    {
+        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
+
+        Assert.ThrowsAsync<WorkItemVersionConflictException>(() =>
+            _service.ChangeStatusAsync(item.Id, StatusConfiguration.DoingId, expectedVersion: item.Version + 1));
+
+        _db.ChangeTracker.Clear();
+        Assert.That((await _db.WorkItems.SingleAsync()).StatusId, Is.EqualTo(StatusConfiguration.ToDoId));
+    }
+
+    [Test]
+    public async Task ReparentAsync_WithStaleExpectedVersion_ThrowsAndLeavesItemUnchanged()
+    {
+        var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId);
+        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
+
+        Assert.ThrowsAsync<WorkItemVersionConflictException>(() =>
+            _service.ReparentAsync(item.Id, parent.Id, expectedVersion: item.Version + 1));
+
+        _db.ChangeTracker.Clear();
+        Assert.That((await _db.WorkItems.SingleAsync(w => w.Id == item.Id)).ParentId, Is.Null);
+    }
+
+    [Test]
+    public async Task AssignAsync_WithStaleExpectedVersion_ThrowsAndLeavesItemUnchanged()
+    {
+        var user = User.CreateHuman("alice", "alice");
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync();
+        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+
+        Assert.ThrowsAsync<WorkItemVersionConflictException>(() =>
+            _service.AssignAsync(item.Id, user.Id, expectedVersion: item.Version + 1));
+
+        _db.ChangeTracker.Clear();
+        Assert.That((await _db.WorkItems.SingleAsync()).AssignedToUserId, Is.Null);
+    }
+
+    [Test]
+    public async Task DeleteAsync_WithStaleExpectedVersion_ThrowsAndDeletesNothing()
+    {
+        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
+
+        Assert.ThrowsAsync<WorkItemVersionConflictException>(() =>
+            _service.DeleteAsync(item.Id, expectedVersion: item.Version + 1));
+
+        Assert.That(await _db.WorkItems.AnyAsync(), Is.True);
+    }
+
+    [Test]
+    public async Task ChangeStatusAsync_ReportsTheFieldsThatChanged()
+    {
+        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId);
+
+        var result = await _service.ChangeStatusAsync(item.Id, StatusConfiguration.DoingId, expectedVersion: item.Version);
+
+        Assert.That(result.ChangedFields, Does.Contain(WorkItemField.StatusId));
     }
 }

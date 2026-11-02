@@ -174,16 +174,26 @@ class WorkItemDetailViewModel extends ViewModel {
     );
   }
 
-  Future<bool> saveAssignee(String? userId) =>
-      _save(() => _repository.assign(_item!.id, userId));
+  Future<bool> saveAssignee(String? userId) => _save(
+    () =>
+        _repository.assign(_item!.id, userId, expectedVersion: _item!.version),
+  );
 
   /// Deletes this work item and any sub-items — the confirmation dialog
   /// already warns the user about the subtree, so this always cascades
   /// rather than asking a second time.
-  Future<bool> deleteItem() => _mutate(() async {
-    await _repository.deleteItem(_item!.id, cascade: true);
-    _hasChanges = true;
-  }, errorMessage: 'Could not delete this work item. Try again.');
+  Future<bool> deleteItem() => _mutate(
+    () async {
+      await _repository.deleteItem(
+        _item!.id,
+        cascade: true,
+        expectedVersion: _item!.version,
+      );
+      _hasChanges = true;
+    },
+    errorMessage: 'Could not delete this work item. Try again.',
+    onConflict: _reloadAfterConflict,
+  );
 
   Future<bool> saveTags(List<String> tags) => _save(
     () => _repository.updateTags(
