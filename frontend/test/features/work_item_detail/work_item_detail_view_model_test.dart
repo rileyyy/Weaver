@@ -24,12 +24,13 @@ WorkItemDetail _item({
   String? assignedToUserId,
   List<String> tags = const [],
   String title = 'A task',
+  String? description,
   int version = 1,
 }) => WorkItemDetail(
   id: id,
   parentId: null,
   title: title,
-  description: null,
+  description: description,
   statusId: statusId,
   layerId: layerId,
   priorityId: priorityId,
@@ -59,6 +60,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   WorkItemDetail item = _item();
   bool deleted = false;
   final List<String> updateDetailsCalls = [];
+  final List<String> updateDescriptionCalls = [];
   final List<String?> assignCalls = [];
   final List<String> rescheduleCalls = [];
   final List<List<String>> updateTagsCalls = [];
@@ -142,6 +144,25 @@ class _FakeRepository implements WorkItemDetailRepository {
       statusId: item.statusId,
       layerId: layerId,
       priorityId: priorityId,
+      version: item.version + 1,
+    );
+  }
+
+  @override
+  Future<WorkItemDetail> updateDescription(
+    String id,
+    String description, {
+    required int expectedVersion,
+  }) async {
+    updateDescriptionCalls.add(description);
+    expectedVersions.add(expectedVersion);
+    final error = saveError;
+    if (error != null) throw error;
+    return item = _item(
+      id: id,
+      statusId: item.statusId,
+      title: item.title,
+      description: description,
       version: item.version + 1,
     );
   }
@@ -433,6 +454,43 @@ void main() {
       expect(viewModel.isSaving, isFalse);
     },
   );
+
+  group('toggleDescriptionTask', () {
+    test('saves the description with only that task toggled', () async {
+      final repository = _FakeRepository()
+        ..item = _item(description: '- [ ] milk\n- [ ] eggs', version: 4);
+      final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+      await viewModel.load('item-1');
+
+      final ok = await viewModel.toggleDescriptionTask(1);
+
+      expect(ok, isTrue);
+      expect(repository.updateDescriptionCalls, ['- [ ] milk\n- [x] eggs']);
+      expect(repository.expectedVersions, [4]);
+      expect(viewModel.item!.description, '- [ ] milk\n- [x] eggs');
+      expect(viewModel.hasChanges, isTrue);
+    });
+
+    test('on a conflict, reloads the item and says so', () async {
+      final repository = _FakeRepository(
+        saveError: const ApiException('changed', statusCode: 409),
+      )..item = _item(description: '- [ ] milk');
+      final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+      await viewModel.load('item-1');
+      final generationBefore = viewModel.reloadGeneration;
+      repository.item = _item(description: '- [x] milk', version: 9);
+
+      final ok = await viewModel.toggleDescriptionTask(0);
+
+      expect(ok, isFalse);
+      expect(viewModel.item!.description, '- [x] milk');
+      expect(viewModel.reloadGeneration, generationBefore + 1);
+      expect(
+        viewModel.saveError,
+        contains('Someone else changed this work item'),
+      );
+    });
+  });
 
   test('a non-conflict ApiException does not reload the item', () async {
     final repository = _FakeRepository(

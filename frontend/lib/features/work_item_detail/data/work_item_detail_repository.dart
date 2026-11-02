@@ -45,6 +45,15 @@ abstract class WorkItemDetailRepository {
     required int expectedVersion,
   });
 
+  /// Saves just the description, leaving the title, layer and priority as
+  /// they are on the server, for edits that don't come from the details
+  /// form (ticking a task).
+  Future<WorkItemDetail> updateDescription(
+    String id,
+    String description, {
+    required int expectedVersion,
+  });
+
   Future<WorkItemDetail> assign(
     String id,
     String? userId, {

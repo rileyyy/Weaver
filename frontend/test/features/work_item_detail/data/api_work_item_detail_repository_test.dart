@@ -246,6 +246,38 @@ void main() {
     },
   );
 
+  test(
+    'updateDescription patches only the description and the version',
+    () async {
+      http.Request? sentRequest;
+      final client = MockClient((request) async {
+        sentRequest = request;
+        return _jsonResponse(_writeJson(_itemJson(version: 8)));
+      });
+      final repository = ApiWorkItemDetailRepository(
+        client,
+        endpoint,
+        ApiStatusRepository(client, endpoint),
+        ApiLayerRepository(client, endpoint),
+        ApiUserDirectoryRepository(client, endpoint),
+      );
+
+      final item = await repository.updateDescription(
+        'item-1',
+        '- [x] milk',
+        expectedVersion: 7,
+      );
+
+      expect(item.version, 8);
+      expect(sentRequest!.method, 'PATCH');
+      expect(sentRequest!.url.path, '/api/work-items/item-1/details');
+      expect(jsonDecode(sentRequest!.body), {
+        'description': '- [x] milk',
+        'expectedVersion': 7,
+      });
+    },
+  );
+
   test('updateDetails returns the new version from the response', () async {
     final client = MockClient(
       (request) async => _jsonResponse(_writeJson(_itemJson(version: 8))),
