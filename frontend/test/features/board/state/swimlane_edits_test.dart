@@ -127,9 +127,9 @@ void main() {
       expect(cell(placed, 'doing'), ['3', 'd1', 'd2']);
     });
 
-    test('the cards before a card are read from its own cell', () {
-      expect(mixed.cellIdsBefore('3'), ['1', '2']);
-      expect(mixed.cellIdsBefore('d1'), isEmpty);
+    test("a card's cell is read in rank order, including the card", () {
+      expect(mixed.cellIdsOf('3'), ['1', '2', '3']);
+      expect(mixed.cellIdsOf('d1'), ['d1', 'd2']);
     });
 
     test('restoring puts the card back after its nearest remaining '
@@ -137,18 +137,42 @@ void main() {
       final restored = mixed
           .withCardPlaced('3', 'todo', afterId: null)
           .withCardPlaced('2', 'doing', afterId: 'd2')
-          .withCardRestored('3', 'todo', predecessorIds: ['1', '2']);
+          .withCardRestored('3', 'todo', originalCellIds: ['1', '2', '3']);
 
       expect(cell(restored, 'todo'), ['1', '3']);
       expect(cell(restored, 'doing'), ['d1', 'd2', '2']);
     });
 
-    test('restoring with no predecessor left puts the card at the top', () {
+    test('restoring anchors after the old predecessor that is now latest in '
+        'the cell', () {
       final restored = mixed
-          .withCardPlaced('2', 'doing', afterId: null)
-          .withCardRestored('2', 'todo', predecessorIds: ['x']);
+          .withCardPlaced('3', 'todo', afterId: null)
+          .withCardPlaced('1', 'todo', afterId: '2')
+          .withCardRestored('3', 'todo', originalCellIds: ['1', '2', '3']);
 
       expect(cell(restored, 'todo'), ['2', '1', '3']);
+    });
+
+    test('restoring with no predecessor left puts the card before its '
+        'nearest remaining successor', () {
+      final restored = mixed
+          .withCardPlaced('2', 'doing', afterId: null)
+          .withCardPlaced('1', 'doing', afterId: null)
+          .withCardPlaced('d1', 'todo', afterId: null)
+          .withCardRestored('2', 'todo', originalCellIds: ['1', '2', '3']);
+
+      expect(cell(restored, 'todo'), ['d1', '2', '3']);
+    });
+
+    test('restoring with no old neighbour left puts the card at the end', () {
+      final restored = mixed
+          .withCardPlaced('3', 'doing', afterId: null)
+          .withCardPlaced('1', 'doing', afterId: null)
+          .withCardPlaced('2', 'doing', afterId: null)
+          .withCardPlaced('d1', 'todo', afterId: null)
+          .withCardRestored('3', 'todo', originalCellIds: ['1', '2', '3']);
+
+      expect(cell(restored, 'todo'), ['d1', '3']);
     });
 
     test('placing a card that is not on the board is a no-op', () {

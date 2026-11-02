@@ -1699,6 +1699,26 @@ void main() {
       expect(cell('done'), ['d1', 'd2', 't2']);
       expect(reorderViewModel.moveError, isNotNull);
     });
+
+    test(
+      'a failed reorder lands after the old neighbour that is now latest',
+      () async {
+        reorderRepository.statusGates['t3'] = Completer<void>();
+        final failing = reorderViewModel.moveCard(
+          cardById('t3'),
+          'todo',
+          beforeCardId: 't1',
+        );
+        await reorderViewModel.moveCard(cardById('t1'), 'todo');
+
+        reorderRepository.statusGates['t3']!.completeError(
+          const ApiException('rejected'),
+        );
+        await failing;
+
+        expect(cell('todo'), ['t2', 't1', 't3']);
+      },
+    );
   });
 
   group('hierarchy stays in step with board mutations', () {

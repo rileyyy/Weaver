@@ -62,10 +62,7 @@ extension SwimlaneEdits on List<Swimlane> {
     String statusId, {
     String? beforeCardId,
   }) {
-    final cellIds = [
-      for (final card in _laneOf(cardId)?.cards ?? const <WorkItemCard>[])
-        if (card.statusId == statusId) card.id,
-    ];
+    final cellIds = _cellIds(cardId, statusId);
     final beforeIndex = beforeCardId == null
         ? -1
         : cellIds.indexOf(beforeCardId);
@@ -93,14 +90,8 @@ extension SwimlaneEdits on List<Swimlane> {
       for (final c in owner.cards)
         if (c.id != cardId) c,
     ];
-    final anchorIndex = rest.indexWhere(
-      (c) => c.id == afterId && c.statusId == statusId,
-    );
-    final topIndex = rest.indexWhere((c) => c.statusId == statusId);
-    final insertAt = anchorIndex != -1
-        ? anchorIndex + 1
-        : (topIndex == -1 ? rest.length : topIndex);
-    final cards = rest..insert(insertAt, placed);
+    final cards = rest
+      ..insert(_insertionIndex(rest, statusId, afterId), placed);
 
     return [
       for (final lane in this)
@@ -111,35 +102,76 @@ extension SwimlaneEdits on List<Swimlane> {
     ];
   }
 
-  /// The ids of the cards before [cardId] in its cell, in rank order.
-  List<String> cellIdsBefore(String cardId) {
-    final cards = _laneOf(cardId)?.cards ?? const <WorkItemCard>[];
-    final card = cards.where((c) => c.id == cardId).firstOrNull;
+  List<String> cellIdsOf(String cardId) {
+    final card = _laneOf(cardId)?.cards.firstWhere((c) => c.id == cardId);
     if (card == null) return const [];
-    return [
-      for (final c in cards.takeWhile((c) => c.id != cardId))
-        if (c.statusId == card.statusId) c.id,
-    ];
+    return _cellIds(cardId, card.statusId);
   }
 
-  /// Puts the card back in [statusId] after the last of [predecessorIds]
-  /// still in that cell, so undoing a move doesn't depend on its old
-  /// neighbour not having moved since.
+  /// Puts the card back in [statusId] as close to where it was in
+  /// [originalCellIds] as the cell allows now: after whichever of its old
+  /// predecessors is now latest, else before whichever of its old
+  /// successors is now earliest, else at the end. Its old neighbours may
+  /// have moved since, and those moves must survive the undo.
   List<Swimlane> withCardRestored(
     String cardId,
     String statusId, {
-    required List<String> predecessorIds,
+    required List<String> originalCellIds,
   }) {
-    final cellIds = {
-      for (final card in _laneOf(cardId)?.cards ?? const <WorkItemCard>[])
-        if (card.statusId == statusId && card.id != cardId) card.id,
-    };
+    final index = originalCellIds.indexOf(cardId);
+    if (index == -1) return this;
+
+    final currentIds = [
+      for (final id in _cellIds(cardId, statusId))
+        if (id != cardId) id,
+    ];
+    final predecessors = originalCellIds.take(index).toSet();
+    final successors = originalCellIds.skip(index + 1).toSet();
     return withCardPlaced(
       cardId,
       statusId,
-      afterId: predecessorIds.where(cellIds.contains).lastOrNull,
+      afterId: _restoreAnchor(currentIds, predecessors, successors),
     );
   }
+
+  static String? _restoreAnchor(
+    List<String> currentIds,
+    Set<String> predecessors,
+    Set<String> successors,
+  ) {
+    final latestPredecessor = currentIds
+        .where(predecessors.contains)
+        .lastOrNull;
+    if (latestPredecessor != null) return latestPredecessor;
+
+    final earliestSuccessor = currentIds.indexWhere(successors.contains);
+    if (earliestSuccessor == -1) return currentIds.lastOrNull;
+    return earliestSuccessor == 0 ? null : currentIds[earliestSuccessor - 1];
+  }
+
+  /// Where a card goes in [rest], its lane without it: right after [afterId]
+  /// if that is in the [statusId] cell, else at the top of that cell. A
+  /// lane with no cards in that status can take it anywhere, so the end.
+  static int _insertionIndex(
+    List<WorkItemCard> rest,
+    String statusId,
+    String? afterId,
+  ) {
+    final anchorIndex = rest.indexWhere(
+      (c) => c.id == afterId && c.statusId == statusId,
+    );
+    if (anchorIndex != -1) return anchorIndex + 1;
+
+    final topIndex = rest.indexWhere((c) => c.statusId == statusId);
+    return topIndex == -1 ? rest.length : topIndex;
+  }
+
+  /// The ids in [statusId]'s cell of the lane holding [cardId], in rank
+  /// order.
+  List<String> _cellIds(String cardId, String statusId) => [
+    for (final card in _laneOf(cardId)?.cards ?? const <WorkItemCard>[])
+      if (card.statusId == statusId) card.id,
+  ];
 
   Swimlane? _laneOf(String cardId) =>
       where((lane) => lane.cards.any((c) => c.id == cardId)).firstOrNull;

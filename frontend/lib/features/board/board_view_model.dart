@@ -318,15 +318,18 @@ class BoardViewModel extends ViewModel {
   }) {
     if (!_swimlanes.hasLane(card.parentId)) return Future.value();
 
-    final originalPredecessorIds = _swimlanes.cellIdsBefore(card.id);
+    final originalCellIds = _swimlanes.cellIdsOf(card.id);
+    final originalIndex = originalCellIds.indexOf(card.id);
+    final originalAnchor = originalIndex > 0
+        ? originalCellIds[originalIndex - 1]
+        : null;
     final afterId = _swimlanes.rankAnchorForDrop(
       card.id,
       newStatusId,
       beforeCardId: beforeCardId,
     );
     final isAlreadyThere =
-        newStatusId == card.statusId &&
-        afterId == originalPredecessorIds.lastOrNull;
+        newStatusId == card.statusId && afterId == originalAnchor;
     if (isAlreadyThere) return Future.value();
 
     return _optimistic(
@@ -346,7 +349,7 @@ class BoardViewModel extends ViewModel {
       revertLanes: () => _swimlanes = _swimlanes.withCardRestored(
         card.id,
         card.statusId,
-        predecessorIds: originalPredecessorIds,
+        originalCellIds: originalCellIds,
       ),
       revertHierarchy: () => _hierarchyItems = _withHierarchyItem(
         card.id,
