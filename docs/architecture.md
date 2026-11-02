@@ -194,9 +194,10 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   until the server-side query replaces it
   ([ADR-0006](adr/0006-server-side-query-and-views.md)). Tags stay global
   across Spaces.
-- **Tags are set as a whole** (`SetTagsAsync`, `PUT
+- **Tags are set as a whole** (`SetTagsAsync`, `PATCH
   /work-items/{id}/tags`); there is no add/remove-one endpoint. The client
-  always sends the complete list.
+  sends the complete list, or `null` to clear it; leaving `tags` out
+  changes nothing.
 - **Normalisation is server-side:** each tag is trimmed, blank tags are
   rejected (`InvalidWorkItemTagException`, 400), and duplicates are removed
   case-insensitively with the first casing kept. At most
@@ -227,11 +228,11 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   converted to UTC, so east of UTC the stored value was the previous day.
   A day on a schedule is not an instant; storing it as one invites
   time-zone bugs.
-- **They're set by their own operation**, `RescheduleAsync` (`PUT
+- **They're set by their own operation**, `RescheduleAsync` (`PATCH
   /work-items/{id}/schedule`), separate from status, parent and create.
-  The only rule (start not after end, when both are set) is checked before
-  the entity lookup, so a bad range is reported even for a nonexistent id
-  instead of being masked by a 404.
+  A date left out is kept, so the only rule (start not after end, when
+  both are set) is checked in `WorkItem.Reschedule` against the dates the
+  item ends up with.
 - **A missing date is open-ended, not "unscheduled"** (see the time
   filter under [Frontend](#frontend)). Milestone 16 reverses this for items
   with no dates at all, which move to the Backlog
@@ -286,13 +287,11 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   `TimeProvider`, so the lead window is testable). It's read once per
   operation, so one generation run can't straddle two "todays". Anything
   else that compares dates with the present should ask the same calendar.
-- **Schedule saves are last-write-wins**, like status and assignee: a
-  schedule is one small form with no version token yet.
 
 ## API
 
-- **Operation-oriented endpoints** for state changes: `PUT
-  /work-items/{id}/status`, `/parent`, `/schedule`, `/assignee`, `/tags`,
+- **Operation-oriented endpoints** for state changes:
+  `/work-items/{id}/status`, `/parent`, `/schedule`, `/assignee`, `/tags`,
   and `/details` for title, description, layer and priority together.
   Those four share an endpoint because none of them
   carries the cross-cutting risk that keeps status and parent apart.
@@ -300,9 +299,10 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   serialised.
 - **Verbs follow the resource.** `POST` creates and answers `201` with a
   `Location` (work items, boards, comments; a link's `Location` is its
-  work item's link list, since a link has no view of its own). Setting a
-  work item field (`/status`, `/parent`, `/schedule`, `/details`,
-  `/assignee`, `/tags`) is a `PUT` to that sub-resource. Controllers
+  work item's link list, since a link has no view of its own). Patching
+  a group of work item fields (`/details`, `/schedule`, `/tags`) is a
+  `PATCH` to that sub-resource; replacing a single value (`/status`,
+  `/parent`, `/assignee`) is a `PUT`. Controllers
   declare their `201`/`204` and problem-details error responses, so the
   OpenAPI document shows the error shapes.
 - **Enums serialise as their string name** (`"ToDo"`, `"Human"`) via a
@@ -341,25 +341,35 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
 - **`WorkItem.Version` maps to Postgres's `xmin`** as an EF concurrency
   token and is returned as `Version` on every `WorkItemDto`.
 - On its own the token only guards the moment between a request's read and
-  its write. So the operations that overwrite a group of fields (details,
-  schedule, tags) also accept an optional `ExpectedVersion` and reject a
-  stale one with `WorkItemVersionConflictException` (409). A
+  its write. So **every work-item write** (details, schedule, tags, status,
+  parent, assignee and delete) accepts an optional `expectedVersion` and
+  rejects a stale one with `WorkItemVersionConflictException` (409). A
   `DbUpdateConcurrencyException` during save is translated to the same
-  exception.
-- **Status, parent and assignee stay last-write-wins on purpose.** Each is
-  a single intentional change, and `xmin` moves on *any* update, so a
-  version check there would reject a card drag because someone else edited
-  the description.
-- `ExpectedVersion` is optional so MCP clients that don't track versions
-  keep working.
-- `PUT /details` (`update_work_item_details`) replaces all four fields, so
-  a description, layer or priority the caller leaves out is cleared.
-  Milestone 16 moves field updates to patch semantics and accepts
-  `expectedVersion` on every write.
-- The detail dialog sends it; on a conflict it reloads the item and
+  exception. A delete checks the version of the item named, not of its
+  descendants.
+- `expectedVersion` is optional so a caller that doesn't track versions
+  still works, last-write-wins. `xmin` moves on *any* update, so a client
+  that sends it for a status or parent change will have a card drag
+  rejected when someone else edited the description; the client is
+  expected to reload the item and tell the user (ticket 36).
+- **Field updates use patch semantics.** `/details`, `/schedule` and
+  `/tags` (and `update_work_item_details`, `reschedule_work_item`,
+  `set_work_item_tags` over MCP) change only the fields sent: a field left
+  out is unchanged and `null` clears it. The title can't be cleared. In
+  code the difference is `Optional<T>` (`Weaver.Domain`): REST reads it
+  with `OptionalJsonConverterFactory`, and MCP tools read it from the raw
+  call arguments (`McpArguments.Supplied`), because the SDK binds a
+  missing argument and `null` to the same parameter value.
+- **Writes return `{ item, changedFields }`**: the item with its new
+  version, and the fields whose value actually changed (`WorkItemField`
+  names, matching the JSON). Setting a field to its current value isn't a
+  change, doesn't move the version and isn't listed. The domain methods
+  report the changed fields, so the services don't diff.
+- The detail dialog sends `expectedVersion` for everything it edits,
+  including the assignee and delete; on a conflict it reloads the item and
   re-seeds its form fields so the next save can't overwrite the other
-  change with stale values. The board's own tag and reschedule calls don't
-  send a version yet, because board cards don't track one.
+  change with stale values. The board's own calls don't send a version
+  yet, because board cards don't track one (ticket 36).
 
 ## Authentication
 
