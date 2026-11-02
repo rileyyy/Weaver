@@ -153,16 +153,18 @@ void main() {
     bool holdFirst = true,
   }) => dragCardToPoint(tester, tester.getCenter(target), holdFirst: holdFirst);
 
-  testWidgets('dropping on another status in the same lane moves the card', (
-    tester,
-  ) async {
-    await pumpBoard(tester);
+  testWidgets(
+    'dropping on another status in the same lane moves the card',
+    (tester) async {
+      await pumpBoard(tester);
 
-    await dragCardTo(tester, cell('lane-a', 'done'));
+      await dragCardTo(tester, cell('lane-a', 'done'));
 
-    expect(statusDrops, [('card-1', 'done', null)]);
-    expect(reparents, isEmpty);
-  }, variant: _touchAndDesktop);
+      expect(statusDrops, [('card-1', 'done', null)]);
+      expect(reparents, isEmpty);
+    },
+    variant: _touchAndDesktop,
+  );
 
   testWidgets('a status cell in another lane rejects the card', (tester) async {
     await pumpBoard(tester);
@@ -205,15 +207,17 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.android),
   );
 
-  testWidgets('on desktop platforms a card moves without a long press', (
-    tester,
-  ) async {
-    await pumpBoard(tester);
+  testWidgets(
+    'on desktop platforms a card moves without a long press',
+    (tester) async {
+      await pumpBoard(tester);
 
-    await dragCardTo(tester, cell('lane-a', 'done'), holdFirst: false);
+      await dragCardTo(tester, cell('lane-a', 'done'), holdFirst: false);
 
-    expect(statusDrops, [('card-1', 'done', null)]);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+      expect(statusDrops, [('card-1', 'done', null)]);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
 
   group('dropping onto a card', () {
     // Cards sit two to a row, so lane A's To Do cell reads
@@ -225,19 +229,21 @@ void main() {
       _cardIn('card-4', 'lane-a', 'done'),
     ];
 
-    testWidgets('on its leading half places the dragged card before it', (
-      tester,
-    ) async {
-      await pumpBoard(tester, laneACards: threeInTodo);
+    testWidgets(
+      'on its leading half places the dragged card before it',
+      (tester) async {
+        await pumpBoard(tester, laneACards: threeInTodo);
 
-      await dragCardToPoint(
-        tester,
-        leftHalfOf(tester, boardCard('card-1')),
-        cardId: 'card-3',
-      );
+        await dragCardToPoint(
+          tester,
+          leftHalfOf(tester, boardCard('card-1')),
+          cardId: 'card-3',
+        );
 
-      expect(statusDrops, [('card-3', 'todo', 'card-1')]);
-    }, variant: _touchAndDesktop);
+        expect(statusDrops, [('card-3', 'todo', 'card-1')]);
+      },
+      variant: _touchAndDesktop,
+    );
 
     testWidgets(
       'on its trailing half places the dragged card before the next card',
@@ -294,15 +300,17 @@ void main() {
       expect(statusDrops, isEmpty);
     }, variant: _touchAndDesktop);
 
-    testWidgets('in another column moves the card to that position', (
-      tester,
-    ) async {
-      await pumpBoard(tester, laneACards: threeInTodo);
+    testWidgets(
+      'in another column moves the card to that position',
+      (tester) async {
+        await pumpBoard(tester, laneACards: threeInTodo);
 
-      await dragCardToPoint(tester, leftHalfOf(tester, boardCard('card-4')));
+        await dragCardToPoint(tester, leftHalfOf(tester, boardCard('card-4')));
 
-      expect(statusDrops, [('card-1', 'done', 'card-4')]);
-    }, variant: _touchAndDesktop);
+        expect(statusDrops, [('card-1', 'done', 'card-4')]);
+      },
+      variant: _touchAndDesktop,
+    );
 
     testWidgets('in another lane does nothing', (tester) async {
       await pumpBoard(
