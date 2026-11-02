@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/admin/data/api_lookup_admin_repository.dart';
+import 'package:weaver/features/admin/data/api_server_settings_admin_repository.dart';
 import 'package:weaver/features/admin/data/api_status_admin_repository.dart';
 import 'package:weaver/features/admin/data/api_user_admin_repository.dart';
 import 'package:weaver/features/admin/models/lookup_kind.dart';
@@ -290,6 +291,40 @@ void main() {
       expect(requests.single.method, 'DELETE');
       expect(requests.single.url.path, '/api/admin/users/u1');
       expect(directory.invalidations, 1);
+    });
+  });
+
+  group('ApiServerSettingsAdminRepository', () {
+    late List<http.Request> requests;
+    late ApiServerSettingsAdminRepository repository;
+
+    setUp(() {
+      requests = [];
+      final client = MockClient((request) async {
+        requests.add(request);
+        final timeZoneId = request.method == 'PUT'
+            ? (jsonDecode(request.body) as Map<String, dynamic>)['timeZoneId']
+            : 'UTC';
+        return http.Response(jsonEncode({'timeZoneId': timeZoneId}), 200);
+      });
+      repository = ApiServerSettingsAdminRepository(client, _endpoint);
+    });
+
+    test('get reads the settings', () async {
+      final settings = await repository.get();
+
+      expect(requests.single.method, 'GET');
+      expect(requests.single.url.path, '/api/server-settings');
+      expect(settings.timeZoneId, 'UTC');
+    });
+
+    test('setTimeZone puts the id to its own sub-resource', () async {
+      final settings = await repository.setTimeZone('Europe/Berlin');
+
+      expect(requests.single.method, 'PUT');
+      expect(requests.single.url.path, '/api/server-settings/time-zone');
+      expect(jsonDecode(requests.single.body), {'timeZoneId': 'Europe/Berlin'});
+      expect(settings.timeZoneId, 'Europe/Berlin');
     });
   });
 }

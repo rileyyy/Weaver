@@ -731,7 +731,11 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   (load and drag-to-reorder), and `LookupAdminViewModel` serves both
   Priorities and Layers through an injectable factory parameter
   (`LookupKind`). Layers also have a colour (`LookupKind.hasColor`), edited
-  in `showLayerDialog` with the `HexColorPicker` statuses use.
+  in `showLayerDialog` with the `HexColorPicker` statuses use. A fifth
+  tab, Server, shows the server-wide settings
+  (`ServerSettingsAdminViewModel`); the time zone is typed as an IANA id
+  and checked by the server. Its model is `AdminServerSettings` because
+  `ServerSettings` in core already means "which server the app talks to".
 - **Layers are cached app-wide like statuses** (`LayerRepository`): the
   board needs them on every scope load to colour cards, and the detail
   dialog reads the same list. Layer writes on the Admin page drop the

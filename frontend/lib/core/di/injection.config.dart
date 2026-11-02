@@ -21,17 +21,23 @@ import 'package:weaver/core/network/server_origin_store.dart' as _i936;
 import 'package:weaver/core/network/server_settings.dart' as _i577;
 import 'package:weaver/features/admin/data/api_lookup_admin_repository.dart'
     as _i427;
+import 'package:weaver/features/admin/data/api_server_settings_admin_repository.dart'
+    as _i365;
 import 'package:weaver/features/admin/data/api_status_admin_repository.dart'
     as _i550;
 import 'package:weaver/features/admin/data/api_user_admin_repository.dart'
     as _i756;
 import 'package:weaver/features/admin/data/lookup_admin_repository.dart'
     as _i377;
+import 'package:weaver/features/admin/data/server_settings_admin_repository.dart'
+    as _i300;
 import 'package:weaver/features/admin/data/status_admin_repository.dart'
     as _i224;
 import 'package:weaver/features/admin/data/user_admin_repository.dart' as _i290;
 import 'package:weaver/features/admin/lookup_admin_view_model.dart' as _i281;
 import 'package:weaver/features/admin/models/lookup_kind.dart' as _i54;
+import 'package:weaver/features/admin/server_settings_admin_view_model.dart'
+    as _i338;
 import 'package:weaver/features/admin/status_admin_view_model.dart' as _i609;
 import 'package:weaver/features/admin/user_admin_view_model.dart' as _i486;
 import 'package:weaver/features/auth/auth_view_model.dart' as _i6;
@@ -101,8 +107,11 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i54.SecureTokenStore>(),
       ),
     );
-    gh.factory<_i875.CurrentUser>(
-      () => networkModule.currentUser(gh<_i605.AuthSessionStore>()),
+    gh.lazySingleton<_i519.Client>(
+      () => networkModule.httpClient(
+        gh<_i519.Client>(instanceName: 'rawHttpClient'),
+        gh<_i605.AuthSessionStore>(),
+      ),
     );
     gh.factory<_i6.AuthViewModel>(
       () => _i6.AuthViewModel(
@@ -111,15 +120,8 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i577.ServerSettings>(),
       ),
     );
-    gh.lazySingleton<_i519.Client>(
-      () => networkModule.httpClient(
-        gh<_i519.Client>(instanceName: 'rawHttpClient'),
-        gh<_i605.AuthSessionStore>(),
-      ),
-    );
-    gh.lazySingleton<_i0.LayerRepository>(
-      () =>
-          _i284.ApiLayerRepository(gh<_i519.Client>(), gh<_i202.ApiEndpoint>()),
+    gh.factory<_i875.CurrentUser>(
+      () => networkModule.currentUser(gh<_i605.AuthSessionStore>()),
     );
     gh.lazySingleton<_i770.StatusRepository>(
       () => _i209.ApiStatusRepository(
@@ -127,26 +129,15 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i202.ApiEndpoint>(),
       ),
     );
-    gh.lazySingleton<_i377.LookupAdminRepository>(
-      () => _i427.ApiLookupAdminRepository(
+    gh.lazySingleton<_i0.LayerRepository>(
+      () =>
+          _i284.ApiLayerRepository(gh<_i519.Client>(), gh<_i202.ApiEndpoint>()),
+    );
+    gh.lazySingleton<_i65.RecurrenceRepository>(
+      () => _i919.ApiRecurrenceRepository(
         gh<_i519.Client>(),
         gh<_i202.ApiEndpoint>(),
-        gh<_i0.LayerRepository>(),
       ),
-    );
-    gh.lazySingleton<_i224.StatusAdminRepository>(
-      () => _i550.ApiStatusAdminRepository(
-        gh<_i519.Client>(),
-        gh<_i202.ApiEndpoint>(),
-        gh<_i770.StatusRepository>(),
-      ),
-    );
-    gh.factoryParam<_i281.LookupAdminViewModel, _i54.LookupKind, dynamic>(
-      (kind, _) =>
-          _i281.LookupAdminViewModel(gh<_i377.LookupAdminRepository>(), kind),
-    );
-    gh.factory<_i609.StatusAdminViewModel>(
-      () => _i609.StatusAdminViewModel(gh<_i224.StatusAdminRepository>()),
     );
     gh.lazySingleton<_i562.UserDirectoryRepository>(
       () => _i982.ApiUserDirectoryRepository(
@@ -163,8 +154,8 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i562.UserDirectoryRepository>(),
       ),
     );
-    gh.lazySingleton<_i65.RecurrenceRepository>(
-      () => _i919.ApiRecurrenceRepository(
+    gh.lazySingleton<_i300.ServerSettingsAdminRepository>(
+      () => _i365.ApiServerSettingsAdminRepository(
         gh<_i519.Client>(),
         gh<_i202.ApiEndpoint>(),
       ),
@@ -175,6 +166,31 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i60.RepeatSettingsViewModel>(
       () => _i60.RepeatSettingsViewModel(gh<_i65.RecurrenceRepository>()),
     );
+    gh.lazySingleton<_i377.LookupAdminRepository>(
+      () => _i427.ApiLookupAdminRepository(
+        gh<_i519.Client>(),
+        gh<_i202.ApiEndpoint>(),
+        gh<_i0.LayerRepository>(),
+      ),
+    );
+    gh.lazySingleton<_i224.StatusAdminRepository>(
+      () => _i550.ApiStatusAdminRepository(
+        gh<_i519.Client>(),
+        gh<_i202.ApiEndpoint>(),
+        gh<_i770.StatusRepository>(),
+      ),
+    );
+    gh.lazySingleton<_i290.UserAdminRepository>(
+      () => _i756.ApiUserAdminRepository(
+        gh<_i519.Client>(),
+        gh<_i202.ApiEndpoint>(),
+        gh<_i562.UserDirectoryRepository>(),
+      ),
+    );
+    gh.factoryParam<_i281.LookupAdminViewModel, _i54.LookupKind, dynamic>(
+      (kind, _) =>
+          _i281.LookupAdminViewModel(gh<_i377.LookupAdminRepository>(), kind),
+    );
     gh.lazySingleton<_i522.BoardRepository>(
       () => _i436.ApiBoardRepository(
         gh<_i519.Client>(),
@@ -184,14 +200,15 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i562.UserDirectoryRepository>(),
       ),
     );
-    gh.factory<_i314.BoardViewModel>(
-      () => _i314.BoardViewModel(gh<_i522.BoardRepository>()),
+    gh.factory<_i338.ServerSettingsAdminViewModel>(
+      () => _i338.ServerSettingsAdminViewModel(
+        gh<_i300.ServerSettingsAdminRepository>(),
+      ),
     );
-    gh.lazySingleton<_i290.UserAdminRepository>(
-      () => _i756.ApiUserAdminRepository(
-        gh<_i519.Client>(),
-        gh<_i202.ApiEndpoint>(),
-        gh<_i562.UserDirectoryRepository>(),
+    gh.factory<_i194.WorkItemDetailViewModel>(
+      () => _i194.WorkItemDetailViewModel(
+        gh<_i982.WorkItemDetailRepository>(),
+        gh<_i875.CurrentUser>(),
       ),
     );
     gh.factory<_i486.UserAdminViewModel>(
@@ -200,11 +217,11 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i875.CurrentUser>(),
       ),
     );
-    gh.factory<_i194.WorkItemDetailViewModel>(
-      () => _i194.WorkItemDetailViewModel(
-        gh<_i982.WorkItemDetailRepository>(),
-        gh<_i875.CurrentUser>(),
-      ),
+    gh.factory<_i609.StatusAdminViewModel>(
+      () => _i609.StatusAdminViewModel(gh<_i224.StatusAdminRepository>()),
+    );
+    gh.factory<_i314.BoardViewModel>(
+      () => _i314.BoardViewModel(gh<_i522.BoardRepository>()),
     );
     return this;
   }
