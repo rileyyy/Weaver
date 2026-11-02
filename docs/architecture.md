@@ -478,8 +478,9 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   validated column per setting rather than key/value pairs. Today that's
   the time zone (default `UTC`). Only IANA ids are accepted: Windows ids
   resolve on a Windows host but not in the Linux container, and the stored
-  id has to work in production. Anyone signed in can read the settings;
-  only admins change them, through `IServerSettingsService`.
+  id has to work in production. Anyone signed in can read the settings
+  (`GET /api/server-settings`); only admins change them, one setting per
+  `PUT` (`/api/server-settings/time-zone`), through `IServerSettingsService`.
 - **Nobody can lock the team out of administration.** The last active
   admin can't be demoted, deactivated or deleted (`LastAdminException`),
   and an admin can't deactivate or delete their own account
@@ -496,8 +497,8 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   behaves exactly as it does for a controller. `CommentTools` reads the
   caller's id through `IHttpContextAccessor`.
 - **Coverage:** work items, boards, statuses, layers, priorities, users,
-  comments, links and repeating items. Lookups and users are read-only over
-  MCP, and agents will never be able to change admin data
+  comments, links, repeating items and server settings. Lookups, users and
+  server settings (`get_server_settings`) are read-only over MCP, and agents will never be able to change admin data
   ([ADR-0004](adr/0004-agent-accounts-and-api-keys.md)). Auth endpoints are
   not tools; they're how a client gets its token.
   `list_all_work_items` pages through every item like `GET

@@ -27,6 +27,8 @@ public class ServerSettings
 
     public TimeZoneInfo TimeZone => TimeZoneInfo.FindSystemTimeZoneById(TimeZoneId);
 
+    public static ServerSettings CreateDefault() => new() { Id = SingletonId };
+
     /// <summary>The calendar date in the server's time zone at <paramref name="instant"/>.</summary>
     public DateOnly DateAt(DateTimeOffset instant) =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instant, TimeZone).DateTime);

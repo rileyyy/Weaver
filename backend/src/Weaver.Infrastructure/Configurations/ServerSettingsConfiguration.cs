@@ -15,6 +15,6 @@ public class ServerSettingsConfiguration : IEntityTypeConfiguration<ServerSettin
         builder.Ignore(s => s.TimeZone);
 
         // Seeded so the row always exists and services only ever update it.
-        builder.HasData(new { Id = ServerSettings.SingletonId, TimeZoneId = ServerSettings.DefaultTimeZoneId });
+        builder.HasData(ServerSettings.CreateDefault());
     }
 }
