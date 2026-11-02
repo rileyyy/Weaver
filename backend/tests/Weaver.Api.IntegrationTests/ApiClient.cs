@@ -73,6 +73,13 @@ public static class ApiClient
     public static Task<HttpResponseMessage> PutJsonAsync<T>(this HttpClient client, string path, T body) =>
         client.PutAsJsonAsync(path, body, Json);
 
+    /// <summary>
+    /// Patch bodies are usually anonymous objects, so a test states exactly which fields it
+    /// sends: a property it leaves out is absent from the JSON, and a null one is sent as null.
+    /// </summary>
+    public static Task<HttpResponseMessage> PatchJsonAsync<T>(this HttpClient client, string path, T body) =>
+        client.PatchAsJsonAsync(path, body, Json);
+
     public static async Task<WorkItemDto> CreateWorkItemAsync(
         this HttpClient client,
         string title,

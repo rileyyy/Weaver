@@ -84,17 +84,20 @@ public class WorkItemsControllerTests
     }
 
     [Test]
-    public async Task ChangeStatus_CallsServiceWithoutTouchingParent_AndReturnsOk()
+    public async Task ChangeStatus_CallsServiceWithoutTouchingParent_AndReturnsTheWrite()
     {
         var item = MakeWorkItem();
         var newStatusId = Guid.NewGuid();
+        var written = new WorkItemWriteResult(item, [WorkItemField.StatusId]);
 
-        _workItems.Setup(s => s.ChangeStatusAsync(item.Id, newStatusId, null, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(item);
+        _workItems.Setup(s => s.ChangeStatusAsync(item.Id, newStatusId, null, 7u, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(written);
 
-        var result = await _controller.ChangeStatus(item.Id, new ChangeWorkItemStatusRequest(newStatusId, null));
+        var result = await _controller.ChangeStatus(item.Id, new ChangeWorkItemStatusRequest(newStatusId, null, 7u));
 
-        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(WorkItemDto.FromEntity(item)));
+        var response = OkValue(result);
+        Assert.That(response.Item, Is.EqualTo(WorkItemDto.FromEntity(item)));
+        Assert.That(response.ChangedFields, Is.EqualTo(new[] { WorkItemField.StatusId }));
         _workItems.VerifyAll();
     }
 
@@ -104,70 +107,72 @@ public class WorkItemsControllerTests
         var item = MakeWorkItem();
         var newParentId = Guid.NewGuid();
 
-        _workItems.Setup(s => s.ReparentAsync(item.Id, newParentId, null, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(item);
+        _workItems.Setup(s => s.ReparentAsync(item.Id, newParentId, null, 7u, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemWriteResult(item, []));
 
-        var result = await _controller.Reparent(item.Id, new ReparentWorkItemRequest(newParentId, null));
+        var result = await _controller.Reparent(item.Id, new ReparentWorkItemRequest(newParentId, null, 7u));
 
         Assert.That(result.Result, Is.TypeOf<OkObjectResult>());
         _workItems.VerifyAll();
     }
 
     [Test]
-    public async Task Reschedule_DelegatesToServiceWithExpectedVersion_AndReturnsOk()
+    public async Task Reschedule_PassesThePatchAndExpectedVersionThrough()
     {
         var item = MakeWorkItem();
-        var start = new DateOnly(2026, 9, 25);
-        var end = start.AddDays(3);
+        var end = new DateOnly(2026, 9, 25);
 
-        _workItems.Setup(s => s.RescheduleAsync(item.Id, start, end, 7u, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(item);
+        _workItems.Setup(s => s.RescheduleAsync(
+                item.Id, Optional<DateOnly?>.Unset, new Optional<DateOnly?>(end), 7u, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemWriteResult(item, [WorkItemField.EndDate]));
 
-        var result = await _controller.Reschedule(item.Id, new RescheduleWorkItemRequest(start, end, 7u));
+        var result = await _controller.Reschedule(
+            item.Id, new RescheduleWorkItemRequest(Optional<DateOnly?>.Unset, end, 7u));
 
-        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(WorkItemDto.FromEntity(item)));
+        Assert.That(OkValue(result).ChangedFields, Is.EqualTo(new[] { WorkItemField.EndDate }));
         _workItems.VerifyAll();
     }
 
     [Test]
-    public async Task Delete_DelegatesCascadeFlagToService_AndReturnsNoContent()
+    public async Task Delete_DelegatesCascadeFlagAndExpectedVersionToService_AndReturnsNoContent()
     {
         var id = Guid.NewGuid();
-        _workItems.Setup(s => s.DeleteAsync(id, true, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _workItems.Setup(s => s.DeleteAsync(id, true, 7u, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
-        var result = await _controller.Delete(id, cascade: true);
+        var result = await _controller.Delete(id, cascade: true, expectedVersion: 7u);
 
         Assert.That(result, Is.TypeOf<NoContentResult>());
         _workItems.VerifyAll();
     }
 
     [Test]
-    public async Task UpdateDetails_DelegatesToServiceWithExpectedVersion_AndReturnsOk()
+    public async Task UpdateDetails_PassesOnlyTheSentFieldsThrough()
     {
         var item = MakeWorkItem();
-        var layerId = Guid.NewGuid();
-        var priorityId = Guid.NewGuid();
-        _workItems.Setup(s => s.UpdateDetailsAsync(
-                item.Id, "New title", "New description", layerId, priorityId, 7u, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(item);
+        var expectedPatch = new WorkItemDetailsPatch { Title = "New title", Description = null };
+        _workItems.Setup(s => s.UpdateDetailsAsync(item.Id, expectedPatch, 7u, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemWriteResult(item, [WorkItemField.Title]));
 
         var result = await _controller.UpdateDetails(
-            item.Id, new UpdateWorkItemDetailsRequest("New title", "New description", layerId, priorityId, 7u));
+            item.Id,
+            new UpdateWorkItemDetailsRequest(
+                "New title", new Optional<string?>(null), Optional<Guid?>.Unset, Optional<Guid?>.Unset, 7u));
 
-        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(WorkItemDto.FromEntity(item)));
+        Assert.That(OkValue(result).ChangedFields, Is.EqualTo(new[] { WorkItemField.Title }));
         _workItems.VerifyAll();
     }
 
     [Test]
-    public async Task Assign_DelegatesToService_AndReturnsOk()
+    public async Task Assign_DelegatesToServiceWithExpectedVersion_AndReturnsOk()
     {
         var item = MakeWorkItem();
         var userId = Guid.NewGuid();
-        _workItems.Setup(s => s.AssignAsync(item.Id, userId, It.IsAny<CancellationToken>())).ReturnsAsync(item);
+        _workItems.Setup(s => s.AssignAsync(item.Id, userId, 7u, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemWriteResult(item, [WorkItemField.AssignedToUserId]));
 
-        var result = await _controller.Assign(item.Id, new AssignWorkItemRequest(userId));
+        var result = await _controller.Assign(item.Id, new AssignWorkItemRequest(userId, 7u));
 
-        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(WorkItemDto.FromEntity(item)));
+        Assert.That(OkValue(result).Item, Is.EqualTo(WorkItemDto.FromEntity(item)));
         _workItems.VerifyAll();
     }
 
@@ -176,11 +181,45 @@ public class WorkItemsControllerTests
     {
         var item = MakeWorkItem();
         var tags = new List<string> { "urgent", "needs review" };
-        _workItems.Setup(s => s.SetTagsAsync(item.Id, tags, 7u, It.IsAny<CancellationToken>())).ReturnsAsync(item);
+        _workItems.Setup(s => s.SetTagsAsync(
+                item.Id,
+                It.Is<Optional<IReadOnlyList<string>>>(t => t.HasValue && t.Value.SequenceEqual(tags)),
+                7u,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemWriteResult(item, [WorkItemField.Tags]));
 
         var result = await _controller.SetTags(item.Id, new SetTagsWorkItemRequest(tags, 7u));
 
-        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(WorkItemDto.FromEntity(item)));
+        Assert.That(OkValue(result).Item, Is.EqualTo(WorkItemDto.FromEntity(item)));
+        _workItems.VerifyAll();
+    }
+
+    [Test]
+    public async Task SetTags_WithNullTags_ClearsThem()
+    {
+        var item = MakeWorkItem();
+        _workItems.Setup(s => s.SetTagsAsync(
+                item.Id,
+                It.Is<Optional<IReadOnlyList<string>>>(t => t.HasValue && t.Value.Count == 0),
+                null,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemWriteResult(item, []));
+
+        await _controller.SetTags(item.Id, new SetTagsWorkItemRequest(new Optional<IReadOnlyList<string>?>(null)));
+
+        _workItems.VerifyAll();
+    }
+
+    [Test]
+    public async Task SetTags_WithTagsLeftOut_LeavesThemUnchanged()
+    {
+        var item = MakeWorkItem();
+        _workItems.Setup(s => s.SetTagsAsync(
+                item.Id, Optional<IReadOnlyList<string>>.Unset, 7u, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemWriteResult(item, []));
+
+        await _controller.SetTags(item.Id, new SetTagsWorkItemRequest(Optional<IReadOnlyList<string>?>.Unset, 7u));
+
         _workItems.VerifyAll();
     }
 
@@ -199,4 +238,7 @@ public class WorkItemsControllerTests
         Assert.That(dtos.Single().Lane, Is.EqualTo(WorkItemDto.FromEntity(lane)));
         Assert.That(dtos.Single().Cards.Single(), Is.EqualTo(WorkItemDto.FromEntity(card)));
     }
+
+    private static WorkItemWriteResponse OkValue(ActionResult<WorkItemWriteResponse> result) =>
+        (WorkItemWriteResponse)((OkObjectResult)result.Result!).Value!;
 }

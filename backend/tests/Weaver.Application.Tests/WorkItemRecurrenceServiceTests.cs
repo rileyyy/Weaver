@@ -1,3 +1,4 @@
+using static Weaver.Application.Tests.Patches;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Weaver.Application.Services;
@@ -115,9 +116,9 @@ public class WorkItemRecurrenceServiceTests
         var user = User.CreateHuman("sam", "sam");
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
-        await _workItems.UpdateDetailsAsync(item.Id, "Report", "Fill it in", WorkItemLayerConfiguration.TaskId, WorkItemPriorityConfiguration.HighId);
+        await _workItems.UpdateDetailsAsync(item.Id, Details("Report", "Fill it in", WorkItemLayerConfiguration.TaskId, WorkItemPriorityConfiguration.HighId));
         await _workItems.AssignAsync(item.Id, user.Id);
-        await _workItems.SetTagsAsync(item.Id, ["finance"]);
+        await _workItems.SetTagsAsync(item.Id, Tags("finance"));
         await _workItems.RescheduleAsync(item.Id, new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 5));
 
         await RepeatWeekly(item.Id, DayOfWeek.Monday);

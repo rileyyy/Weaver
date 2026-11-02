@@ -116,29 +116,38 @@ public class WorkItem : IHasUpdatedAt
         Guid? layerId = null,
         Guid? priorityId = null)
     {
-        var item = new WorkItem
+        TextValidation.RequireText(title, "Title", TitleMaxLength);
+
+        return new WorkItem
         {
             Id = Guid.NewGuid(),
             ParentId = parentId,
             StatusId = statusId,
             Rank = rank,
+            Title = title,
+            Description = description,
+            LayerId = layerId,
+            PriorityId = priorityId,
         };
-        item.UpdateDetails(title, description, layerId, priorityId);
-        return item;
     }
 
     /// <summary>
     /// The descriptive fields share no invariant with status, parent, schedule or assignee,
-    /// so they are safe to change together.
+    /// so they are safe to change together. Returns the fields whose value changed.
     /// </summary>
-    public void UpdateDetails(string title, string? description, Guid? layerId, Guid? priorityId)
+    public IReadOnlyList<string> UpdateDetails(WorkItemDetailsPatch patch)
     {
-        TextValidation.RequireText(title, "Title", TitleMaxLength);
+        if (patch.Title.HasValue)
+        {
+            TextValidation.RequireText(patch.Title.Value, "Title", TitleMaxLength);
+        }
 
-        Title = title;
-        Description = description;
-        LayerId = layerId;
-        PriorityId = priorityId;
+        var changed = new ChangedFields();
+        Title = changed.Apply(WorkItemField.Title, Title, patch.Title);
+        Description = changed.Apply(WorkItemField.Description, Description, patch.Description);
+        LayerId = changed.Apply(WorkItemField.LayerId, LayerId, patch.LayerId);
+        PriorityId = changed.Apply(WorkItemField.PriorityId, PriorityId, patch.PriorityId);
+        return changed.Names;
     }
 
     /// <summary>Used when an admin deletes the item's layer and picks a replacement (or none).</summary>
@@ -157,10 +166,12 @@ public class WorkItem : IHasUpdatedAt
     /// Moves the item to another column. Never touches <see cref="ParentId"/>: that is what
     /// guarantees a drag between columns can never reparent the item.
     /// </summary>
-    public void MoveToStatus(Guid statusId, double rank)
+    public IReadOnlyList<string> MoveToStatus(Guid statusId, double rank)
     {
-        StatusId = statusId;
-        Rank = rank;
+        var changed = new ChangedFields();
+        StatusId = changed.Set(WorkItemField.StatusId, StatusId, statusId);
+        Rank = changed.Set(WorkItemField.Rank, Rank, rank);
+        return changed.Names;
     }
 
     /// <summary>
@@ -168,15 +179,17 @@ public class WorkItem : IHasUpdatedAt
     /// checked the new parent isn't one of this item's descendants; an item being its own
     /// parent is rejected here.
     /// </summary>
-    public void MoveToParent(Guid? parentId, double rank)
+    public IReadOnlyList<string> MoveToParent(Guid? parentId, double rank)
     {
         if (parentId == Id)
         {
             throw new CyclicParentException(Id, Id);
         }
 
-        ParentId = parentId;
-        Rank = rank;
+        var changed = new ChangedFields();
+        ParentId = changed.Set(WorkItemField.ParentId, ParentId, parentId);
+        Rank = changed.Set(WorkItemField.Rank, Rank, rank);
+        return changed.Names;
     }
 
     /// <summary>Changes the item's place within its current board cell.</summary>
@@ -185,20 +198,31 @@ public class WorkItem : IHasUpdatedAt
         Rank = rank;
     }
 
-    public void Reschedule(DateOnly? startDate, DateOnly? endDate)
+    /// <summary>
+    /// Changes the start and/or end date; a date left out is kept, and the start-before-end
+    /// rule is checked against the dates the item ends up with. Returns the fields whose
+    /// value changed.
+    /// </summary>
+    public IReadOnlyList<string> Reschedule(Optional<DateOnly?> startDate, Optional<DateOnly?> endDate)
     {
-        if (startDate is not null && endDate is not null && startDate > endDate)
+        var newStart = startDate.GetValueOr(StartDate);
+        var newEnd = endDate.GetValueOr(EndDate);
+        if (newStart is not null && newEnd is not null && newStart > newEnd)
         {
             throw new InvalidWorkItemScheduleException(Id);
         }
 
-        StartDate = startDate;
-        EndDate = endDate;
+        var changed = new ChangedFields();
+        StartDate = changed.Set(WorkItemField.StartDate, StartDate, newStart);
+        EndDate = changed.Set(WorkItemField.EndDate, EndDate, newEnd);
+        return changed.Names;
     }
 
-    public void AssignTo(Guid? userId)
+    public IReadOnlyList<string> AssignTo(Guid? userId)
     {
-        AssignedToUserId = userId;
+        var changed = new ChangedFields();
+        AssignedToUserId = changed.Set(WorkItemField.AssignedToUserId, AssignedToUserId, userId);
+        return changed.Names;
     }
 
     /// <summary>
@@ -228,9 +252,10 @@ public class WorkItem : IHasUpdatedAt
 
     /// <summary>
     /// Replaces the full tag list. Tags are trimmed and de-duplicated case-insensitively,
-    /// keeping the first spelling; a blank tag is rejected.
+    /// keeping the first spelling; a blank tag is rejected. Returns the fields whose value
+    /// changed.
     /// </summary>
-    public void SetTags(IEnumerable<string> tags)
+    public IReadOnlyList<string> SetTags(IEnumerable<string> tags)
     {
         var normalized = new List<string>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -255,6 +280,12 @@ public class WorkItem : IHasUpdatedAt
             throw new DomainValidationException($"A work item can have at most {MaxTags} tags.");
         }
 
+        if (normalized.SequenceEqual(_tags, StringComparer.Ordinal))
+        {
+            return [];
+        }
+
         _tags = normalized;
+        return [WorkItemField.Tags];
     }
 }

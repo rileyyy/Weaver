@@ -1,8 +1,11 @@
+using Weaver.Domain;
+
 namespace Weaver.Api.Contracts;
 
+/// <summary>A field left out of the JSON is unchanged; <c>null</c> clears it.</summary>
 public record UpdateWorkItemDetailsRequest(
-    string Title,
-    string? Description,
-    Guid? LayerId,
-    Guid? PriorityId,
+    Optional<string> Title,
+    Optional<string?> Description,
+    Optional<Guid?> LayerId,
+    Optional<Guid?> PriorityId,
     uint? ExpectedVersion = null);

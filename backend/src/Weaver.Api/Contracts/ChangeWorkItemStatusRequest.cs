@@ -1,3 +1,3 @@
 namespace Weaver.Api.Contracts;
 
-public record ChangeWorkItemStatusRequest(Guid StatusId, Guid? AfterId);
+public record ChangeWorkItemStatusRequest(Guid StatusId, Guid? AfterId, uint? ExpectedVersion = null);

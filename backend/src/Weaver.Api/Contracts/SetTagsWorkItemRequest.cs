@@ -1,3 +1,9 @@
+using Weaver.Domain;
+
 namespace Weaver.Api.Contracts;
 
-public record SetTagsWorkItemRequest(IReadOnlyList<string> Tags, uint? ExpectedVersion = null);
+/// <summary>
+/// <see cref="Tags"/> replaces the whole list. Left out of the JSON, the tags are unchanged;
+/// <c>null</c> clears them.
+/// </summary>
+public record SetTagsWorkItemRequest(Optional<IReadOnlyList<string>?> Tags, uint? ExpectedVersion = null);

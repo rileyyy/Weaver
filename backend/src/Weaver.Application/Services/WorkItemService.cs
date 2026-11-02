@@ -105,34 +105,32 @@ public class WorkItemService : IWorkItemService
         return item;
     }
 
-    public async Task<WorkItem> ChangeStatusAsync(
+    public async Task<WorkItemWriteResult> ChangeStatusAsync(
         Guid id,
         Guid newStatusId,
         Guid? afterId = null,
+        uint? expectedVersion = null,
         CancellationToken ct = default)
     {
-        var item = await _db.WorkItems.FindAsync([id], ct)
-            ?? throw new EntityNotFoundException(nameof(WorkItem), id);
+        var item = await FindForWriteAsync(id, expectedVersion, ct);
 
         if (!await _db.Statuses.AnyAsync(s => s.Id == newStatusId, ct))
         {
             throw new EntityNotFoundException(nameof(Status), newStatusId);
         }
 
-        item.MoveToStatus(newStatusId, await ComputeRankAsync(item.ParentId, newStatusId, afterId, excludeItemId: id, ct));
-
-        await SaveWorkItemChangesAsync(id, ct);
-        return item;
+        var rank = await ComputeRankAsync(item.ParentId, newStatusId, afterId, excludeItemId: id, ct);
+        return await SaveWriteAsync(item, item.MoveToStatus(newStatusId, rank), ct);
     }
 
-    public async Task<WorkItem> ReparentAsync(
+    public async Task<WorkItemWriteResult> ReparentAsync(
         Guid id,
         Guid? newParentId,
         Guid? afterId = null,
+        uint? expectedVersion = null,
         CancellationToken ct = default)
     {
-        var item = await _db.WorkItems.FindAsync([id], ct)
-            ?? throw new EntityNotFoundException(nameof(WorkItem), id);
+        var item = await FindForWriteAsync(id, expectedVersion, ct);
 
         if (newParentId is not null)
         {
@@ -147,53 +145,38 @@ public class WorkItemService : IWorkItemService
             }
         }
 
-        item.MoveToParent(newParentId, await ComputeRankAsync(newParentId, item.StatusId, afterId, excludeItemId: id, ct));
-
-        await SaveWorkItemChangesAsync(id, ct);
-        return item;
+        var rank = await ComputeRankAsync(newParentId, item.StatusId, afterId, excludeItemId: id, ct);
+        return await SaveWriteAsync(item, item.MoveToParent(newParentId, rank), ct);
     }
 
-    public async Task<WorkItem> RescheduleAsync(
+    public async Task<WorkItemWriteResult> RescheduleAsync(
         Guid id,
-        DateOnly? startDate,
-        DateOnly? endDate,
+        Optional<DateOnly?> startDate,
+        Optional<DateOnly?> endDate,
         uint? expectedVersion = null,
         CancellationToken ct = default)
     {
-        var item = await _db.WorkItems.FindAsync([id], ct)
-            ?? throw new EntityNotFoundException(nameof(WorkItem), id);
-
-        EnsureVersion(item, expectedVersion);
-
-        item.Reschedule(startDate, endDate);
-
-        await SaveWorkItemChangesAsync(id, ct);
-        return item;
+        var item = await FindForWriteAsync(id, expectedVersion, ct);
+        return await SaveWriteAsync(item, item.Reschedule(startDate, endDate), ct);
     }
 
-    public async Task<WorkItem> UpdateDetailsAsync(
+    public async Task<WorkItemWriteResult> UpdateDetailsAsync(
         Guid id,
-        string title,
-        string? description,
-        Guid? layerId,
-        Guid? priorityId,
+        WorkItemDetailsPatch patch,
         uint? expectedVersion = null,
         CancellationToken ct = default)
     {
-        await EnsureDetailLookupsExistAsync(layerId, priorityId, ct);
+        await EnsureDetailLookupsExistAsync(patch.LayerId.GetValueOr(null), patch.PriorityId.GetValueOr(null), ct);
 
-        var item = await _db.WorkItems.FindAsync([id], ct)
-            ?? throw new EntityNotFoundException(nameof(WorkItem), id);
-
-        EnsureVersion(item, expectedVersion);
-
-        item.UpdateDetails(title, description, layerId, priorityId);
-
-        await SaveWorkItemChangesAsync(id, ct);
-        return item;
+        var item = await FindForWriteAsync(id, expectedVersion, ct);
+        return await SaveWriteAsync(item, item.UpdateDetails(patch), ct);
     }
 
-    public async Task<WorkItem> AssignAsync(Guid id, Guid? userId, CancellationToken ct = default)
+    public async Task<WorkItemWriteResult> AssignAsync(
+        Guid id,
+        Guid? userId,
+        uint? expectedVersion = null,
+        CancellationToken ct = default)
     {
         if (userId is { } assigneeId)
         {
@@ -205,36 +188,24 @@ public class WorkItemService : IWorkItemService
             }
         }
 
-        var item = await _db.WorkItems.FindAsync([id], ct)
-            ?? throw new EntityNotFoundException(nameof(WorkItem), id);
-
-        item.AssignTo(userId);
-
-        await SaveWorkItemChangesAsync(id, ct);
-        return item;
+        var item = await FindForWriteAsync(id, expectedVersion, ct);
+        return await SaveWriteAsync(item, item.AssignTo(userId), ct);
     }
 
-    public async Task<WorkItem> SetTagsAsync(
+    public async Task<WorkItemWriteResult> SetTagsAsync(
         Guid id,
-        IReadOnlyList<string> tags,
+        Optional<IReadOnlyList<string>> tags,
         uint? expectedVersion = null,
         CancellationToken ct = default)
     {
-        var item = await _db.WorkItems.FindAsync([id], ct)
-            ?? throw new EntityNotFoundException(nameof(WorkItem), id);
-
-        EnsureVersion(item, expectedVersion);
-
-        item.SetTags(tags);
-
-        await SaveWorkItemChangesAsync(id, ct);
-        return item;
+        var item = await FindForWriteAsync(id, expectedVersion, ct);
+        var changed = tags.HasValue ? item.SetTags(tags.Value) : [];
+        return await SaveWriteAsync(item, changed, ct);
     }
 
-    public async Task DeleteAsync(Guid id, bool cascade = false, CancellationToken ct = default)
+    public async Task DeleteAsync(Guid id, bool cascade = false, uint? expectedVersion = null, CancellationToken ct = default)
     {
-        var item = await _db.WorkItems.FindAsync([id], ct)
-            ?? throw new EntityNotFoundException(nameof(WorkItem), id);
+        var item = await FindForWriteAsync(id, expectedVersion, ct);
 
         var descendantIds = await _hierarchy.GetDescendantIdsAsync(id, ct);
         var descendants = await _db.WorkItems.Where(w => descendantIds.Contains(w.Id)).ToListAsync(ct);
@@ -256,7 +227,7 @@ public class WorkItemService : IWorkItemService
         _db.WorkItemLinks.RemoveRange(links);
         _db.WorkItems.RemoveRange(descendants);
         _db.WorkItems.Remove(item);
-        await _db.SaveChangesAsync(ct);
+        await SaveWorkItemChangesAsync(id, ct);
     }
 
     /// <summary>
@@ -281,12 +252,26 @@ public class WorkItemService : IWorkItemService
     /// milliseconds inside one request; comparing against the version the client last saw
     /// is what stops one user's save from silently discarding another's.
     /// </summary>
-    private static void EnsureVersion(WorkItem item, uint? expectedVersion)
+    private async Task<WorkItem> FindForWriteAsync(Guid id, uint? expectedVersion, CancellationToken ct)
     {
+        var item = await _db.WorkItems.FindAsync([id], ct)
+            ?? throw new EntityNotFoundException(nameof(WorkItem), id);
+
         if (expectedVersion is not null && item.Version != expectedVersion)
         {
             throw new WorkItemVersionConflictException(item.Id);
         }
+
+        return item;
+    }
+
+    private async Task<WorkItemWriteResult> SaveWriteAsync(
+        WorkItem item,
+        IReadOnlyList<string> changedFields,
+        CancellationToken ct)
+    {
+        await SaveWorkItemChangesAsync(item.Id, ct);
+        return new WorkItemWriteResult(item, changedFields);
     }
 
     private async Task EnsureDetailLookupsExistAsync(Guid? layerId, Guid? priorityId, CancellationToken ct)

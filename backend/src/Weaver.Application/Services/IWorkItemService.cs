@@ -2,6 +2,12 @@ using Weaver.Domain;
 
 namespace Weaver.Application.Services;
 
+/// <remarks>
+/// Every write after <see cref="CreateAsync"/> takes an optional <c>expectedVersion</c>: the
+/// item's <see cref="WorkItem.Version"/> from the caller's last read. When it's given and
+/// stale, the write is rejected with a <see cref="Domain.Exceptions.WorkItemVersionConflictException"/>
+/// instead of overwriting someone else's change.
+/// </remarks>
 public interface IWorkItemService
 {
     Task<WorkItem?> GetByIdAsync(Guid id, CancellationToken ct = default);
@@ -43,56 +49,54 @@ public interface IWorkItemService
     /// Never touches <see cref="WorkItem.ParentId"/> — that is what guarantees a
     /// drag between columns can never reparent the item.
     /// </summary>
-    Task<WorkItem> ChangeStatusAsync(
+    Task<WorkItemWriteResult> ChangeStatusAsync(
         Guid id,
         Guid newStatusId,
         Guid? afterId = null,
+        uint? expectedVersion = null,
         CancellationToken ct = default);
 
     /// <summary>
     /// Moves a work item to a different parent, keeping its current status.
     /// Rejects moves that would make the item its own ancestor.
     /// </summary>
-    Task<WorkItem> ReparentAsync(
+    Task<WorkItemWriteResult> ReparentAsync(
         Guid id,
         Guid? newParentId,
         Guid? afterId = null,
+        uint? expectedVersion = null,
         CancellationToken ct = default);
 
     /// <summary>
     /// Deletes a work item. If it has children, <paramref name="cascade"/> must be
     /// true or the delete is rejected — a subtree is never silently dropped.
     /// Links to any deleted item are removed with it. The delete is rejected if any
-    /// deleted item is a board's scope.
+    /// deleted item is a board's scope. <paramref name="expectedVersion"/> is checked
+    /// against the item itself, not its descendants.
     /// </summary>
-    Task DeleteAsync(Guid id, bool cascade = false, CancellationToken ct = default);
+    Task DeleteAsync(Guid id, bool cascade = false, uint? expectedVersion = null, CancellationToken ct = default);
 
     /// <summary>
-    /// Sets a work item's scheduled start/end, independently of status or
-    /// parent. Either may be null. Rejects a start date after the end date.
-    /// Rejects the change if <paramref name="expectedVersion"/> is given and stale.
+    /// Sets a work item's scheduled start and/or end, independently of status or parent. A
+    /// date left out is kept and <c>null</c> clears it. Rejects a start date after the end
+    /// date, judged on the dates the item ends up with.
     /// </summary>
-    Task<WorkItem> RescheduleAsync(
+    Task<WorkItemWriteResult> RescheduleAsync(
         Guid id,
-        DateOnly? startDate,
-        DateOnly? endDate,
+        Optional<DateOnly?> startDate,
+        Optional<DateOnly?> endDate,
         uint? expectedVersion = null,
         CancellationToken ct = default);
 
     /// <summary>
-    /// Updates a work item's descriptive fields — title, description, layer,
-    /// priority — independently of status/parent/schedule/assignee. These
-    /// fields share no cross-cutting invariant with each other or with those
-    /// other operations, so they're safe to group behind one call unlike
-    /// e.g. status and parent. Rejects the change if <paramref name="expectedVersion"/>
-    /// is given and stale.
+    /// Patches a work item's descriptive fields — title, description, layer, priority —
+    /// independently of status/parent/schedule/assignee. These fields share no
+    /// cross-cutting invariant with each other or with those other operations, so they're
+    /// safe to group behind one call unlike e.g. status and parent.
     /// </summary>
-    Task<WorkItem> UpdateDetailsAsync(
+    Task<WorkItemWriteResult> UpdateDetailsAsync(
         Guid id,
-        string title,
-        string? description,
-        Guid? layerId,
-        Guid? priorityId,
+        WorkItemDetailsPatch patch,
         uint? expectedVersion = null,
         CancellationToken ct = default);
 
@@ -100,17 +104,20 @@ public interface IWorkItemService
     /// Sets or clears who a work item is assigned to, independently of
     /// every other field.
     /// </summary>
-    Task<WorkItem> AssignAsync(Guid id, Guid? userId, CancellationToken ct = default);
+    Task<WorkItemWriteResult> AssignAsync(
+        Guid id,
+        Guid? userId,
+        uint? expectedVersion = null,
+        CancellationToken ct = default);
 
     /// <summary>
-    /// Replaces a work item's full tag list, independently of every other
-    /// field. Tags are trimmed and de-duplicated case-insensitively; an
-    /// empty/blank tag is rejected. Rejects the change if <paramref name="expectedVersion"/>
-    /// is given and stale.
+    /// Replaces a work item's full tag list, independently of every other field, or leaves
+    /// it alone when <paramref name="tags"/> is left out. Tags are trimmed and de-duplicated
+    /// case-insensitively; an empty/blank tag is rejected.
     /// </summary>
-    Task<WorkItem> SetTagsAsync(
+    Task<WorkItemWriteResult> SetTagsAsync(
         Guid id,
-        IReadOnlyList<string> tags,
+        Optional<IReadOnlyList<string>> tags,
         uint? expectedVersion = null,
         CancellationToken ct = default);
 }

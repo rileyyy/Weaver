@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Weaver.Api.Auth;
 using Weaver.Api.Background;
+using Weaver.Api.Json;
 using Weaver.Api.Mcp;
 using Weaver.Api.Middleware;
 using Weaver.Api.RateLimiting;
@@ -22,7 +23,11 @@ var builder = WebApplication.CreateBuilder(args);
 // int — self-describing on the wire, and this is what UserDto.Kind's
 // frontend parsing (and any future enum DTO field) expects.
 builder.Services.AddControllers()
-    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        options.JsonSerializerOptions.Converters.Add(new OptionalJsonConverterFactory());
+    });
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddAuthRateLimiting(builder.Configuration);

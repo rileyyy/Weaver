@@ -53,9 +53,9 @@ public class HierarchyQueryTests
 
         var moved = await (await _client.PutJsonAsync(
             $"/api/work-items/{outsider.Id}/parent",
-            new ReparentWorkItemRequest(chain[^1].Id, null))).ReadAsync<WorkItemDto>();
+            new ReparentWorkItemRequest(chain[^1].Id, null))).ReadAsync<WorkItemWriteResponse>();
 
-        Assert.That(moved.ParentId, Is.EqualTo(chain[^1].Id));
+        Assert.That(moved.Item.ParentId, Is.EqualTo(chain[^1].Id));
     }
 
     [Test]

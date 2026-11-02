@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Weaver.Api.Contracts;
+using Weaver.Api.Json;
 using Weaver.Domain;
 
 namespace Weaver.Api.Tests;
@@ -25,7 +26,7 @@ public class JsonSerializationTests
     // otherwise this test would pass/fail on the wrong thing.
     private static readonly JsonSerializerOptions Options = new()
     {
-        Converters = { new JsonStringEnumConverter() },
+        Converters = { new JsonStringEnumConverter(), new OptionalJsonConverterFactory() },
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
@@ -67,8 +68,38 @@ public class JsonSerializationTests
         var request = JsonSerializer.Deserialize<RescheduleWorkItemRequest>(
             """{"startDate":"2026-09-25","endDate":null}""", Options);
 
-        Assert.That(request!.StartDate, Is.EqualTo(new DateOnly(2026, 9, 25)));
-        Assert.That(request.EndDate, Is.Null);
+        Assert.That(request!.StartDate.Value, Is.EqualTo(new DateOnly(2026, 9, 25)));
+        Assert.That(request.EndDate, Is.EqualTo(new Optional<DateOnly?>(null)));
+    }
+
+    [Test]
+    public void UpdateWorkItemDetailsRequest_TellsALeftOutFieldFromANullOne()
+    {
+        var request = JsonSerializer.Deserialize<UpdateWorkItemDetailsRequest>(
+            """{"title":"Renamed","description":null,"expectedVersion":7}""", Options);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(request!.Title, Is.EqualTo(new Optional<string>("Renamed")));
+            Assert.That(request.Description, Is.EqualTo(new Optional<string?>(null)));
+            Assert.That(request.LayerId.HasValue, Is.False);
+            Assert.That(request.PriorityId.HasValue, Is.False);
+            Assert.That(request.ExpectedVersion, Is.EqualTo(7u));
+        });
+    }
+
+    [Test]
+    public void SetTagsWorkItemRequest_TellsALeftOutListFromANullOne()
+    {
+        var leftOut = JsonSerializer.Deserialize<SetTagsWorkItemRequest>("""{}""", Options);
+        var cleared = JsonSerializer.Deserialize<SetTagsWorkItemRequest>("""{"tags":null}""", Options);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(leftOut!.Tags.HasValue, Is.False);
+            Assert.That(cleared!.Tags.HasValue, Is.True);
+            Assert.That(cleared.Tags.Value, Is.Null);
+        });
     }
 
     [Test]

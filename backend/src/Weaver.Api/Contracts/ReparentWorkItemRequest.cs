@@ -1,3 +1,3 @@
 namespace Weaver.Api.Contracts;
 
-public record ReparentWorkItemRequest(Guid? ParentId, Guid? AfterId);
+public record ReparentWorkItemRequest(Guid? ParentId, Guid? AfterId, uint? ExpectedVersion = null);

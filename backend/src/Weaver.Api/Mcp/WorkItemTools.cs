@@ -1,14 +1,24 @@
 using System.ComponentModel;
 using ModelContextProtocol;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using Weaver.Api.Contracts;
 using Weaver.Application.Services;
+using Weaver.Domain;
 
 namespace Weaver.Api.Mcp;
 
 [McpServerToolType]
 public class WorkItemTools
 {
+    private const string ExpectedVersionDescription =
+        "The work item's version from your last read. If given and the item has changed since, the " +
+        "write is rejected instead of overwriting someone else's change.";
+
+    private const string PatchDescription =
+        "Only the fields you send change: leave a field out to keep it, or send null to clear it. " +
+        "Returns the item with its new version and the list of fields that changed.";
+
     private readonly IWorkItemService _workItems;
 
     public WorkItemTools(IWorkItemService workItems)
@@ -71,88 +81,90 @@ public class WorkItemTools
     [McpServerTool(Name = "change_work_item_status", Destructive = false, Idempotent = true)]
     [Description("Moves a work item to a different status column, without changing its parent. " +
         "Cannot reparent it — see reparent_work_item.")]
-    public Task<WorkItemDto> ChangeWorkItemStatus(
+    public Task<WorkItemWriteResponse> ChangeWorkItemStatus(
         [Description("The work item's id.")] Guid id,
         [Description("Id of the status column to move the item to.")] Guid statusId,
         [Description("Id of an existing sibling (same parent and status) to place this item immediately after. Omit to place it first.")] Guid? afterId = null,
+        [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
         CancellationToken ct = default) =>
-        McpExceptionTranslation.TranslateAsync(async () =>
-        {
-            var item = await _workItems.ChangeStatusAsync(id, statusId, afterId, ct);
-            return WorkItemDto.FromEntity(item);
-        });
+        TranslateWriteAsync(() => _workItems.ChangeStatusAsync(id, statusId, afterId, expectedVersion, ct));
 
     [McpServerTool(Name = "reparent_work_item", Destructive = false, Idempotent = true)]
     [Description("Moves a work item to a different parent, keeping its current status. Cannot change " +
         "its status — see change_work_item_status. Rejects a move that would make the item its own ancestor.")]
-    public Task<WorkItemDto> ReparentWorkItem(
+    public Task<WorkItemWriteResponse> ReparentWorkItem(
         [Description("The work item's id.")] Guid id,
         [Description("Id of the new parent work item. Omit to make it a top-level item.")] Guid? parentId = null,
         [Description("Id of an existing sibling under the new parent (same status) to place this item immediately after. Omit to place it first.")] Guid? afterId = null,
+        [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
         CancellationToken ct = default) =>
-        McpExceptionTranslation.TranslateAsync(async () =>
-        {
-            var item = await _workItems.ReparentAsync(id, parentId, afterId, ct);
-            return WorkItemDto.FromEntity(item);
-        });
+        TranslateWriteAsync(() => _workItems.ReparentAsync(id, parentId, afterId, expectedVersion, ct));
 
     [McpServerTool(Name = "reschedule_work_item", Destructive = false, Idempotent = true)]
-    [Description("Sets a work item's scheduled start/end dates, independently of status and parent. " +
-        "Either may be omitted to leave that side open-ended.")]
-    public Task<WorkItemDto> RescheduleWorkItem(
+    [Description("Changes a work item's scheduled start and/or end date, independently of status and " +
+        "parent. " + PatchDescription)]
+    public Task<WorkItemWriteResponse> RescheduleWorkItem(
+        RequestContext<CallToolRequestParams> context,
         [Description("The work item's id.")] Guid id,
-        [Description("New start date (yyyy-MM-dd, a calendar date). Omit to leave it open-ended on this side.")] DateOnly? startDate = null,
-        [Description("New end date (yyyy-MM-dd, a calendar date). Omit to leave it open-ended on this side.")] DateOnly? endDate = null,
-        [Description("The work item's Version from your last read. If given and the item has changed since, the update is rejected instead of overwriting someone else's change.")] uint? expectedVersion = null,
+        [Description("New start date (yyyy-MM-dd, a calendar date), or null to clear it.")] DateOnly? startDate = null,
+        [Description("New end date (yyyy-MM-dd, a calendar date), or null to clear it.")] DateOnly? endDate = null,
+        [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
         CancellationToken ct = default) =>
-        McpExceptionTranslation.TranslateAsync(async () =>
-        {
-            var item = await _workItems.RescheduleAsync(id, startDate, endDate, expectedVersion, ct);
-            return WorkItemDto.FromEntity(item);
-        });
+        TranslateWriteAsync(() => _workItems.RescheduleAsync(
+            id,
+            context.Supplied(nameof(startDate), startDate),
+            context.Supplied(nameof(endDate), endDate),
+            expectedVersion,
+            ct));
 
     [McpServerTool(Name = "update_work_item_details", Destructive = false, Idempotent = true)]
-    [Description("Updates a work item's title, description, layer, and priority. Independent of " +
-        "status, parent, schedule, and assignee — use their own tools for those.")]
-    public Task<WorkItemDto> UpdateWorkItemDetails(
+    [Description("Changes a work item's title, description, layer and/or priority. Independent of " +
+        "status, parent, schedule, and assignee — use their own tools for those. " + PatchDescription)]
+    public Task<WorkItemWriteResponse> UpdateWorkItemDetails(
+        RequestContext<CallToolRequestParams> context,
         [Description("The work item's id.")] Guid id,
-        [Description("New title.")] string title,
-        [Description("New description. Optional.")] string? description = null,
-        [Description("Id of the work item layer. Omit to clear it.")] Guid? layerId = null,
-        [Description("Id of the work item priority. Omit to clear it.")] Guid? priorityId = null,
-        [Description("The work item's Version from your last read. If given and the item has changed since, the update is rejected instead of overwriting someone else's change.")] uint? expectedVersion = null,
-        CancellationToken ct = default) =>
-        McpExceptionTranslation.TranslateAsync(async () =>
+        [Description("New title. Can't be cleared.")] string? title = null,
+        [Description("New description, or null to clear it.")] string? description = null,
+        [Description("Id of the work item layer, or null to clear it. Use list_work_item_layers to find valid ids.")] Guid? layerId = null,
+        [Description("Id of the work item priority, or null to clear it. Use list_work_item_priorities to find valid ids.")] Guid? priorityId = null,
+        [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
+        CancellationToken ct = default)
+    {
+        var patch = new WorkItemDetailsPatch
         {
-            var item = await _workItems.UpdateDetailsAsync(id, title, description, layerId, priorityId, expectedVersion, ct);
-            return WorkItemDto.FromEntity(item);
-        });
+            Title = context.Supplied(nameof(title), title!),
+            Description = context.Supplied(nameof(description), description),
+            LayerId = context.Supplied(nameof(layerId), layerId),
+            PriorityId = context.Supplied(nameof(priorityId), priorityId),
+        };
+        return TranslateWriteAsync(() => _workItems.UpdateDetailsAsync(id, patch, expectedVersion, ct));
+    }
 
     [McpServerTool(Name = "assign_work_item", Destructive = false, Idempotent = true)]
     [Description("Sets or clears who a work item is assigned to, independently of every other field.")]
-    public Task<WorkItemDto> AssignWorkItem(
+    public Task<WorkItemWriteResponse> AssignWorkItem(
         [Description("The work item's id.")] Guid id,
         [Description("Id of the user to assign. Omit to unassign.")] Guid? userId = null,
+        [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
         CancellationToken ct = default) =>
-        McpExceptionTranslation.TranslateAsync(async () =>
-        {
-            var item = await _workItems.AssignAsync(id, userId, ct);
-            return WorkItemDto.FromEntity(item);
-        });
+        TranslateWriteAsync(() => _workItems.AssignAsync(id, userId, expectedVersion, ct));
 
     [McpServerTool(Name = "set_work_item_tags", Destructive = false, Idempotent = true)]
     [Description("Replaces a work item's full tag list, independently of every other field. Tags are " +
         "trimmed and de-duplicated case-insensitively; an empty/blank tag is rejected.")]
-    public Task<WorkItemDto> SetWorkItemTags(
+    public Task<WorkItemWriteResponse> SetWorkItemTags(
+        RequestContext<CallToolRequestParams> context,
         [Description("The work item's id.")] Guid id,
-        [Description("The complete new list of tags — replaces the existing list entirely.")] IReadOnlyList<string> tags,
-        [Description("The work item's Version from your last read. If given and the item has changed since, the update is rejected instead of overwriting someone else's change.")] uint? expectedVersion = null,
-        CancellationToken ct = default) =>
-        McpExceptionTranslation.TranslateAsync(async () =>
-        {
-            var item = await _workItems.SetTagsAsync(id, tags, expectedVersion, ct);
-            return WorkItemDto.FromEntity(item);
-        });
+        [Description("The complete new list of tags, replacing the existing list entirely. Null or an empty list clears the tags; omitted leaves them unchanged.")] IReadOnlyList<string>? tags = null,
+        [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
+        CancellationToken ct = default)
+    {
+        var supplied = context.Supplied(nameof(tags), tags);
+        var patch = supplied.HasValue
+            ? new Optional<IReadOnlyList<string>>(supplied.Value ?? [])
+            : Optional<IReadOnlyList<string>>.Unset;
+        return TranslateWriteAsync(() => _workItems.SetTagsAsync(id, patch, expectedVersion, ct));
+    }
 
     [McpServerTool(Name = "delete_work_item", Destructive = true)]
     [Description("Deletes a work item. If it has children, cascade must be true or the delete is " +
@@ -161,6 +173,10 @@ public class WorkItemTools
     public Task DeleteWorkItem(
         [Description("The work item's id.")] Guid id,
         [Description("Must be true to delete a work item that has children; this also deletes the entire subtree.")] bool cascade = false,
+        [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
         CancellationToken ct = default) =>
-        McpExceptionTranslation.TranslateAsync(() => _workItems.DeleteAsync(id, cascade, ct));
+        McpExceptionTranslation.TranslateAsync(() => _workItems.DeleteAsync(id, cascade, expectedVersion, ct));
+
+    private static Task<WorkItemWriteResponse> TranslateWriteAsync(Func<Task<WorkItemWriteResult>> write) =>
+        McpExceptionTranslation.TranslateAsync(async () => WorkItemWriteResponse.FromResult(await write()));
 }

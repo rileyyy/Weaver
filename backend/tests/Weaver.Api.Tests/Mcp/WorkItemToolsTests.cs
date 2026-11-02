@@ -1,4 +1,7 @@
+using System.Text.Json;
 using ModelContextProtocol;
+using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
 using Moq;
 using Weaver.Api.Contracts;
 using Weaver.Api.Mcp;
@@ -129,16 +132,33 @@ public class WorkItemToolsTests
     }
 
     [Test]
-    public async Task ChangeWorkItemStatus_DelegatesToService()
+    public async Task ChangeWorkItemStatus_PassesTheExpectedVersion_AndReturnsTheChangedFields()
     {
         var item = MakeWorkItem();
         var statusId = Guid.NewGuid();
-        _workItems.Setup(w => w.ChangeStatusAsync(item.Id, statusId, null, It.IsAny<CancellationToken>())).ReturnsAsync(item);
+        _workItems.Setup(w => w.ChangeStatusAsync(item.Id, statusId, null, 7u, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemWriteResult(item, [WorkItemField.StatusId]));
 
-        var result = await _tools.ChangeWorkItemStatus(item.Id, statusId, ct: CancellationToken.None);
+        var result = await _tools.ChangeWorkItemStatus(item.Id, statusId, expectedVersion: 7u, ct: CancellationToken.None);
 
-        Assert.That(result.Id, Is.EqualTo(item.Id));
+        Assert.That(result.Item.Id, Is.EqualTo(item.Id));
+        Assert.That(result.ChangedFields, Is.EqualTo(new[] { WorkItemField.StatusId }));
         _workItems.VerifyAll();
+    }
+
+    [Test]
+    public void ChangeWorkItemStatus_WhenTheVersionIsStale_ThrowsMcpExceptionWithSameMessage()
+    {
+        var id = Guid.NewGuid();
+        var statusId = Guid.NewGuid();
+        var domainException = new WorkItemVersionConflictException(id);
+        _workItems.Setup(w => w.ChangeStatusAsync(id, statusId, null, 7u, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(domainException);
+
+        var thrown = Assert.ThrowsAsync<McpException>(() =>
+            _tools.ChangeWorkItemStatus(id, statusId, expectedVersion: 7u, ct: CancellationToken.None));
+
+        Assert.That(thrown!.Message, Is.EqualTo(domainException.Message));
     }
 
     [Test]
@@ -148,7 +168,7 @@ public class WorkItemToolsTests
         var proposedParentId = Guid.NewGuid();
         var domainException = new CyclicParentException(id, proposedParentId);
         _workItems
-            .Setup(w => w.ReparentAsync(id, proposedParentId, null, It.IsAny<CancellationToken>()))
+            .Setup(w => w.ReparentAsync(id, proposedParentId, null, null, It.IsAny<CancellationToken>()))
             .ThrowsAsync(domainException);
 
         var thrown = Assert.ThrowsAsync<McpException>(() =>
@@ -158,11 +178,53 @@ public class WorkItemToolsTests
     }
 
     [Test]
+    public async Task UpdateWorkItemDetails_WithOnlyATitleSent_LeavesTheOtherFieldsOutOfThePatch()
+    {
+        var item = MakeWorkItem();
+        var expectedPatch = new WorkItemDetailsPatch { Title = "Renamed" };
+        _workItems.Setup(w => w.UpdateDetailsAsync(item.Id, expectedPatch, 7u, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemWriteResult(item, [WorkItemField.Title]));
+
+        await _tools.UpdateWorkItemDetails(
+            CallWith("id", "title", "expectedVersion"), item.Id, title: "Renamed", expectedVersion: 7u, ct: CancellationToken.None);
+
+        _workItems.VerifyAll();
+    }
+
+    [Test]
+    public async Task UpdateWorkItemDetails_WithANullSent_ClearsThatField()
+    {
+        var item = MakeWorkItem();
+        var expectedPatch = new WorkItemDetailsPatch { Description = null, LayerId = null };
+        _workItems.Setup(w => w.UpdateDetailsAsync(item.Id, expectedPatch, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemWriteResult(item, [WorkItemField.Description]));
+
+        await _tools.UpdateWorkItemDetails(
+            CallWith("id", "description", "layerId"), item.Id, description: null, layerId: null, ct: CancellationToken.None);
+
+        _workItems.VerifyAll();
+    }
+
+    [Test]
+    public async Task RescheduleWorkItem_WithOnlyAnEndDateSent_KeepsTheStartDate()
+    {
+        var item = MakeWorkItem();
+        var end = new DateOnly(2026, 9, 25);
+        _workItems.Setup(w => w.RescheduleAsync(
+                item.Id, Optional<DateOnly?>.Unset, new Optional<DateOnly?>(end), null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemWriteResult(item, [WorkItemField.EndDate]));
+
+        await _tools.RescheduleWorkItem(CallWith("id", "endDate"), item.Id, endDate: end, ct: CancellationToken.None);
+
+        _workItems.VerifyAll();
+    }
+
+    [Test]
     public void DeleteWorkItem_WhenHasChildrenAndCascadeFalse_ThrowsMcpExceptionWithSameMessage()
     {
         var id = Guid.NewGuid();
         var domainException = new WorkItemHasChildrenException(id);
-        _workItems.Setup(w => w.DeleteAsync(id, false, It.IsAny<CancellationToken>())).ThrowsAsync(domainException);
+        _workItems.Setup(w => w.DeleteAsync(id, false, null, It.IsAny<CancellationToken>())).ThrowsAsync(domainException);
 
         var thrown = Assert.ThrowsAsync<McpException>(() => _tools.DeleteWorkItem(id, ct: CancellationToken.None));
 
@@ -174,11 +236,33 @@ public class WorkItemToolsTests
     {
         var item = MakeWorkItem();
         var tags = new List<string> { "urgent", "needs review" };
-        _workItems.Setup(w => w.SetTagsAsync(item.Id, tags, 7u, It.IsAny<CancellationToken>())).ReturnsAsync(item);
+        _workItems.Setup(w => w.SetTagsAsync(
+                item.Id,
+                It.Is<Optional<IReadOnlyList<string>>>(t => t.HasValue && t.Value.SequenceEqual(tags)),
+                7u,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemWriteResult(item, [WorkItemField.Tags]));
 
-        var result = await _tools.SetWorkItemTags(item.Id, tags, expectedVersion: 7u, ct: CancellationToken.None);
+        var result = await _tools.SetWorkItemTags(
+            CallWith("id", "tags", "expectedVersion"), item.Id, tags, expectedVersion: 7u, ct: CancellationToken.None);
 
-        Assert.That(result.Id, Is.EqualTo(item.Id));
+        Assert.That(result.Item.Id, Is.EqualTo(item.Id));
+        _workItems.VerifyAll();
+    }
+
+    [Test]
+    public async Task SetWorkItemTags_WithNullSent_ClearsTheTags()
+    {
+        var item = MakeWorkItem();
+        _workItems.Setup(w => w.SetTagsAsync(
+                item.Id,
+                It.Is<Optional<IReadOnlyList<string>>>(t => t.HasValue && t.Value.Count == 0),
+                null,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemWriteResult(item, []));
+
+        await _tools.SetWorkItemTags(CallWith("id", "tags"), item.Id, tags: null, ct: CancellationToken.None);
+
         _workItems.VerifyAll();
     }
 
@@ -188,10 +272,12 @@ public class WorkItemToolsTests
         var id = Guid.NewGuid();
         var tags = new List<string> { "  " };
         var domainException = new InvalidWorkItemTagException(id);
-        _workItems.Setup(w => w.SetTagsAsync(id, tags, null, It.IsAny<CancellationToken>())).ThrowsAsync(domainException);
+        _workItems.Setup(w => w.SetTagsAsync(
+                id, It.IsAny<Optional<IReadOnlyList<string>>>(), null, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(domainException);
 
         var thrown = Assert.ThrowsAsync<McpException>(() =>
-            _tools.SetWorkItemTags(id, tags, ct: CancellationToken.None));
+            _tools.SetWorkItemTags(CallWith("id", "tags"), id, tags, ct: CancellationToken.None));
 
         Assert.That(thrown!.Message, Is.EqualTo(domainException.Message));
     }
@@ -200,10 +286,21 @@ public class WorkItemToolsTests
     public async Task DeleteWorkItem_WithCascadeTrue_DelegatesToService()
     {
         var id = Guid.NewGuid();
-        _workItems.Setup(w => w.DeleteAsync(id, true, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _workItems.Setup(w => w.DeleteAsync(id, true, 7u, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
-        await _tools.DeleteWorkItem(id, cascade: true, ct: CancellationToken.None);
+        await _tools.DeleteWorkItem(id, cascade: true, expectedVersion: 7u, ct: CancellationToken.None);
 
         _workItems.VerifyAll();
     }
+
+    /// <summary>A tools/call request that sent exactly the named arguments.</summary>
+    private static RequestContext<CallToolRequestParams> CallWith(params string[] argumentNames) =>
+        new(
+            new Mock<McpServer>().Object,
+            new JsonRpcRequest { Method = RequestMethods.ToolsCall },
+            new CallToolRequestParams
+            {
+                Name = "work_item_tool",
+                Arguments = argumentNames.ToDictionary(name => name, _ => JsonDocument.Parse("null").RootElement),
+            });
 }
