@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-human
+**Status:** done
 
 - [ ] List branches fully merged into `master`, excluding `master` and `main`, and review the list
 - [ ] Delete them on the remote and locally
