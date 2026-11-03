@@ -213,18 +213,20 @@ class WorkItemDetailViewModel extends ViewModel {
   /// rather than asking a second time.
   ///
   /// The item leaves the shared store, so every layout drops it.
-  Future<bool> deleteItem() => _mutate(
-    () async {
+  Future<bool> deleteItem() async {
+    // Queued through the store like a save, so a delete right after a save
+    // sends the version that save returned rather than a stale one.
+    final deleted = await _save((version) async {
       await _repository.deleteItem(
         _id,
         cascade: true,
-        expectedVersion: item!.version,
+        expectedVersion: version,
       );
-      _items.remove(_id);
-    },
-    errorMessage: 'Could not delete this work item. Try again.',
-    onConflict: (_) => _reloadAfterDeleteConflict(),
-  );
+      return item!;
+    }, errorMessage: 'Could not delete this work item. Try again.');
+    if (deleted) _items.remove(_id);
+    return deleted;
+  }
 
   Future<bool> saveTags(List<String> tags) => _save(
     (version) => _repository.updateTags(_id, tags, expectedVersion: version),
@@ -307,34 +309,18 @@ class WorkItemDetailViewModel extends ViewModel {
     notifyIfActive();
   }
 
-  Future<bool> _save(Future<WorkItem> Function(int expectedVersion) send) =>
-      _mutate(
-        () => _items.write(
-          _id,
-          send: send,
-          reload: () => _repository.getItem(_id),
-        ),
-        errorMessage: 'Could not save your change. Try again.',
-        onConflict: (conflict) async => _reportConflict(
-          reloaded: conflict is WorkItemConflict && conflict.latest != null,
-        ),
-      );
+  Future<bool> _save(
+    Future<WorkItem> Function(int expectedVersion) send, {
+    String errorMessage = 'Could not save your change. Try again.',
+  }) => _mutate(
+    () => _items.write(_id, send: send, reload: () => _repository.getItem(_id)),
+    errorMessage: errorMessage,
+  );
 
-  Future<void> _reloadAfterDeleteConflict() async {
-    if (isDisposed) return;
-    try {
-      final asOf = _items.revision;
-      _items.putAll([await _repository.getItem(_id)], asOf: asOf);
-      _reportConflict(reloaded: true);
-    } on Exception {
-      _reportConflict(reloaded: false);
-    }
-  }
-
-  void _reportConflict({required bool reloaded}) {
+  void _reportConflict(WorkItemConflict conflict) {
     const notSaved =
         'Someone else changed this work item, so your change was not saved.';
-    if (!reloaded) {
+    if (conflict.latest == null) {
       _saveError = '$notSaved Close and reopen it to see the latest version.';
       return;
     }
@@ -345,7 +331,6 @@ class WorkItemDetailViewModel extends ViewModel {
   Future<bool> _mutate(
     Future<void> Function() action, {
     required String errorMessage,
-    Future<void> Function(ApiException conflict)? onConflict,
   }) async {
     _pendingSaves++;
     _saveError = null;
@@ -354,14 +339,13 @@ class WorkItemDetailViewModel extends ViewModel {
     try {
       await action();
       return true;
+    } on WorkItemConflict catch (conflict) {
+      _reportConflict(conflict);
+      return false;
     } on ApiException catch (e) {
-      if (e.isConflict && onConflict != null) {
-        await onConflict(e);
-      } else {
-        // A 400 carries the server's validation message ("Each tag must be
-        // at most 50 characters."), which says more than "try again".
-        _saveError = e.statusCode == 400 ? e.message : errorMessage;
-      }
+      // A 400 carries the server's validation message ("Each tag must be
+      // at most 50 characters."), which says more than "try again".
+      _saveError = e.statusCode == 400 ? e.message : errorMessage;
       return false;
     } finally {
       _pendingSaves--;

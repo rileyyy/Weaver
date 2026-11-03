@@ -57,6 +57,21 @@ void main() {
     expect(notified, isTrue);
   });
 
+  test('an item loaded again after removal is not mistaken for a newer '
+      'saved copy', () async {
+    final store = _storeWith([workItem('a')]);
+    await store.write(
+      'a',
+      send: (_) async => workItem('a', version: 2),
+      reload: () => throw StateError('No conflict expected'),
+    );
+    store
+      ..remove('a')
+      ..putAll([workItem('a', title: 'Restored', version: 7)], asOf: 0);
+
+    expect(store['a']?.title, 'Restored');
+  });
+
   group('write', () {
     test(
       'sends the stored version and keeps the item the server returns',
@@ -232,6 +247,26 @@ void main() {
       );
       expect(store['a']?.statusId, 'todo');
       expect(store['a']?.version, 3);
+    });
+
+    test('fails the queued writes too when the reload fails', () async {
+      final store = _storeWith([workItem('a')]);
+      final firstResponse = Completer<WorkItem>();
+
+      final first = store.write(
+        'a',
+        send: (_) => firstResponse.future,
+        reload: () async => throw const ApiException('Offline'),
+      );
+      final queued = store.write(
+        'a',
+        send: (_) async => workItem('a', version: 2),
+        reload: () async => throw const ApiException('Offline'),
+      );
+      firstResponse.completeError(conflict);
+
+      await expectLater(first, throwsA(isA<WorkItemConflict>()));
+      await expectLater(queued, throwsA(isA<WorkItemConflict>()));
     });
 
     test('rejects the writes queued behind it unsent, since they were made '

@@ -108,6 +108,7 @@ class _FakeRepository implements WorkItemDetailRepository {
     expectedVersions.add(expectedVersion);
     final error = saveError;
     if (error != null) throw error;
+    _checkVersion(expectedVersion);
     deleted = true;
   }
 
@@ -516,6 +517,27 @@ void main() {
     expect(viewModel.item!.assignedToUserId, 'user-1');
     expect(viewModel.item!.tags, ['urgent']);
     expect(viewModel.saveError, isNull);
+  });
+
+  test('a delete issued while a save is in flight waits for it and sends the '
+      'new version', () async {
+    final gate = Completer<void>();
+    final repository = _FakeRepository()..assignGate = gate;
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
+    await viewModel.load('item-1');
+
+    final save = viewModel.saveAssignee('user-1');
+    final delete = viewModel.deleteItem();
+    gate.complete();
+
+    expect(await save, isTrue);
+    expect(await delete, isTrue);
+    expect(repository.expectedVersions, [1, 2]);
+    expect(repository.deleted, isTrue);
   });
 
   test('a save puts the saved item in the shared store', () async {

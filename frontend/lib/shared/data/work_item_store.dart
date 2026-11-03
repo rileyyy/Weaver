@@ -64,6 +64,9 @@ class WorkItemStore extends ChangeNotifier {
   void remove(String id) {
     _confirmed.remove(id);
     _pending.remove(id);
+    _savedAt.remove(id);
+    _conflictCounts.remove(id);
+    _lastConflicts.remove(id);
     notifyListeners();
   }
 
@@ -111,14 +114,14 @@ class WorkItemStore extends ChangeNotifier {
     Future<WorkItem> Function() reload,
     int conflictCount,
   ) async {
-    if ((_conflictCounts[id] ?? 0) != conflictCount) {
-      throw _lastConflicts[id]!;
-    }
     final stored = _confirmed[id];
     if (stored == null) {
       _pending.remove(id);
       notifyListeners();
       throw const ApiException('This work item was deleted.', statusCode: 404);
+    }
+    if ((_conflictCounts[id] ?? 0) != conflictCount) {
+      throw _lastConflicts[id]!;
     }
     try {
       final saved = await send(stored.version);
@@ -142,13 +145,16 @@ class WorkItemStore extends ChangeNotifier {
     // Every edit still pending was made against the stale copy too; the
     // writes they belong to are rejected when their turn comes.
     _pending.remove(id);
-    WorkItem? latest;
+    // Set before the reload so the writes queued behind this one always
+    // find a conflict to fail with, whatever the reload does.
+    _lastConflicts[id] = WorkItemConflict(rejection.message, latest: null);
+    final WorkItem latest;
     try {
       latest = await reload();
-      _confirm(latest);
-    } on ApiException {
-      latest = null;
+    } on Exception {
+      return _lastConflicts[id]!;
     }
+    _confirm(latest);
     return _lastConflicts[id] = WorkItemConflict(
       rejection.message,
       latest: latest,
