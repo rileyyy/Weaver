@@ -4,6 +4,8 @@ import 'dart:ui' show Color;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart';
+import 'package:weaver/features/work_item_detail/models/quick_pick.dart';
+import 'package:weaver/features/work_item_detail/models/quick_pick_dates.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
@@ -25,6 +27,7 @@ WorkItemDetail _item({
   List<String> tags = const [],
   String title = 'A task',
   String? description,
+  String? when,
   int version = 1,
 }) => WorkItemDetail(
   id: id,
@@ -41,6 +44,7 @@ WorkItemDetail _item({
   updatedAt: DateTime.utc(2026, 1, 1),
   version: version,
   tags: tags,
+  when: when,
 );
 
 class _FakeCurrentUser implements CurrentUser {
@@ -63,6 +67,9 @@ class _FakeRepository implements WorkItemDetailRepository {
   final List<String> updateDescriptionCalls = [];
   final List<String?> assignCalls = [];
   final List<String> rescheduleCalls = [];
+  final List<(DateTime?, DateTime?)> rescheduledDates = [];
+  final List<String?> updateWhenCalls = [];
+  List<QuickPickDates> quickPicks = const [];
   final List<List<String>> updateTagsCalls = [];
   final List<int> expectedVersions = [];
   final List<WorkItemComment> commentsList = [];
@@ -193,6 +200,7 @@ class _FakeRepository implements WorkItemDetailRepository {
     required int expectedVersion,
   }) async {
     rescheduleCalls.add(id);
+    rescheduledDates.add((startDate, endDate));
     expectedVersions.add(expectedVersion);
     final error = saveError;
     if (error != null) throw error;
@@ -286,6 +294,22 @@ class _FakeRepository implements WorkItemDetailRepository {
     if (error != null) throw error;
     linksList.removeWhere((l) => l.id == linkId);
   }
+
+  @override
+  Future<WorkItemDetail> updateWhen(
+    String id,
+    String? when, {
+    required int expectedVersion,
+  }) async {
+    updateWhenCalls.add(when);
+    expectedVersions.add(expectedVersion);
+    final error = saveError;
+    if (error != null) throw error;
+    return item = _item(id: id, when: when, version: item.version + 1);
+  }
+
+  @override
+  Future<List<QuickPickDates>> loadQuickPicks() async => quickPicks;
 }
 
 void main() {
@@ -591,6 +615,89 @@ void main() {
       expect(repository.rescheduleCalls, ['item-1']);
     },
   );
+
+  group('saveWhen', () {
+    test('saves the trimmed phrase with the loaded version', () async {
+      final repository = _FakeRepository()..item = _item(version: 4);
+      final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+      await viewModel.load('item-1');
+
+      final ok = await viewModel.saveWhen('  after drywall ');
+
+      expect(ok, isTrue);
+      expect(repository.updateWhenCalls, ['after drywall']);
+      expect(repository.expectedVersions, [4]);
+      expect(viewModel.item!.when, 'after drywall');
+    });
+
+    test('a blank phrase clears the When', () async {
+      final repository = _FakeRepository()..item = _item(when: 'next spring');
+      final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+      await viewModel.load('item-1');
+
+      await viewModel.saveWhen('   ');
+
+      expect(repository.updateWhenCalls, [null]);
+    });
+
+    test('an unchanged phrase saves nothing', () async {
+      final repository = _FakeRepository()..item = _item(when: 'next spring');
+      final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+      await viewModel.load('item-1');
+
+      final ok = await viewModel.saveWhen('next spring ');
+
+      expect(ok, isTrue);
+      expect(repository.updateWhenCalls, isEmpty);
+      expect(viewModel.hasChanges, isFalse);
+    });
+  });
+
+  group('applyQuickPick', () {
+    test('sets the dates the server resolved the pick to', () async {
+      final repository = _FakeRepository()
+        ..quickPicks = [
+          QuickPickDates(
+            pick: QuickPick.thisWeekend,
+            startDate: DateTime(2026, 11, 7),
+            endDate: DateTime(2026, 11, 8),
+          ),
+          QuickPickDates(
+            pick: QuickPick.nextWeek,
+            startDate: DateTime(2026, 11, 9),
+            endDate: DateTime(2026, 11, 15),
+          ),
+        ];
+      final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+      await viewModel.load('item-1');
+
+      final ok = await viewModel.applyQuickPick(QuickPick.nextWeek);
+
+      expect(ok, isTrue);
+      expect(repository.rescheduledDates, [
+        (DateTime(2026, 11, 9), DateTime(2026, 11, 15)),
+      ]);
+      expect(repository.updateWhenCalls, isEmpty);
+    });
+
+    test('reports a failure when the dates fail to save', () async {
+      final repository = _FakeRepository(saveError: const ApiException('boom'))
+        ..quickPicks = [
+          QuickPickDates(
+            pick: QuickPick.nextMonth,
+            startDate: DateTime(2026, 12, 1),
+            endDate: DateTime(2026, 12, 31),
+          ),
+        ];
+      final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+      await viewModel.load('item-1');
+
+      final ok = await viewModel.applyQuickPick(QuickPick.nextMonth);
+
+      expect(ok, isFalse);
+      expect(viewModel.saveError, isNotNull);
+    });
+  });
 
   test('addComment appends the new comment to the list', () async {
     final repository = _FakeRepository();

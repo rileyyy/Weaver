@@ -1,4 +1,5 @@
 import 'package:weaver/core/network/api_exception.dart';
+import 'package:weaver/features/work_item_detail/models/quick_pick_dates.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
@@ -53,6 +54,17 @@ abstract class WorkItemDetailRepository {
     String description, {
     required int expectedVersion,
   });
+
+  /// Saves just the When phrase (null clears it), leaving the other
+  /// details as they are on the server.
+  Future<WorkItemDetail> updateWhen(
+    String id,
+    String? when, {
+    required int expectedVersion,
+  });
+
+  /// The quick picks with their dates for today in the server's time zone.
+  Future<List<QuickPickDates>> loadQuickPicks();
 
   Future<WorkItemDetail> assign(
     String id,

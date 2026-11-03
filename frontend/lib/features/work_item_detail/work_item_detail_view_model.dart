@@ -6,6 +6,7 @@ import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/core/network/parallel_api_errors.dart';
 import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart';
+import 'package:weaver/features/work_item_detail/models/quick_pick.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
@@ -231,6 +232,35 @@ class WorkItemDetailViewModel extends ViewModel {
       ),
     );
   }
+
+  /// Saves the When phrase on its own, apart from the details form; a blank
+  /// phrase clears it. Typing a When never sets dates.
+  Future<bool> saveWhen(String text) {
+    final trimmed = text.trim();
+    final when = trimmed.isEmpty ? null : trimmed;
+    if (when == _item!.when) return Future.value(true);
+    return _save(
+      () => _repository.updateWhen(
+        _item!.id,
+        when,
+        expectedVersion: _item!.version,
+      ),
+    );
+  }
+
+  /// Sets the dates the server resolves [pick] to. They're fetched on each
+  /// tap rather than at load, so a dialog left open past midnight still
+  /// gets today's dates.
+  Future<bool> applyQuickPick(QuickPick pick) => _save(() async {
+    final picks = await _repository.loadQuickPicks();
+    final dates = picks.firstWhere((p) => p.pick == pick);
+    return _repository.reschedule(
+      _item!.id,
+      dates.startDate,
+      dates.endDate,
+      expectedVersion: _item!.version,
+    );
+  });
 
   Future<bool> _reject(String message) {
     _saveError = message;

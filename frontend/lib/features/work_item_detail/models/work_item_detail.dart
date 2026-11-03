@@ -19,6 +19,8 @@ class WorkItemDetail {
     required this.updatedAt,
     required this.version,
     this.tags = const [],
+    this.when,
+    this.whenResolved = false,
     this.recurrenceSourceId,
     this.recurrenceDate,
   });
@@ -38,6 +40,8 @@ class WorkItemDetail {
     updatedAt: parseApiTimestamp(json['updatedAtUtc'] as String),
     version: json['version'] as int,
     tags: stringList(json['tags']),
+    when: json['when'] as String?,
+    whenResolved: json['whenResolved'] as bool? ?? false,
     recurrenceSourceId: json['recurrenceSourceId'] as String?,
     recurrenceDate: parseCalendarDate(json['recurrenceDate']),
   );
@@ -59,6 +63,12 @@ class WorkItemDetail {
   /// backend can reject a save based on a stale read.
   final int version;
   final List<String> tags;
+
+  /// The free-text phrase behind the item's dates ("after drywall"), and
+  /// whether the server counts it as resolved (backed by dates). Weaver
+  /// itself never turns the phrase into dates; agents and quick picks do.
+  final String? when;
+  final bool whenResolved;
 
   /// The repeating item this one was created from, and the occurrence date
   /// it was created for; null for items created by hand.
