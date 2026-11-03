@@ -1,5 +1,7 @@
 import 'dart:ui' show Color;
 
+import 'package:flutter/foundation.dart';
+
 import 'package:injectable/injectable.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/core/presentation/view_model.dart';
@@ -38,6 +40,12 @@ Future<void> _noRetry() => Future.value();
 /// the layout (which lanes, which cards in which order, which items the
 /// Hierarchy shows) and redraws from the store whenever it changes, so an
 /// edit made anywhere, including the detail dialog, shows on every layout.
+///
+/// An item edit doesn't notify this view model's own listeners, which
+/// rebuild the whole board. Each lane has its own listenable
+/// ([swimlaneListenables]) that fires only when that lane changes, and
+/// [itemChanges] fires for layouts drawn from every item (Hierarchy,
+/// Roadmap, the tag list).
 @injectable
 class BoardViewModel extends ViewModel {
   BoardViewModel(this._repository, this._items, this._lastSpace) {
@@ -56,6 +64,8 @@ class BoardViewModel extends ViewModel {
   Map<String, WorkItemStatus> _statusById = const {};
   Map<String, WorkItemLayer> _layerById = const {};
   List<Swimlane> _swimlanes = const [];
+  List<ValueNotifier<Swimlane>> _laneNotifiers = const [];
+  final ValueNotifier<int> _itemRevision = ValueNotifier(0);
   List<ScopeCrumb> _breadcrumbs = const [];
   bool _isLoading = true;
   String? _loadError;
@@ -83,22 +93,61 @@ class BoardViewModel extends ViewModel {
 
   @override
   void notifyIfActive() {
+    _clearItemCaches();
+    _visibleStatusesCache = null;
+    super.notifyIfActive();
+  }
+
+  void _clearItemCaches() {
     _hierarchyRootsCache = null;
     _hierarchyItemsCache = null;
-    _visibleStatusesCache = null;
     _availableTagsCache = null;
-    super.notifyIfActive();
   }
 
   @override
   void dispose() {
     _items.removeListener(_onItemsChanged);
+    for (final lane in _laneNotifiers) {
+      lane.dispose();
+    }
+    _itemRevision.dispose();
     super.dispose();
   }
 
   void _onItemsChanged() {
-    _swimlanes = _drawnFromStore(_swimlanes);
-    notifyIfActive();
+    _clearItemCaches();
+    _setSwimlanes(_drawnFromStore(_swimlanes));
+    _itemRevision.value++;
+  }
+
+  /// Shows [lanes], notifying only the lanes that changed. Adding, removing,
+  /// reordering or renaming a lane changes what the rest of the board shows
+  /// (the label column, the drill-down targets), so that notifies the whole
+  /// board too.
+  void _setSwimlanes(List<Swimlane> lanes) {
+    final reshaped = !_sameLaneHeaders(_swimlanes, lanes);
+    _swimlanes = lanes;
+    final notifierById = {
+      for (final notifier in _laneNotifiers) notifier.value.parentId: notifier,
+    };
+    _laneNotifiers = [
+      for (final lane in lanes)
+        if (notifierById[lane.parentId] case final notifier?)
+          notifier..value = lane
+        else
+          ValueNotifier(lane),
+    ];
+    if (reshaped) notifyIfActive();
+  }
+
+  static bool _sameLaneHeaders(List<Swimlane> a, List<Swimlane> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].parentId != b[i].parentId || a[i].title != b[i].title) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /// [lanes] with every lane and card redrawn from the store, keeping their
@@ -125,6 +174,15 @@ class BoardViewModel extends ViewModel {
 
   List<WorkItemStatus> get statuses => _statuses;
   List<Swimlane> get swimlanes => _swimlanes;
+
+  /// One listenable per lane in [swimlanes], in the same order, each firing
+  /// only when its own lane changes. The list itself changes only along with
+  /// a notification of this view model.
+  List<ValueListenable<Swimlane>> get swimlaneListenables => _laneNotifiers;
+
+  /// Fires after any item the board holds changes, for layouts that draw
+  /// from every item rather than one lane.
+  Listenable get itemChanges => _itemRevision;
 
   List<Space> get spaces => _spaces;
 
@@ -347,7 +405,7 @@ class BoardViewModel extends ViewModel {
         _spacesLoaded = true;
         _currentSpace = space;
         if (data == null) {
-          _swimlanes = const [];
+          _setSwimlanes(const []);
           _breadcrumbs = const [];
         } else {
           _applyScope(data, asOf);
@@ -499,15 +557,15 @@ class BoardViewModel extends ViewModel {
         afterId: afterId,
         expectedVersion: version,
       ),
-      applyLayout: () => _swimlanes = _swimlanes.withCardPlaced(
-        card.id,
-        newStatusId,
-        afterId: afterId,
+      applyLayout: () => _setSwimlanes(
+        _swimlanes.withCardPlaced(card.id, newStatusId, afterId: afterId),
       ),
-      revertLayout: () => _swimlanes = _swimlanes.withCardRestored(
-        card.id,
-        card.statusId,
-        originalCellIds: originalCellIds,
+      revertLayout: () => _setSwimlanes(
+        _swimlanes.withCardRestored(
+          card.id,
+          card.statusId,
+          originalCellIds: originalCellIds,
+        ),
       ),
       title: card.title,
       errorMessage: 'Could not move "${card.title}". Try again.',
@@ -538,16 +596,16 @@ class BoardViewModel extends ViewModel {
         newParentId,
         expectedVersion: version,
       ),
-      applyLayout: () => _swimlanes = _swimlanes.withCardMovedToLane(
-        card.id,
-        card.parentId,
-        newParentId,
+      applyLayout: () => _setSwimlanes(
+        _swimlanes.withCardMovedToLane(card.id, card.parentId, newParentId),
       ),
-      revertLayout: () => _swimlanes = _swimlanes.withCardMovedToLane(
-        card.id,
-        newParentId,
-        card.parentId,
-        atIndex: originalIndex,
+      revertLayout: () => _setSwimlanes(
+        _swimlanes.withCardMovedToLane(
+          card.id,
+          newParentId,
+          card.parentId,
+          atIndex: originalIndex,
+        ),
       ),
       title: card.title,
       errorMessage: 'Could not move "${card.title}". Try again.',
@@ -799,9 +857,11 @@ class BoardViewModel extends ViewModel {
     final laneId = _swimlanes.laneIdOf(id);
     final parentId = latest?.parentId;
     if (latest == null || laneId == null || parentId == laneId) return;
-    _swimlanes = parentId != null && _swimlanes.hasLane(parentId)
-        ? _swimlanes.withCardMovedToLane(id, laneId, parentId)
-        : _swimlanes.withoutCard(id);
+    _setSwimlanes(
+      parentId != null && _swimlanes.hasLane(parentId)
+          ? _swimlanes.withCardMovedToLane(id, laneId, parentId)
+          : _swimlanes.withoutCard(id),
+    );
   }
 
   static String _conflictMessage(String? title, WorkItemConflict conflict) {
@@ -820,9 +880,9 @@ class BoardViewModel extends ViewModel {
     _items.putAll([
       for (final lane in data.swimlanes) ...[lane.lane, ...lane.cards],
     ], asOf: asOf);
-    _swimlanes = _drawnFromStore([
-      for (final lane in data.swimlanes) _layoutOf(lane),
-    ]);
+    _setSwimlanes(
+      _drawnFromStore([for (final lane in data.swimlanes) _layoutOf(lane)]),
+    );
   }
 
   static Swimlane _layoutOf(SwimlaneItems lane) => Swimlane(

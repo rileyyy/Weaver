@@ -728,7 +728,11 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
+    final hierarchyViewModel = BoardViewModel(
+      repository,
+      WorkItemStore(),
+      MemoryLastSpaceStore(),
+    );
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
 
@@ -795,7 +799,11 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
+    final hierarchyViewModel = BoardViewModel(
+      repository,
+      WorkItemStore(),
+      MemoryLastSpaceStore(),
+    );
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
 
@@ -858,7 +866,11 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
+    final hierarchyViewModel = BoardViewModel(
+      repository,
+      WorkItemStore(),
+      MemoryLastSpaceStore(),
+    );
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
 
@@ -875,7 +887,11 @@ void main() {
     final failingRepository = _TestBoardRepository(
       tagsError: const ApiException('boom'),
     );
-    final failingViewModel = BoardViewModel(failingRepository, WorkItemStore(), MemoryLastSpaceStore());
+    final failingViewModel = BoardViewModel(
+      failingRepository,
+      WorkItemStore(),
+      MemoryLastSpaceStore(),
+    );
     await failingViewModel.load();
     final card = failingViewModel.swimlanes[0].cards.single;
 
@@ -1326,7 +1342,11 @@ void main() {
           ),
         ],
       );
-      final withTags = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
+      final withTags = BoardViewModel(
+        repository,
+        WorkItemStore(),
+        MemoryLastSpaceStore(),
+      );
       await withTags.load();
       await withTags.loadHierarchy();
       await withTags.setTags(withTags.swimlanes[0].cards.single.id, [
@@ -1427,7 +1447,11 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
+    final hierarchyViewModel = BoardViewModel(
+      repository,
+      WorkItemStore(),
+      MemoryLastSpaceStore(),
+    );
     await hierarchyViewModel.load();
     expect(hierarchyViewModel.hierarchyLoaded, isFalse);
 
@@ -1446,7 +1470,11 @@ void main() {
       final repository = _TestBoardRepository(
         hierarchyError: const ApiException('network down'),
       );
-      final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
+      final hierarchyViewModel = BoardViewModel(
+        repository,
+        WorkItemStore(),
+        MemoryLastSpaceStore(),
+      );
       await hierarchyViewModel.load();
 
       await hierarchyViewModel.loadHierarchy();
@@ -1477,7 +1505,11 @@ void main() {
           ),
         ],
       );
-      final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
+      final hierarchyViewModel = BoardViewModel(
+        repository,
+        WorkItemStore(),
+        MemoryLastSpaceStore(),
+      );
       await hierarchyViewModel.load();
       await hierarchyViewModel.loadHierarchy();
       hierarchyViewModel.setSearchQuery('red');
@@ -1507,7 +1539,11 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
+    final hierarchyViewModel = BoardViewModel(
+      repository,
+      WorkItemStore(),
+      MemoryLastSpaceStore(),
+    );
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
     hierarchyViewModel.setSearchQuery('matches');
@@ -1534,7 +1570,11 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
+    final hierarchyViewModel = BoardViewModel(
+      repository,
+      WorkItemStore(),
+      MemoryLastSpaceStore(),
+    );
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
     hierarchyViewModel.toggleStatusVisibility('done');
@@ -1562,7 +1602,11 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
+    final hierarchyViewModel = BoardViewModel(
+      repository,
+      WorkItemStore(),
+      MemoryLastSpaceStore(),
+    );
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
     hierarchyViewModel.toggleTagFilter('urgent');
@@ -1591,7 +1635,11 @@ void main() {
           ),
         ],
       );
-      final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
+      final hierarchyViewModel = BoardViewModel(
+        repository,
+        WorkItemStore(),
+        MemoryLastSpaceStore(),
+      );
       await hierarchyViewModel.load();
       await hierarchyViewModel.loadHierarchy();
       hierarchyViewModel.setSortOption(CardSortOption.title);
@@ -1730,7 +1778,11 @@ void main() {
 
     setUp(() async {
       reorderRepository = _TestBoardRepository(rootBoard: _reorderBoard);
-      reorderViewModel = BoardViewModel(reorderRepository, WorkItemStore(), MemoryLastSpaceStore());
+      reorderViewModel = BoardViewModel(
+        reorderRepository,
+        WorkItemStore(),
+        MemoryLastSpaceStore(),
+      );
       await reorderViewModel.load();
     });
 
@@ -1815,7 +1867,11 @@ void main() {
         rootBoard: _reorderBoard,
         changeStatusError: const ApiException('rejected'),
       );
-      reorderViewModel = BoardViewModel(failing, WorkItemStore(), MemoryLastSpaceStore());
+      reorderViewModel = BoardViewModel(
+        failing,
+        WorkItemStore(),
+        MemoryLastSpaceStore(),
+      );
       await reorderViewModel.load();
 
       await reorderViewModel.moveCard(
@@ -1900,7 +1956,11 @@ void main() {
           ),
         ],
       );
-      hierarchyViewModel = BoardViewModel(hierarchyRepository, WorkItemStore(), MemoryLastSpaceStore());
+      hierarchyViewModel = BoardViewModel(
+        hierarchyRepository,
+        WorkItemStore(),
+        MemoryLastSpaceStore(),
+      );
       await hierarchyViewModel.load();
       await hierarchyViewModel.loadHierarchy();
     });
@@ -1949,7 +2009,11 @@ void main() {
         changeStatusError: const ApiException('rejected'),
         hierarchyItems: hierarchyRepository.hierarchyItems,
       );
-      hierarchyViewModel = BoardViewModel(failing, WorkItemStore(), MemoryLastSpaceStore());
+      hierarchyViewModel = BoardViewModel(
+        failing,
+        WorkItemStore(),
+        MemoryLastSpaceStore(),
+      );
       await hierarchyViewModel.load();
       await hierarchyViewModel.loadHierarchy();
 
@@ -2058,7 +2122,11 @@ void main() {
             User(id: 'u1', username: 'alice', kind: UserKind.human),
           ],
         );
-        final viewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
+        final viewModel = BoardViewModel(
+          repository,
+          WorkItemStore(),
+          MemoryLastSpaceStore(),
+        );
         addTearDown(viewModel.dispose);
         await viewModel.load();
         await viewModel.loadHierarchy();
@@ -2078,7 +2146,11 @@ void main() {
 
     test('leaves an unopened hierarchy unloaded', () async {
       final repository = _TestBoardRepository();
-      final viewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
+      final viewModel = BoardViewModel(
+        repository,
+        WorkItemStore(),
+        MemoryLastSpaceStore(),
+      );
       addTearDown(viewModel.dispose);
       await viewModel.load();
 
@@ -2226,8 +2298,8 @@ void main() {
       await viewModel.load();
       await viewModel.loadHierarchy();
       final scopeLoads = repository.requestedScopes.length;
-      var notified = false;
-      viewModel.addListener(() => notified = true);
+      var itemsChanged = false;
+      viewModel.itemChanges.addListener(() => itemsChanged = true);
 
       await items.write(
         'card-1',
@@ -2242,13 +2314,80 @@ void main() {
         reload: () => throw StateError('No conflict expected'),
       );
 
-      expect(notified, isTrue);
+      expect(itemsChanged, isTrue);
       expect(card1().title, 'Renamed in the dialog');
       expect(
         viewModel.hierarchyRoots.single.children.single.item.title,
         'Renamed in the dialog',
       );
       expect(repository.requestedScopes.length, scopeLoads);
+    });
+
+    group('narrow notifications', () {
+      Future<void> renameCard1() => items.write(
+        'card-1',
+        send: (version) async => withVersion(
+          workItem(
+            'card-1',
+            title: 'Renamed',
+            parentId: 'lane-a',
+            statusId: 'todo',
+          ),
+          version + 1,
+        ),
+        reload: () => throw StateError('No conflict expected'),
+      );
+
+      test('a card edit notifies only its own lane', () async {
+        final notifiedLanes = <String>[];
+        for (final lane in viewModel.swimlaneListenables) {
+          lane.addListener(() => notifiedLanes.add(lane.value.parentId));
+        }
+
+        await renameCard1();
+
+        expect(notifiedLanes.toSet(), {'lane-a'});
+        expect(
+          viewModel.swimlaneListenables.first.value.cards.single.title,
+          'Renamed',
+        );
+      });
+
+      test('a card edit does not notify the whole board', () async {
+        var boardNotified = false;
+        viewModel.addListener(() => boardNotified = true);
+
+        await renameCard1();
+
+        expect(boardNotified, isFalse);
+      });
+
+      test('renaming a lane notifies the whole board, whose drill-down '
+          'targets show lane titles', () async {
+        var boardNotified = false;
+        viewModel.addListener(() => boardNotified = true);
+
+        await items.write(
+          'lane-a',
+          send: (version) async =>
+              withVersion(workItem('lane-a', title: 'Lane A2'), version + 1),
+          reload: () => throw StateError('No conflict expected'),
+        );
+
+        expect(boardNotified, isTrue);
+        expect(viewModel.drillDownTargets.first.title, 'Lane A2');
+      });
+
+      test('a lane listenable carries its lane through a card move', () async {
+        final laneA = viewModel.swimlaneListenables.first;
+        var laneANotified = 0;
+        laneA.addListener(() => laneANotified++);
+
+        await viewModel.moveCard(card1(), 'done');
+
+        expect(laneANotified, greaterThan(0));
+        expect(laneA.value.cards.single.statusId, 'done');
+      });
     });
 
     test('an item removed from the store leaves the board', () {

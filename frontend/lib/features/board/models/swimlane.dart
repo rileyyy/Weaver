@@ -1,6 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 
 /// One swimlane: a parent work item and its direct children as cards.
+///
+/// Compared by value so a lane redrawn from the store only notifies its
+/// listeners when something it shows actually changed.
+@immutable
 class Swimlane {
   const Swimlane({
     required this.parentId,
@@ -24,4 +29,16 @@ class Swimlane {
     cards: cards,
     assignedToUserId: assignedToUserId,
   );
+
+  @override
+  bool operator ==(Object other) =>
+      other is Swimlane &&
+      other.parentId == parentId &&
+      other.title == title &&
+      other.assignedToUserId == assignedToUserId &&
+      listEquals(other.cards, cards);
+
+  @override
+  int get hashCode =>
+      Object.hash(parentId, title, assignedToUserId, Object.hashAll(cards));
 }

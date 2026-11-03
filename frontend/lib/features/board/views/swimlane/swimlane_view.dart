@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
@@ -15,6 +16,9 @@ import 'package:weaver/shared/models/work_item_status.dart';
 /// scrolls horizontally. Otherwise each column keeps [minColumnWidth] and
 /// only the columns area scrolls horizontally — the label column, being a
 /// sibling outside that scroll view, stays in view.
+///
+/// Each lane's label and row listen to that lane alone, so a change to one
+/// card rebuilds its own lane and leaves the others be.
 class SwimlaneView extends StatelessWidget {
   const SwimlaneView({
     super.key,
@@ -38,7 +42,7 @@ class SwimlaneView extends StatelessWidget {
 
   final double width;
   final List<WorkItemStatus> statuses;
-  final List<Swimlane> swimlanes;
+  final List<ValueListenable<Swimlane>> swimlanes;
   final CardDropCallback onCardDropped;
   final Future<void> Function(WorkItemCard card, String newParentId)
   onCardReparented;
@@ -75,13 +79,6 @@ class SwimlaneView extends StatelessWidget {
         ? cardWidth * 0.5
         : minCardHeight;
 
-    // Each lane's height is needed by both the label column and the
-    // columns area; measure it once.
-    final rowHeights = {
-      for (final lane in swimlanes)
-        lane.parentId: _rowHeightFor(context, lane, cardHeight),
-    };
-
     final baseHeaderStyle = Theme.of(context).textTheme.titleMedium;
     final headerTextStyle = baseHeaderStyle?.copyWith(
       fontSize: (baseHeaderStyle.fontSize ?? 16) * gridHeaderFontScale,
@@ -89,9 +86,13 @@ class SwimlaneView extends StatelessWidget {
       fontWeight: FontWeight.w600,
     );
 
+    // A lane's id never changes, so reading it here without listening is
+    // safe; everything else about a lane is read inside its own builder.
     final allSwimlanesCollapsed =
         swimlanes.isNotEmpty &&
-        swimlanes.every((lane) => collapsedSwimlaneIds.contains(lane.parentId));
+        swimlanes.every(
+          (lane) => collapsedSwimlaneIds.contains(lane.value.parentId),
+        );
 
     final labelColumn = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -113,19 +114,23 @@ class SwimlaneView extends StatelessWidget {
             ),
           ),
         ),
-        for (final lane in swimlanes)
-          GridRowBox(
-            height: rowHeights[lane.parentId]!,
-            showBottomBorder: true,
-            child: SwimlaneLabel(
-              swimlane: lane,
-              assigneeInitial: assigneeInitialFor(lane.assignedToUserId),
-              isCollapsed: collapsedSwimlaneIds.contains(lane.parentId),
-              onCardReparented: onCardReparented,
-              onTapped: onSwimlaneLabelTapped,
-              onAssignTapped: () =>
-                  onAssignRequested(lane.parentId, lane.assignedToUserId),
-              onToggleCollapsed: () => onToggleSwimlaneCollapsed(lane.parentId),
+        for (final listenable in swimlanes)
+          ValueListenableBuilder(
+            valueListenable: listenable,
+            builder: (context, lane, _) => GridRowBox(
+              height: _rowHeightFor(context, lane, cardHeight),
+              showBottomBorder: true,
+              child: SwimlaneLabel(
+                swimlane: lane,
+                assigneeInitial: assigneeInitialFor(lane.assignedToUserId),
+                isCollapsed: collapsedSwimlaneIds.contains(lane.parentId),
+                onCardReparented: onCardReparented,
+                onTapped: onSwimlaneLabelTapped,
+                onAssignTapped: () =>
+                    onAssignRequested(lane.parentId, lane.assignedToUserId),
+                onToggleCollapsed: () =>
+                    onToggleSwimlaneCollapsed(lane.parentId),
+              ),
             ),
           ),
       ],
@@ -153,35 +158,40 @@ class SwimlaneView extends StatelessWidget {
       ),
     );
 
+    // The label and the row each measure the lane's height rather than
+    // share it, so that neither has to rebuild for the other's lane.
     final laneRows = [
-      for (final lane in swimlanes)
-        GridRowBox(
-          height: rowHeights[lane.parentId]!,
-          showBottomBorder: true,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (final status in statuses)
-                _columnWrapper(
-                  flex: useFlexColumns,
-                  showRightBorder: status != statuses.last,
-                  child: StatusColumn(
-                    swimlane: lane,
-                    status: status,
-                    cardWidth: cardWidth,
-                    cardHeight: cardHeight,
-                    isCollapsed: collapsedSwimlaneIds.contains(lane.parentId),
-                    onCardDropped: onCardDropped,
-                    onCardDetailsOpened: onCardDetailsOpened,
-                    onAssignRequested: onAssignRequested,
-                    onAddTagsRequested: onAddTagsRequested,
-                    cardVisible: cardVisible,
-                    cardComparator: cardComparator,
-                    assigneeInitialFor: assigneeInitialFor,
-                    layerColorFor: layerColorFor,
+      for (final listenable in swimlanes)
+        ValueListenableBuilder(
+          valueListenable: listenable,
+          builder: (context, lane, _) => GridRowBox(
+            height: _rowHeightFor(context, lane, cardHeight),
+            showBottomBorder: true,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final status in statuses)
+                  _columnWrapper(
+                    flex: useFlexColumns,
+                    showRightBorder: status != statuses.last,
+                    child: StatusColumn(
+                      swimlane: lane,
+                      status: status,
+                      cardWidth: cardWidth,
+                      cardHeight: cardHeight,
+                      isCollapsed: collapsedSwimlaneIds.contains(lane.parentId),
+                      onCardDropped: onCardDropped,
+                      onCardDetailsOpened: onCardDetailsOpened,
+                      onAssignRequested: onAssignRequested,
+                      onAddTagsRequested: onAddTagsRequested,
+                      cardVisible: cardVisible,
+                      cardComparator: cardComparator,
+                      assigneeInitialFor: assigneeInitialFor,
+                      layerColorFor: layerColorFor,
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
     ];

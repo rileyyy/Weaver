@@ -256,7 +256,9 @@ class _BoardViewState extends State<BoardView>
         content: SizedBox(
           width: 360,
           child: ListenableBuilder(
-            listenable: _viewModel,
+            // Item edits don't notify the view model itself, but they can
+            // add or drop a tag.
+            listenable: Listenable.merge([_viewModel, _viewModel.itemChanges]),
             builder: (context, _) => Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,16 +355,24 @@ class _BoardViewState extends State<BoardView>
                       controller: _tabController,
                       children: [
                         _buildBoardArea(context),
-                        RoadmapView(
-                          viewModel: _viewModel,
-                          onItemOpened: _openDetailsById,
-                          onAddTagsRequested: _openAddTagsDialog,
+                        // Drawn from every item, so any item edit can reorder
+                        // or refilter them. Only built while their tab shows.
+                        ListenableBuilder(
+                          listenable: _viewModel.itemChanges,
+                          builder: (context, _) => RoadmapView(
+                            viewModel: _viewModel,
+                            onItemOpened: _openDetailsById,
+                            onAddTagsRequested: _openAddTagsDialog,
+                          ),
                         ),
-                        HierarchyView(
-                          viewModel: _viewModel,
-                          onItemOpened: _openDetailsById,
-                          onAssignRequested: _openAssignDialog,
-                          onAddTagsRequested: _openAddTagsDialog,
+                        ListenableBuilder(
+                          listenable: _viewModel.itemChanges,
+                          builder: (context, _) => HierarchyView(
+                            viewModel: _viewModel,
+                            onItemOpened: _openDetailsById,
+                            onAssignRequested: _openAssignDialog,
+                            onAddTagsRequested: _openAddTagsDialog,
+                          ),
                         ),
                         RepeatingView(
                           viewModel: _repeatingViewModel,
@@ -430,7 +440,7 @@ class _BoardViewState extends State<BoardView>
           builder: (context, constraints) => SwimlaneView(
             width: constraints.maxWidth,
             statuses: _viewModel.visibleStatuses,
-            swimlanes: _viewModel.swimlanes,
+            swimlanes: _viewModel.swimlaneListenables,
             onCardDropped: _viewModel.moveCard,
             onCardReparented: _viewModel.reparentCard,
             onCardDetailsOpened: _openDetails,
