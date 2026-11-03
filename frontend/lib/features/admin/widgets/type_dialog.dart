@@ -10,7 +10,7 @@ import 'package:weaver/features/admin/widgets/hex_color_picker.dart';
 /// the server gives types added before types had colours.
 const String defaultTypeColor = '#546E7A';
 
-/// Adds a type, or edits [initial]. [onSave] gets the trimmed name and an
+/// Adds a Type, or edits [initial]. [onSave] gets the trimmed name and an
 /// upper-case `#RRGGBB` colour, and returns null on success or an error to
 /// show, keeping the dialog open. Completes with whether a save succeeded.
 Future<bool> showTypeDialog(

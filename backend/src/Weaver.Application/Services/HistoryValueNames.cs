@@ -91,7 +91,7 @@ internal sealed class HistoryValueNames
                 .Select(x => (x.Id, x.Name)).ToList(),
             Kind.Status => (await db.Statuses.Where(s => ids.Contains(s.Id)).Select(s => new { s.Id, s.Name }).ToListAsync(ct))
                 .Select(x => (x.Id, x.Name)).ToList(),
-            Kind.Type => (await db.WorkItemTypes.Where(l => ids.Contains(l.Id)).Select(l => new { l.Id, l.Name }).ToListAsync(ct))
+            Kind.Type => (await db.WorkItemTypes.Where(t => ids.Contains(t.Id)).Select(t => new { t.Id, t.Name }).ToListAsync(ct))
                 .Select(x => (x.Id, x.Name)).ToList(),
             Kind.Priority => (await db.WorkItemPriorities.Where(p => ids.Contains(p.Id)).Select(p => new { p.Id, p.Name }).ToListAsync(ct))
                 .Select(x => (x.Id, x.Name)).ToList(),

@@ -26,7 +26,9 @@ _Avoid:_ project, workspace, board.
 : A per-Space kind of work item (e.g. Room, Chore, Bug). It has a colour,
 and from ticket 14 its own custom fields. Types don't limit what can be
 nested under what. It replaced the global Layer (ticket 13).
-_Avoid:_ layer, work-item type.
+_Avoid:_ layer, work-item type. (Code and API names such as `WorkItemType`,
+`/api/work-item-types` and `list_work_item_types` keep the `work-item`
+prefix, matching statuses and priorities.)
 
 **Custom field** *(planned)*
 : A field a Type defines: text, Markdown, number, currency, date, checkbox,

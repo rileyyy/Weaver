@@ -21,7 +21,7 @@ Future<void> showAdminPage(BuildContext context) => Navigator.of(
   context,
 ).push(MaterialPageRoute<void>(builder: (_) => const AdminView()));
 
-/// Spaces, statuses, priorities, types, users, agents and server-wide
+/// Spaces, statuses, priorities, Types, users, agents and server-wide
 /// settings, one tab each. Only offered to admins; the server refuses every change from
 /// anyone else.
 class AdminView extends StatefulWidget {

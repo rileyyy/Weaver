@@ -89,11 +89,8 @@ namespace Weaver.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // Not lossless: there's no telling which Space's Type should become the global one,
-            // so items lose their Type and the global seeds come back.
-            migrationBuilder.Sql("""UPDATE "WorkItems" SET "TypeId" = NULL;""");
-            migrationBuilder.Sql("""DELETE FROM "WorkItemTypes";""");
-
+            // Lossy where Spaces renamed or added Types: a Type is matched back onto the global
+            // seed of the same name, and items whose Type has no such seed lose it.
             migrationBuilder.DropForeignKey(
                 name: "FK_WorkItemTypes_Spaces_SpaceId",
                 table: "WorkItemTypes");
@@ -102,9 +99,13 @@ namespace Weaver.Infrastructure.Migrations
                 name: "IX_WorkItemTypes_SpaceId_Order",
                 table: "WorkItemTypes");
 
-            migrationBuilder.DropColumn(
+            migrationBuilder.AlterColumn<Guid>(
                 name: "SpaceId",
-                table: "WorkItemTypes");
+                table: "WorkItemTypes",
+                type: "uuid",
+                nullable: true,
+                oldClrType: typeof(Guid),
+                oldType: "uuid");
 
             migrationBuilder.InsertData(
                 table: "WorkItemTypes",
@@ -115,6 +116,34 @@ namespace Weaver.Infrastructure.Migrations
                     { new Guid("00000000-0000-0000-0000-000000000102"), "#00897B", "Goal", 1 },
                     { new Guid("00000000-0000-0000-0000-000000000103"), "#43A047", "Task", 2 },
                 });
+
+            foreach (var column in new[] { "OldValue", "NewValue" })
+            {
+                migrationBuilder.Sql($$"""
+                    UPDATE "WorkItemHistory" h
+                    SET "{{column}}" = to_jsonb(g."Id")
+                    FROM "WorkItemTypes" t, "WorkItemTypes" g
+                    WHERE h."Field" = 'typeId'
+                      AND t."SpaceId" IS NOT NULL
+                      AND h."{{column}}" #>> '{}' = t."Id"::text
+                      AND g."SpaceId" IS NULL
+                      AND g."Name" = t."Name";
+                    """);
+            }
+
+            migrationBuilder.Sql("""
+                UPDATE "WorkItems" w
+                SET "TypeId" = g."Id"
+                FROM "WorkItemTypes" t
+                LEFT JOIN "WorkItemTypes" g ON g."SpaceId" IS NULL AND g."Name" = t."Name"
+                WHERE w."TypeId" = t."Id" AND t."SpaceId" IS NOT NULL;
+                """);
+
+            migrationBuilder.Sql("""DELETE FROM "WorkItemTypes" WHERE "SpaceId" IS NOT NULL;""");
+
+            migrationBuilder.DropColumn(
+                name: "SpaceId",
+                table: "WorkItemTypes");
 
             migrationBuilder.CreateIndex(
                 name: "IX_WorkItemTypes_Order",

@@ -7,7 +7,7 @@ enum LookupKind {
     singular: 'priority',
     hasColor: false,
   ),
-  types(path: '/work-item-types', singular: 'type', hasColor: true);
+  types(path: '/work-item-types', singular: 'Type', hasColor: true);
 
   const LookupKind({
     required this.path,

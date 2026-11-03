@@ -19,13 +19,19 @@ class SpaceLookupCache<T> {
       _fetchedFrom = baseUrl;
     }
 
-    return _bySpace[spaceId] ??= _fetch(spaceId).onError<Object>((
-      error,
-      stackTrace,
-    ) {
-      _bySpace.removeWhere((cached, _) => cached == spaceId);
+    final cached = _bySpace[spaceId];
+    if (cached != null) return cached;
+
+    late final Future<List<T>> fetch;
+    fetch = _fetch(spaceId).onError<Object>((error, stackTrace) {
+      // Only this fetch's own entry: after an invalidate a newer fetch may
+      // have taken its place.
+      _bySpace.removeWhere(
+        (space, entry) => space == spaceId && identical(entry, fetch),
+      );
       Error.throwWithStackTrace(error, stackTrace);
     });
+    return _bySpace[spaceId] = fetch;
   }
 
   void invalidate() => _bySpace.clear();

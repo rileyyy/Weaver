@@ -12,15 +12,20 @@ import 'package:weaver/shared/models/work_item_status.dart';
 @LazySingleton(as: StatusRepository)
 class ApiStatusRepository implements StatusRepository {
   ApiStatusRepository(http.Client client, ApiEndpoint endpoint)
-    : _cache = SpaceLookupCache(
-        endpoint,
-        (spaceId) => JsonApiClient(client, endpoint).get(
-          '/statuses',
-          (json) => JsonApiClient.listOf(json, WorkItemStatus.fromJson),
-          query: {'spaceId': spaceId},
-          failureMessage: 'Failed to load statuses',
-        ),
-      );
+    : _cache = _cacheFor(JsonApiClient(client, endpoint), endpoint);
+
+  static SpaceLookupCache<WorkItemStatus> _cacheFor(
+    JsonApiClient api,
+    ApiEndpoint endpoint,
+  ) => SpaceLookupCache(
+    endpoint,
+    (spaceId) => api.get(
+      '/statuses',
+      (json) => JsonApiClient.listOf(json, WorkItemStatus.fromJson),
+      query: {'spaceId': spaceId},
+      failureMessage: 'Failed to load statuses',
+    ),
+  );
 
   final SpaceLookupCache<WorkItemStatus> _cache;
 

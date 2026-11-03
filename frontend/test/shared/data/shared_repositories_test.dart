@@ -90,7 +90,10 @@ void main() {
       );
       final repository = ApiTypeRepository(client, _endpoint);
 
-      await expectLater(repository.loadTypes('home'), throwsA(isA<ApiException>()));
+      await expectLater(
+        repository.loadTypes('home'),
+        throwsA(isA<ApiException>()),
+      );
       fail = false;
 
       expect(await repository.loadTypes('home'), isEmpty);

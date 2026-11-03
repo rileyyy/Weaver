@@ -11,15 +11,20 @@ import 'package:weaver/shared/models/work_item_type.dart';
 @LazySingleton(as: TypeRepository)
 class ApiTypeRepository implements TypeRepository {
   ApiTypeRepository(http.Client client, ApiEndpoint endpoint)
-    : _cache = SpaceLookupCache(
-        endpoint,
-        (spaceId) => JsonApiClient(client, endpoint).get(
-          '/work-item-types',
-          (json) => JsonApiClient.listOf(json, WorkItemType.fromJson),
-          query: {'spaceId': spaceId},
-          failureMessage: 'Failed to load types',
-        ),
-      );
+    : _cache = _cacheFor(JsonApiClient(client, endpoint), endpoint);
+
+  static SpaceLookupCache<WorkItemType> _cacheFor(
+    JsonApiClient api,
+    ApiEndpoint endpoint,
+  ) => SpaceLookupCache(
+    endpoint,
+    (spaceId) => api.get(
+      '/work-item-types',
+      (json) => JsonApiClient.listOf(json, WorkItemType.fromJson),
+      query: {'spaceId': spaceId},
+      failureMessage: 'Failed to load Types',
+    ),
+  );
 
   final SpaceLookupCache<WorkItemType> _cache;
 

@@ -29,7 +29,7 @@ public class WorkItemTypesController(IWorkItemTypeService types) : ControllerBas
         return Ok(types.Select(WorkItemTypeDto.FromEntity));
     }
 
-    /// <summary>A type has no view of its own, so the Location header points at the list.</summary>
+    /// <summary>A Type has no view of its own, so the Location header points at the list.</summary>
     [HttpPost]
     [ProducesResponseType<WorkItemTypeDto>(StatusCodes.Status201Created)]
     public async Task<ActionResult<WorkItemTypeDto>> Create(CreateTypeRequest request)

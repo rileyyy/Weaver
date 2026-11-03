@@ -12,7 +12,7 @@ public interface ILookupService<T> where T : LookupValue
     /// <summary>
     /// Deletes the value and moves the work items using it to <paramref name="replacementId"/>,
     /// which must be one of the same Space's values. Whether
-    /// a missing replacement is allowed depends on the kind: items can go without a type or
+    /// a missing replacement is allowed depends on the kind: items can go without a Type or
     /// priority, but not without a status.
     /// </summary>
     Task DeleteAsync(Guid actorUserId, Guid id, Guid? replacementId, CancellationToken ct = default);
