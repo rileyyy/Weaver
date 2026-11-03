@@ -76,8 +76,9 @@ and it is what allows MCP tools to reuse the same business logic (see
   renames one (`POST /api/spaces`, `PUT /api/spaces/{id}`), and there's no
   MCP tool to change them. Names are unique ignoring case. There's no
   delete yet: nothing says what happens to a Space's items.
-- **Statuses, priorities and Layers are still global** in this ticket;
-  tickets 12 and 13 make them per Space.
+- **Each Space owns its statuses and priorities** (ticket 12). Layers are
+  still global until Types replace them (ticket 13). See
+  [Lookup management](#lookup-management).
 - **A board is scoped by an ancestor item, not by depth.** A board's
   swimlanes are the direct children of the scope item (or the Space's
   top-level items when there is none); its cards are each swimlane's
@@ -136,8 +137,7 @@ and it is what allows MCP tools to reuse the same business logic (see
 
 ### Layers, priority and other fields
 
-Layers, and the global statuses and priorities, are replaced by per-Space
-Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
+Layers are replaced by per-Space Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
 [ADR-0002](adr/0002-types-and-custom-fields.md)).
 
 - **`WorkItemLayer` is a lookup table** (`Id`, `Name`, `Order`, `Color`),
@@ -150,16 +150,17 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   the parent/child tree**: the layer is a label, not a constraint, so the
   hierarchy stays fluid (a Task can parent a Project if someone wants
   that).
-- **`WorkItemPriority` is a lookup table too** (`Id`, `Name`, `Order`
-  from least to most urgent), seeded with Low / Medium / High / Urgent. It
+- **`WorkItemPriority` is a lookup table too** (`Id`, `SpaceId`, `Name`,
+  `Order` from least to most urgent); each Space starts with Low / Medium /
+  High / Urgent. It
   replaced a fixed enum so priorities can be renamed, reordered or added
   without a schema change. `WorkItem.PriorityId` is nullable like
   `LayerId`, and a new item has no priority unless one is given; the enum
   defaulted to Medium only because an enum column needs a value. The
   `ConfigurablePriorities` migration maps each stored enum ordinal onto the
   seeded row with that `Order`, and its `Down` maps back (anything else
-  becomes Medium). Clients read the list from `GET
-  /work-item-priorities` / `list_work_item_priorities`; admins edit them
+  becomes Medium). Clients read a Space's list from `GET
+  /work-item-priorities?spaceId=` / `list_work_item_priorities`; admins edit them
   like layers and statuses (see [Lookup management](#lookup-management)).
 - **Fields that were requested but map onto existing ones:**
   - There is no `DueDate`: `EndDate` is the due date (the board's sort
@@ -170,8 +171,8 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
     container ([ADR-0001](adr/0001-spaces.md)).
   - The requested `Type` field is `LayerId` until Types replace Layers.
   - `CreatedAtUtc` / `UpdatedAtUtc` are the created/updated timestamps.
-- **Statuses** are seeded (To Do, Doing, Done) with a per-row `Color`, so
-  colours can be changed without a schema change.
+- **Statuses** start as To Do, Doing, Done in each Space, with a per-row
+  `Color`, so colours can be changed without a schema change.
 
 ### Lookup management
 
@@ -181,14 +182,36 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   trimmed, at most 100 characters and unique case-insensitively (409),
   since two same-named values couldn't be told apart in any picker. A
   status's or layer's colour must be `#RRGGBB` and is stored upper-case
-  (`HexColor.Normalize`). The seeds use
-  anonymous objects in `HasData` because the entities only change through
-  their methods.
-- **Endpoints:** `POST /api/statuses` (and `/work-item-layers`,
-  `/work-item-priorities`), `PUT /{id}` (statuses and layers take a
-  `color` alongside the `name`), `PUT /order` with every id in its
-  new order, `DELETE /{id}?replacementId=`. None of this is exposed over
-  MCP: agents can read the lists but never change them
+  (`HexColor.Normalize`). The layer seeds use anonymous objects in
+  `HasData` because the entities only change through their methods.
+- **Every rule works within a value's siblings.** `LookupService<T>` asks
+  its subclass for `SiblingsOf(value)`:
+  - **Statuses and priorities are owned by a Space** (`SpaceLookupValue`,
+    `SpaceLookupService<T>`, [ADR-0001](adr/0001-spaces.md)). Names, order
+    (a unique `(SpaceId, Order)` index), replacements and the last-status
+    rule all apply within one Space: "Done" can exist in every Space, a
+    replacement from another Space is a 404, and each Space keeps at least
+    one status.
+  - **Layers are shared** (`GlobalLookupService<T>`) until Types replace
+    them.
+- **A new Space starts with defaults** (`SpaceDefaults`): To Do / Doing /
+  Done and Low / Medium / High / Urgent, added by `SpaceService.CreateAsync`.
+  Nothing is seeded globally any more. The `PerSpaceStatusesAndPriorities`
+  migration drops the old global rows and gives every existing Space the
+  defaults; like `AddSpaces`, it fails on a database that already has work
+  items, which must be reset (nothing is deployed yet).
+- **A work item only takes its own Space's status and priority.** Creating,
+  moving or editing an item with another Space's is a 400
+  (`LookupNotInSpaceException`), and repeat occurrences start in the first
+  status of the template's own Space.
+- **Endpoints:** `GET /api/statuses?spaceId=` (and
+  `/work-item-priorities?spaceId=`; the Space is required) and
+  `/work-item-layers`; `POST` (statuses and priorities take a `spaceId` in
+  the body), `PUT /{id}` (statuses and layers take a `color` alongside the
+  `name`), `PUT /order` with every id in its new order (`?spaceId=` for
+  statuses and priorities), `DELETE /{id}?replacementId=`. DTOs carry
+  `spaceId`. Over MCP agents can only read the lists (`list_statuses` and
+  `list_work_item_priorities` take a `spaceId`), never change them
   ([ADR-0004](adr/0004-agent-accounts-and-api-keys.md)).
 - **Deleting moves the items, it doesn't orphan them.** Work items using
   the deleted value move to `replacementId`. Items may go without a layer
@@ -779,7 +802,7 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   `AuthSessionStore` implements (bound in `NetworkModule`).
 - **Statuses and users are fetched through shared, cached repositories**
   (`StatusRepository`, `UserDirectoryRepository`) that the feature
-  repositories delegate to. Statuses are cached until `invalidate()`,
+  repositories delegate to. Statuses are cached per Space until `invalidate()`,
   which the Admin page's repositories call after every successful write.
   The user list works the same way: only admins change accounts, and the
   Admin page invalidates it after each change. A failed fetch is never
@@ -1013,7 +1036,14 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   (load and drag-to-reorder), and `LookupAdminViewModel` serves both
   Priorities and Layers through an injectable factory parameter
   (`LookupKind`). Layers also have a colour (`LookupKind.hasColor`), edited
-  in `showLayerDialog` with the `HexColorPicker` statuses use. A fifth
+  in `showLayerDialog` with the `HexColorPicker` statuses use.
+- **Statuses and Priorities are managed one Space at a time.** A
+  `SpacePicker` above the list chooses the Space (`showSpace`), and the
+  Admin view passes every change of the Space list to `followSpaces`, which
+  keeps the chosen Space or picks the first, so a newly created first Space
+  shows up. With no Space there's nothing to add to. `LookupKind.ownedBySpace`
+  says which kinds need a Space; the repositories refuse a Space for layers
+  and require one for priorities. A fifth
   tab, Server, shows the server-wide settings
   (`ServerSettingsAdminViewModel`); the time zone is typed as an IANA id
   and checked by the server. Its model is `AdminServerSettings` because
