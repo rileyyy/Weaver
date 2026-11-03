@@ -6,9 +6,9 @@ import 'package:weaver/core/network/json_api_client.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/swimlane_items.dart';
-import 'package:weaver/shared/data/layer_repository.dart';
 import 'package:weaver/shared/data/space_repository.dart';
 import 'package:weaver/shared/data/status_repository.dart';
+import 'package:weaver/shared/data/type_repository.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
 import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
@@ -26,14 +26,14 @@ class ApiBoardRepository implements BoardRepository {
     http.Client client,
     ApiEndpoint endpoint,
     this._statuses,
-    this._layers,
+    this._types,
     this._users,
     this._spaces,
   ) : _api = JsonApiClient(client, endpoint);
 
   final JsonApiClient _api;
   final StatusRepository _statuses;
-  final LayerRepository _layers;
+  final TypeRepository _types;
   final UserDirectoryRepository _users;
   final SpaceRepository _spaces;
 
@@ -50,18 +50,18 @@ class ApiBoardRepository implements BoardRepository {
 
   @override
   Future<BoardData> loadBoard(String spaceId, String? scopeItemId) async {
-    // Three requests at most (a Space's statuses and the layers are cached
-    // after their first load): /swimlanes returns every lane with its cards, instead of
+    // Three requests at most (a Space's statuses and Types are cached after
+    // their first load): /swimlanes returns every lane with its cards, instead of
     // one request per lane.
     final statuses = await _statuses.loadStatuses(spaceId);
-    final layers = await _layers.loadLayers();
+    final types = await _types.loadTypes(spaceId);
     final swimlanes = await _api.get(
       '/work-items/swimlanes',
       (json) => JsonApiClient.listOf(json, _toSwimlane),
       query: {'spaceId': spaceId, 'scopeItemId': ?scopeItemId},
       failureMessage: 'Failed to load the board',
     );
-    return BoardData(statuses: statuses, swimlanes: swimlanes, layers: layers);
+    return BoardData(statuses: statuses, swimlanes: swimlanes, types: types);
   }
 
   @override

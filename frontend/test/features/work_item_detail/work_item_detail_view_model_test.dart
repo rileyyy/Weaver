@@ -16,15 +16,15 @@ import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item.dart';
-import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
+import 'package:weaver/shared/models/work_item_type.dart';
 
 import '../../shared/fakes/work_items.dart';
 
 WorkItem _item({
   String id = 'item-1',
   String statusId = 'todo',
-  String? layerId,
+  String? typeId,
   String? priorityId,
   String? assignedToUserId,
   List<String> tags = const [],
@@ -40,7 +40,7 @@ WorkItem _item({
   title: title,
   description: description,
   statusId: statusId,
-  layerId: layerId,
+  typeId: typeId,
   priorityId: priorityId,
   assignedToUserId: assignedToUserId,
   startDate: null,
@@ -136,9 +136,12 @@ class _FakeRepository implements WorkItemDetailRepository {
   }
 
   @override
-  Future<List<WorkItemLayer>> loadLayers() async => const [
-    WorkItemLayer(id: 'layer-task', name: 'Task', order: 0),
+  Future<List<WorkItemType>> loadTypes(String spaceId) async {
+    lookupSpaceIds.add(spaceId);
+    return const [
+    WorkItemType(id: 'type-task', name: 'Task', order: 0),
   ];
+  }
 
   @override
   Future<List<WorkItemPriority>> loadPriorities(String spaceId) async {
@@ -158,7 +161,7 @@ class _FakeRepository implements WorkItemDetailRepository {
     String id, {
     required String title,
     required String? description,
-    required String? layerId,
+    required String? typeId,
     required String? priorityId,
     required int expectedVersion,
   }) async {
@@ -170,7 +173,7 @@ class _FakeRepository implements WorkItemDetailRepository {
     return item = _item(
       id: id,
       statusId: item.statusId,
-      layerId: layerId,
+      typeId: typeId,
       priorityId: priorityId,
       version: item.version + 1,
     );
@@ -346,7 +349,7 @@ class _FakeRepository implements WorkItemDetailRepository {
 }
 
 void main() {
-  test('load populates item, statuses, layers, priorities and users', () async {
+  test('load populates item, statuses, types, priorities and users', () async {
     final repository = _FakeRepository();
     final viewModel = WorkItemDetailViewModel(
       repository,
@@ -360,13 +363,13 @@ void main() {
     expect(viewModel.loadError, isNull);
     expect(viewModel.item!.id, 'item-1');
     expect(viewModel.statuses, hasLength(2));
-    expect(viewModel.layers, hasLength(1));
+    expect(viewModel.types, hasLength(1));
     expect(viewModel.priorities.single.name, 'High');
     expect(viewModel.users, hasLength(1));
   });
 
   test(
-    "load offers the statuses and priorities of the item's own Space",
+    "load offers the statuses, Types and priorities of the item's own Space",
     () async {
       final repository = _FakeRepository();
       final viewModel = WorkItemDetailViewModel(
@@ -377,7 +380,7 @@ void main() {
 
       await viewModel.load('item-1');
 
-      expect(repository.lookupSpaceIds, ['home', 'home']);
+      expect(repository.lookupSpaceIds, ['home', 'home', 'home']);
     },
   );
 
@@ -459,12 +462,12 @@ void main() {
     final ok = await viewModel.saveDetails(
       title: 'New title',
       description: null,
-      layerId: 'layer-task',
+      typeId: 'type-task',
       priorityId: 'priority-high',
     );
 
     expect(ok, isTrue);
-    expect(viewModel.item!.layerId, 'layer-task');
+    expect(viewModel.item!.typeId, 'type-task');
     expect(viewModel.item!.priorityId, 'priority-high');
     expect(viewModel.saveError, isNull);
   });
@@ -483,7 +486,7 @@ void main() {
     final ok = await viewModel.saveDetails(
       title: 'New title',
       description: null,
-      layerId: null,
+      typeId: null,
       priorityId: null,
     );
 
@@ -505,7 +508,7 @@ void main() {
       await viewModel.saveDetails(
         title: 'One',
         description: null,
-        layerId: null,
+        typeId: null,
         priorityId: null,
       );
       await viewModel.saveTags(['urgent']);
@@ -621,7 +624,7 @@ void main() {
       final ok = await viewModel.saveDetails(
         title: 'My title',
         description: null,
-        layerId: null,
+        typeId: null,
         priorityId: null,
       );
 
@@ -1265,7 +1268,7 @@ void main() {
       final ok = await viewModel.saveDetails(
         title: '   ',
         description: null,
-        layerId: null,
+        typeId: null,
         priorityId: null,
       );
 

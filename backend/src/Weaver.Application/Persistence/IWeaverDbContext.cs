@@ -28,7 +28,7 @@ public interface IWeaverDbContext
 
     DbSet<ApiKey> ApiKeys { get; }
 
-    DbSet<WorkItemLayer> WorkItemLayers { get; }
+    DbSet<WorkItemType> WorkItemTypes { get; }
 
     DbSet<WorkItemPriority> WorkItemPriorities { get; }
 

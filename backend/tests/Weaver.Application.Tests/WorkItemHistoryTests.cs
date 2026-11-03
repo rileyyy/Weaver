@@ -5,7 +5,6 @@ using Weaver.Application.Services;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
 using Weaver.Infrastructure;
-using Weaver.Infrastructure.Configurations;
 
 namespace Weaver.Application.Tests;
 
@@ -373,12 +372,12 @@ public class WorkItemHistoryTests
         await _workItems.ChangeStatusAsync(item.Id, _home.Doing);
         await _workItems.UpdateDetailsAsync(item.Id, new WorkItemDetailsPatch
         {
-            LayerId = WorkItemLayerConfiguration.TaskId,
+            TypeId = _home.Task,
             PriorityId = _home.Low,
         });
 
         await new StatusService(_db, new AdminAuthorizer(_db), _caller).DeleteAsync(admin.Id, _home.Doing, _home.Done);
-        await new WorkItemLayerService(_db, new AdminAuthorizer(_db), _caller).DeleteAsync(admin.Id, WorkItemLayerConfiguration.TaskId, null);
+        await new WorkItemTypeService(_db, new AdminAuthorizer(_db), _caller).DeleteAsync(admin.Id, _home.Task, null);
         await new WorkItemPriorityService(_db, new AdminAuthorizer(_db), _caller).DeleteAsync(admin.Id, _home.Low, _home.High);
 
         var entries = (await _history.ListForWorkItemAsync(item.Id)).Take(3).ToList();
@@ -386,7 +385,7 @@ public class WorkItemHistoryTests
         {
             Assert.That(entries.Select(e => e.Field), Is.EqualTo(new[]
             {
-                WorkItemField.PriorityId, WorkItemField.LayerId, WorkItemField.StatusId,
+                WorkItemField.PriorityId, WorkItemField.TypeId, WorkItemField.StatusId,
             }));
             Assert.That(entries.Select(e => e.AccountId), Is.All.EqualTo(admin.Id));
             Assert.That(entries[0].NewName, Is.EqualTo("High"));

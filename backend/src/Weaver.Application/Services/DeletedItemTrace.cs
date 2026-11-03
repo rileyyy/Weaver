@@ -27,7 +27,7 @@ internal sealed record DeletedItemTrace(Guid WorkItemId, string Title, Guid? Spa
         SpaceId,
         spaceName,
         StatusName: null,
-        LayerName: null,
+        TypeName: null,
         StartDate: null,
         EndDate: null,
         AssigneeName: null,

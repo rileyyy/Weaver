@@ -6,8 +6,8 @@ namespace Weaver.Application.Tests;
 internal static class Patches
 {
     /// <summary>A details patch that sets every field, the way a full edit form does.</summary>
-    public static WorkItemDetailsPatch Details(string title, string? description, Guid? layerId, Guid? priorityId) =>
-        new() { Title = title, Description = description, LayerId = layerId, PriorityId = priorityId };
+    public static WorkItemDetailsPatch Details(string title, string? description, Guid? typeId, Guid? priorityId) =>
+        new() { Title = title, Description = description, TypeId = typeId, PriorityId = priorityId };
 
     public static Optional<IReadOnlyList<string>> Tags(params string[] tags) => tags;
 }

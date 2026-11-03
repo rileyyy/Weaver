@@ -2,7 +2,7 @@ namespace Weaver.Domain.Exceptions;
 
 /// <summary>
 /// A status is still used by work items and no replacement was given. Every item needs a
-/// status, so the items can't simply be cleared as they are for a deleted layer or priority.
+/// status, so the items can't simply be cleared as they are for a deleted type or priority.
 /// </summary>
 public class LookupValueInUseException(string kind, string name, int workItemCount) : DomainException(
         DomainErrorKind.Conflict,

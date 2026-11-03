@@ -6,9 +6,10 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/core/network/server_settings.dart';
-import 'package:weaver/shared/data/api_layer_repository.dart';
 import 'package:weaver/shared/data/api_status_repository.dart';
+import 'package:weaver/shared/data/api_type_repository.dart';
 import 'package:weaver/shared/data/api_user_directory_repository.dart';
+
 import '../../core/network/fakes/fixed_api_endpoint.dart';
 import '../../core/network/fakes/in_memory_server_origin_store.dart';
 
@@ -22,8 +23,31 @@ ServerSettings _switchableServer() => ServerSettings(
 );
 
 void main() {
-  group('ApiLayerRepository', () {
-    test('fetches layers once, with their colours', () async {
+  group('ApiTypeRepository', () {
+    test("fetches each Space's types separately, once each", () async {
+      final requested = <String?>[];
+      final client = MockClient((request) async {
+        final spaceId = request.url.queryParameters['spaceId'];
+        requested.add(spaceId);
+        return http.Response(
+          jsonEncode([
+            {'id': 't-$spaceId', 'name': 'In $spaceId', 'order': 0},
+          ]),
+          200,
+        );
+      });
+      final repository = ApiTypeRepository(client, _endpoint);
+
+      final home = await repository.loadTypes('home');
+      final software = await repository.loadTypes('software');
+      await repository.loadTypes('home');
+
+      expect(requested, ['home', 'software']);
+      expect(home.single.name, 'In home');
+      expect(software.single.name, 'In software');
+    });
+
+    test('fetches types once, with their colours', () async {
       var calls = 0;
       final client = MockClient((_) async {
         calls++;
@@ -34,13 +58,13 @@ void main() {
           200,
         );
       });
-      final repository = ApiLayerRepository(client, _endpoint);
+      final repository = ApiTypeRepository(client, _endpoint);
 
-      await repository.loadLayers();
-      final layers = await repository.loadLayers();
+      await repository.loadTypes('home');
+      final types = await repository.loadTypes('home');
 
       expect(calls, 1);
-      expect(layers.single.color, const Color(0xFF43A047));
+      expect(types.single.color, const Color(0xFF43A047));
     });
 
     test('fetches again after invalidate', () async {
@@ -49,11 +73,11 @@ void main() {
         calls++;
         return http.Response(jsonEncode([]), 200);
       });
-      final repository = ApiLayerRepository(client, _endpoint);
+      final repository = ApiTypeRepository(client, _endpoint);
 
-      await repository.loadLayers();
+      await repository.loadTypes('home');
       repository.invalidate();
-      await repository.loadLayers();
+      await repository.loadTypes('home');
 
       expect(calls, 2);
     });
@@ -64,12 +88,15 @@ void main() {
         (_) async =>
             fail ? http.Response('', 500) : http.Response(jsonEncode([]), 200),
       );
-      final repository = ApiLayerRepository(client, _endpoint);
+      final repository = ApiTypeRepository(client, _endpoint);
 
-      await expectLater(repository.loadLayers(), throwsA(isA<ApiException>()));
+      await expectLater(
+        repository.loadTypes('home'),
+        throwsA(isA<ApiException>()),
+      );
       fail = false;
 
-      expect(await repository.loadLayers(), isEmpty);
+      expect(await repository.loadTypes('home'), isEmpty);
     });
   });
 

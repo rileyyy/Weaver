@@ -15,7 +15,7 @@ public interface ISpaceService
 
     /// <summary>
     /// Rejects a name another Space has, ignoring case. The new Space starts with the default
-    /// statuses and priorities (<see cref="SpaceDefaults"/>).
+    /// statuses, priorities and Types (<see cref="SpaceDefaults"/>).
     /// </summary>
     Task<Space> CreateAsync(string name, CancellationToken ct = default);
 

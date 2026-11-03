@@ -5,7 +5,7 @@ import 'package:weaver/features/board/widgets/add_tag_button.dart';
 import 'package:weaver/features/board/widgets/board_card.dart';
 
 Widget _card({
-  Color? layerColor,
+  Color? typeColor,
   VoidCallback? onOpenDetails,
   VoidCallback? onAddTagTapped,
 }) => MaterialApp(
@@ -22,7 +22,7 @@ Widget _card({
         ),
         height: 120,
         assigneeInitial: null,
-        layerColor: layerColor,
+        typeColor: typeColor,
         onOpenDetails: onOpenDetails ?? () {},
         onAssignTapped: () {},
         onAddTagTapped: onAddTagTapped ?? () {},
@@ -62,13 +62,13 @@ void main() {
     },
   );
 
-  testWidgets("the left bar shows the card's layer colour", (tester) async {
-    await tester.pumpWidget(_card(layerColor: const Color(0xFFD81B60)));
+  testWidgets("the left bar shows the card's type colour", (tester) async {
+    await tester.pumpWidget(_card(typeColor: const Color(0xFFD81B60)));
 
     expect(_barColor(tester), const Color(0xFFD81B60));
   });
 
-  testWidgets('a card without a layer gets a neutral bar', (tester) async {
+  testWidgets('a card without a type gets a neutral bar', (tester) async {
     await tester.pumpWidget(_card());
 
     final context = tester.element(find.byType(BoardCard));

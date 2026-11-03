@@ -24,7 +24,7 @@ public class WeaverDbContext(DbContextOptions<WeaverDbContext> options) : DbCont
 
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
 
-    public DbSet<WorkItemLayer> WorkItemLayers => Set<WorkItemLayer>();
+    public DbSet<WorkItemType> WorkItemTypes => Set<WorkItemType>();
 
     public DbSet<WorkItemPriority> WorkItemPriorities => Set<WorkItemPriority>();
 
@@ -85,7 +85,7 @@ public class WeaverDbContext(DbContextOptions<WeaverDbContext> options) : DbCont
         modelBuilder.ApplyConfiguration(new UserConfiguration());
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
         modelBuilder.ApplyConfiguration(new ApiKeyConfiguration());
-        modelBuilder.ApplyConfiguration(new WorkItemLayerConfiguration());
+        modelBuilder.ApplyConfiguration(new WorkItemTypeConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemPriorityConfiguration());
         modelBuilder.ApplyConfiguration(new CommentConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemLinkConfiguration());

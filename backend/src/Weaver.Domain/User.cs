@@ -34,7 +34,7 @@ public class User : IHasUpdatedAt
     /// <summary>What an agent account is for, e.g. which machine it runs on. Humans have none.</summary>
     public string? Description { get; private set; }
 
-    /// <summary>May manage lookups (statuses, priorities, layers) and other users.</summary>
+    /// <summary>May manage lookups (statuses, priorities, types) and other users.</summary>
     public bool IsAdmin { get; private set; }
 
     /// <summary>

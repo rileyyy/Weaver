@@ -6,41 +6,41 @@ import 'package:weaver/features/admin/widgets/admin_form_dialog.dart';
 import 'package:weaver/features/admin/widgets/dialog_submission.dart';
 import 'package:weaver/features/admin/widgets/hex_color_picker.dart';
 
-/// A layer's colour when the admin hasn't picked one: the neutral colour
-/// the server gives layers added before layers had colours.
-const String defaultLayerColor = '#546E7A';
+/// A type's colour when the admin hasn't picked one: the neutral colour
+/// the server gives types added before types had colours.
+const String defaultTypeColor = '#546E7A';
 
-/// Adds a layer, or edits [initial]. [onSave] gets the trimmed name and an
+/// Adds a Type, or edits [initial]. [onSave] gets the trimmed name and an
 /// upper-case `#RRGGBB` colour, and returns null on success or an error to
 /// show, keeping the dialog open. Completes with whether a save succeeded.
-Future<bool> showLayerDialog(
+Future<bool> showTypeDialog(
   BuildContext context, {
   required Future<String?> Function(String name, String color) onSave,
   LookupValue? initial,
 }) async =>
     await showDialog<bool>(
       context: context,
-      builder: (_) => _LayerDialog(initial: initial, onSave: onSave),
+      builder: (_) => _TypeDialog(initial: initial, onSave: onSave),
     ) ??
     false;
 
-class _LayerDialog extends StatefulWidget {
-  const _LayerDialog({required this.initial, required this.onSave});
+class _TypeDialog extends StatefulWidget {
+  const _TypeDialog({required this.initial, required this.onSave});
 
   final LookupValue? initial;
   final Future<String?> Function(String name, String color) onSave;
 
   @override
-  State<_LayerDialog> createState() => _LayerDialogState();
+  State<_TypeDialog> createState() => _TypeDialogState();
 }
 
-class _LayerDialogState extends State<_LayerDialog>
-    with DialogSubmission<_LayerDialog> {
+class _TypeDialogState extends State<_TypeDialog>
+    with DialogSubmission<_TypeDialog> {
   late final TextEditingController _name = TextEditingController(
     text: widget.initial?.name,
   );
   late final TextEditingController _color = TextEditingController(
-    text: widget.initial?.color ?? defaultLayerColor,
+    text: widget.initial?.color ?? defaultTypeColor,
   );
 
   @override
@@ -65,7 +65,7 @@ class _LayerDialogState extends State<_LayerDialog>
   Widget build(BuildContext context) {
     final isNew = widget.initial == null;
     return AdminFormDialog(
-      title: isNew ? 'Add layer' : 'Edit layer',
+      title: isNew ? 'Add type' : 'Edit type',
       submitLabel: isNew ? 'Add' : 'Save',
       isSaving: isSaving,
       error:

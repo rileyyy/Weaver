@@ -17,16 +17,16 @@ public class LookupValueTests
     [TestCase("   ")]
     public void Create_WithABlankName_IsAValidationError(string name)
     {
-        Assert.Throws<DomainValidationException>(() => WorkItemLayer.Create(name, 0, "#43A047"));
+        Assert.Throws<DomainValidationException>(() => WorkItemType.Create(Guid.NewGuid(), name, 0, "#43A047"));
     }
 
     [Test]
     public void Rename_WithANameOverTheLimit_IsAValidationErrorAndKeepsTheOldName()
     {
-        var layer = WorkItemLayer.Create("Task", 0, "#43A047");
+        var type = WorkItemType.Create(Guid.NewGuid(), "Task", 0, "#43A047");
 
-        Assert.Throws<DomainValidationException>(() => layer.Rename(new string('x', LookupValue.NameMaxLength + 1)));
-        Assert.That(layer.Name, Is.EqualTo("Task"));
+        Assert.Throws<DomainValidationException>(() => type.Rename(new string('x', LookupValue.NameMaxLength + 1)));
+        Assert.That(type.Name, Is.EqualTo("Task"));
     }
 
     [Test]
@@ -67,27 +67,27 @@ public class LookupValueTests
     }
 
     [Test]
-    public void Layer_Create_NormalisesTheColorToUpperCase()
+    public void Type_Create_NormalisesTheColorToUpperCase()
     {
-        var layer = WorkItemLayer.Create("Epic", 3, " #d81b60 ");
+        var type = WorkItemType.Create(Guid.NewGuid(), "Epic", 3, " #d81b60 ");
 
-        Assert.That(layer.Color, Is.EqualTo("#D81B60"));
+        Assert.That(type.Color, Is.EqualTo("#D81B60"));
     }
 
     [TestCase("D81B60")]
     [TestCase("#GGGGGG")]
     [TestCase("")]
-    public void Layer_WithAColorThatIsNotRRGGBB_IsAValidationError(string color)
+    public void Type_WithAColorThatIsNotRRGGBB_IsAValidationError(string color)
     {
-        Assert.Throws<DomainValidationException>(() => WorkItemLayer.Create("Epic", 3, color));
+        Assert.Throws<DomainValidationException>(() => WorkItemType.Create(Guid.NewGuid(), "Epic", 3, color));
     }
 
     [Test]
-    public void Layer_Recolor_WithAnInvalidColor_KeepsTheOldColor()
+    public void Type_Recolor_WithAnInvalidColor_KeepsTheOldColor()
     {
-        var layer = WorkItemLayer.Create("Epic", 3, "#D81B60");
+        var type = WorkItemType.Create(Guid.NewGuid(), "Epic", 3, "#D81B60");
 
-        Assert.Throws<DomainValidationException>(() => layer.Recolor("red"));
-        Assert.That(layer.Color, Is.EqualTo("#D81B60"));
+        Assert.Throws<DomainValidationException>(() => type.Recolor("red"));
+        Assert.That(type.Color, Is.EqualTo("#D81B60"));
     }
 }

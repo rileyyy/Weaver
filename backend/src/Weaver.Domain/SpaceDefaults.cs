@@ -1,8 +1,8 @@
 namespace Weaver.Domain;
 
 /// <summary>
-/// The statuses and priorities a new Space starts with, so it can hold work items at once.
-/// Admins rename, recolour, reorder or replace them per Space afterwards.
+/// The statuses, priorities and Types a new Space starts with, so it can hold work items at
+/// once. Admins rename, recolour, reorder or replace them per Space afterwards.
 /// </summary>
 public static class SpaceDefaults
 {
@@ -19,5 +19,13 @@ public static class SpaceDefaults
         WorkItemPriority.Create(spaceId, "Medium", 1),
         WorkItemPriority.Create(spaceId, "High", 2),
         WorkItemPriority.Create(spaceId, "Urgent", 3),
+    ];
+
+    /// <summary>The Layers every Space had before Types became per Space, colours included.</summary>
+    public static IReadOnlyList<WorkItemType> TypesFor(Guid spaceId) =>
+    [
+        WorkItemType.Create(spaceId, "Project", 0, "#D81B60"),
+        WorkItemType.Create(spaceId, "Goal", 1, "#00897B"),
+        WorkItemType.Create(spaceId, "Task", 2, "#43A047"),
     ];
 }

@@ -6,7 +6,7 @@ using Weaver.Domain;
 namespace Weaver.Application.Services;
 
 /// <summary>
-/// Names for the ids history values hold (a Space, status, layer, priority, user or another
+/// Names for the ids history values hold (a Space, status, type, priority, user or another
 /// work item), so readers don't each have to look them up. Looked up when read, so an id whose
 /// row is gone since has no name and readers fall back to the raw value.
 /// </summary>
@@ -16,7 +16,7 @@ internal sealed class HistoryValueNames
     {
         Space,
         Status,
-        Layer,
+        Type,
         Priority,
         User,
         WorkItem,
@@ -26,7 +26,7 @@ internal sealed class HistoryValueNames
     {
         [WorkItemField.SpaceId] = Kind.Space,
         [WorkItemField.StatusId] = Kind.Status,
-        [WorkItemField.LayerId] = Kind.Layer,
+        [WorkItemField.TypeId] = Kind.Type,
         [WorkItemField.PriorityId] = Kind.Priority,
         [WorkItemField.AssignedToUserId] = Kind.User,
         [WorkItemField.ParentId] = Kind.WorkItem,
@@ -91,7 +91,7 @@ internal sealed class HistoryValueNames
                 .Select(x => (x.Id, x.Name)).ToList(),
             Kind.Status => (await db.Statuses.Where(s => ids.Contains(s.Id)).Select(s => new { s.Id, s.Name }).ToListAsync(ct))
                 .Select(x => (x.Id, x.Name)).ToList(),
-            Kind.Layer => (await db.WorkItemLayers.Where(l => ids.Contains(l.Id)).Select(l => new { l.Id, l.Name }).ToListAsync(ct))
+            Kind.Type => (await db.WorkItemTypes.Where(t => ids.Contains(t.Id)).Select(t => new { t.Id, t.Name }).ToListAsync(ct))
                 .Select(x => (x.Id, x.Name)).ToList(),
             Kind.Priority => (await db.WorkItemPriorities.Where(p => ids.Contains(p.Id)).Select(p => new { p.Id, p.Name }).ToListAsync(ct))
                 .Select(x => (x.Id, x.Name)).ToList(),

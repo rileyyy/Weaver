@@ -5,18 +5,18 @@ import 'package:weaver/core/network/json_api_client.dart';
 import 'package:weaver/features/admin/data/lookup_admin_repository.dart';
 import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/models/lookup_value.dart';
-import 'package:weaver/shared/data/layer_repository.dart';
+import 'package:weaver/shared/data/type_repository.dart';
 
 @LazySingleton(as: LookupAdminRepository)
 class ApiLookupAdminRepository implements LookupAdminRepository {
   ApiLookupAdminRepository(
     http.Client client,
     ApiEndpoint endpoint,
-    this._layerCache,
+    this._typeCache,
   ) : _api = JsonApiClient(client, endpoint);
 
   final JsonApiClient _api;
-  final LayerRepository _layerCache;
+  final TypeRepository _typeCache;
 
   static LookupValue _value(Object? json) =>
       LookupValue.fromJson(json as Map<String, dynamic>);
@@ -25,25 +25,24 @@ class ApiLookupAdminRepository implements LookupAdminRepository {
       JsonApiClient.listOf(json, LookupValue.fromJson);
 
   @override
-  Future<List<LookupValue>> list(LookupKind kind, {String? spaceId}) =>
-      _api.get(
-        kind.path,
-        _values,
-        query: _spaceQuery(kind, spaceId),
-        failureMessage: 'Failed to load ${kind.name}',
-      );
+  Future<List<LookupValue>> list(LookupKind kind, String spaceId) => _api.get(
+    kind.path,
+    _values,
+    query: {'spaceId': spaceId},
+    failureMessage: 'Failed to load ${kind.name}',
+  );
 
   @override
   Future<LookupValue> create(
     LookupKind kind,
+    String spaceId,
     String name, {
     String? color,
-    String? spaceId,
   }) => _invalidatingCache(
     kind,
     _api.post(
       kind.path,
-      {..._details(kind, name, color), ...?_spaceQuery(kind, spaceId)},
+      {'spaceId': spaceId, ..._details(kind, name, color)},
       _value,
       failureMessage: 'Failed to add the ${kind.singular}',
     ),
@@ -68,15 +67,15 @@ class ApiLookupAdminRepository implements LookupAdminRepository {
   @override
   Future<List<LookupValue>> reorder(
     LookupKind kind,
-    List<String> orderedIds, {
-    String? spaceId,
-  }) => _invalidatingCache(
+    String spaceId,
+    List<String> orderedIds,
+  ) => _invalidatingCache(
     kind,
     _api.put(
       '${kind.path}/order',
       {'orderedIds': orderedIds},
       _values,
-      query: _spaceQuery(kind, spaceId),
+      query: {'spaceId': spaceId},
       failureMessage: 'Failed to reorder the ${kind.name}',
     ),
   );
@@ -94,29 +93,16 @@ class ApiLookupAdminRepository implements LookupAdminRepository {
         ),
       );
 
-  static Map<String, String>? _spaceQuery(LookupKind kind, String? spaceId) {
-    if (kind.ownedBySpace != (spaceId != null)) {
-      throw ArgumentError.value(
-        spaceId,
-        'spaceId',
-        kind.ownedBySpace
-            ? 'Each Space has its own ${kind.name}; say which.'
-            : '${kind.name} are shared by every Space.',
-      );
-    }
-    return spaceId == null ? null : {'spaceId': spaceId};
-  }
-
   static Map<String, Object?> _details(
     LookupKind kind,
     String name,
     String? color,
   ) => {'name': name, if (kind.hasColor) 'color': color};
 
-  /// Only layers are cached app-wide (for the board's card colours).
+  /// Only Types are cached app-wide (for the board's card colours).
   Future<T> _invalidatingCache<T>(LookupKind kind, Future<T> write) async {
     final result = await write;
-    if (kind == LookupKind.layers) _layerCache.invalidate();
+    if (kind == LookupKind.types) _typeCache.invalidate();
     return result;
   }
 }

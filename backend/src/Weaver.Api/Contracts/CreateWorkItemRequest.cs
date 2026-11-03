@@ -10,6 +10,6 @@ public record CreateWorkItemRequest(
     Guid? ParentId,
     Guid StatusId,
     Guid? AfterId,
-    Guid? LayerId = null,
+    Guid? TypeId = null,
     Guid? PriorityId = null,
     Guid? SpaceId = null);

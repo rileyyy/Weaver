@@ -5,7 +5,6 @@ using Weaver.Application.Services;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
 using Weaver.Infrastructure;
-using Weaver.Infrastructure.Configurations;
 
 namespace Weaver.Application.Tests;
 
@@ -118,7 +117,7 @@ public class WorkItemRecurrenceServiceTests
         var user = User.CreateHuman("sam", "sam");
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
-        await _workItems.UpdateDetailsAsync(item.Id, Details("Report", "Fill it in", WorkItemLayerConfiguration.TaskId, _space.High));
+        await _workItems.UpdateDetailsAsync(item.Id, Details("Report", "Fill it in", _space.Task, _space.High));
         await _workItems.AssignAsync(item.Id, user.Id);
         await _workItems.SetTagsAsync(item.Id, Tags("finance"));
         await _workItems.RescheduleAsync(item.Id, new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 5));
@@ -131,7 +130,7 @@ public class WorkItemRecurrenceServiceTests
             Assert.That(copy.Id, Is.Not.EqualTo(item.Id));
             Assert.That(copy.Title, Is.EqualTo("Report"));
             Assert.That(copy.Description, Is.EqualTo("Fill it in"));
-            Assert.That(copy.LayerId, Is.EqualTo(WorkItemLayerConfiguration.TaskId));
+            Assert.That(copy.TypeId, Is.EqualTo(_space.Task));
             Assert.That(copy.PriorityId, Is.EqualTo(_space.High));
             Assert.That(copy.AssignedToUserId, Is.EqualTo(user.Id));
             Assert.That(copy.Tags, Is.EqualTo(new[] { "finance" }));

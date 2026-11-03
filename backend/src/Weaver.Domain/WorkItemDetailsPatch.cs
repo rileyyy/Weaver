@@ -10,7 +10,7 @@ public record WorkItemDetailsPatch
 
     public Optional<string?> Description { get; init; }
 
-    public Optional<Guid?> LayerId { get; init; }
+    public Optional<Guid?> TypeId { get; init; }
 
     public Optional<Guid?> PriorityId { get; init; }
 

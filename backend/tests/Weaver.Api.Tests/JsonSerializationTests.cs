@@ -82,7 +82,7 @@ public class JsonSerializationTests
         {
             Assert.That(request!.Title, Is.EqualTo(new Optional<string>("Renamed")));
             Assert.That(request.Description, Is.EqualTo(new Optional<string?>(null)));
-            Assert.That(request.LayerId.HasValue, Is.False);
+            Assert.That(request.TypeId.HasValue, Is.False);
             Assert.That(request.PriorityId.HasValue, Is.False);
             Assert.That(request.ExpectedVersion, Is.EqualTo(7u));
         });

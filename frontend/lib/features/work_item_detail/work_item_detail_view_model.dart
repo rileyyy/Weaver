@@ -17,8 +17,8 @@ import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/markdown/task_list.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
-import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
+import 'package:weaver/shared/models/work_item_type.dart';
 
 /// The item itself is read from and saved through the shared
 /// [WorkItemStore], so every save sends the version it was based on and the
@@ -33,7 +33,7 @@ class WorkItemDetailViewModel extends ViewModel {
 
   String? _itemId;
   List<WorkItemStatus> _statuses = const [];
-  List<WorkItemLayer> _layers = const [];
+  List<WorkItemType> _types = const [];
   List<WorkItemPriority> _priorities = const [];
   List<User> _users = const [];
   List<WorkItemComment> _comments = const [];
@@ -56,7 +56,7 @@ class WorkItemDetailViewModel extends ViewModel {
 
   String get _id => _itemId!;
   List<WorkItemStatus> get statuses => _statuses;
-  List<WorkItemLayer> get layers => _layers;
+  List<WorkItemType> get types => _types;
   List<WorkItemPriority> get priorities => _priorities;
   List<User> get users => _users;
   List<WorkItemComment> get comments => _comments;
@@ -102,16 +102,19 @@ class WorkItemDetailViewModel extends ViewModel {
   }
 
   static List<AsyncError?> _asyncErrors(Object? errors) => switch (errors) {
-    (final AsyncError? a, final AsyncError? b) => [a, b],
+    (final AsyncError? a, final AsyncError? b, final AsyncError? c) => [
+      a,
+      b,
+      c,
+    ],
     (
       final AsyncError? a,
       final AsyncError? b,
       final AsyncError? c,
       final AsyncError? d,
       final AsyncError? e,
-      final AsyncError? f,
     ) =>
-      [a, b, c, d, e, f],
+      [a, b, c, d, e],
     _ => throw StateError('Unexpected parallel wait errors: $errors'),
   };
 
@@ -122,23 +125,24 @@ class WorkItemDetailViewModel extends ViewModel {
 
     try {
       final asOf = _items.revision;
-      final (item, layers, users, comments, links, children) = await (
+      final (item, users, comments, links, children) = await (
         _repository.getItem(id),
-        _repository.loadLayers(),
         _repository.loadUsers(),
         _repository.loadComments(id),
         _repository.loadLinks(id),
         _repository.loadChildren(id),
       ).wait;
-      // Only the item says which Space's statuses and priorities it can take.
-      final (statuses, priorities) = await (
+      // Only the item says which Space's statuses, Types and priorities it
+      // can take.
+      final (statuses, types, priorities) = await (
         _repository.loadStatuses(item.spaceId),
+        _repository.loadTypes(item.spaceId),
         _repository.loadPriorities(item.spaceId),
       ).wait;
       _items.putAll([item], asOf: asOf);
       _itemId = id;
       _statuses = statuses;
-      _layers = layers;
+      _types = types;
       _priorities = priorities;
       _users = users;
       _comments = comments;
@@ -170,7 +174,7 @@ class WorkItemDetailViewModel extends ViewModel {
   Future<bool> saveDetails({
     required String title,
     required String? description,
-    required String? layerId,
+    required String? typeId,
     required String? priorityId,
   }) {
     final error = titleError(title);
@@ -180,7 +184,7 @@ class WorkItemDetailViewModel extends ViewModel {
         _id,
         title: title,
         description: description,
-        layerId: layerId,
+        typeId: typeId,
         priorityId: priorityId,
         expectedVersion: version,
       ),

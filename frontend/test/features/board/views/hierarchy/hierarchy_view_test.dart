@@ -9,8 +9,8 @@ import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
-import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
+import 'package:weaver/shared/models/work_item_type.dart';
 
 import '../../../../shared/fakes/memory_last_space_store.dart';
 import '../../../../shared/fakes/work_items.dart';
@@ -26,17 +26,17 @@ class _HierarchyOnlyRepository implements BoardRepository {
   @override
   Future<BoardData> loadBoard(String spaceId, String? scopeItemId) async =>
       const BoardData(
-    statuses: [WorkItemStatus(id: 'todo', name: 'To Do', order: 0)],
-    swimlanes: [],
-    layers: [
-      WorkItemLayer(
-        id: 'project',
-        name: 'Project',
-        order: 0,
-        color: _projectColor,
-      ),
-    ],
-  );
+        statuses: [WorkItemStatus(id: 'todo', name: 'To Do', order: 0)],
+        swimlanes: [],
+        types: [
+          WorkItemType(
+            id: 'project',
+            name: 'Project',
+            order: 0,
+            color: _projectColor,
+          ),
+        ],
+      );
 
   @override
   Future<List<WorkItem>> loadAllItems(String spaceId) async => [
@@ -46,7 +46,7 @@ class _HierarchyOnlyRepository implements BoardRepository {
       parentId: null,
       title: 'A root item with a fairly long title',
       statusId: 'todo',
-      layerId: 'project',
+      typeId: 'project',
       tags: ['urgent', 'design'],
     ),
     workItem(
@@ -66,7 +66,7 @@ class _HierarchyOnlyRepository implements BoardRepository {
 }
 
 void main() {
-  testWidgets("a title is underlined in its layer's colour", (tester) async {
+  testWidgets("a title is underlined in its type's colour", (tester) async {
     final viewModel = BoardViewModel(
       _HierarchyOnlyRepository(),
       WorkItemStore(),

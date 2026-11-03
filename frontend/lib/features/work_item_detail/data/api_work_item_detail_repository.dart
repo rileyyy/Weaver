@@ -9,13 +9,13 @@ import 'package:weaver/features/work_item_detail/models/work_item_child_summary.
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
-import 'package:weaver/shared/data/layer_repository.dart';
 import 'package:weaver/shared/data/status_repository.dart';
+import 'package:weaver/shared/data/type_repository.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
-import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
+import 'package:weaver/shared/models/work_item_type.dart';
 
 @LazySingleton(as: WorkItemDetailRepository)
 class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
@@ -23,13 +23,13 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     http.Client client,
     ApiEndpoint endpoint,
     this._statuses,
-    this._layers,
+    this._types,
     this._users,
   ) : _api = JsonApiClient(client, endpoint);
 
   final JsonApiClient _api;
   final StatusRepository _statuses;
-  final LayerRepository _layers;
+  final TypeRepository _types;
   final UserDirectoryRepository _users;
 
   static WorkItem _detail(Object? json) =>
@@ -71,7 +71,8 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
       _statuses.loadStatuses(spaceId);
 
   @override
-  Future<List<WorkItemLayer>> loadLayers() => _layers.loadLayers();
+  Future<List<WorkItemType>> loadTypes(String spaceId) =>
+      _types.loadTypes(spaceId);
 
   @override
   Future<List<WorkItemPriority>> loadPriorities(String spaceId) => _api.get(
@@ -89,7 +90,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     String id, {
     required String title,
     required String? description,
-    required String? layerId,
+    required String? typeId,
     required String? priorityId,
     required int expectedVersion,
   }) => _api.patch(
@@ -97,7 +98,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     {
       'title': title,
       'description': description,
-      'layerId': layerId,
+      'typeId': typeId,
       'priorityId': priorityId,
       'expectedVersion': expectedVersion,
     },

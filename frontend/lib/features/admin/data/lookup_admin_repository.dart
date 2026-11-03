@@ -1,21 +1,20 @@
 import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/models/lookup_value.dart';
 
-/// Priority and layer management. Every write needs an admin; the server
-/// answers 403 otherwise.
-///
-/// [spaceId] is required for kinds each Space owns its own values of
-/// ([LookupKind.ownedBySpace]) and must be left out for the others.
+/// Priority and Type management. Each Space has its own; editing and
+/// deleting one by id stays within its Space. Every write needs an admin;
+/// the server answers 403 otherwise.
 abstract class LookupAdminRepository {
-  Future<List<LookupValue>> list(LookupKind kind, {String? spaceId});
+  Future<List<LookupValue>> list(LookupKind kind, String spaceId);
 
-  /// [color] is required for kinds where [LookupKind.hasColor] and ignored
-  /// for the others; the same goes for [update].
+  /// Appends a value to [spaceId]'s. [color] is required for kinds where
+  /// [LookupKind.hasColor] and ignored for the others; the same goes for
+  /// [update].
   Future<LookupValue> create(
     LookupKind kind,
+    String spaceId,
     String name, {
     String? color,
-    String? spaceId,
   });
 
   Future<LookupValue> update(
@@ -25,14 +24,14 @@ abstract class LookupAdminRepository {
     String? color,
   });
 
-  /// [orderedIds] lists every value (of [spaceId]) in its new order.
+  /// [orderedIds] lists every value of [spaceId] in its new order.
   Future<List<LookupValue>> reorder(
     LookupKind kind,
-    List<String> orderedIds, {
-    String? spaceId,
-  });
+    String spaceId,
+    List<String> orderedIds,
+  );
 
-  /// Work items using the deleted value move to [replacementId], or to none
-  /// when it's null.
+  /// Work items using the deleted value move to [replacementId], a value of
+  /// the same Space, or to none when it's null.
   Future<void> delete(LookupKind kind, String id, {String? replacementId});
 }

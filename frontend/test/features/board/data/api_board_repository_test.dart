@@ -6,9 +6,9 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/board/data/api_board_repository.dart';
-import 'package:weaver/shared/data/api_layer_repository.dart';
 import 'package:weaver/shared/data/api_space_repository.dart';
 import 'package:weaver/shared/data/api_status_repository.dart';
+import 'package:weaver/shared/data/api_type_repository.dart';
 import 'package:weaver/shared/data/api_user_directory_repository.dart';
 import 'package:weaver/shared/models/space.dart';
 
@@ -56,7 +56,7 @@ void main() {
     client,
     endpoint,
     ApiStatusRepository(client, endpoint),
-    ApiLayerRepository(client, endpoint),
+    ApiTypeRepository(client, endpoint),
     ApiUserDirectoryRepository(client, endpoint),
     ApiSpaceRepository(client, endpoint),
   );
@@ -111,12 +111,15 @@ void main() {
       expect(body['parentId'], isNull);
     });
 
-    test("leaves the Space out for a child, which joins its parent's", () async {
-      final body = await sentBody(parentId: 'lane-1');
+    test(
+      "leaves the Space out for a child, which joins its parent's",
+      () async {
+        final body = await sentBody(parentId: 'lane-1');
 
-      expect(body.containsKey('spaceId'), isFalse);
-      expect(body['parentId'], 'lane-1');
-    });
+        expect(body.containsKey('spaceId'), isFalse);
+        expect(body['parentId'], 'lane-1');
+      },
+    );
   });
 
   /// Serves /statuses and /work-items/swimlanes for scope `epic-1` with
@@ -125,13 +128,13 @@ void main() {
     Map<String, dynamic> laneFields = const {},
     Map<String, dynamic> cardFields = const {},
     List<Map<String, dynamic>> statuses = const [],
-    List<Map<String, dynamic>> layers = const [],
+    List<Map<String, dynamic>> types = const [],
     List<String>? requestLog,
   }) => MockClient((request) async {
     requestLog?.add(request.url.toString());
     if (request.url.path == '/api/statuses') return _jsonResponse(statuses);
-    if (request.url.path == '/api/work-item-layers') {
-      return _jsonResponse(layers);
+    if (request.url.path == '/api/work-item-types') {
+      return _jsonResponse(types);
     }
     if (request.url.path == '/api/work-items/swimlanes' &&
         request.url.queryParameters['spaceId'] == 'space-home' &&
@@ -176,7 +179,7 @@ void main() {
     expect(board.swimlanes.single.cards.single.number, 1);
     expect(requests, [
       '$baseUrl/statuses?spaceId=space-home',
-      '$baseUrl/work-item-layers',
+      '$baseUrl/work-item-types?spaceId=space-home',
       '$baseUrl/work-items/swimlanes?spaceId=space-home&scopeItemId=epic-1',
     ]);
   });
@@ -193,24 +196,24 @@ void main() {
     expect(board.swimlanes.single.cards.single.version, 42);
   });
 
-  test('loadBoard loads the layers and each card keeps its layer', () async {
+  test('loadBoard loads the types and each card keeps its type', () async {
     final client = boardClient(
-      layers: [
-        {'id': 'layer-task', 'name': 'Task', 'order': 2, 'color': '#43A047'},
+      types: [
+        {'id': 'type-task', 'name': 'Task', 'order': 2, 'color': '#43A047'},
       ],
-      cardFields: {'layerId': 'layer-task'},
+      cardFields: {'typeId': 'type-task'},
     );
 
     final board = await repositoryFor(client).loadBoard('space-home', 'epic-1');
 
-    expect(board.layers.single.color, const Color(0xFF43A047));
-    expect(board.swimlanes.single.cards.single.layerId, 'layer-task');
+    expect(board.types.single.color, const Color(0xFF43A047));
+    expect(board.swimlanes.single.cards.single.typeId, 'type-task');
   });
 
   test("loadBoard treats a null scope as the Space's top level", () async {
     final client = MockClient((request) async {
       if (request.url.path == '/api/statuses') return _jsonResponse([]);
-      if (request.url.path == '/api/work-item-layers') return _jsonResponse([]);
+      if (request.url.path == '/api/work-item-types') return _jsonResponse([]);
       if (request.url.path == '/api/work-items/swimlanes') {
         expect(request.url.queryParameters, {'spaceId': 'space-home'});
         return _jsonResponse([]);
@@ -266,7 +269,9 @@ void main() {
         cardFields: {'assignedToUserId': 'user-card'},
       );
 
-      final board = await repositoryFor(client).loadBoard('space-home', 'epic-1');
+      final board = await repositoryFor(
+        client,
+      ).loadBoard('space-home', 'epic-1');
 
       expect(board.swimlanes.single.lane.assignedToUserId, 'user-lane');
       expect(board.swimlanes.single.cards.single.assignedToUserId, 'user-card');

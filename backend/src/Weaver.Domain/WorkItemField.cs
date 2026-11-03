@@ -8,7 +8,7 @@ public static class WorkItemField
 {
     public const string Title = "title";
     public const string Description = "description";
-    public const string LayerId = "layerId";
+    public const string TypeId = "typeId";
     public const string PriorityId = "priorityId";
     public const string When = "when";
     public const string StatusId = "statusId";

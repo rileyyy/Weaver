@@ -69,7 +69,7 @@ public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
         [Description("Longer free-text description. Optional.")] string? description = null,
         [Description("Id of the parent work item this item will become a child of; the item joins the parent's Space. Omit to create a top-level item, which then needs spaceId.")] Guid? parentId = null,
         [Description("Id of an existing sibling (same parent and status) to place this item immediately after. Omit to place it first.")] Guid? afterId = null,
-        [Description("Id of the work item layer, e.g. Project/Goal/Task. Use list_work_item_layers to find valid ids. Optional.")] Guid? layerId = null,
+        [Description("Id of the Type (e.g. Project/Goal/Task): one of its Space's, from list_work_item_types. Optional.")] Guid? typeId = null,
         [Description("Id of the work item priority: one of its Space's, from list_work_item_priorities. Optional.")] Guid? priorityId = null,
         [Description("Id of the Space to create a top-level item in. Use list_spaces to find valid ids. Required without parentId; with one, omit it or send the parent's.")] Guid? spaceId = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
@@ -77,7 +77,7 @@ public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
         McpExceptionTranslation.TranslateAsync(async () =>
         {
             _caller.UseActorLabel(actorLabel);
-            var item = await _workItems.CreateAsync(title, description, parentId, statusId, afterId, layerId, priorityId, spaceId, ct);
+            var item = await _workItems.CreateAsync(title, description, parentId, statusId, afterId, typeId, priorityId, spaceId, ct);
             return WorkItemDto.FromEntity(item);
         });
 
@@ -125,14 +125,14 @@ public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
             ct));
 
     [McpServerTool(Name = "update_work_item_details", Destructive = false, Idempotent = true)]
-    [Description("Changes a work item's title, description, layer, priority and/or When. Independent of " +
+    [Description("Changes a work item's title, description, type, priority and/or When. Independent of " +
         "status, parent, schedule, and assignee — use their own tools for those. " + PatchDescription)]
     public Task<WorkItemWriteResponse> UpdateWorkItemDetails(
         RequestContext<CallToolRequestParams> context,
         [Description("The work item's id.")] Guid id,
         [Description("New title. Can't be cleared.")] string? title = null,
         [Description("New description, or null to clear it.")] string? description = null,
-        [Description("Id of the work item layer, or null to clear it. Use list_work_item_layers to find valid ids.")] Guid? layerId = null,
+        [Description("Id of the Type (one of the item's own Space's, from list_work_item_types), or null to clear it.")] Guid? typeId = null,
         [Description("Id of the work item priority (one of the item's own Space's, from list_work_item_priorities), or null to clear it.")] Guid? priorityId = null,
         [Description("Free-text phrase for when the item should happen (e.g. \"after drywall\"), or null to clear it. " +
             "It stays unresolved until the item has dates; set those with reschedule_work_item and keep the phrase.")] string? when = null,
@@ -144,7 +144,7 @@ public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
         {
             Title = context.Supplied(nameof(title), title!),
             Description = context.Supplied(nameof(description), description),
-            LayerId = context.Supplied(nameof(layerId), layerId),
+            TypeId = context.Supplied(nameof(typeId), typeId),
             PriorityId = context.Supplied(nameof(priorityId), priorityId),
             When = context.Supplied(nameof(when), when),
         };

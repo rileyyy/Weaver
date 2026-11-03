@@ -193,9 +193,9 @@ public class WorkItemTests
     [Test]
     public void UpdateDetails_WithOnlyATitle_LeavesTheOtherFieldsAlone()
     {
-        var layerId = Guid.NewGuid();
+        var typeId = Guid.NewGuid();
         var priorityId = Guid.NewGuid();
-        var item = WorkItem.Create(Home, "Task", "Keep me", ToDo, 1.0, layerId, priorityId);
+        var item = WorkItem.Create(Home, "Task", "Keep me", ToDo, 1.0, typeId, priorityId);
 
         var changed = item.UpdateDetails(new WorkItemDetailsPatch { Title = "Renamed" });
 
@@ -203,7 +203,7 @@ public class WorkItemTests
         {
             Assert.That(item.Title, Is.EqualTo("Renamed"));
             Assert.That(item.Description, Is.EqualTo("Keep me"));
-            Assert.That(item.LayerId, Is.EqualTo(layerId));
+            Assert.That(item.TypeId, Is.EqualTo(typeId));
             Assert.That(item.PriorityId, Is.EqualTo(priorityId));
             Assert.That(Fields(changed), Is.EqualTo(new[] { WorkItemField.Title }));
         });
@@ -214,15 +214,15 @@ public class WorkItemTests
     {
         var item = WorkItem.Create(Home, "Task", "Clear me", ToDo, 1.0, Guid.NewGuid(), Guid.NewGuid());
 
-        var changed = item.UpdateDetails(new WorkItemDetailsPatch { Description = null, LayerId = null, PriorityId = null });
+        var changed = item.UpdateDetails(new WorkItemDetailsPatch { Description = null, TypeId = null, PriorityId = null });
 
         Assert.Multiple(() =>
         {
             Assert.That(item.Title, Is.EqualTo("Task"));
             Assert.That(item.Description, Is.Null);
-            Assert.That(item.LayerId, Is.Null);
+            Assert.That(item.TypeId, Is.Null);
             Assert.That(item.PriorityId, Is.Null);
-            Assert.That(Fields(changed), Is.EqualTo(new[] { WorkItemField.Description, WorkItemField.LayerId, WorkItemField.PriorityId }));
+            Assert.That(Fields(changed), Is.EqualTo(new[] { WorkItemField.Description, WorkItemField.TypeId, WorkItemField.PriorityId }));
         });
     }
 

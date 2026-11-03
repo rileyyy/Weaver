@@ -106,7 +106,7 @@ public class WorkItemChangesService(IWeaverDbContext db, ICallerContext caller) 
                 w.SpaceId,
                 w.Space!.Name,
                 w.Status!.Name,
-                w.Layer == null ? null : w.Layer.Name,
+                w.Type == null ? null : w.Type.Name,
                 w.StartDate,
                 w.EndDate,
                 w.AssignedToUser == null ? null : w.AssignedToUser.Username,

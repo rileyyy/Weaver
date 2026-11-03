@@ -6,8 +6,8 @@ import 'package:weaver/features/admin/state/reordered.dart';
 import 'package:weaver/shared/models/space.dart';
 
 /// Loading and drag-to-reorder for an admin list of lookup values; the
-/// subclasses add creating, editing and deleting their own kind. A lookup
-/// each Space owns ([ownedBySpace]) lists one Space at a time.
+/// subclasses add creating, editing and deleting their own kind. Each Space
+/// owns its own values, so one Space's are listed at a time.
 abstract class OrderedListViewModel<T> extends ViewModel {
   List<T> _items = const [];
   String? _spaceId;
@@ -18,16 +18,12 @@ abstract class OrderedListViewModel<T> extends ViewModel {
 
   List<T> get items => _items;
 
-  /// The Space whose values are shown, for a lookup each Space owns; null
-  /// until one is chosen, and always for a shared lookup.
+  /// The Space whose values are shown; null until one is chosen.
   String? get spaceId => _spaceId;
 
-  @protected
-  bool get ownedBySpace => false;
-
   /// Whether there's a list to show and add to: a Space must be chosen
-  /// first for a lookup each Space owns.
-  bool get hasList => !ownedBySpace || _spaceId != null;
+  /// first.
+  bool get hasList => _spaceId != null;
 
   /// Only true for the first load; later refreshes keep showing the list.
   bool get isLoading => _isLoading && !_hasLoaded;
@@ -56,10 +52,10 @@ abstract class OrderedListViewModel<T> extends ViewModel {
   }
 
   /// Keeps the chosen Space while it's among [spaces], and otherwise shows
-  /// the first of them. Does nothing for a shared lookup.
+  /// the first of them.
   Future<void> followSpaces(List<Space> spaces) {
     final keepsCurrent = spaces.any((space) => space.id == _spaceId);
-    if (!ownedBySpace || spaces.isEmpty || keepsCurrent) return Future.value();
+    if (spaces.isEmpty || keepsCurrent) return Future.value();
     return showSpace(spaces.first.id);
   }
 

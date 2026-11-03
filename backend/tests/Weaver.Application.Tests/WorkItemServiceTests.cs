@@ -4,7 +4,6 @@ using Weaver.Application.Services;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
 using Weaver.Infrastructure;
-using Weaver.Infrastructure.Configurations;
 
 namespace Weaver.Application.Tests;
 
@@ -390,19 +389,19 @@ public class WorkItemServiceTests
     }
 
     [Test]
-    public async Task CreateAsync_WithLayerId_SetsTheLayer()
+    public async Task CreateAsync_WithTypeId_SetsTheType()
     {
         var item = await _service.CreateAsync(
-            "Task", null, null, _space.ToDo, layerId: WorkItemLayerConfiguration.TaskId, spaceId: _space.Id);
+            "Task", null, null, _space.ToDo, typeId: _space.Task, spaceId: _space.Id);
 
-        Assert.That(item.LayerId, Is.EqualTo(WorkItemLayerConfiguration.TaskId));
+        Assert.That(item.TypeId, Is.EqualTo(_space.Task));
     }
 
     [Test]
-    public void CreateAsync_WithUnknownLayerId_ThrowsEntityNotFoundException()
+    public void CreateAsync_WithUnknownTypeId_ThrowsEntityNotFoundException()
     {
         Assert.ThrowsAsync<EntityNotFoundException>(() =>
-            _service.CreateAsync("Task", null, null, _space.ToDo, layerId: Guid.NewGuid(), spaceId: _space.Id));
+            _service.CreateAsync("Task", null, null, _space.ToDo, typeId: Guid.NewGuid(), spaceId: _space.Id));
     }
 
     [Test]
@@ -432,16 +431,16 @@ public class WorkItemServiceTests
     }
 
     [Test]
-    public async Task UpdateDetailsAsync_UpdatesTitleDescriptionLayerAndPriority()
+    public async Task UpdateDetailsAsync_UpdatesTitleDescriptionTypeAndPriority()
     {
         var item = await _service.CreateAsync("Old title", "Old description", null, _space.ToDo, spaceId: _space.Id);
 
         var updated = (await _service.UpdateDetailsAsync(
-            item.Id, Details("New title", "New description", WorkItemLayerConfiguration.GoalId, _space.Urgent))).Item;
+            item.Id, Details("New title", "New description", _space.Goal, _space.Urgent))).Item;
 
         Assert.That(updated.Title, Is.EqualTo("New title"));
         Assert.That(updated.Description, Is.EqualTo("New description"));
-        Assert.That(updated.LayerId, Is.EqualTo(WorkItemLayerConfiguration.GoalId));
+        Assert.That(updated.TypeId, Is.EqualTo(_space.Goal));
         Assert.That(updated.PriorityId, Is.EqualTo(_space.Urgent));
     }
 
@@ -458,7 +457,7 @@ public class WorkItemServiceTests
     }
 
     [Test]
-    public void UpdateDetailsAsync_WithUnknownLayerId_ThrowsEntityNotFoundException()
+    public void UpdateDetailsAsync_WithUnknownTypeId_ThrowsEntityNotFoundException()
     {
         Assert.ThrowsAsync<EntityNotFoundException>(() =>
             _service.UpdateDetailsAsync(Guid.NewGuid(), Details("Title", null, Guid.NewGuid(), null)));
@@ -722,7 +721,7 @@ public class WorkItemServiceTests
     {
         var item = await _service.CreateAsync(
             "Item", "Keep me", null, _space.ToDo,
-            layerId: WorkItemLayerConfiguration.TaskId, priorityId: _space.High, spaceId: _space.Id);
+            typeId: _space.Task, priorityId: _space.High, spaceId: _space.Id);
 
         var result = await _service.UpdateDetailsAsync(item.Id, new WorkItemDetailsPatch { Title = "Renamed" });
 
@@ -730,7 +729,7 @@ public class WorkItemServiceTests
         {
             Assert.That(result.Item.Title, Is.EqualTo("Renamed"));
             Assert.That(result.Item.Description, Is.EqualTo("Keep me"));
-            Assert.That(result.Item.LayerId, Is.EqualTo(WorkItemLayerConfiguration.TaskId));
+            Assert.That(result.Item.TypeId, Is.EqualTo(_space.Task));
             Assert.That(result.Item.PriorityId, Is.EqualTo(_space.High));
             Assert.That(result.ChangedFields, Is.EqualTo(new[] { WorkItemField.Title }));
         });

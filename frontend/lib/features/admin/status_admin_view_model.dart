@@ -11,9 +11,6 @@ class StatusAdminViewModel extends OrderedListViewModel<AdminStatus> {
 
   final StatusAdminRepository _repository;
 
-  @override
-  bool get ownedBySpace => true;
-
   /// Every work item needs a status, so a Space's last one can't go.
   bool get canDelete => items.length > 1;
 

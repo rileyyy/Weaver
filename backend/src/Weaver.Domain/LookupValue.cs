@@ -1,7 +1,7 @@
 namespace Weaver.Domain;
 
 /// <summary>
-/// A configurable, ordered value that work items point at: statuses, layers and priorities.
+/// A configurable, ordered value that work items point at: statuses, types and priorities.
 /// Admins add, rename, reorder and delete these at runtime, so the name and order rules live
 /// here rather than in each service.
 /// </summary>

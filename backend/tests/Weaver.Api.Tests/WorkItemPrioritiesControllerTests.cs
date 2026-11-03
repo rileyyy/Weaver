@@ -7,7 +7,7 @@ using Weaver.Domain;
 
 namespace Weaver.Api.Tests;
 
-/// <summary><see cref="WorkItemLayersController"/> has the same shape, so it isn't repeated.</summary>
+/// <summary><see cref="WorkItemTypesController"/> has the same shape, so it isn't repeated.</summary>
 [TestFixture]
 public class WorkItemPrioritiesControllerTests
 {

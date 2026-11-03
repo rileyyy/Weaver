@@ -1,4 +1,4 @@
-/// A priority or layer: a name in an order, and for layers a colour.
+/// A priority or Type: a name in an order, and for Types a colour.
 class LookupValue {
   const LookupValue({
     required this.id,

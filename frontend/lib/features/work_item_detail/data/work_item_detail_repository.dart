@@ -6,8 +6,8 @@ import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
-import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
+import 'package:weaver/shared/models/work_item_type.dart';
 
 abstract class WorkItemDetailRepository {
   Future<WorkItem> getItem(String id);
@@ -30,7 +30,8 @@ abstract class WorkItemDetailRepository {
   /// Space's.
   Future<List<WorkItemStatus>> loadStatuses(String spaceId);
 
-  Future<List<WorkItemLayer>> loadLayers();
+  /// The Types of the Space [spaceId], as for [loadStatuses].
+  Future<List<WorkItemType>> loadTypes(String spaceId);
 
   /// The priorities of the Space [spaceId], as for [loadStatuses].
   Future<List<WorkItemPriority>> loadPriorities(String spaceId);
@@ -44,12 +45,12 @@ abstract class WorkItemDetailRepository {
     String id, {
     required String title,
     required String? description,
-    required String? layerId,
+    required String? typeId,
     required String? priorityId,
     required int expectedVersion,
   });
 
-  /// Saves just the description, leaving the title, layer and priority as
+  /// Saves just the description, leaving the title, type and priority as
   /// they are on the server, for edits that don't come from the details
   /// form (ticking a task).
   Future<WorkItem> updateDescription(

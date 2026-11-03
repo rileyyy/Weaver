@@ -14,12 +14,12 @@ import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/models/new_user.dart';
 import 'package:weaver/features/admin/models/status_category.dart';
 import 'package:weaver/features/admin/models/status_details.dart';
-import 'package:weaver/shared/data/layer_repository.dart';
 import 'package:weaver/shared/data/status_repository.dart';
+import 'package:weaver/shared/data/type_repository.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
 import 'package:weaver/shared/models/user.dart';
-import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
+import 'package:weaver/shared/models/work_item_type.dart';
 
 import '../../../core/network/fakes/fixed_api_endpoint.dart';
 
@@ -36,11 +36,11 @@ class _CountingStatusCache implements StatusRepository {
   void invalidate() => invalidations++;
 }
 
-class _CountingLayerCache implements LayerRepository {
+class _CountingTypeCache implements TypeRepository {
   int invalidations = 0;
 
   @override
-  Future<List<WorkItemLayer>> loadLayers() async => const [];
+  Future<List<WorkItemType>> loadTypes(String spaceId) async => const [];
 
   @override
   void invalidate() => invalidations++;
@@ -182,7 +182,7 @@ void main() {
 
   group('ApiLookupAdminRepository', () {
     late List<http.Request> requests;
-    late _CountingLayerCache layerCache;
+    late _CountingTypeCache typeCache;
     late ApiLookupAdminRepository repository;
 
     setUp(() {
@@ -198,18 +198,15 @@ void main() {
           200,
         );
       });
-      layerCache = _CountingLayerCache();
-      repository = ApiLookupAdminRepository(client, _endpoint, layerCache);
+      typeCache = _CountingTypeCache();
+      repository = ApiLookupAdminRepository(client, _endpoint, typeCache);
     });
 
-    test('priorities are listed, added and reordered within a Space', () async {
-      await repository.list(LookupKind.priorities, spaceId: 'home');
-      await repository.create(
-        LookupKind.priorities,
-        'Critical',
-        spaceId: 'home',
-      );
-      await repository.reorder(LookupKind.priorities, ['p1'], spaceId: 'home');
+    test('values are listed, added and reordered within a Space', () async {
+      await repository.list(LookupKind.priorities, 'home');
+      await repository.create(LookupKind.priorities, 'home', 'Critical');
+      await repository.reorder(LookupKind.priorities, 'home', ['p1']);
+      await repository.list(LookupKind.types, 'software');
 
       expect(
         requests[0].url.toString(),
@@ -223,31 +220,27 @@ void main() {
         requests[2].url.toString(),
         '$_baseUrl/work-item-priorities/order?spaceId=home',
       );
-    });
-
-    test('a Space is required for priorities and refused for layers', () {
-      expect(() => repository.list(LookupKind.priorities), throwsArgumentError);
       expect(
-        () => repository.list(LookupKind.layers, spaceId: 'home'),
-        throwsArgumentError,
+        requests[3].url.toString(),
+        '$_baseUrl/work-item-types?spaceId=software',
       );
     });
 
     test('uses the path of the kind', () async {
-      await repository.create(LookupKind.layers, 'Epic', color: '#546E7A');
+      await repository.create(
+        LookupKind.types,
+        'home',
+        'Epic',
+        color: '#546E7A',
+      );
       await repository.update(LookupKind.priorities, 'p1', 'Critical');
 
-      expect(requests[0].url.path, '/api/work-item-layers');
+      expect(requests[0].url.path, '/api/work-item-types');
       expect(requests[1].url.path, '/api/work-item-priorities/p1');
     });
 
-    test('sends a colour for layers only', () async {
-      await repository.update(
-        LookupKind.layers,
-        'l1',
-        'Epic',
-        color: '#FDD835',
-      );
+    test('sends a colour for types only', () async {
+      await repository.update(LookupKind.types, 'l1', 'Epic', color: '#FDD835');
       await repository.update(
         LookupKind.priorities,
         'p1',
@@ -262,19 +255,20 @@ void main() {
       expect(jsonDecode(requests[1].body), {'name': 'Critical'});
     });
 
-    test('drops the shared layer list after a layer change only', () async {
-      await repository.create(
-        LookupKind.priorities,
-        'Critical',
-        spaceId: 'home',
-      );
+    test('drops the shared type list after a type change only', () async {
+      await repository.create(LookupKind.priorities, 'home', 'Critical');
       await repository.delete(LookupKind.priorities, 'p1');
-      expect(layerCache.invalidations, 0);
+      expect(typeCache.invalidations, 0);
 
-      await repository.create(LookupKind.layers, 'Epic', color: '#546E7A');
-      await repository.reorder(LookupKind.layers, ['l1']);
-      await repository.delete(LookupKind.layers, 'l1');
-      expect(layerCache.invalidations, 3);
+      await repository.create(
+        LookupKind.types,
+        'home',
+        'Epic',
+        color: '#546E7A',
+      );
+      await repository.reorder(LookupKind.types, 'home', ['l1']);
+      await repository.delete(LookupKind.types, 'l1');
+      expect(typeCache.invalidations, 3);
     });
 
     test('delete without a replacement sends no query', () async {

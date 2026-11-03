@@ -17,15 +17,18 @@ item's id.
 : A top-level container such as Home, Village or Software. It holds a forest
 of work-item trees. An item belongs to exactly one Space: a top-level item
 is created in one, and children share their parent's. Reparenting never
-crosses a Space. A Space owns its statuses and priorities (a new one starts
-with To Do / Doing / Done and Low / Medium / High / Urgent), and from ticket
-13 its Types; an item only takes its own Space's.
+crosses a Space. A Space owns its statuses, priorities and Types (a new one
+starts with To Do / Doing / Done, Low / Medium / High / Urgent and Project /
+Goal / Task); an item only takes its own Space's.
 _Avoid:_ project, workspace, board.
 
-**Type** *(planned; replaces Layer)*
-: A per-Space kind of work item (e.g. Room, Chore, Bug). It has a colour and
-its own custom fields. Types don't limit what can be nested under what.
-_Avoid:_ layer, work-item type.
+**Type**
+: A per-Space kind of work item (e.g. Room, Chore, Bug). It has a colour,
+and from ticket 14 its own custom fields. Types don't limit what can be
+nested under what. It replaced the global Layer (ticket 13).
+_Avoid:_ layer, work-item type. (Code and API names such as `WorkItemType`,
+`/api/work-item-types` and `list_work_item_types` keep the `work-item`
+prefix, matching statuses and priorities.)
 
 **Custom field** *(planned)*
 : A field a Type defines: text, Markdown, number, currency, date, checkbox,

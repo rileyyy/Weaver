@@ -56,7 +56,7 @@ public interface IWorkItemService
         Guid? parentId,
         Guid statusId,
         Guid? afterId = null,
-        Guid? layerId = null,
+        Guid? typeId = null,
         Guid? priorityId = null,
         Guid? spaceId = null,
         CancellationToken ct = default);
@@ -106,7 +106,7 @@ public interface IWorkItemService
         CancellationToken ct = default);
 
     /// <summary>
-    /// Patches a work item's descriptive fields — title, description, layer, priority —
+    /// Patches a work item's descriptive fields — title, description, type, priority —
     /// independently of status/parent/schedule/assignee. These fields share no
     /// cross-cutting invariant with each other or with those other operations, so they're
     /// safe to group behind one call unlike e.g. status and parent.

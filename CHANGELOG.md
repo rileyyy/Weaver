@@ -33,6 +33,23 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-03 — Types replace Layers, per Space
+
+`feature/types-replace-layers` (ticket 13 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0002](docs/adr/0002-types-and-custom-fields.md)). Builds on ticket 12.
+
+- **Layer is now Type** everywhere: the app, REST (`/api/work-item-types`,
+  `typeId`), MCP (`list_work_item_types`, `typeId`) and history.
+- **Each Space has its own Types**, managed on the Admin page's Types tab
+  with a Space picker. A new Space starts with Project / Goal / Task. An
+  item only takes its own Space's Type (400 otherwise).
+- **Any Type can sit under any other**, as before.
+- **No reset needed:** existing items keep their Type, moved onto the
+  matching Type in their own Space, and old history entries show as Type.
+- **API:** listing, creating and reordering Types need a `spaceId`, as for
+  statuses and priorities.
+
 ## 2026-11-03 — Per-Space statuses and priorities
 
 `feature/per-space-statuses-and-priorities` (ticket 12 of
