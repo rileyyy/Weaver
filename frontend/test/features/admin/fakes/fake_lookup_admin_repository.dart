@@ -10,16 +10,14 @@ class FakeLookupAdminRepository implements LookupAdminRepository {
   ApiException? error;
   final List<String> calls = [];
 
-  static String _in(String? spaceId) => spaceId == null ? '' : ' in $spaceId';
-
   Future<void> _fail() async {
     final error = this.error;
     if (error != null) throw error;
   }
 
   @override
-  Future<List<LookupValue>> list(LookupKind kind, {String? spaceId}) async {
-    calls.add('list ${kind.name}${_in(spaceId)}');
+  Future<List<LookupValue>> list(LookupKind kind, String spaceId) async {
+    calls.add('list ${kind.name} in $spaceId');
     await _fail();
     return values;
   }
@@ -27,11 +25,11 @@ class FakeLookupAdminRepository implements LookupAdminRepository {
   @override
   Future<LookupValue> create(
     LookupKind kind,
+    String spaceId,
     String name, {
     String? color,
-    String? spaceId,
   }) async {
-    calls.add('create ${kind.name} $name $color${_in(spaceId)}');
+    calls.add('create ${kind.name} $name $color in $spaceId');
     await _fail();
     return LookupValue(
       id: 'new',
@@ -56,10 +54,10 @@ class FakeLookupAdminRepository implements LookupAdminRepository {
   @override
   Future<List<LookupValue>> reorder(
     LookupKind kind,
-    List<String> orderedIds, {
-    String? spaceId,
-  }) async {
-    calls.add('reorder ${kind.name} ${orderedIds.join(',')}${_in(spaceId)}');
+    String spaceId,
+    List<String> orderedIds,
+  ) async {
+    calls.add('reorder ${kind.name} ${orderedIds.join(',')} in $spaceId');
     await _fail();
     return [
       for (final (index, id) in orderedIds.indexed)

@@ -89,7 +89,7 @@ void main() {
     expect(find.text('To Do'), findsOneWidget);
     expect(
       lookups.calls,
-      containsAll(['list priorities in home', 'list types']),
+      containsAll(['list priorities in home', 'list types in home']),
     );
 
     await tester.tap(find.widgetWithText(Tab, 'Users'));

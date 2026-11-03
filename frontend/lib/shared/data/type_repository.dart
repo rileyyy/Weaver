@@ -1,10 +1,11 @@
 import 'package:weaver/shared/models/work_item_type.dart';
 
-/// The configured work-item types, shared by every feature.
+/// Each Space's work-item Types, shared by every feature.
 abstract class TypeRepository {
-  Future<List<WorkItemType>> loadTypes();
+  /// The Types of the Space [spaceId], in display order.
+  Future<List<WorkItemType>> loadTypes(String spaceId);
 
-  /// Drops the cached list, so the next [loadTypes] fetches it again.
-  /// Called after an admin changes the types.
+  /// Drops every cached list, so the next [loadTypes] fetches again.
+  /// Called after an admin changes the Types.
   void invalidate();
 }

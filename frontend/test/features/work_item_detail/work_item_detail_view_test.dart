@@ -82,7 +82,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   ];
 
   @override
-  Future<List<WorkItemType>> loadTypes() async => const [];
+  Future<List<WorkItemType>> loadTypes(String spaceId) async => const [];
 
   @override
   Future<List<WorkItemPriority>> loadPriorities(String spaceId) async =>

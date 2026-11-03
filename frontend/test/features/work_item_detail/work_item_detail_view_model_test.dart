@@ -136,9 +136,12 @@ class _FakeRepository implements WorkItemDetailRepository {
   }
 
   @override
-  Future<List<WorkItemType>> loadTypes() async => const [
+  Future<List<WorkItemType>> loadTypes(String spaceId) async {
+    lookupSpaceIds.add(spaceId);
+    return const [
     WorkItemType(id: 'type-task', name: 'Task', order: 0),
   ];
+  }
 
   @override
   Future<List<WorkItemPriority>> loadPriorities(String spaceId) async {
@@ -366,7 +369,7 @@ void main() {
   });
 
   test(
-    "load offers the statuses and priorities of the item's own Space",
+    "load offers the statuses, Types and priorities of the item's own Space",
     () async {
       final repository = _FakeRepository();
       final viewModel = WorkItemDetailViewModel(
@@ -377,7 +380,7 @@ void main() {
 
       await viewModel.load('item-1');
 
-      expect(repository.lookupSpaceIds, ['home', 'home']);
+      expect(repository.lookupSpaceIds, ['home', 'home', 'home']);
     },
   );
 

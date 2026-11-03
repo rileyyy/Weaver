@@ -71,7 +71,8 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
       _statuses.loadStatuses(spaceId);
 
   @override
-  Future<List<WorkItemType>> loadTypes() => _types.loadTypes();
+  Future<List<WorkItemType>> loadTypes(String spaceId) =>
+      _types.loadTypes(spaceId);
 
   @override
   Future<List<WorkItemPriority>> loadPriorities(String spaceId) => _api.get(

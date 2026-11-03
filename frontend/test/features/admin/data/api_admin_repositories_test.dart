@@ -40,7 +40,7 @@ class _CountingTypeCache implements TypeRepository {
   int invalidations = 0;
 
   @override
-  Future<List<WorkItemType>> loadTypes() async => const [];
+  Future<List<WorkItemType>> loadTypes(String spaceId) async => const [];
 
   @override
   void invalidate() => invalidations++;
@@ -202,14 +202,11 @@ void main() {
       repository = ApiLookupAdminRepository(client, _endpoint, typeCache);
     });
 
-    test('priorities are listed, added and reordered within a Space', () async {
-      await repository.list(LookupKind.priorities, spaceId: 'home');
-      await repository.create(
-        LookupKind.priorities,
-        'Critical',
-        spaceId: 'home',
-      );
-      await repository.reorder(LookupKind.priorities, ['p1'], spaceId: 'home');
+    test('values are listed, added and reordered within a Space', () async {
+      await repository.list(LookupKind.priorities, 'home');
+      await repository.create(LookupKind.priorities, 'home', 'Critical');
+      await repository.reorder(LookupKind.priorities, 'home', ['p1']);
+      await repository.list(LookupKind.types, 'software');
 
       expect(
         requests[0].url.toString(),
@@ -223,18 +220,19 @@ void main() {
         requests[2].url.toString(),
         '$_baseUrl/work-item-priorities/order?spaceId=home',
       );
-    });
-
-    test('a Space is required for priorities and refused for types', () {
-      expect(() => repository.list(LookupKind.priorities), throwsArgumentError);
       expect(
-        () => repository.list(LookupKind.types, spaceId: 'home'),
-        throwsArgumentError,
+        requests[3].url.toString(),
+        '$_baseUrl/work-item-types?spaceId=software',
       );
     });
 
     test('uses the path of the kind', () async {
-      await repository.create(LookupKind.types, 'Epic', color: '#546E7A');
+      await repository.create(
+        LookupKind.types,
+        'home',
+        'Epic',
+        color: '#546E7A',
+      );
       await repository.update(LookupKind.priorities, 'p1', 'Critical');
 
       expect(requests[0].url.path, '/api/work-item-types');
@@ -258,16 +256,17 @@ void main() {
     });
 
     test('drops the shared type list after a type change only', () async {
-      await repository.create(
-        LookupKind.priorities,
-        'Critical',
-        spaceId: 'home',
-      );
+      await repository.create(LookupKind.priorities, 'home', 'Critical');
       await repository.delete(LookupKind.priorities, 'p1');
       expect(typeCache.invalidations, 0);
 
-      await repository.create(LookupKind.types, 'Epic', color: '#546E7A');
-      await repository.reorder(LookupKind.types, ['l1']);
+      await repository.create(
+        LookupKind.types,
+        'home',
+        'Epic',
+        color: '#546E7A',
+      );
+      await repository.reorder(LookupKind.types, 'home', ['l1']);
       await repository.delete(LookupKind.types, 'l1');
       expect(typeCache.invalidations, 3);
     });

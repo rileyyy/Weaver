@@ -48,11 +48,10 @@ class _AdminViewState extends State<AdminView> {
   @override
   void initState() {
     super.initState();
-    // Statuses and priorities belong to a Space, so they load once the
+    // Statuses, priorities and Types belong to a Space, so they load once the
     // Spaces have, and follow them when one is added.
     _spaces.addListener(_followSpaces);
     unawaited(_spaces.load());
-    unawaited(_types.load());
     unawaited(_users.load());
     unawaited(_agents.load());
     unawaited(_server.load());
@@ -61,6 +60,7 @@ class _AdminViewState extends State<AdminView> {
   void _followSpaces() {
     unawaited(_statuses.followSpaces(_spaces.spaces));
     unawaited(_priorities.followSpaces(_spaces.spaces));
+    unawaited(_types.followSpaces(_spaces.spaces));
   }
 
   @override
@@ -103,7 +103,7 @@ class _AdminViewState extends State<AdminView> {
             SpacesTab(viewModel: _spaces),
             StatusesTab(viewModel: _statuses, spaces: _spaces),
             LookupTab(viewModel: _priorities, spaces: _spaces),
-            LookupTab(viewModel: _types),
+            LookupTab(viewModel: _types, spaces: _spaces),
             UsersTab(viewModel: _users),
             AgentsTab(viewModel: _agents),
             ServerTab(viewModel: _server),

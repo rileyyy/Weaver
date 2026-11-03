@@ -102,16 +102,19 @@ class WorkItemDetailViewModel extends ViewModel {
   }
 
   static List<AsyncError?> _asyncErrors(Object? errors) => switch (errors) {
-    (final AsyncError? a, final AsyncError? b) => [a, b],
+    (final AsyncError? a, final AsyncError? b, final AsyncError? c) => [
+      a,
+      b,
+      c,
+    ],
     (
       final AsyncError? a,
       final AsyncError? b,
       final AsyncError? c,
       final AsyncError? d,
       final AsyncError? e,
-      final AsyncError? f,
     ) =>
-      [a, b, c, d, e, f],
+      [a, b, c, d, e],
     _ => throw StateError('Unexpected parallel wait errors: $errors'),
   };
 
@@ -122,17 +125,18 @@ class WorkItemDetailViewModel extends ViewModel {
 
     try {
       final asOf = _items.revision;
-      final (item, types, users, comments, links, children) = await (
+      final (item, users, comments, links, children) = await (
         _repository.getItem(id),
-        _repository.loadTypes(),
         _repository.loadUsers(),
         _repository.loadComments(id),
         _repository.loadLinks(id),
         _repository.loadChildren(id),
       ).wait;
-      // Only the item says which Space's statuses and priorities it can take.
-      final (statuses, priorities) = await (
+      // Only the item says which Space's statuses, Types and priorities it
+      // can take.
+      final (statuses, types, priorities) = await (
         _repository.loadStatuses(item.spaceId),
+        _repository.loadTypes(item.spaceId),
         _repository.loadPriorities(item.spaceId),
       ).wait;
       _items.putAll([item], asOf: asOf);

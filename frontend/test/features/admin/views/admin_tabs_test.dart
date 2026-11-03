@@ -97,8 +97,11 @@ void main() {
       ]);
       final viewModel = LookupAdminViewModel(repository, LookupKind.types);
       addTearDown(viewModel.dispose);
-      await viewModel.load();
-      await tester.pumpWidget(_host(LookupTab(viewModel: viewModel)));
+      await viewModel.showSpace('home');
+      final spaces = await _loadedSpaces(tester);
+      await tester.pumpWidget(
+        _host(LookupTab(viewModel: viewModel, spaces: spaces)),
+      );
 
       await tester.tap(find.byTooltip('Edit Task'));
       await tester.pumpAndSettle();

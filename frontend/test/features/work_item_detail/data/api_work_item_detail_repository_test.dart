@@ -140,12 +140,14 @@ void main() {
     expect(children.single.number, 7);
   });
 
-  test('loadTypes parses the type list', () async {
-    final client = MockClient(
-      (request) async => _jsonResponse([
+  test("loadTypes parses the Space's type list", () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse([
         {'id': 'type-1', 'name': 'Project', 'order': 0},
-      ]),
-    );
+      ]);
+    });
     final repository = ApiWorkItemDetailRepository(
       client,
       endpoint,
@@ -154,8 +156,9 @@ void main() {
       ApiUserDirectoryRepository(client, endpoint),
     );
 
-    final types = await repository.loadTypes();
+    final types = await repository.loadTypes('home');
 
+    expect(sentRequest!.url.queryParameters['spaceId'], 'home');
     expect(types.single.name, 'Project');
   });
 

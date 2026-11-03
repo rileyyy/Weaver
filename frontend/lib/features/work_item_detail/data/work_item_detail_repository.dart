@@ -30,7 +30,8 @@ abstract class WorkItemDetailRepository {
   /// Space's.
   Future<List<WorkItemStatus>> loadStatuses(String spaceId);
 
-  Future<List<WorkItemType>> loadTypes();
+  /// The Types of the Space [spaceId], as for [loadStatuses].
+  Future<List<WorkItemType>> loadTypes(String spaceId);
 
   /// The priorities of the Space [spaceId], as for [loadStatuses].
   Future<List<WorkItemPriority>> loadPriorities(String spaceId);

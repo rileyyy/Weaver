@@ -24,6 +24,29 @@ ServerSettings _switchableServer() => ServerSettings(
 
 void main() {
   group('ApiTypeRepository', () {
+    test("fetches each Space's types separately, once each", () async {
+      final requested = <String?>[];
+      final client = MockClient((request) async {
+        final spaceId = request.url.queryParameters['spaceId'];
+        requested.add(spaceId);
+        return http.Response(
+          jsonEncode([
+            {'id': 't-$spaceId', 'name': 'In $spaceId', 'order': 0},
+          ]),
+          200,
+        );
+      });
+      final repository = ApiTypeRepository(client, _endpoint);
+
+      final home = await repository.loadTypes('home');
+      final software = await repository.loadTypes('software');
+      await repository.loadTypes('home');
+
+      expect(requested, ['home', 'software']);
+      expect(home.single.name, 'In home');
+      expect(software.single.name, 'In software');
+    });
+
     test('fetches types once, with their colours', () async {
       var calls = 0;
       final client = MockClient((_) async {
@@ -37,8 +60,8 @@ void main() {
       });
       final repository = ApiTypeRepository(client, _endpoint);
 
-      await repository.loadTypes();
-      final types = await repository.loadTypes();
+      await repository.loadTypes('home');
+      final types = await repository.loadTypes('home');
 
       expect(calls, 1);
       expect(types.single.color, const Color(0xFF43A047));
@@ -52,9 +75,9 @@ void main() {
       });
       final repository = ApiTypeRepository(client, _endpoint);
 
-      await repository.loadTypes();
+      await repository.loadTypes('home');
       repository.invalidate();
-      await repository.loadTypes();
+      await repository.loadTypes('home');
 
       expect(calls, 2);
     });
@@ -67,10 +90,10 @@ void main() {
       );
       final repository = ApiTypeRepository(client, _endpoint);
 
-      await expectLater(repository.loadTypes(), throwsA(isA<ApiException>()));
+      await expectLater(repository.loadTypes('home'), throwsA(isA<ApiException>()));
       fail = false;
 
-      expect(await repository.loadTypes(), isEmpty);
+      expect(await repository.loadTypes('home'), isEmpty);
     });
   });
 

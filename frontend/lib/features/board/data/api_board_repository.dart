@@ -50,11 +50,11 @@ class ApiBoardRepository implements BoardRepository {
 
   @override
   Future<BoardData> loadBoard(String spaceId, String? scopeItemId) async {
-    // Three requests at most (a Space's statuses and the types are cached
-    // after their first load): /swimlanes returns every lane with its cards, instead of
+    // Three requests at most (a Space's statuses and Types are cached after
+    // their first load): /swimlanes returns every lane with its cards, instead of
     // one request per lane.
     final statuses = await _statuses.loadStatuses(spaceId);
-    final types = await _types.loadTypes();
+    final types = await _types.loadTypes(spaceId);
     final swimlanes = await _api.get(
       '/work-items/swimlanes',
       (json) => JsonApiClient.listOf(json, _toSwimlane),

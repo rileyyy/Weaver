@@ -179,7 +179,7 @@ void main() {
     expect(board.swimlanes.single.cards.single.number, 1);
     expect(requests, [
       '$baseUrl/statuses?spaceId=space-home',
-      '$baseUrl/work-item-types',
+      '$baseUrl/work-item-types?spaceId=space-home',
       '$baseUrl/work-items/swimlanes?spaceId=space-home&scopeItemId=epic-1',
     ]);
   });

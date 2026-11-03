@@ -36,16 +36,16 @@ void main() {
     expect(vm.items, isEmpty);
   });
 
-  test('types are shared by every Space, so no Space is needed', () async {
+  test('types are listed and added within the chosen Space', () async {
     final types = LookupAdminViewModel(repository, LookupKind.types);
     addTearDown(types.dispose);
 
-    await types.load();
+    await types.showSpace('software');
     await types.create('Epic', color: '#546E7A');
 
     expect(repository.calls.skip(1), [
-      'list types',
-      'create types Epic #546E7A',
+      'list types in software',
+      'create types Epic #546E7A in software',
     ]);
   });
 
@@ -68,7 +68,7 @@ void main() {
       LookupKind.types,
     );
     addTearDown(types.dispose);
-    await types.load();
+    await types.showSpace('home');
 
     await types.create('Epic', color: '#546E7A');
     await types.update('task', 'Task', color: '#FDD835');

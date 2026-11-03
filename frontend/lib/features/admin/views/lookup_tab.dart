@@ -14,14 +14,12 @@ import 'package:weaver/features/admin/widgets/space_picker.dart';
 import 'package:weaver/features/admin/widgets/type_dialog.dart';
 import 'package:weaver/shared/models/hex_color.dart';
 
-/// The Priorities or Types tab. Priorities are shown one Space at a time,
-/// chosen from [spaces], which priorities need and types ignore; types are
-/// shared by every Space.
+/// The Priorities or Types tab, one Space at a time, chosen from [spaces].
 class LookupTab extends StatelessWidget {
-  const LookupTab({super.key, required this.viewModel, this.spaces});
+  const LookupTab({super.key, required this.viewModel, required this.spaces});
 
   final LookupAdminViewModel viewModel;
-  final SpaceAdminViewModel? spaces;
+  final SpaceAdminViewModel spaces;
 
   LookupKind get _kind => viewModel.kind;
 
@@ -29,24 +27,22 @@ class LookupTab extends StatelessWidget {
     LookupKind.priorities =>
       'This Space’s priorities, from least to most urgent. Drag to reorder.',
     LookupKind.types =>
-      'Types label what kind of thing a work item is, and colour its card '
-          'on the board. Drag to reorder.',
+      'This Space’s Types say what kind of thing a work item is and colour '
+          'its card on the board. Any Type can sit under any other. Drag to '
+          'reorder.',
   };
 
   @override
   Widget build(BuildContext context) {
     final singular = _kind.singular;
-    final spaces = _kind.ownedBySpace ? this.spaces : null;
     return ListenableBuilder(
-      listenable: Listenable.merge([viewModel, ?spaces]),
+      listenable: Listenable.merge([viewModel, spaces]),
       builder: (context, _) => AdminListFrame(
-        header: spaces == null
-            ? null
-            : SpacePicker(
-                spaces: spaces.spaces,
-                selectedId: viewModel.spaceId,
-                onSelected: (id) => unawaited(viewModel.showSpace(id)),
-              ),
+        header: SpacePicker(
+          spaces: spaces.spaces,
+          selectedId: viewModel.spaceId,
+          onSelected: (id) => unawaited(viewModel.showSpace(id)),
+        ),
         isLoading: viewModel.isLoading,
         loadError: viewModel.loadError,
         onRetry: viewModel.load,

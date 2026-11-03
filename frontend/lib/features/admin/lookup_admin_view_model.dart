@@ -4,8 +4,8 @@ import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/models/lookup_value.dart';
 import 'package:weaver/features/admin/ordered_list_view_model.dart';
 
-/// The Admin page's Priorities or Types tab, depending on [kind]. Each
-/// Space has its own priorities, so they're shown one Space at a time.
+/// The Admin page's Priorities or Types tab, depending on [kind], for one
+/// Space at a time.
 @injectable
 class LookupAdminViewModel extends OrderedListViewModel<LookupValue> {
   LookupAdminViewModel(this._repository, @factoryParam this.kind);
@@ -14,17 +14,14 @@ class LookupAdminViewModel extends OrderedListViewModel<LookupValue> {
   final LookupKind kind;
 
   @override
-  bool get ownedBySpace => kind.ownedBySpace;
-
-  @override
   String idOf(LookupValue item) => item.id;
 
   @override
-  Future<List<LookupValue>> fetch() => _repository.list(kind, spaceId: spaceId);
+  Future<List<LookupValue>> fetch() => _repository.list(kind, spaceId!);
 
   @override
   Future<List<LookupValue>> saveOrder(List<String> orderedIds) =>
-      _repository.reorder(kind, orderedIds, spaceId: spaceId);
+      _repository.reorder(kind, spaceId!, orderedIds);
 
   @override
   String get pluralName => kind.name;
@@ -32,7 +29,7 @@ class LookupAdminViewModel extends OrderedListViewModel<LookupValue> {
   /// [color] is required for kinds where [LookupKind.hasColor]; see
   /// [LookupAdminRepository.create].
   Future<String?> create(String name, {String? color}) => attempt(
-    () => _repository.create(kind, name, color: color, spaceId: spaceId),
+    () => _repository.create(kind, spaceId!, name, color: color),
     onSuccess: (created) => setItems([...items, created]),
     fallbackError: 'Could not add the ${kind.singular}. Try again.',
   );
