@@ -12,15 +12,19 @@ import 'package:weaver/features/board/models/scope_crumb.dart';
 import 'package:weaver/features/board/models/swimlane_items.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
+import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
+import '../../shared/fakes/memory_last_space_store.dart';
 import '../../shared/fakes/work_items.dart';
 
 const _todoColor = Color(0xFF1E88E5);
+
+const _home = Space(id: 'home', name: 'Home');
 
 const _taskColor = Color(0xFF43A047);
 
@@ -189,10 +193,10 @@ class _TestBoardRepository implements BoardRepository {
       server[id] = withVersion(edit(server[id]!), server[id]!.version + 1);
 
   @override
-  Future<String?> loadRootScopeItemId() => Future.value();
+  Future<List<Space>> loadSpaces() async => const [_home];
 
   @override
-  Future<BoardData> loadBoard(String? scopeItemId) async {
+  Future<BoardData> loadBoard(String spaceId, String? scopeItemId) async {
     requestedScopes.add(scopeItemId);
     await loadGates[scopeItemId]?.future;
     if (scopeItemId == null) return _fromServer(rootBoard);
@@ -213,7 +217,7 @@ class _TestBoardRepository implements BoardRepository {
   );
 
   @override
-  Future<List<WorkItem>> loadAllItems() async {
+  Future<List<WorkItem>> loadAllItems(String spaceId) async {
     loadAllItemsCallCount++;
     final pending = pendingHierarchyLoads;
     if (pending != null) {
@@ -303,6 +307,7 @@ class _TestBoardRepository implements BoardRepository {
   Future<void> createWorkItem({
     required String title,
     String? description,
+    required String spaceId,
     required String? parentId,
     required String statusId,
   }) async {
@@ -347,13 +352,14 @@ class _FailingLoadRepository implements BoardRepository {
   static const _down = ApiException('network down');
 
   @override
-  Future<String?> loadRootScopeItemId() => Future.error(_down);
+  Future<List<Space>> loadSpaces() => Future.error(_down);
 
   @override
-  Future<BoardData> loadBoard(String? scopeItemId) => Future.error(_down);
+  Future<BoardData> loadBoard(String spaceId, String? scopeItemId) =>
+      Future.error(_down);
 
   @override
-  Future<List<WorkItem>> loadAllItems() => Future.error(_down);
+  Future<List<WorkItem>> loadAllItems(String spaceId) => Future.error(_down);
 
   @override
   Future<WorkItem> getItem(String id) => Future.error(_down);
@@ -388,6 +394,7 @@ class _FailingLoadRepository implements BoardRepository {
   Future<void> createWorkItem({
     required String title,
     String? description,
+    required String spaceId,
     required String? parentId,
     required String statusId,
   }) => Future.value();
@@ -415,7 +422,7 @@ void main() {
   setUp(() async {
     repository = _TestBoardRepository();
     items = WorkItemStore();
-    viewModel = BoardViewModel(repository, items);
+    viewModel = BoardViewModel(repository, items, MemoryLastSpaceStore());
     await viewModel.load();
   });
 
@@ -431,13 +438,14 @@ void main() {
 
   test('load sets the root breadcrumb', () {
     expect(viewModel.breadcrumbs, hasLength(1));
-    expect(viewModel.breadcrumbs.single.title, 'Board');
+    expect(viewModel.breadcrumbs.single.title, 'Home');
   });
 
   test('load sets loadError when the repository throws', () async {
     final failingViewModel = BoardViewModel(
       _FailingLoadRepository(),
       WorkItemStore(),
+      MemoryLastSpaceStore(),
     );
     await failingViewModel.load();
 
@@ -480,6 +488,7 @@ void main() {
       final failingViewModel = BoardViewModel(
         failingRepository,
         WorkItemStore(),
+        MemoryLastSpaceStore(),
       );
       await failingViewModel.load();
       final card = failingViewModel.swimlanes[0].cards.single;
@@ -498,7 +507,7 @@ void main() {
 
     expect(viewModel.swimlanes.single.parentId, 'card-1');
     expect(viewModel.swimlanes.single.cards.single.title, 'Grandchild');
-    expect(viewModel.breadcrumbs.map((b) => b.title), ['Board', 'Card 1']);
+    expect(viewModel.breadcrumbs.map((b) => b.title), ['Home', 'Card 1']);
   });
 
   test(
@@ -613,6 +622,7 @@ void main() {
       final failingViewModel = BoardViewModel(
         failingRepository,
         WorkItemStore(),
+        MemoryLastSpaceStore(),
       );
       await failingViewModel.load();
       final card = failingViewModel.swimlanes[0].cards.single;
@@ -658,6 +668,7 @@ void main() {
       final failingViewModel = BoardViewModel(
         failingRepository,
         WorkItemStore(),
+        MemoryLastSpaceStore(),
       );
       await failingViewModel.load();
       final card = failingViewModel.swimlanes[0].cards.single;
@@ -717,7 +728,7 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
+    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
 
@@ -738,6 +749,7 @@ void main() {
       final failingViewModel = BoardViewModel(
         failingRepository,
         WorkItemStore(),
+        MemoryLastSpaceStore(),
       );
       await failingViewModel.load();
       final card = failingViewModel.swimlanes[0].cards.single;
@@ -783,7 +795,7 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
+    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
 
@@ -801,6 +813,7 @@ void main() {
       final failingViewModel = BoardViewModel(
         failingRepository,
         WorkItemStore(),
+        MemoryLastSpaceStore(),
       );
       await failingViewModel.load();
       final card = failingViewModel.swimlanes[0].cards.single;
@@ -845,7 +858,7 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
+    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
 
@@ -862,7 +875,7 @@ void main() {
     final failingRepository = _TestBoardRepository(
       tagsError: const ApiException('boom'),
     );
-    final failingViewModel = BoardViewModel(failingRepository, WorkItemStore());
+    final failingViewModel = BoardViewModel(failingRepository, WorkItemStore(), MemoryLastSpaceStore());
     await failingViewModel.load();
     final card = failingViewModel.swimlanes[0].cards.single;
 
@@ -896,6 +909,7 @@ void main() {
       final failingViewModel = BoardViewModel(
         failingRepository,
         WorkItemStore(),
+        MemoryLastSpaceStore(),
       );
       await failingViewModel.load();
 
@@ -992,6 +1006,7 @@ void main() {
       final failingViewModel = BoardViewModel(
         _FailingLoadRepository(),
         WorkItemStore(),
+        MemoryLastSpaceStore(),
       );
       expect(failingViewModel.canCreateWorkItem, isFalse);
 
@@ -1229,6 +1244,7 @@ void main() {
           ],
         ),
         WorkItemStore(),
+        MemoryLastSpaceStore(),
       );
       await withUsers.load();
 
@@ -1310,7 +1326,7 @@ void main() {
           ),
         ],
       );
-      final withTags = BoardViewModel(repository, WorkItemStore());
+      final withTags = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
       await withTags.load();
       await withTags.loadHierarchy();
       await withTags.setTags(withTags.swimlanes[0].cards.single.id, [
@@ -1411,7 +1427,7 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
+    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
     await hierarchyViewModel.load();
     expect(hierarchyViewModel.hierarchyLoaded, isFalse);
 
@@ -1430,7 +1446,7 @@ void main() {
       final repository = _TestBoardRepository(
         hierarchyError: const ApiException('network down'),
       );
-      final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
+      final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
       await hierarchyViewModel.load();
 
       await hierarchyViewModel.loadHierarchy();
@@ -1461,7 +1477,7 @@ void main() {
           ),
         ],
       );
-      final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
+      final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
       await hierarchyViewModel.load();
       await hierarchyViewModel.loadHierarchy();
       hierarchyViewModel.setSearchQuery('red');
@@ -1491,7 +1507,7 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
+    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
     hierarchyViewModel.setSearchQuery('matches');
@@ -1518,7 +1534,7 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
+    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
     hierarchyViewModel.toggleStatusVisibility('done');
@@ -1546,7 +1562,7 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
+    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
     hierarchyViewModel.toggleTagFilter('urgent');
@@ -1575,7 +1591,7 @@ void main() {
           ),
         ],
       );
-      final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
+      final hierarchyViewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
       await hierarchyViewModel.load();
       await hierarchyViewModel.loadHierarchy();
       hierarchyViewModel.setSortOption(CardSortOption.title);
@@ -1714,7 +1730,7 @@ void main() {
 
     setUp(() async {
       reorderRepository = _TestBoardRepository(rootBoard: _reorderBoard);
-      reorderViewModel = BoardViewModel(reorderRepository, WorkItemStore());
+      reorderViewModel = BoardViewModel(reorderRepository, WorkItemStore(), MemoryLastSpaceStore());
       await reorderViewModel.load();
     });
 
@@ -1799,7 +1815,7 @@ void main() {
         rootBoard: _reorderBoard,
         changeStatusError: const ApiException('rejected'),
       );
-      reorderViewModel = BoardViewModel(failing, WorkItemStore());
+      reorderViewModel = BoardViewModel(failing, WorkItemStore(), MemoryLastSpaceStore());
       await reorderViewModel.load();
 
       await reorderViewModel.moveCard(
@@ -1884,7 +1900,7 @@ void main() {
           ),
         ],
       );
-      hierarchyViewModel = BoardViewModel(hierarchyRepository, WorkItemStore());
+      hierarchyViewModel = BoardViewModel(hierarchyRepository, WorkItemStore(), MemoryLastSpaceStore());
       await hierarchyViewModel.load();
       await hierarchyViewModel.loadHierarchy();
     });
@@ -1933,7 +1949,7 @@ void main() {
         changeStatusError: const ApiException('rejected'),
         hierarchyItems: hierarchyRepository.hierarchyItems,
       );
-      hierarchyViewModel = BoardViewModel(failing, WorkItemStore());
+      hierarchyViewModel = BoardViewModel(failing, WorkItemStore(), MemoryLastSpaceStore());
       await hierarchyViewModel.load();
       await hierarchyViewModel.loadHierarchy();
 
@@ -2042,7 +2058,7 @@ void main() {
             User(id: 'u1', username: 'alice', kind: UserKind.human),
           ],
         );
-        final viewModel = BoardViewModel(repository, WorkItemStore());
+        final viewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
         addTearDown(viewModel.dispose);
         await viewModel.load();
         await viewModel.loadHierarchy();
@@ -2062,7 +2078,7 @@ void main() {
 
     test('leaves an unopened hierarchy unloaded', () async {
       final repository = _TestBoardRepository();
-      final viewModel = BoardViewModel(repository, WorkItemStore());
+      final viewModel = BoardViewModel(repository, WorkItemStore(), MemoryLastSpaceStore());
       addTearDown(viewModel.dispose);
       await viewModel.load();
 
@@ -2206,7 +2222,7 @@ void main() {
           workItem('card-1', title: 'Card 1', parentId: 'lane-a'),
         ],
       );
-      viewModel = BoardViewModel(repository, items);
+      viewModel = BoardViewModel(repository, items, MemoryLastSpaceStore());
       await viewModel.load();
       await viewModel.loadHierarchy();
       final scopeLoads = repository.requestedScopes.length;

@@ -45,6 +45,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   Future<WorkItem> getItem(String id) async => WorkItem(
     number: 1,
     id: id,
+    spaceId: 'home',
     parentId: null,
     title: 'Original title',
     description: description,

@@ -9,6 +9,7 @@ class WorkItem {
   const WorkItem({
     required this.id,
     required this.number,
+    required this.spaceId,
     required this.parentId,
     required this.title,
     required this.description,
@@ -31,6 +32,7 @@ class WorkItem {
   factory WorkItem.fromJson(Map<String, dynamic> json) => WorkItem(
     id: json['id'] as String,
     number: json['number'] as int,
+    spaceId: json['spaceId'] as String,
     parentId: json['parentId'] as String?,
     title: json['title'] as String,
     description: json['description'] as String?,
@@ -54,6 +56,10 @@ class WorkItem {
 
   /// The human-facing `#N`; see the glossary's **Number**.
   final int number;
+
+  /// The Space the item belongs to. Children share their parent's, and a
+  /// reparent never changes it.
+  final String spaceId;
   final String? parentId;
   final String title;
   final String? description;
@@ -112,6 +118,7 @@ class WorkItem {
   }) => WorkItem(
     id: id,
     number: number,
+    spaceId: spaceId,
     parentId: identical(parentId, _unchanged)
         ? this.parentId
         : parentId as String?,

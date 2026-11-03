@@ -27,6 +27,7 @@ Map<String, dynamic> _itemJson({
 }) => {
   'id': 'item-1',
   'number': 1,
+  'spaceId': 'space-home',
   'parentId': null,
   'title': 'A task',
   'description': null,

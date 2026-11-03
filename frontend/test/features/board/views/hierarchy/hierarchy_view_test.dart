@@ -6,21 +6,26 @@ import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/views/hierarchy/hierarchy_layout.dart';
 import 'package:weaver/features/board/views/hierarchy/hierarchy_view.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
+import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
+import '../../../../shared/fakes/memory_last_space_store.dart';
 import '../../../../shared/fakes/work_items.dart';
 
 const _projectColor = Color(0xFFD81B60);
 
 class _HierarchyOnlyRepository implements BoardRepository {
   @override
-  Future<String?> loadRootScopeItemId() async => null;
+  Future<List<Space>> loadSpaces() async => const [
+    Space(id: 'home', name: 'Home'),
+  ];
 
   @override
-  Future<BoardData> loadBoard(String? scopeItemId) async => const BoardData(
+  Future<BoardData> loadBoard(String spaceId, String? scopeItemId) async =>
+      const BoardData(
     statuses: [WorkItemStatus(id: 'todo', name: 'To Do', order: 0)],
     swimlanes: [],
     layers: [
@@ -34,7 +39,7 @@ class _HierarchyOnlyRepository implements BoardRepository {
   );
 
   @override
-  Future<List<WorkItem>> loadAllItems() async => [
+  Future<List<WorkItem>> loadAllItems(String spaceId) async => [
     workItem(
       'root',
       number: 1,
@@ -65,6 +70,7 @@ void main() {
     final viewModel = BoardViewModel(
       _HierarchyOnlyRepository(),
       WorkItemStore(),
+      MemoryLastSpaceStore(),
     );
     await viewModel.load();
     await viewModel.loadHierarchy();
@@ -100,6 +106,7 @@ void main() {
     final viewModel = BoardViewModel(
       _HierarchyOnlyRepository(),
       WorkItemStore(),
+      MemoryLastSpaceStore(),
     );
     await viewModel.load();
     await viewModel.loadHierarchy();
@@ -138,6 +145,7 @@ void main() {
       final viewModel = BoardViewModel(
         _HierarchyOnlyRepository(),
         WorkItemStore(),
+        MemoryLastSpaceStore(),
       );
       await viewModel.load();
       await viewModel.loadHierarchy();

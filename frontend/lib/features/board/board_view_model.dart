@@ -4,6 +4,7 @@ import 'package:injectable/injectable.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
+import 'package:weaver/features/board/data/last_space_store.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/card_sort_option.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
@@ -20,6 +21,7 @@ import 'package:weaver/features/board/state/user_directory.dart';
 import 'package:weaver/features/board/state/work_item_sorting.dart';
 import 'package:weaver/shared/data/work_item_conflict.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
+import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_layer.dart';
@@ -27,8 +29,9 @@ import 'package:weaver/shared/models/work_item_status.dart';
 
 Future<void> _noRetry() => Future.value();
 
-/// Orchestrates the board: which scope is shown (loading, drill-down,
-/// breadcrumbs, retry) and optimistic mutations. Filtering, sorting, tree
+/// Orchestrates the board: which Space and scope are shown (loading,
+/// switching Space, drill-down, breadcrumbs, retry) and optimistic
+/// mutations. Filtering, sorting, tree
 /// building, lane edits and user lookups live in `state/` as pure units.
 ///
 /// The items themselves live in the shared [WorkItemStore]; this keeps only
@@ -37,12 +40,17 @@ Future<void> _noRetry() => Future.value();
 /// edit made anywhere, including the detail dialog, shows on every layout.
 @injectable
 class BoardViewModel extends ViewModel {
-  BoardViewModel(this._repository, this._items) {
+  BoardViewModel(this._repository, this._items, this._lastSpace) {
     _items.addListener(_onItemsChanged);
   }
 
   final BoardRepository _repository;
   final WorkItemStore _items;
+  final LastSpaceStore _lastSpace;
+
+  List<Space> _spaces = const [];
+  Space? _currentSpace;
+  bool _spacesLoaded = false;
 
   List<WorkItemStatus> _statuses = const [];
   Map<String, WorkItemStatus> _statusById = const {};
@@ -117,6 +125,17 @@ class BoardViewModel extends ViewModel {
 
   List<WorkItemStatus> get statuses => _statuses;
   List<Swimlane> get swimlanes => _swimlanes;
+
+  /// Every Space, by name, for the switcher.
+  List<Space> get spaces => _spaces;
+
+  /// The Space the board, Hierarchy and Roadmap show. Null until [load]
+  /// has resolved one, and while no Space exists at all.
+  Space? get currentSpace => _currentSpace;
+
+  /// True once a load found no Space at all: there's nothing to show until
+  /// an admin creates one.
+  bool get hasNoSpaces => _spacesLoaded && _spaces.isEmpty;
 
   /// Every active user, for building an assignee picker. Empty until
   /// [load] resolves the user directory (best-effort — see [load]).
@@ -202,9 +221,9 @@ class BoardViewModel extends ViewModel {
         comparator: hierarchyComparator,
       );
 
-  /// Loads every work item for the Hierarchy view. Independent of the
-  /// swim-lane board's current drill-down scope — the Hierarchy view always
-  /// shows the whole tree.
+  /// Loads every work item in the current Space for the Hierarchy view.
+  /// Independent of the swim-lane board's current drill-down scope — the
+  /// Hierarchy view always shows the Space's whole tree.
   Future<void> loadHierarchy() async {
     final generation = ++_hierarchyGeneration;
     _isHierarchyLoading = true;
@@ -213,7 +232,10 @@ class BoardViewModel extends ViewModel {
 
     try {
       final asOf = _items.revision;
-      final items = await _repository.loadAllItems();
+      final space = _currentSpace;
+      final items = space == null
+          ? const <WorkItem>[]
+          : await _repository.loadAllItems(space.id);
       if (generation != _hierarchyGeneration) return;
       _hierarchyItemIds = [for (final item in items) item.id];
       _items.putAll(items, asOf: asOf);
@@ -230,9 +252,10 @@ class BoardViewModel extends ViewModel {
     }
   }
 
-  /// Reloads the users, the current scope (and with it the statuses) and,
-  /// if loaded, the hierarchy — after the Admin page, where statuses can be
-  /// renamed, recoloured or deleted and users renamed or deactivated.
+  /// Reloads the users, the Spaces, the current scope (and with it the
+  /// statuses) and, if loaded, the hierarchy — after the Admin page, where
+  /// Spaces can be added or renamed, statuses renamed, recoloured or
+  /// deleted and users renamed or deactivated.
   Future<void> refreshAfterAdminChanges() async {
     try {
       final users = await _repository.loadUsers();
@@ -241,9 +264,42 @@ class BoardViewModel extends ViewModel {
     } on ApiException {
       // Keep the directory already loaded; only names and initials go stale.
     }
+    // With no Space shown there's no scope to refresh, and the first Space
+    // an admin just created should open.
+    if (_currentSpace == null) return load();
+
+    await _refreshSpaces();
     await refreshCurrentScope();
     await refreshHierarchyIfLoaded();
   }
+
+  /// Picks up renamed Spaces, keeping the current one (spaces can't be
+  /// deleted, so it's still there).
+  Future<void> _refreshSpaces() async {
+    try {
+      final spaces = await _repository.loadSpaces();
+      if (isDisposed) return;
+      _spaces = spaces;
+      final current = _spaceById(_currentSpace?.id) ?? _currentSpace;
+      _currentSpace = current;
+      if (current != null && _breadcrumbs.isNotEmpty) {
+        _breadcrumbs = [_rootCrumb(current), ..._breadcrumbs.skip(1)];
+      }
+      notifyIfActive();
+    } on ApiException {
+      // Keep the Spaces already loaded; only a renamed one's name goes stale.
+    }
+  }
+
+  Space? _spaceById(String? id) {
+    for (final space in _spaces) {
+      if (space.id == id) return space;
+    }
+    return null;
+  }
+
+  static ScopeCrumb _rootCrumb(Space space) =>
+      ScopeCrumb(id: null, title: space.name);
 
   /// Re-fetches the Hierarchy view's data only if it's already been loaded
   /// once — e.g. after a delete elsewhere on the board, so a still-unopened
@@ -268,11 +324,16 @@ class BoardViewModel extends ViewModel {
   /// [assigneeInitialFor].
   String? usernameFor(String? userId) => _users.usernameFor(userId);
 
+  /// Loads the Spaces and opens the last-used one (or the first, if that's
+  /// gone or none was remembered) at its top level.
   Future<void> load() => _changeScope(
     () async {
       final asOf = _items.revision;
-      final rootScopeId = await _repository.loadRootScopeItemId();
-      final data = await _repository.loadBoard(rootScopeId);
+      final spaces = await _repository.loadSpaces();
+      final space = _chooseSpace(spaces, await _lastSpace.readSpaceId());
+      final data = space == null
+          ? null
+          : await _repository.loadBoard(space.id, null);
       if (isDisposed) return () {};
       // Best-effort: a user directory failure shouldn't block the board
       // itself from loading — assignee initials just won't show.
@@ -283,14 +344,49 @@ class BoardViewModel extends ViewModel {
         users = const [];
       }
       return () {
-        _applyScope(data, asOf);
-        _breadcrumbs = [ScopeCrumb(id: rootScopeId, title: 'Board')];
+        _spaces = spaces;
+        _spacesLoaded = true;
+        _currentSpace = space;
+        if (data == null) {
+          _swimlanes = const [];
+          _breadcrumbs = const [];
+        } else {
+          _applyScope(data, asOf);
+          _breadcrumbs = [_rootCrumb(space!)];
+        }
         _users = UserDirectory(users);
       };
     },
     errorMessage:
         'Could not load the board. Check your connection and try again.',
   );
+
+  static Space? _chooseSpace(List<Space> spaces, String? lastUsedId) {
+    for (final space in spaces) {
+      if (space.id == lastUsedId) return space;
+    }
+    return spaces.isEmpty ? null : spaces.first;
+  }
+
+  /// Shows [space]'s top level on the board (and in the Hierarchy and
+  /// Roadmap, if they were loaded), and remembers it for the next launch.
+  Future<void> switchSpace(Space space) async {
+    if (space.id == _currentSpace?.id) return;
+
+    await _changeScope(() async {
+      final asOf = _items.revision;
+      final data = await _repository.loadBoard(space.id, null);
+      return () {
+        _currentSpace = space;
+        _applyScope(data, asOf);
+        _breadcrumbs = [_rootCrumb(space)];
+      };
+    }, errorMessage: 'Could not open "${space.name}". Try again.');
+    if (isDisposed || _currentSpace?.id != space.id) return;
+
+    await _lastSpace.writeSpaceId(space.id);
+    await refreshHierarchyIfLoaded();
+  }
 
   /// Re-attempts the scope load that last failed. A no-op once a load has
   /// succeeded; use [refreshCurrentScope] to reload what's shown.
@@ -302,10 +398,11 @@ class BoardViewModel extends ViewModel {
     if (_breadcrumbs.isEmpty) return load();
 
     final current = _breadcrumbs.last;
+    final space = _currentSpace!;
     return _changeScope(
       () async {
         final asOf = _items.revision;
-        final data = await _repository.loadBoard(current.id);
+        final data = await _repository.loadBoard(space.id, current.id);
         return () => _applyScope(data, asOf);
       },
       errorMessage:
@@ -329,7 +426,7 @@ class BoardViewModel extends ViewModel {
   /// [drillDownTargets], and pushes [target] onto the breadcrumb trail.
   Future<void> drillIntoScope(ScopeCrumb target) => _changeScope(() async {
     final asOf = _items.revision;
-    final data = await _repository.loadBoard(target.id);
+    final data = await _repository.loadBoard(_currentSpace!.id, target.id);
     return () {
       _applyScope(data, asOf);
       _breadcrumbs = [..._breadcrumbs, target];
@@ -348,7 +445,7 @@ class BoardViewModel extends ViewModel {
 
     return _changeScope(() async {
       final asOf = _items.revision;
-      final data = await _repository.loadBoard(target.id);
+      final data = await _repository.loadBoard(_currentSpace!.id, target.id);
       return () {
         _applyScope(data, asOf);
         _breadcrumbs = trail;
@@ -509,7 +606,7 @@ class BoardViewModel extends ViewModel {
   void clearMoveError() => _moveError = null;
 
   /// Creates a new work item under [parentId] (null for a new top-level
-  /// item) with [statusId], then reloads the current scope to pick it up —
+  /// item of the current Space) with [statusId], then reloads the current scope to pick it up —
   /// there's no optimistic add, since the created item's id isn't known
   /// until the repository call returns.
   ///
@@ -523,10 +620,12 @@ class BoardViewModel extends ViewModel {
     required String statusId,
   }) async {
     final scopeId = _breadcrumbs.last.id;
+    final spaceId = _currentSpace!.id;
     try {
       await _repository.createWorkItem(
         title: title,
         description: description,
+        spaceId: spaceId,
         parentId: parentId,
         statusId: statusId,
       );
@@ -538,7 +637,9 @@ class BoardViewModel extends ViewModel {
 
     // If the user navigated elsewhere while the create was in flight, that
     // navigation already loaded the scope they're now looking at.
-    if (!isDisposed && _breadcrumbs.last.id == scopeId) {
+    if (!isDisposed &&
+        _currentSpace?.id == spaceId &&
+        _breadcrumbs.last.id == scopeId) {
       await refreshCurrentScope();
     }
   }

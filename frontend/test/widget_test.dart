@@ -7,8 +7,10 @@ import 'package:weaver/features/auth/data/auth_session_store.dart';
 import 'package:weaver/features/auth/data/secure_token_store.dart';
 import 'package:weaver/features/auth/models/auth_session.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
+import 'package:weaver/features/board/data/last_space_store.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/swimlane_items.dart';
+import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item.dart';
@@ -16,6 +18,7 @@ import 'package:weaver/shared/models/work_item_status.dart';
 import 'package:weaver/shared/recurrence/data/recurrence_repository.dart';
 
 import 'core/network/fakes/in_memory_server_origin_store.dart';
+import 'shared/fakes/memory_last_space_store.dart';
 import 'shared/fakes/work_items.dart';
 import 'shared/recurrence/fake_recurrence_repository.dart';
 
@@ -23,10 +26,12 @@ import 'shared/recurrence/fake_recurrence_repository.dart';
 /// test never makes an HTTP call. It never writes, so writes aren't stubbed.
 class _StubBoardRepository implements BoardRepository {
   @override
-  Future<String?> loadRootScopeItemId() => Future.value();
+  Future<List<Space>> loadSpaces() =>
+      Future.value(const [Space(id: 'home', name: 'Home')]);
 
   @override
-  Future<BoardData> loadBoard(String? scopeItemId) => Future.value(
+  Future<BoardData> loadBoard(String spaceId, String? scopeItemId) =>
+      Future.value(
     BoardData(
       statuses: const [WorkItemStatus(id: 'todo', name: 'To Do', order: 0)],
       swimlanes: [
@@ -45,7 +50,8 @@ class _StubBoardRepository implements BoardRepository {
   );
 
   @override
-  Future<List<WorkItem>> loadAllItems() => Future.value(const []);
+  Future<List<WorkItem>> loadAllItems(String spaceId) =>
+      Future.value(const []);
 
   @override
   Future<List<User>> loadUsers() => Future.value(const []);
@@ -93,6 +99,8 @@ void main() {
     getIt
       ..unregister<BoardRepository>()
       ..registerLazySingleton<BoardRepository>(_StubBoardRepository.new)
+      ..unregister<LastSpaceStore>()
+      ..registerLazySingleton<LastSpaceStore>(MemoryLastSpaceStore.new)
       ..unregister<AuthRepository>()
       ..registerLazySingleton<AuthRepository>(_UnusedAuthRepository.new)
       ..unregister<SecureTokenStore>()
