@@ -20,6 +20,7 @@ public class WorkItemRecurrenceServiceTests
     private FixedTimeProvider _time = null!;
     private WorkItemRecurrenceService _recurrences = null!;
     private WorkItemService _workItems = null!;
+    private Space _space = null!;
 
     [SetUp]
     public void SetUp()
@@ -29,13 +30,14 @@ public class WorkItemRecurrenceServiceTests
         var calendar = new ServerCalendar(new ServerSettingsService(_db, new AdminAuthorizer(_db)), _time);
         _recurrences = new WorkItemRecurrenceService(_db, calendar, NullLogger<WorkItemRecurrenceService>.Instance, FakeCallerContext.Anyone());
         _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), FakeCallerContext.Anyone());
+        _space = TestSpaces.Add(_db);
     }
 
     [TearDown]
     public void TearDown() => _db.Dispose();
 
     private Task<WorkItem> CreateItem(string title, Guid? parentId = null, Guid? statusId = null) =>
-        _workItems.CreateAsync(title, null, parentId, statusId ?? StatusConfiguration.ToDoId);
+        _workItems.CreateAsync(title, null, parentId, statusId ?? StatusConfiguration.ToDoId, spaceId: parentId is null ? _space.Id : null);
 
     private Task<RecurringWorkItem> RepeatWeekly(Guid id, params DayOfWeek[] days) =>
         _recurrences.SetAsync(id, RecurrenceFrequency.Weekly, days, Today, null);

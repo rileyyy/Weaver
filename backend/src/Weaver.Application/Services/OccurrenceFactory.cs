@@ -7,15 +7,16 @@ namespace Weaver.Application.Services;
 /// <summary>
 /// Adds one occurrence of a repeating work item to the context (without saving): a copy of
 /// the template and its sub-item tree, each starting in the first status and scheduled on
-/// the occurrence date. Comments, links and repetitions are not copied. Each copy records its
-/// creation in history, attributed to the actor the factory was made for.
+/// the occurrence date, in the template's Space. Comments, links and repetitions are not
+/// copied. Each copy records its creation in history, attributed to the actor the factory was
+/// made for.
 /// </summary>
 internal sealed class OccurrenceFactory
 {
     private readonly IWeaverDbContext _db;
     private readonly WorkItemHistoryRecorder _history;
     private readonly HistoryActor _actor;
-    private readonly Dictionary<(Guid? ParentId, Guid StatusId), double?> _lastRankByCell = new();
+    private readonly Dictionary<(Guid SpaceId, Guid? ParentId, Guid StatusId), double?> _lastRankByCell = new();
     private Guid? _firstStatusId;
 
     public OccurrenceFactory(IWeaverDbContext db, WorkItemHistoryRecorder history, HistoryActor actor)
@@ -66,9 +67,10 @@ internal sealed class OccurrenceFactory
         DateOnly date,
         CancellationToken ct)
     {
-        var copy = source.CopyForOccurrence(parentId, statusId, await NextRankAtEndAsync(parentId, statusId, ct), date);
+        var rank = await NextRankAtEndAsync(source.SpaceId, parentId, statusId, ct);
+        var copy = source.CopyForOccurrence(parentId, statusId, rank, date);
         _db.WorkItems.Add(copy);
-        _history.Record(copy.Id, _actor, WorkItemHistoryField.Created, null, copy.Title);
+        _history.RecordCreation(copy, _actor);
         return copy;
     }
 
@@ -76,13 +78,13 @@ internal sealed class OccurrenceFactory
     /// Appends to the end of the cell. Tracked locally because several copies can land in the
     /// same cell before anything is saved.
     /// </summary>
-    private async Task<double> NextRankAtEndAsync(Guid? parentId, Guid statusId, CancellationToken ct)
+    private async Task<double> NextRankAtEndAsync(Guid spaceId, Guid? parentId, Guid statusId, CancellationToken ct)
     {
-        var cell = (parentId, statusId);
+        var cell = (spaceId, parentId, statusId);
         if (!_lastRankByCell.TryGetValue(cell, out var last))
         {
             last = await _db.WorkItems
-                .Where(w => w.ParentId == parentId && w.StatusId == statusId)
+                .Where(w => w.SpaceId == spaceId && w.ParentId == parentId && w.StatusId == statusId)
                 .MaxAsync(w => (double?)w.Rank, ct);
         }
 

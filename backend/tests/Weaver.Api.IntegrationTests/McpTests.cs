@@ -114,6 +114,7 @@ public class McpTests
         {
             ["title"] = "Not allowed",
             ["statusId"] = SeededStatuses.ToDo,
+            ["spaceId"] = await ApiClient.SharedSpaceIdAsync(),
         });
         var delete = await mcp.CallToolAsync("delete_work_item", new Dictionary<string, object?> { ["id"] = item.Id });
         var stillThere = await human.GetAsync($"/api/work-items/{item.Id}");
@@ -154,6 +155,7 @@ public class McpTests
         {
             ["title"] = "Written over MCP",
             ["statusId"] = SeededStatuses.ToDo,
+            ["spaceId"] = await ApiClient.SharedSpaceIdAsync(),
         });
         var created = JsonSerializer.Deserialize<WorkItemDto>(TextOf(create), ApiClient.Json)!;
         var delete = await mcp.CallToolAsync("delete_work_item", new Dictionary<string, object?> { ["id"] = created.Id });

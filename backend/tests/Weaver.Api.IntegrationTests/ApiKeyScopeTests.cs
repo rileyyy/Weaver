@@ -18,7 +18,7 @@ public class ApiKeyScopeTests
 
         var response = await agent.PostJsonAsync(
             "/api/work-items",
-            new CreateWorkItemRequest("Not allowed", null, null, SeededStatuses.ToDo, null));
+            new CreateWorkItemRequest("Not allowed", null, null, SeededStatuses.ToDo, null, SpaceId: await ApiClient.SharedSpaceIdAsync()));
 
         Assert.Multiple(async () =>
         {

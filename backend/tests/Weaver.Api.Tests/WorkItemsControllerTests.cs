@@ -20,8 +20,8 @@ public class WorkItemsControllerTests
         _controller = new WorkItemsController(_workItems.Object);
     }
 
-    private static WorkItem MakeWorkItem(Guid? parentId = null, Guid statusId = default) =>
-        WorkItem.Create("Task", null, parentId, statusId, rank: 1.0);
+    private static WorkItem MakeWorkItem(Guid statusId = default) =>
+        WorkItem.Create(Guid.NewGuid(), "Task", null, statusId, rank: 1.0);
 
     [Test]
     public async Task GetById_WhenServiceReturnsNull_ReturnsNotFound()
@@ -52,9 +52,10 @@ public class WorkItemsControllerTests
     public async Task GetAll_ReturnsOkWithTheRequestedPage()
     {
         var items = new[] { MakeWorkItem(), MakeWorkItem() };
-        _workItems.Setup(s => s.GetAllAsync(500, 2, It.IsAny<CancellationToken>())).ReturnsAsync(items);
+        var spaceId = Guid.NewGuid();
+        _workItems.Setup(s => s.GetAllAsync(500, 2, spaceId, It.IsAny<CancellationToken>())).ReturnsAsync(items);
 
-        var result = await _controller.GetAll(offset: 500, limit: 2);
+        var result = await _controller.GetAll(offset: 500, limit: 2, spaceId);
 
         var ok = result.Result as OkObjectResult;
         Assert.That(ok, Is.Not.Null);
@@ -69,13 +70,15 @@ public class WorkItemsControllerTests
         var parentId = Guid.NewGuid();
         var statusId = Guid.NewGuid();
         var afterId = Guid.NewGuid();
-        var created = MakeWorkItem(parentId, statusId);
+        var spaceId = Guid.NewGuid();
+        var created = MakeWorkItem(statusId);
 
         _workItems.Setup(s => s.CreateAsync(
-                "Title", "Desc", parentId, statusId, afterId, null, null, It.IsAny<CancellationToken>()))
+                "Title", "Desc", parentId, statusId, afterId, null, null, spaceId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(created);
 
-        var result = await _controller.Create(new CreateWorkItemRequest("Title", "Desc", parentId, statusId, afterId));
+        var result = await _controller.Create(
+            new CreateWorkItemRequest("Title", "Desc", parentId, statusId, afterId, SpaceId: spaceId));
 
         var createdResult = result.Result as CreatedAtActionResult;
         Assert.That(createdResult, Is.Not.Null);
@@ -245,10 +248,11 @@ public class WorkItemsControllerTests
         var lane = MakeWorkItem();
         var card = MakeWorkItem();
         var scopeId = Guid.NewGuid();
-        _workItems.Setup(s => s.GetSwimlanesAsync(scopeId, It.IsAny<CancellationToken>()))
+        var spaceId = Guid.NewGuid();
+        _workItems.Setup(s => s.GetSwimlanesAsync(scopeId, spaceId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[] { new Swimlane(lane, new[] { card }) });
 
-        var result = await _controller.GetSwimlanes(scopeId);
+        var result = await _controller.GetSwimlanes(scopeId, spaceId);
 
         var dtos = ((result.Result as OkObjectResult)!.Value as IEnumerable<SwimlaneDto>)!.ToList();
         Assert.That(dtos.Single().Lane, Is.EqualTo(WorkItemDto.FromEntity(lane)));

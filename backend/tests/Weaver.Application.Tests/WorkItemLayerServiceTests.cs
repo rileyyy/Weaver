@@ -86,7 +86,7 @@ public class WorkItemLayerServiceTests
 
     private WorkItem AddItem(Guid layerId)
     {
-        var item = WorkItem.Create("Item", null, null, StatusConfiguration.ToDoId, 1, layerId: layerId);
+        var item = WorkItem.Create(Guid.NewGuid(), "Item", null, StatusConfiguration.ToDoId, 1, layerId: layerId);
         _db.WorkItems.Add(item);
         _db.SaveChanges();
         return item;

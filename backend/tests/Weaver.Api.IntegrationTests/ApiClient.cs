@@ -99,11 +99,37 @@ public static class ApiClient
     public static Task<HttpResponseMessage> PatchJsonAsync<T>(this HttpClient client, string path, T body) =>
         client.PatchAsJsonAsync(path, body, Json);
 
+    /// <summary>
+    /// A top-level item goes in <paramref name="spaceId"/>, or the run's shared Space when
+    /// that's omitted; a child goes in its parent's.
+    /// </summary>
     public static async Task<WorkItemDto> CreateWorkItemAsync(
         this HttpClient client,
         string title,
-        Guid? parentId = null) =>
-        await (await client.PostJsonAsync(
+        Guid? parentId = null,
+        Guid? spaceId = null)
+    {
+        var space = parentId is null ? spaceId ?? await SharedSpaceIdAsync() : (Guid?)null;
+        return await (await client.PostJsonAsync(
             "/api/work-items",
-            new CreateWorkItemRequest(title, null, parentId, SeededStatuses.ToDo, null))).ReadAsync<WorkItemDto>();
+            new CreateWorkItemRequest(title, null, parentId, SeededStatuses.ToDo, null, SpaceId: space))).ReadAsync<WorkItemDto>();
+    }
+
+    /// <summary>
+    /// The Space most tests put their items in. The database starts with none, and one per test
+    /// would only slow the run: tests already isolate themselves by their own items.
+    /// </summary>
+    public static Task<Guid> SharedSpaceIdAsync() => SharedSpace.Value;
+
+    private static readonly Lazy<Task<Guid>> SharedSpace = new(() => CreateSpaceAsync("Integration tests"));
+
+    /// <summary>A new Space, created by the first admin, with a unique name built from <paramref name="name"/>.</summary>
+    public static async Task<Guid> CreateSpaceAsync(string name)
+    {
+        var admin = await FirstAdminAsync();
+        var space = await (await admin.PostJsonAsync(
+            "/api/spaces",
+            new SpaceNameRequest($"{name} {Guid.NewGuid():N}"[..40]))).ReadAsync<SpaceDto>();
+        return space.Id;
+    }
 }

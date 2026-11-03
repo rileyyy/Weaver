@@ -13,27 +13,43 @@ public interface IWorkItemService
     Task<WorkItem?> GetByIdAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>
-    /// Direct children of <paramref name="parentId"/> (or top-level items when null),
-    /// ordered by board-cell rank.
+    /// Direct children of <paramref name="parentId"/>, or the top-level items of
+    /// <paramref name="spaceId"/> when there's no parent, ordered by board-cell rank. One of
+    /// the two is required.
     /// </summary>
-    Task<IReadOnlyList<WorkItem>> GetChildrenAsync(Guid? parentId, CancellationToken ct = default);
+    Task<IReadOnlyList<WorkItem>> GetChildrenAsync(
+        Guid? parentId,
+        Guid? spaceId = null,
+        CancellationToken ct = default);
 
     /// <summary>
     /// A board's two levels in one call: the direct children of
-    /// <paramref name="scopeItemId"/> (or top-level items when null) as lanes, each with its
-    /// own direct children as cards. Two queries regardless of lane count, instead of one
-    /// request per lane.
+    /// <paramref name="scopeItemId"/> (or the top-level items of <paramref name="spaceId"/>
+    /// when null) as lanes, each with its own direct children as cards. Two queries regardless
+    /// of lane count, instead of one request per lane.
     /// </summary>
-    Task<IReadOnlyList<Swimlane>> GetSwimlanesAsync(Guid? scopeItemId, CancellationToken ct = default);
+    Task<IReadOnlyList<Swimlane>> GetSwimlanesAsync(
+        Guid? scopeItemId,
+        Guid? spaceId = null,
+        CancellationToken ct = default);
 
     /// <summary>
-    /// One page of every work item in the system, flat and unscoped, ordered by rank then
-    /// number. Used by the Hierarchy and Roadmap views, which page through all of it to build
-    /// the full parent/child tree client-side. <paramref name="limit"/> is 1 to
-    /// <see cref="WorkItemService.MaxPageSize"/>.
+    /// One page of every work item, in <paramref name="spaceId"/> or in every Space when null,
+    /// flat and ordered by rank then number. Used by the Hierarchy and Roadmap views, which
+    /// page through all of it to build the full parent/child tree client-side.
+    /// <paramref name="limit"/> is 1 to <see cref="WorkItemService.MaxPageSize"/>.
     /// </summary>
-    Task<IReadOnlyList<WorkItem>> GetAllAsync(int offset, int limit, CancellationToken ct = default);
+    Task<IReadOnlyList<WorkItem>> GetAllAsync(
+        int offset,
+        int limit,
+        Guid? spaceId = null,
+        CancellationToken ct = default);
 
+    /// <summary>
+    /// A top-level item (no <paramref name="parentId"/>) is created in
+    /// <paramref name="spaceId"/>, which it then requires; a child is created in its parent's
+    /// Space, and naming a different one is rejected.
+    /// </summary>
     Task<WorkItem> CreateAsync(
         string title,
         string? description,
@@ -42,6 +58,7 @@ public interface IWorkItemService
         Guid? afterId = null,
         Guid? layerId = null,
         Guid? priorityId = null,
+        Guid? spaceId = null,
         CancellationToken ct = default);
 
     /// <summary>
@@ -57,8 +74,9 @@ public interface IWorkItemService
         CancellationToken ct = default);
 
     /// <summary>
-    /// Moves a work item to a different parent, keeping its current status.
-    /// Rejects moves that would make the item its own ancestor.
+    /// Moves a work item to a different parent, keeping its current status and Space.
+    /// Rejects moves that would make the item its own ancestor, or put it under an item in
+    /// another Space.
     /// </summary>
     Task<WorkItemWriteResult> ReparentAsync(
         Guid id,

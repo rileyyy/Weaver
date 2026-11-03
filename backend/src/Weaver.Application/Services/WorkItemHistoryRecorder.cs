@@ -52,6 +52,18 @@ internal sealed class WorkItemHistoryRecorder
         }
     }
 
+    /// <summary>
+    /// A new item records its creation (with its title) and the Space it was created in, so
+    /// its history says where it started even after a move between Spaces (ticket 16).
+    /// </summary>
+    public void RecordCreation(WorkItem item, HistoryActor actor)
+    {
+        Add(item.Id, actor, WorkItemHistoryField.Created, null, item.Title);
+        Add(item.Id, actor, WorkItemField.SpaceId, null, item.SpaceId);
+    }
+
+    public void RecordCreation(WorkItem item) => RecordCreation(item, CurrentActor);
+
     public void Record(Guid workItemId, string field, object? oldValue, object? newValue) =>
         Add(workItemId, CurrentActor, field, oldValue, newValue);
 

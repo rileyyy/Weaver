@@ -13,6 +13,7 @@ public static class WorkItemField
     public const string When = "when";
     public const string StatusId = "statusId";
     public const string ParentId = "parentId";
+    public const string SpaceId = "spaceId";
     public const string Rank = "rank";
     public const string StartDate = "startDate";
     public const string EndDate = "endDate";

@@ -231,7 +231,7 @@ public class UserAdministrationServiceTests
     [Test]
     public async Task SetActiveAsync_Deactivating_UnassignsWorkAndRevokesSessions()
     {
-        var item = WorkItem.Create("Assigned", null, null, StatusConfiguration.ToDoId, 1);
+        var item = WorkItem.Create(Guid.NewGuid(), "Assigned", null, StatusConfiguration.ToDoId, 1);
         item.AssignTo(_member.Id);
         _db.WorkItems.Add(item);
         var token = AddRefreshToken(_member);
@@ -267,7 +267,7 @@ public class UserAdministrationServiceTests
     [Test]
     public async Task DeleteAsync_RemovesTheUserTheirTokensAndAssignments()
     {
-        var item = WorkItem.Create("Assigned", null, null, StatusConfiguration.ToDoId, 1);
+        var item = WorkItem.Create(Guid.NewGuid(), "Assigned", null, StatusConfiguration.ToDoId, 1);
         item.AssignTo(_member.Id);
         _db.WorkItems.Add(item);
         AddRefreshToken(_member);
@@ -300,7 +300,7 @@ public class UserAdministrationServiceTests
     [Test]
     public async Task DeleteAsync_AUserWithComments_IsAConflictAndDeletesNothing()
     {
-        var item = WorkItem.Create("Commented", null, null, StatusConfiguration.ToDoId, 1);
+        var item = WorkItem.Create(Guid.NewGuid(), "Commented", null, StatusConfiguration.ToDoId, 1);
         _db.WorkItems.Add(item);
         _db.Comments.Add(Comment.Create(item.Id, _member.Id, "Hello"));
         await _db.SaveChangesAsync();

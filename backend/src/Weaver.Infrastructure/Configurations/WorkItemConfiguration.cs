@@ -19,6 +19,12 @@ public class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         builder.Property(w => w.Number).UseIdentityAlwaysColumn();
         builder.HasIndex(w => w.Number).IsUnique();
 
+        // Restrict: a Space with items in it can't vanish from under them.
+        builder.HasOne(w => w.Space)
+            .WithMany()
+            .HasForeignKey(w => w.SpaceId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasOne(w => w.Parent)
             .WithMany(w => w.Children)
             .HasForeignKey(w => w.ParentId)
@@ -60,8 +66,9 @@ public class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         // every other board filter).
         builder.Property(w => w.Tags).HasColumnType("text[]").IsRequired();
 
-        // A board cell is (ParentId, StatusId); rank only needs to sort within that cell.
-        builder.HasIndex(w => new { w.ParentId, w.StatusId, w.Rank });
+        // A board cell is (SpaceId, ParentId, StatusId); rank only needs to sort within that
+        // cell. SpaceId leads so a Space's top-level items (null parent) are one cell of their own.
+        builder.HasIndex(w => new { w.SpaceId, w.ParentId, w.StatusId, w.Rank });
 
         builder.Property(w => w.Version)
             .IsRowVersion()

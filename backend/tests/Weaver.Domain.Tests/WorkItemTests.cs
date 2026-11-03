@@ -8,7 +8,10 @@ public class WorkItemTests
     private static readonly Guid ToDo = Guid.NewGuid();
     private static readonly Guid Done = Guid.NewGuid();
 
-    private static WorkItem NewItem(Guid? parentId = null) => WorkItem.Create("Task", null, parentId, ToDo, rank: 1.0);
+    private static readonly Guid Home = Guid.NewGuid();
+    private static readonly Guid Village = Guid.NewGuid();
+
+    private static WorkItem NewItem(Guid? spaceId = null) => WorkItem.Create(spaceId ?? Home, "Task", null, ToDo, rank: 1.0);
 
     private static IEnumerable<string> Fields(IEnumerable<FieldChange> changes) => changes.Select(c => c.Field);
 
@@ -16,7 +19,7 @@ public class WorkItemTests
     [TestCase("   ")]
     public void Create_WithABlankTitle_IsRejected(string title)
     {
-        Assert.Throws<DomainValidationException>(() => WorkItem.Create(title, null, null, ToDo, 1.0));
+        Assert.Throws<DomainValidationException>(() => WorkItem.Create(Home, title, null, ToDo, 1.0));
     }
 
     [Test]
@@ -24,14 +27,15 @@ public class WorkItemTests
     {
         var title = new string('x', WorkItem.TitleMaxLength + 1);
 
-        Assert.Throws<DomainValidationException>(() => WorkItem.Create(title, null, null, ToDo, 1.0));
+        Assert.Throws<DomainValidationException>(() => WorkItem.Create(Home, title, null, ToDo, 1.0));
     }
 
     [Test]
     public void MoveToStatus_NeverChangesTheParent()
     {
-        var parentId = Guid.NewGuid();
-        var item = NewItem(parentId);
+        var parent = NewItem();
+        var parentId = parent.Id;
+        var item = WorkItem.CreateChildOf(parent, "Task", null, ToDo, rank: 1.0);
 
         item.MoveToStatus(Done, rank: 5.0);
 
@@ -47,13 +51,13 @@ public class WorkItemTests
     public void MoveToParent_KeepsTheStatus()
     {
         var item = NewItem();
-        var newParent = Guid.NewGuid();
+        var newParent = NewItem();
 
         item.MoveToParent(newParent, rank: 2.0);
 
         Assert.Multiple(() =>
         {
-            Assert.That(item.ParentId, Is.EqualTo(newParent));
+            Assert.That(item.ParentId, Is.EqualTo(newParent.Id));
             Assert.That(item.StatusId, Is.EqualTo(ToDo));
         });
     }
@@ -63,7 +67,73 @@ public class WorkItemTests
     {
         var item = NewItem();
 
-        Assert.Throws<CyclicParentException>(() => item.MoveToParent(item.Id, rank: 1.0));
+        Assert.Throws<CyclicParentException>(() => item.MoveToParent(item, rank: 1.0));
+    }
+
+    [Test]
+    public void Create_PutsATopLevelItemInTheChosenSpace()
+    {
+        var item = WorkItem.Create(Village, "Fix the fence", null, ToDo, rank: 1.0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(item.SpaceId, Is.EqualTo(Village));
+            Assert.That(item.ParentId, Is.Null);
+        });
+    }
+
+    [Test]
+    public void CreateChildOf_InheritsTheParentsSpace()
+    {
+        var parent = NewItem(Village);
+
+        var child = WorkItem.CreateChildOf(parent, "Paint it", null, ToDo, rank: 1.0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(child.SpaceId, Is.EqualTo(Village));
+            Assert.That(child.ParentId, Is.EqualTo(parent.Id));
+        });
+    }
+
+    [Test]
+    public void MoveToParent_UnderAnItemInAnotherSpace_IsRejected()
+    {
+        var item = NewItem(Home);
+        var elsewhere = NewItem(Village);
+
+        Assert.Throws<CrossSpaceParentException>(() => item.MoveToParent(elsewhere, rank: 1.0));
+        Assert.Multiple(() =>
+        {
+            Assert.That(item.ParentId, Is.Null);
+            Assert.That(item.SpaceId, Is.EqualTo(Home));
+        });
+    }
+
+    [Test]
+    public void MoveToParent_ToTopLevel_StaysInItsSpace()
+    {
+        var parent = NewItem(Village);
+        var child = WorkItem.CreateChildOf(parent, "Paint it", null, ToDo, rank: 1.0);
+
+        var changed = child.MoveToParent(null, rank: 1.0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(child.ParentId, Is.Null);
+            Assert.That(child.SpaceId, Is.EqualTo(Village));
+            Assert.That(Fields(changed), Does.Not.Contain(WorkItemField.SpaceId));
+        });
+    }
+
+    [Test]
+    public void CopyForOccurrence_StaysInTheTemplatesSpace()
+    {
+        var template = NewItem(Village);
+
+        var copy = template.CopyForOccurrence(null, ToDo, 1.0, new DateOnly(2026, 11, 7));
+
+        Assert.That(copy.SpaceId, Is.EqualTo(Village));
     }
 
     [Test]
@@ -125,7 +195,7 @@ public class WorkItemTests
     {
         var layerId = Guid.NewGuid();
         var priorityId = Guid.NewGuid();
-        var item = WorkItem.Create("Task", "Keep me", null, ToDo, 1.0, layerId, priorityId);
+        var item = WorkItem.Create(Home, "Task", "Keep me", ToDo, 1.0, layerId, priorityId);
 
         var changed = item.UpdateDetails(new WorkItemDetailsPatch { Title = "Renamed" });
 
@@ -142,7 +212,7 @@ public class WorkItemTests
     [Test]
     public void UpdateDetails_WithExplicitNulls_ClearsThoseFields()
     {
-        var item = WorkItem.Create("Task", "Clear me", null, ToDo, 1.0, Guid.NewGuid(), Guid.NewGuid());
+        var item = WorkItem.Create(Home, "Task", "Clear me", ToDo, 1.0, Guid.NewGuid(), Guid.NewGuid());
 
         var changed = item.UpdateDetails(new WorkItemDetailsPatch { Description = null, LayerId = null, PriorityId = null });
 
@@ -357,7 +427,7 @@ public class WorkItemTests
     {
         var item = NewItem();
 
-        var changed = item.MoveToParent(Guid.NewGuid(), rank: 3.0);
+        var changed = item.MoveToParent(NewItem(), rank: 3.0);
 
         Assert.That(Fields(changed), Is.EqualTo(new[] { WorkItemField.ParentId, WorkItemField.Rank }));
     }
@@ -365,7 +435,7 @@ public class WorkItemTests
     [Test]
     public void UpdateDetails_ReportsEachChangedFieldsOldAndNewValue()
     {
-        var item = WorkItem.Create("Task", "Old notes", null, ToDo, 1.0);
+        var item = WorkItem.Create(Home, "Task", "Old notes", ToDo, 1.0);
 
         var changed = item.UpdateDetails(new WorkItemDetailsPatch { Title = "Renamed", Description = null });
 

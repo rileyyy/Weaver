@@ -13,6 +13,11 @@ namespace Weaver.Application.Persistence;
 /// </summary>
 public interface IWeaverDbContext
 {
+    DbSet<Space> Spaces { get; }
+
+    /// <summary>Append-only, like <see cref="WorkItemHistory"/>.</summary>
+    DbSet<SpaceHistoryEntry> SpaceHistory { get; }
+
     DbSet<WorkItem> WorkItems { get; }
 
     DbSet<Status> Statuses { get; }

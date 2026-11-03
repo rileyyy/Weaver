@@ -39,7 +39,7 @@ public class BoardServiceTests
     [Test]
     public async Task CreateAsync_WithExistingScopeItem_CreatesScopedBoard()
     {
-        var scopeItem = await _workItems.CreateAsync("Project", null, null, StatusConfiguration.ToDoId);
+        var scopeItem = await _workItems.CreateAsync("Project", null, null, StatusConfiguration.ToDoId, spaceId: TestSpaces.Add(_db).Id);
 
         var board = await _boards.CreateAsync("Project board", scopeItem.Id);
 

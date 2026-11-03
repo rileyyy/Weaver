@@ -40,27 +40,30 @@ public class WorkItemTools
     }
 
     [McpServerTool(Name = "list_work_item_children", ReadOnly = true)]
-    [Description("Lists the direct children of a work item (e.g. a swimlane's cards), or top-level " +
-        "work items when parentId is omitted (e.g. a board's swimlanes).")]
-    public async Task<IReadOnlyList<WorkItemDto>> ListWorkItemChildren(
-        [Description("The parent work item's id. Omit to list top-level work items.")] Guid? parentId,
-        CancellationToken ct)
-    {
-        var items = await _workItems.GetChildrenAsync(parentId, ct);
-        return items.Select(WorkItemDto.FromEntity).ToList();
-    }
-
-    [McpServerTool(Name = "list_all_work_items", ReadOnly = true)]
-    [Description("Lists one page of every work item, flat and unscoped, ordered by rank then number. " +
-        "Rebuild the tree from each item's parentId. Page by increasing offset until a page comes back " +
-        "shorter than limit.")]
-    public Task<IReadOnlyList<WorkItemDto>> ListAllWorkItems(
-        [Description("How many items to skip. Defaults to 0.")] int offset = 0,
-        [Description("Page size, 1 to 1000. Defaults to 500.")] int limit = WorkItemService.DefaultPageSize,
+    [Description("Lists the direct children of a work item (e.g. a swimlane's cards), or the top-level " +
+        "work items of a Space when parentId is omitted (e.g. a board's swimlanes). Give parentId or spaceId.")]
+    public Task<IReadOnlyList<WorkItemDto>> ListWorkItemChildren(
+        [Description("The parent work item's id. Omit to list a Space's top-level work items.")] Guid? parentId = null,
+        [Description("The Space whose top-level work items to list when parentId is omitted. Use list_spaces to find valid ids.")] Guid? spaceId = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync<IReadOnlyList<WorkItemDto>>(async () =>
         {
-            var items = await _workItems.GetAllAsync(offset, limit, ct);
+            var items = await _workItems.GetChildrenAsync(parentId, spaceId, ct);
+            return items.Select(WorkItemDto.FromEntity).ToList();
+        });
+
+    [McpServerTool(Name = "list_all_work_items", ReadOnly = true)]
+    [Description("Lists one page of every work item in a Space (or every Space), flat, ordered by rank " +
+        "then number. Rebuild the tree from each item's parentId. Page by increasing offset until a page " +
+        "comes back shorter than limit.")]
+    public Task<IReadOnlyList<WorkItemDto>> ListAllWorkItems(
+        [Description("How many items to skip. Defaults to 0.")] int offset = 0,
+        [Description("Page size, 1 to 1000. Defaults to 500.")] int limit = WorkItemService.DefaultPageSize,
+        [Description("Only list items in this Space. Omit for every Space.")] Guid? spaceId = null,
+        CancellationToken ct = default) =>
+        McpExceptionTranslation.TranslateAsync<IReadOnlyList<WorkItemDto>>(async () =>
+        {
+            var items = await _workItems.GetAllAsync(offset, limit, spaceId, ct);
             return items.Select(WorkItemDto.FromEntity).ToList();
         });
 
@@ -70,16 +73,17 @@ public class WorkItemTools
         [Description("Title of the work item.")] string title,
         [Description("Id of the status column to place the item in. Use list_statuses to find valid ids.")] Guid statusId,
         [Description("Longer free-text description. Optional.")] string? description = null,
-        [Description("Id of the parent work item this item will become a child of. Omit to create a top-level item.")] Guid? parentId = null,
+        [Description("Id of the parent work item this item will become a child of; the item joins the parent's Space. Omit to create a top-level item, which then needs spaceId.")] Guid? parentId = null,
         [Description("Id of an existing sibling (same parent and status) to place this item immediately after. Omit to place it first.")] Guid? afterId = null,
         [Description("Id of the work item layer, e.g. Project/Goal/Task. Use list_work_item_layers to find valid ids. Optional.")] Guid? layerId = null,
         [Description("Id of the work item priority. Use list_work_item_priorities to find valid ids. Optional.")] Guid? priorityId = null,
+        [Description("Id of the Space to create a top-level item in. Use list_spaces to find valid ids. Required without parentId; with one, omit it or send the parent's.")] Guid? spaceId = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
             _caller.UseActorLabel(actorLabel);
-            var item = await _workItems.CreateAsync(title, description, parentId, statusId, afterId, layerId, priorityId, ct);
+            var item = await _workItems.CreateAsync(title, description, parentId, statusId, afterId, layerId, priorityId, spaceId, ct);
             return WorkItemDto.FromEntity(item);
         });
 
@@ -96,11 +100,12 @@ public class WorkItemTools
         TranslateWriteAsync(actorLabel, () => _workItems.ChangeStatusAsync(id, statusId, afterId, expectedVersion, ct));
 
     [McpServerTool(Name = "reparent_work_item", Destructive = false, Idempotent = true)]
-    [Description("Moves a work item to a different parent, keeping its current status. Cannot change " +
-        "its status — see change_work_item_status. Rejects a move that would make the item its own ancestor.")]
+    [Description("Moves a work item to a different parent, keeping its current status and Space. Cannot change " +
+        "its status — see change_work_item_status. Rejects a move that would make the item its own ancestor, " +
+        "or put it under an item in another Space.")]
     public Task<WorkItemWriteResponse> ReparentWorkItem(
         [Description("The work item's id.")] Guid id,
-        [Description("Id of the new parent work item. Omit to make it a top-level item.")] Guid? parentId = null,
+        [Description("Id of the new parent work item, in the same Space. Omit to make it a top-level item of its Space.")] Guid? parentId = null,
         [Description("Id of an existing sibling under the new parent (same status) to place this item immediately after. Omit to place it first.")] Guid? afterId = null,
         [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
