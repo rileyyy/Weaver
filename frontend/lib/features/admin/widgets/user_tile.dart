@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:weaver/core/dates/date_format.dart';
 import 'package:weaver/features/admin/models/admin_user.dart';
 import 'package:weaver/features/admin/models/user_action.dart';
-import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/widgets/user_state_badge.dart';
 
 class UserTile extends StatelessWidget {
@@ -23,7 +22,6 @@ class UserTile extends StatelessWidget {
     final badges = [
       if (isCurrentUser) const UserStateBadge(label: 'You'),
       if (user.isAdmin) const UserStateBadge(label: 'Admin'),
-      if (user.kind == UserKind.agent) const UserStateBadge(label: 'Agent'),
       if (!user.isActive)
         const UserStateBadge(label: 'Deactivated', isWarning: true),
       if (lockedUntil != null)

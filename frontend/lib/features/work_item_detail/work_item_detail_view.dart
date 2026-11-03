@@ -18,6 +18,7 @@ import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dar
 import 'package:weaver/features/work_item_detail/work_item_history_view_model.dart';
 import 'package:weaver/shared/recurrence/widgets/confirm_stop_repeating.dart';
 import 'package:weaver/shared/widgets/field_label.dart';
+import 'package:weaver/shared/widgets/user_name_label.dart';
 
 /// Below this available content width, the two-column layout collapses to a
 /// single stacked column — the two-column form is too cramped on a phone
@@ -403,7 +404,10 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
           items: [
             const DropdownMenuItem(value: null, child: Text('Unassigned')),
             for (final user in _viewModel.users)
-              DropdownMenuItem(value: user.id, child: Text(user.username)),
+              DropdownMenuItem(
+                value: user.id,
+                child: UserNameLabel(user: user),
+              ),
           ],
           onChanged: (value) => unawaited(_saveAssignee(value)),
         ),

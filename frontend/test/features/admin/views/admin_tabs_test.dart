@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/core/network/api_exception.dart';
+import 'package:weaver/features/admin/agent_admin_view_model.dart';
+import 'package:weaver/features/admin/agent_keys_view_model.dart';
 import 'package:weaver/features/admin/lookup_admin_view_model.dart';
 import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/models/lookup_value.dart';
 import 'package:weaver/features/admin/status_admin_view_model.dart';
 import 'package:weaver/features/admin/user_admin_view_model.dart';
+import 'package:weaver/features/admin/views/agents_tab.dart';
 import 'package:weaver/features/admin/views/lookup_tab.dart';
 import 'package:weaver/features/admin/views/statuses_tab.dart';
 import 'package:weaver/features/admin/views/users_tab.dart';
 import 'package:weaver/shared/data/current_user.dart';
 
+import '../fakes/fake_agent_admin_repository.dart';
 import '../fakes/fake_lookup_admin_repository.dart';
 import '../fakes/fake_status_admin_repository.dart';
 import '../fakes/fake_user_admin_repository.dart';
@@ -187,6 +192,109 @@ void main() {
 
       expect(find.textContaining('has written'), findsOneWidget);
       expect(find.text('carol'), findsOneWidget);
+    });
+  });
+  group('AgentsTab', () {
+    late FakeAgentAdminRepository repository;
+    late AgentAdminViewModel viewModel;
+
+    setUp(() async {
+      repository = FakeAgentAdminRepository(
+        [
+          agentAccount(
+            'a1',
+            name: 'Claude Code (desktop)',
+            description: 'On the shared laptop',
+          ),
+          agentAccount('a2', name: 'Retired bot', isActive: false),
+        ],
+        keys: {
+          'a1': [apiKey('k1', label: 'laptop')],
+        },
+      );
+      viewModel = AgentAdminViewModel(repository);
+      await viewModel.load();
+    });
+
+    tearDown(() => viewModel.dispose());
+
+    testWidgets('lists agents with their description and state', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_host(AgentsTab(viewModel: viewModel)));
+
+      expect(find.text('Claude Code (desktop)'), findsOneWidget);
+      expect(find.text('On the shared laptop'), findsOneWidget);
+      expect(find.text('Deactivated'), findsOneWidget);
+    });
+
+    testWidgets('adding an agent takes a free-text name and a description', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_host(AgentsTab(viewModel: viewModel)));
+
+      await tester.tap(find.text('Add agent'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Name'),
+        'Codex (CI)',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Description (optional)'),
+        'Runs nightly',
+      );
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+      await tester.pumpAndSettle();
+
+      expect(repository.calls.single, 'create Codex (CI) Runs nightly');
+      expect(find.text('Codex (CI)'), findsOneWidget);
+    });
+
+    testWidgets('deactivating says keys are kept, then deactivates', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_host(AgentsTab(viewModel: viewModel)));
+
+      await tester.tap(find.byTooltip('Actions for Claude Code (desktop)'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Deactivate'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('doesn’t revoke its keys'), findsOneWidget);
+      expect(repository.calls, isEmpty);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Deactivate'));
+      await tester.pumpAndSettle();
+
+      expect(repository.calls.single, 'setActive a1 false');
+      expect(find.text('Deactivated'), findsNWidgets(2));
+    });
+
+    testWidgets('reactivating needs no confirmation', (tester) async {
+      await tester.pumpWidget(_host(AgentsTab(viewModel: viewModel)));
+
+      await tester.tap(find.byTooltip('Actions for Retired bot'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Reactivate'));
+      await tester.pumpAndSettle();
+
+      expect(repository.calls.single, 'setActive a2 true');
+      expect(find.text('Deactivated'), findsNothing);
+    });
+
+    testWidgets('tapping an agent opens its keys', (tester) async {
+      await getIt.reset();
+      addTearDown(getIt.reset);
+      getIt.registerFactoryParam<AgentKeysViewModel, String, void>(
+        (agentId, _) => AgentKeysViewModel(repository, agentId),
+      );
+      await tester.pumpWidget(_host(AgentsTab(viewModel: viewModel)));
+
+      await tester.tap(find.text('Claude Code (desktop)'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Keys for Claude Code (desktop)'), findsOneWidget);
+      expect(find.text('laptop'), findsOneWidget);
     });
   });
 }

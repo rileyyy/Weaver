@@ -6,8 +6,11 @@ import 'package:weaver/features/admin/models/admin_user.dart';
 import 'package:weaver/features/admin/models/new_user.dart';
 import 'package:weaver/features/admin/state/admin_error_message.dart';
 import 'package:weaver/shared/data/current_user.dart';
+import 'package:weaver/shared/models/user_kind.dart';
 
-/// The Admin page's Users tab. Each change returns null on success, or why
+/// The Admin page's Users tab: people only. Agents are on the Agents tab,
+/// since the actions here (rename to a username, reset password, grant
+/// admin) don't apply to them. Each change returns null on success, or why
 /// it failed for the dialog or snackbar that asked for it.
 @injectable
 class UserAdminViewModel extends ViewModel {
@@ -40,7 +43,10 @@ class UserAdminViewModel extends ViewModel {
     try {
       final users = await _repository.list();
       if (generation != _loadGeneration) return;
-      _users = users;
+      _users = [
+        for (final user in users)
+          if (user.kind == UserKind.human) user,
+      ];
       _hasLoaded = true;
     } on ApiException {
       if (generation != _loadGeneration) return;

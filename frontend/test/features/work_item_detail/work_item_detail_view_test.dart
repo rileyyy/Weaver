@@ -17,6 +17,7 @@ import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
+import 'package:weaver/shared/widgets/user_name_label.dart';
 
 import '../../shared/recurrence/fake_recurrence_repository.dart';
 
@@ -56,7 +57,10 @@ class _LoadOnlyRepository implements WorkItemDetailRepository {
   Future<List<WorkItemPriority>> loadPriorities() async => const [];
 
   @override
-  Future<List<User>> loadUsers() async => const [];
+  Future<List<User>> loadUsers() async => const [
+    User(id: 'user-1', username: 'alice', kind: UserKind.human),
+    User(id: 'agent-1', username: 'Claude Code', kind: UserKind.agent),
+  ];
 
   @override
   Future<List<WorkItemComment>> loadComments(String workItemId) async =>
@@ -282,5 +286,26 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No changes recorded yet.'), findsOneWidget);
+  });
+  testWidgets('the assignee picker marks agent accounts', (tester) async {
+    await _openDetails(tester);
+
+    await tester.tap(find.text('Unassigned'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.widgetWithText(UserNameLabel, 'Claude Code').last,
+        matching: find.text('Agent'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.widgetWithText(UserNameLabel, 'alice').last,
+        matching: find.text('Agent'),
+      ),
+      findsNothing,
+    );
   });
 }

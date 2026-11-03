@@ -3,10 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:weaver/features/board/widgets/assignee_avatar.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/widgets/user_name_label.dart';
 
-/// Lists every user plus "Unassigned"; tapping an option assigns
-/// immediately and closes the dialog. There is no separate OK/Cancel step
-/// — picking an option *is* the action.
+/// Lists every user, marking agents, plus "Unassigned"; tapping an option
+/// assigns immediately and closes the dialog. There is no separate
+/// OK/Cancel step — picking an option *is* the action.
 Future<void> showAssignDialog(
   BuildContext context, {
   required List<User> users,
@@ -20,7 +21,7 @@ Future<void> showAssignDialog(
       children: [
         _AssignOption(
           initial: null,
-          label: 'Unassigned',
+          label: const Text('Unassigned'),
           selected: currentAssigneeId == null,
           onSelected: () {
             Navigator.of(dialogContext).pop();
@@ -32,7 +33,7 @@ Future<void> showAssignDialog(
             initial: user.username.isEmpty
                 ? null
                 : user.username[0].toUpperCase(),
-            label: user.username,
+            label: UserNameLabel(user: user),
             selected: user.id == currentAssigneeId,
             onSelected: () {
               Navigator.of(dialogContext).pop();
@@ -53,7 +54,7 @@ class _AssignOption extends StatelessWidget {
   });
 
   final String? initial;
-  final String label;
+  final Widget label;
   final bool selected;
   final VoidCallback onSelected;
 
@@ -65,7 +66,9 @@ class _AssignOption extends StatelessWidget {
         children: [
           AssigneeAvatar(initial: initial, showPlaceholderWhenUnassigned: true),
           const SizedBox(width: 12),
-          Expanded(child: Text(label)),
+          Expanded(
+            child: Align(alignment: Alignment.centerLeft, child: label),
+          ),
           if (selected) const Icon(Icons.check, size: 18),
         ],
       ),
