@@ -3,7 +3,7 @@
 **Date:** 2026-09-25 · **Revision reviewed:** `master` @ `55dd9ce`
 **Scope:** `backend/` (.NET 9 API, Domain, Infrastructure, tests), `frontend/` (Flutter app + tests), `docker/`, `compose*.yaml`, `.github/workflows/`.
 No code was changed as part of this review.
-**Status (2026-11-02):** closed apart from F-M7 (frontend, Medium), which is scheduled for Milestone 19 in [the Spaces and agents spec](.scratch/spaces-and-agents/spec.md).
+**Status (2026-11-03):** closed. F-M7, the last open finding, was resolved in `feature/narrow-board-rebuilds` (ticket 37).
 
 Each finding has a checkbox. Tick it (`[x]`) in the commit that fixes it, and note the branch next to it, so the tick lands on `master` together with the fix.
 
@@ -267,7 +267,7 @@ The most important problems cluster in four areas:
   - Both features re-fetch `/statuses` and `/users` independently.
   - **Fix:** move the shared models and formatting into `lib/core` or `lib/shared`, add cached `StatusRepository`/`UserDirectoryRepository`, and open the dialog through a callback or router.
 - [x] *(Resolved in `feature/split-board-view-model`: filters (`BoardFilters`), sorting (`sortComparator`, one generic comparator), tree building (`buildHierarchyTree`), lane edits (`SwimlaneEdits`) and user lookups (`UserDirectory`) are pure units in `board/state/`, each unit-tested. The view model keeps scope loading and mutation orchestration and dropped from 875 to 630 lines.)* **F-M6. `BoardViewModel` is a god class** (733 lines, about 6 responsibilities: navigation, optimistic mutations, filters, sorting with two identical comparator switches, tree building, lookups). **Proposed split:** `BoardFilters` (immutable value plus predicates), `HierarchyTreeBuilder` (pure), a scope/navigation VM, a mutations helper, and a `UserDirectory` map.
-- [ ] *(Partly, in `feature/split-board-view-model`: the tree, visible statuses and tags are memoized until the next change; status and user lookups use id maps; search is debounced by 200 ms. Narrowing the listeners is still open: it needs per-slice notifiers, which fits with the F-H6 shared item store.)* **F-M7. Every notify rebuilds the whole board.**
+- [x] *(Resolved: in `feature/split-board-view-model` the tree, visible statuses and tags are memoized until the next change, status and user lookups use id maps, and search is debounced by 200 ms. In `feature/narrow-board-rebuilds` each lane listens to its own value-compared slice of the shared item store, so one card edit rebuilds only its lane; a widget test counts the rebuilds.)* **F-M7. Every notify rebuilds the whole board.**
   - A single `ListenableBuilder` wraps the header and the `TabBarView`.
   - `hierarchyRoots`, `visibleStatuses` and `availableTags` are recomputed getters.
   - Per-card lookups are linear scans (O(cards × users)).

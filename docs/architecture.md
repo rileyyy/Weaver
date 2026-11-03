@@ -927,10 +927,28 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   optimistic updates) and `UserDirectory` (id lookups). Each is tested on
   its own.
 - **Derived values are memoized.** `hierarchyRoots`, `visibleStatuses`
-  and `availableTags` are cached until the next `notifyIfActive` (every
-  state change notifies), and status and user lookups are map lookups, so
-  a rebuild doesn't redo the tree or scan the user list per card. Search
-  input is debounced by 200 ms in `BoardView`.
+  and `availableTags` are cached until the next change that can affect
+  them, and status and user lookups are map lookups, so a rebuild doesn't
+  redo the tree or scan the user list per card. Search input is debounced
+  by 200 ms in `BoardView`.
+- **An item edit rebuilds only what shows it.** The view model has three
+  signals:
+  - **Itself**, for what reshapes the board: loading, scope, statuses,
+    filters, and the lane list (a lane added, removed, reordered or
+    renamed, since the drill-down targets show lane titles). This rebuilds
+    the header and every lane.
+  - **`swimlaneListenables`**, one `ValueListenable<Swimlane>` per lane.
+    After every store change each lane is redrawn and compared by value
+    (`Swimlane` and `WorkItemCard` have `==`), so only a lane whose cards
+    actually changed fires. `SwimlaneView` gives each lane's label and row
+    their own `ValueListenableBuilder`; both measure the lane's height,
+    so neither rebuilds for another lane.
+  - **`itemChanges`**, fired after any store change, for what draws from
+    every item: Hierarchy, Roadmap and the Filters dialog's tag list.
+    Hierarchy and Roadmap are only built while their tab shows.
+
+  `swimlane_rebuild_test.dart` counts `StatusColumn` rebuilds per lane to
+  hold this.
 
 - **`BoardViewModel.moveCard(card, newStatusId, beforeCardId:)` takes no
   lane parameter**; it uses the card's own `parentId`, so a status move can't
@@ -971,7 +989,8 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   singleton). The board keeps only its layout: lanes, card order within
   them, and which ids the Hierarchy/Roadmap show. It draws every card, lane
   label and Hierarchy row from the store and redraws whenever the store
-  notifies, so an edit made anywhere shows on every layout. A new
+  notifies, so an edit made anywhere shows on every layout (narrowly: see
+  "An item edit rebuilds only what shows it" above). A new
   work-item field goes on the shared `WorkItem` model only.
 - **Every write goes through `WorkItemStore.write`**, which takes the
   `expectedVersion` from the stored copy and keeps the item the server
