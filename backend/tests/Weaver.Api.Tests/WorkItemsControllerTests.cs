@@ -156,9 +156,25 @@ public class WorkItemsControllerTests
         var result = await _controller.UpdateDetails(
             item.Id,
             new UpdateWorkItemDetailsRequest(
-                "New title", new Optional<string?>(null), Optional<Guid?>.Unset, Optional<Guid?>.Unset, 7u));
+                "New title", new Optional<string?>(null), Optional<Guid?>.Unset, Optional<Guid?>.Unset, Optional<string?>.Unset, 7u));
 
         Assert.That(OkValue(result).ChangedFields, Is.EqualTo(new[] { WorkItemField.Title }));
+        _workItems.VerifyAll();
+    }
+
+    [Test]
+    public async Task UpdateDetails_PassesTheWhenThrough()
+    {
+        var item = MakeWorkItem();
+        var expectedPatch = new WorkItemDetailsPatch { When = "after drywall" };
+        _workItems.Setup(s => s.UpdateDetailsAsync(item.Id, expectedPatch, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemWriteResult(item, [WorkItemField.When]));
+
+        await _controller.UpdateDetails(
+            item.Id,
+            new UpdateWorkItemDetailsRequest(
+                Optional<string>.Unset, Optional<string?>.Unset, Optional<Guid?>.Unset, Optional<Guid?>.Unset, "after drywall"));
+
         _workItems.VerifyAll();
     }
 

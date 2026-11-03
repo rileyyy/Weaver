@@ -13,4 +13,7 @@ public record WorkItemDetailsPatch
     public Optional<Guid?> LayerId { get; init; }
 
     public Optional<Guid?> PriorityId { get; init; }
+
+    /// <summary>A blank When clears it, like <c>null</c>.</summary>
+    public Optional<string?> When { get; init; }
 }

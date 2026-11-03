@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/work_item_detail/data/api_work_item_detail_repository.dart';
+import 'package:weaver/features/work_item_detail/models/quick_pick.dart';
 import 'package:weaver/shared/data/api_layer_repository.dart';
 import 'package:weaver/shared/data/api_status_repository.dart';
 import 'package:weaver/shared/data/api_user_directory_repository.dart';
@@ -422,6 +423,70 @@ void main() {
       'endDate': null,
       'expectedVersion': 7,
     });
+  });
+
+  test('updateWhen patches only the When and the version', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse(
+        _writeJson({
+          ..._itemJson(version: 8),
+          'when': 'after drywall',
+          'whenResolved': false,
+        }),
+      );
+    });
+    final repository = ApiWorkItemDetailRepository(
+      client,
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
+    );
+
+    final item = await repository.updateWhen(
+      'item-1',
+      'after drywall',
+      expectedVersion: 7,
+    );
+
+    expect(item.when, 'after drywall');
+    expect(item.whenResolved, isFalse);
+    expect(sentRequest!.method, 'PATCH');
+    expect(sentRequest!.url.path, '/api/work-items/item-1/details');
+    expect(jsonDecode(sentRequest!.body), {
+      'when': 'after drywall',
+      'expectedVersion': 7,
+    });
+  });
+
+  test('loadQuickPicks parses each pick with its dates', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse([
+        {
+          'pick': 'NextWeek',
+          'startDate': '2026-11-09',
+          'endDate': '2026-11-15',
+        },
+      ]);
+    });
+    final repository = ApiWorkItemDetailRepository(
+      client,
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiLayerRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
+    );
+
+    final picks = await repository.loadQuickPicks();
+
+    expect(sentRequest!.url.path, '/api/quick-picks');
+    expect(picks.single.pick, QuickPick.nextWeek);
+    expect(picks.single.startDate, DateTime(2026, 11, 9));
+    expect(picks.single.endDate, DateTime(2026, 11, 15));
   });
 
   test('loadComments parses the comment list', () async {

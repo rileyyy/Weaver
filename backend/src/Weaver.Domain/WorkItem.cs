@@ -13,6 +13,7 @@ public class WorkItem : IHasUpdatedAt
     public const int TitleMaxLength = 500;
     public const int MaxTags = 20;
     public const int TagMaxLength = 50;
+    public const int WhenMaxLength = 200;
 
     private List<string> _tags = [];
 
@@ -77,6 +78,19 @@ public class WorkItem : IHasUpdatedAt
     public DateOnly? StartDate { get; private set; }
 
     public DateOnly? EndDate { get; private set; }
+
+    /// <summary>
+    /// The free-text intent behind the item's dates ("before the Christmas market", "after
+    /// drywall"). Kept as typed after it's resolved, so the phrase still explains the dates.
+    /// </summary>
+    public string? When { get; private set; }
+
+    /// <summary>
+    /// Whether the When has been given concrete form. False when there is no When, since there
+    /// is nothing to resolve. Today only dates count; a blocked-by link will too once links
+    /// are typed (ticket 26).
+    /// </summary>
+    public bool IsWhenResolved => When is not null && (StartDate is not null || EndDate is not null);
 
     /// <summary>
     /// The repeating work item this one was generated from, and the occurrence date it was
@@ -147,7 +161,25 @@ public class WorkItem : IHasUpdatedAt
         Description = changed.Apply(WorkItemField.Description, Description, patch.Description);
         LayerId = changed.Apply(WorkItemField.LayerId, LayerId, patch.LayerId);
         PriorityId = changed.Apply(WorkItemField.PriorityId, PriorityId, patch.PriorityId);
+        When = changed.Apply(WorkItemField.When, When, NormalizeWhen(patch.When));
         return changed.Changes;
+    }
+
+    private static Optional<string?> NormalizeWhen(Optional<string?> when)
+    {
+        if (!when.HasValue)
+        {
+            return when;
+        }
+
+        var trimmed = when.Value?.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+        {
+            return new Optional<string?>(null);
+        }
+
+        TextValidation.RequireMaxLength(trimmed, "When", WhenMaxLength);
+        return trimmed;
     }
 
     /// <summary>Used when an admin deletes the item's layer and picks a replacement (or none).</summary>
@@ -239,6 +271,7 @@ public class WorkItem : IHasUpdatedAt
         var copy = Create(Title, Description, parentId, statusId, rank, LayerId, PriorityId);
         copy.AssignedToUserId = AssignedToUserId;
         copy._tags = [.. _tags];
+        copy.When = When;
         copy.StartDate = date;
         copy.EndDate = date;
         return copy;

@@ -126,7 +126,7 @@ public class WorkItemTools
             ct));
 
     [McpServerTool(Name = "update_work_item_details", Destructive = false, Idempotent = true)]
-    [Description("Changes a work item's title, description, layer and/or priority. Independent of " +
+    [Description("Changes a work item's title, description, layer, priority and/or When. Independent of " +
         "status, parent, schedule, and assignee — use their own tools for those. " + PatchDescription)]
     public Task<WorkItemWriteResponse> UpdateWorkItemDetails(
         RequestContext<CallToolRequestParams> context,
@@ -135,6 +135,8 @@ public class WorkItemTools
         [Description("New description, or null to clear it.")] string? description = null,
         [Description("Id of the work item layer, or null to clear it. Use list_work_item_layers to find valid ids.")] Guid? layerId = null,
         [Description("Id of the work item priority, or null to clear it. Use list_work_item_priorities to find valid ids.")] Guid? priorityId = null,
+        [Description("Free-text phrase for when the item should happen (e.g. \"after drywall\"), or null to clear it. " +
+            "It stays unresolved until the item has dates; set those with reschedule_work_item and keep the phrase.")] string? when = null,
         [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default)
@@ -145,6 +147,7 @@ public class WorkItemTools
             Description = context.Supplied(nameof(description), description),
             LayerId = context.Supplied(nameof(layerId), layerId),
             PriorityId = context.Supplied(nameof(priorityId), priorityId),
+            When = context.Supplied(nameof(when), when),
         };
         return TranslateWriteAsync(actorLabel, () => _workItems.UpdateDetailsAsync(id, patch, expectedVersion, ct));
     }

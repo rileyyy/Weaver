@@ -95,6 +95,7 @@ class WorkItemHistoryEntry {
     'description': 'Description',
     'layerId': 'Layer',
     'priorityId': 'Priority',
+    'when': 'When',
     'statusId': 'Status',
     'parentId': 'Parent',
     'startDate': 'Start date',

@@ -4,6 +4,7 @@ import 'package:weaver/core/network/api_dates.dart';
 import 'package:weaver/core/network/api_endpoint.dart';
 import 'package:weaver/core/network/json_api_client.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart';
+import 'package:weaver/features/work_item_detail/models/quick_pick_dates.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
@@ -112,6 +113,25 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     {'description': description, 'expectedVersion': expectedVersion},
     _writtenItem,
     failureMessage: 'Failed to update work item',
+  );
+
+  @override
+  Future<WorkItem> updateWhen(
+    String id,
+    String? when, {
+    required int expectedVersion,
+  }) => _api.patch(
+    '/work-items/$id/details',
+    {'when': when, 'expectedVersion': expectedVersion},
+    _writtenItem,
+    failureMessage: 'Failed to update work item',
+  );
+
+  @override
+  Future<List<QuickPickDates>> loadQuickPicks() => _api.get(
+    '/quick-picks',
+    (json) => JsonApiClient.listOf(json, QuickPickDates.fromJson),
+    failureMessage: 'Failed to load quick picks',
   );
 
   @override

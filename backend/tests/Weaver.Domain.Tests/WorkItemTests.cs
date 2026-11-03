@@ -175,6 +175,96 @@ public class WorkItemTests
     }
 
     [Test]
+    public void UpdateDetails_WithAWhen_StoresItTrimmedAndReportsIt()
+    {
+        var item = NewItem();
+
+        var changed = item.UpdateDetails(new WorkItemDetailsPatch { When = "  before the Christmas market " });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(item.When, Is.EqualTo("before the Christmas market"));
+            Assert.That(Fields(changed), Is.EqualTo(new[] { WorkItemField.When }));
+        });
+    }
+
+    [TestCase(null)]
+    [TestCase("   ")]
+    public void UpdateDetails_WithANullOrBlankWhen_ClearsIt(string? when)
+    {
+        var item = NewItem();
+        item.UpdateDetails(new WorkItemDetailsPatch { When = "after drywall" });
+
+        item.UpdateDetails(new WorkItemDetailsPatch { When = when });
+
+        Assert.That(item.When, Is.Null);
+    }
+
+    [Test]
+    public void UpdateDetails_WithATooLongWhen_IsRejected()
+    {
+        var item = NewItem();
+        var when = new string('x', WorkItem.WhenMaxLength + 1);
+
+        Assert.Throws<DomainValidationException>(() => item.UpdateDetails(new WorkItemDetailsPatch { When = when }));
+    }
+
+    [Test]
+    public void UpdateDetails_LeavingWhenOut_KeepsIt()
+    {
+        var item = NewItem();
+        item.UpdateDetails(new WorkItemDetailsPatch { When = "next spring" });
+
+        item.UpdateDetails(new WorkItemDetailsPatch { Title = "Renamed" });
+
+        Assert.That(item.When, Is.EqualTo("next spring"));
+    }
+
+    [Test]
+    public void IsWhenResolved_WithAWhenButNoDates_IsFalse()
+    {
+        var item = NewItem();
+
+        item.UpdateDetails(new WorkItemDetailsPatch { When = "after drywall" });
+
+        Assert.That(item.IsWhenResolved, Is.False);
+    }
+
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public void IsWhenResolved_WithAWhenAndAnyDate_IsTrue(bool hasStart, bool hasEnd)
+    {
+        var item = NewItem();
+        item.UpdateDetails(new WorkItemDetailsPatch { When = "next week" });
+
+        item.Reschedule(hasStart ? new DateOnly(2026, 11, 9) : null, hasEnd ? new DateOnly(2026, 11, 15) : null);
+
+        Assert.That(item.IsWhenResolved, Is.True);
+    }
+
+    [Test]
+    public void IsWhenResolved_WithDatesButNoWhen_IsFalse_BecauseThereIsNothingToResolve()
+    {
+        var item = NewItem();
+
+        item.Reschedule(new DateOnly(2026, 11, 9), new DateOnly(2026, 11, 15));
+
+        Assert.That(item.IsWhenResolved, Is.False);
+    }
+
+    [Test]
+    public void CopyForOccurrence_KeepsTheWhen()
+    {
+        var item = NewItem();
+        item.UpdateDetails(new WorkItemDetailsPatch { When = "every market day" });
+
+        var copy = item.CopyForOccurrence(null, ToDo, 1.0, new DateOnly(2026, 11, 7));
+
+        Assert.That(copy.When, Is.EqualTo("every market day"));
+    }
+
+    [Test]
     public void Reschedule_WithOnlyAnEndDate_KeepsTheStartDate()
     {
         var item = NewItem();

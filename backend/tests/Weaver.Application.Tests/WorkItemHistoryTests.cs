@@ -87,6 +87,22 @@ public class WorkItemHistoryTests
     }
 
     [Test]
+    public async Task UpdateDetails_RecordsTheWhenAsTypedAndWhenCleared()
+    {
+        var item = await CreateAsync("Task");
+
+        await _workItems.UpdateDetailsAsync(item.Id, new WorkItemDetailsPatch { When = "after drywall" });
+        await _workItems.UpdateDetailsAsync(item.Id, new WorkItemDetailsPatch { When = null });
+
+        var entries = await ChangesAsync(item.Id);
+        Assert.That(entries, Is.EquivalentTo(new[]
+        {
+            (WorkItemField.When, (string?)null, (string?)"\"after drywall\""),
+            (WorkItemField.When, "\"after drywall\"", (string?)null),
+        }));
+    }
+
+    [Test]
     public async Task Write_ThatChangesNothing_RecordsNothing()
     {
         var item = await CreateAsync("Task");

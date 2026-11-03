@@ -14,6 +14,7 @@ import 'package:weaver/features/work_item_detail/widgets/repeat_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/schedule_fields.dart';
 import 'package:weaver/features/work_item_detail/widgets/sub_items_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/tags_editor.dart';
+import 'package:weaver/features/work_item_detail/widgets/when_field.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
 import 'package:weaver/features/work_item_detail/work_item_history_view_model.dart';
 import 'package:weaver/shared/models/work_item.dart';
@@ -424,6 +425,13 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
         ),
         const SizedBox(height: 16),
         TagsEditor(tags: _tags, onChanged: _saveTags),
+        const SizedBox(height: 16),
+        WhenField(
+          when: item.when,
+          resolved: item.whenResolved,
+          onSave: _viewModel.saveWhen,
+          onQuickPick: _viewModel.applyQuickPick,
+        ),
         const SizedBox(height: 16),
         ScheduleFields(
           startDate: item.startDate,

@@ -30,6 +30,7 @@ public static class DependencyInjection
             .AddScoped<IWorkItemRecurrenceService, WorkItemRecurrenceService>()
             .AddScoped<IServerSettingsService, ServerSettingsService>()
             .AddScoped<IServerCalendar, ServerCalendar>()
+            .AddScoped<IQuickPickService, QuickPickService>()
             .AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>()
             .AddTimeProvider();
 

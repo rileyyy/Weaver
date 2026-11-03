@@ -18,3 +18,7 @@
 **2026-11-02, from ticket 10 (change history with actor):**
 
 - Link history records `link` with the other item's id as the value, on both items, and `HistoryValueNames` names it "#N title". Typed links need the type in the value (e.g. `{ "workItemId", "type" }`) and URL links the URL; update `HistoryValueNames.IdIn` and the Flutter `change` text when the value stops being a plain id.
+
+**2026-11-03, from ticket 25 (When field and quick picks):**
+
+- `WorkItem.IsWhenResolved` (sent as `whenResolved`) only counts dates today, since links aren't typed yet. When *blocked by* exists, make a blocked-by link count too (ADR-0003). It needs the item's links, so it can't stay a property computed from the row alone: compute it where the item is loaded with its links, or store a flag the link writes keep up to date.

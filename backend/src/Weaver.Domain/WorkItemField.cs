@@ -10,6 +10,7 @@ public static class WorkItemField
     public const string Description = "description";
     public const string LayerId = "layerId";
     public const string PriorityId = "priorityId";
+    public const string When = "when";
     public const string StatusId = "statusId";
     public const string ParentId = "parentId";
     public const string Rank = "rank";

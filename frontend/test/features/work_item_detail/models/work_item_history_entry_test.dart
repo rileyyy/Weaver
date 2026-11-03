@@ -95,6 +95,15 @@ void main() {
       );
     });
 
+    test('a When change is labelled When', () {
+      expect(
+        _change(
+          _entryJson(field: 'when', oldValue: null, newValue: 'after drywall'),
+        ),
+        'When: none → after drywall',
+      );
+    });
+
     test('tags read as a list', () {
       expect(
         _change(
