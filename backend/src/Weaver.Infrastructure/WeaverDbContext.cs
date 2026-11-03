@@ -22,8 +22,6 @@ public class WeaverDbContext : DbContext, IWeaverDbContext
 
     public DbSet<Status> Statuses => Set<Status>();
 
-    public DbSet<Board> Boards => Set<Board>();
-
     public DbSet<User> Users => Set<User>();
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -88,7 +86,6 @@ public class WeaverDbContext : DbContext, IWeaverDbContext
         modelBuilder.ApplyConfiguration(new SpaceHistoryEntryConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemConfiguration());
         modelBuilder.ApplyConfiguration(new StatusConfiguration());
-        modelBuilder.ApplyConfiguration(new BoardConfiguration());
         modelBuilder.ApplyConfiguration(new UserConfiguration());
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
         modelBuilder.ApplyConfiguration(new ApiKeyConfiguration());

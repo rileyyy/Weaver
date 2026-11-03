@@ -163,59 +163,12 @@ public class WorkItemServiceTests
         Assert.That((await _db.WorkItems.SingleAsync()).Id, Is.EqualTo(outside.Id));
     }
 
-    [Test]
-    public async Task DeleteAsync_ItemIsBoardScope_ThrowsAndDeletesNothing()
-    {
-        var item = await _service.CreateAsync("Scope", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var other = await _service.CreateAsync("Other", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        await AddLinkAsync(item.Id, other.Id);
-        var board = await AddBoardAsync(item.Id);
-
-        var thrown = Assert.ThrowsAsync<WorkItemIsBoardScopeException>(() => _service.DeleteAsync(item.Id));
-
-        Assert.That(thrown!.BoardId, Is.EqualTo(board.Id));
-        Assert.That(await _db.WorkItems.CountAsync(), Is.EqualTo(2));
-        Assert.That(await _db.WorkItemLinks.CountAsync(), Is.EqualTo(1));
-    }
-
-    [Test]
-    public async Task DeleteAsync_WithCascade_DescendantIsBoardScope_Throws()
-    {
-        var root = await _service.CreateAsync("Root", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var child = await _service.CreateAsync("Child", null, root.Id, StatusConfiguration.ToDoId);
-        await AddBoardAsync(child.Id);
-
-        Assert.ThrowsAsync<WorkItemIsBoardScopeException>(() => _service.DeleteAsync(root.Id, cascade: true));
-        Assert.That(await _db.WorkItems.CountAsync(), Is.EqualTo(2));
-    }
-
-    [Test]
-    public async Task DeleteAsync_BoardScopedElsewhere_DoesNotBlockDelete()
-    {
-        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var scope = await _service.CreateAsync("Scope", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        await AddBoardAsync(scope.Id);
-        await AddBoardAsync(scopeItemId: null);
-
-        await _service.DeleteAsync(item.Id);
-
-        Assert.That((await _db.WorkItems.SingleAsync()).Id, Is.EqualTo(scope.Id));
-    }
-
     private async Task<WorkItemLink> AddLinkAsync(Guid workItemId, Guid linkedWorkItemId)
     {
         var link = WorkItemLink.Create(workItemId, linkedWorkItemId);
         _db.WorkItemLinks.Add(link);
         await _db.SaveChangesAsync();
         return link;
-    }
-
-    private async Task<Board> AddBoardAsync(Guid? scopeItemId)
-    {
-        var board = Board.Create("Board", scopeItemId);
-        _db.Boards.Add(board);
-        await _db.SaveChangesAsync();
-        return board;
     }
 
     [Test]

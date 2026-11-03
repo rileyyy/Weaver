@@ -22,8 +22,6 @@ public interface IWeaverDbContext
 
     DbSet<Status> Statuses { get; }
 
-    DbSet<Board> Boards { get; }
-
     DbSet<User> Users { get; }
 
     DbSet<RefreshToken> RefreshTokens { get; }

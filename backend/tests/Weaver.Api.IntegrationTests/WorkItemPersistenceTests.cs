@@ -90,17 +90,6 @@ public class WorkItemPersistenceTests
     }
 
     [Test]
-    public async Task Delete_ABoardsScopeItem_Returns409()
-    {
-        var scope = await _client.CreateWorkItemAsync("Board scope");
-        await _client.PostJsonAsync("/api/boards", new CreateBoardRequest("Scoped board", scope.Id));
-
-        var response = await _client.DeleteAsync($"/api/work-items/{scope.Id}");
-
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
-    }
-
-    [Test]
     public async Task UpdateDetails_WithAStaleVersion_Returns409()
     {
         var item = await _client.CreateWorkItemAsync("Original");

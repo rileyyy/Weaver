@@ -63,27 +63,6 @@ namespace Weaver.Infrastructure.Migrations
                     b.ToTable("ApiKeys");
                 });
 
-            modelBuilder.Entity("Weaver.Domain.Board", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<Guid?>("ScopeItemId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ScopeItemId");
-
-                    b.ToTable("Boards");
-                });
-
             modelBuilder.Entity("Weaver.Domain.Comment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -666,16 +645,6 @@ namespace Weaver.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Weaver.Domain.Board", b =>
-                {
-                    b.HasOne("Weaver.Domain.WorkItem", "ScopeItem")
-                        .WithMany()
-                        .HasForeignKey("ScopeItemId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("ScopeItem");
                 });
 
             modelBuilder.Entity("Weaver.Domain.Comment", b =>

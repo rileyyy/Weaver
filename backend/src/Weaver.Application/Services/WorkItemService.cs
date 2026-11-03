@@ -279,7 +279,6 @@ public class WorkItemService : IWorkItemService
         }
 
         var deletedIds = descendants.Select(w => w.Id).Append(id).ToList();
-        await EnsureNotBoardScopeAsync(id, deletedIds, ct);
 
         // Link FKs are Restrict (two Cascade paths to WorkItems is rejected by
         // EF), so links touching the deleted subtree must be removed explicitly
@@ -317,23 +316,6 @@ public class WorkItemService : IWorkItemService
             {
                 _history.Record(link.LinkedWorkItemId, WorkItemHistoryField.Link, link.WorkItemId, null);
             }
-        }
-    }
-
-    /// <summary>
-    /// A board is a saved view other users rely on, so deleting its scope item is rejected
-    /// rather than silently deleting the board or widening it to top-level.
-    /// </summary>
-    private async Task EnsureNotBoardScopeAsync(Guid rootId, IReadOnlyList<Guid> deletedIds, CancellationToken ct)
-    {
-        var scopedBoardId = await _db.Boards
-            .Where(b => b.ScopeItemId != null && deletedIds.Contains(b.ScopeItemId.Value))
-            .Select(b => (Guid?)b.Id)
-            .FirstOrDefaultAsync(ct);
-
-        if (scopedBoardId is not null)
-        {
-            throw new WorkItemIsBoardScopeException(rootId, scopedBoardId.Value);
         }
     }
 
