@@ -55,6 +55,17 @@ because Milestone 9's "assigned to" field needs Milestone 10's users.
 - **Reset needed:** the migration drops the global statuses and priorities
   and gives existing Spaces the defaults, so a database that already has
   work items must be reset.
+## 2026-11-03 — Narrow board rebuilds
+
+`feature/narrow-board-rebuilds` (ticket 37 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md); closes
+code-review finding F-M7).
+
+- **Editing one card rebuilds only its own lane.** Each lane listens to
+  its own slice of the shared item store, so a status change, rename or
+  assignment no longer rebuilds the header and every other lane.
+- Hierarchy, Roadmap and the Filters dialog's tags still follow every edit,
+  through their own signal.
 
 ## 2026-11-03 — Changes since T
 

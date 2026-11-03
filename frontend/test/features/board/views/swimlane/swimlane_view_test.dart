@@ -25,25 +25,29 @@ Widget _board(
             WorkItemStatus(id: 'todo', name: 'To Do', order: 0),
             WorkItemStatus(id: 'done', name: 'Done', order: 1),
           ],
-          swimlanes: [
-            Swimlane(
-              parentId: 'lane-a',
-              title: 'Lane A',
-              cards: [
-                WorkItemCard(
-                  id: 'long',
-                  number: 1,
-                  title: _longTitle,
-                  parentId: 'lane-a',
-                  statusId: 'todo',
-                  startDate: DateTime(2026, 9, 1),
-                  endDate: DateTime(2026, 9, 30),
-                  tags: const ['urgent', 'design', 'backend'],
-                ),
-                ...extraLaneACards,
-              ],
+          swimlaneListenables: [
+            ValueNotifier(
+              Swimlane(
+                parentId: 'lane-a',
+                title: 'Lane A',
+                cards: [
+                  WorkItemCard(
+                    id: 'long',
+                    number: 1,
+                    title: _longTitle,
+                    parentId: 'lane-a',
+                    statusId: 'todo',
+                    startDate: DateTime(2026, 9, 1),
+                    endDate: DateTime(2026, 9, 30),
+                    tags: const ['urgent', 'design', 'backend'],
+                  ),
+                  ...extraLaneACards,
+                ],
+              ),
             ),
-            const Swimlane(parentId: 'lane-b', title: 'Lane B', cards: []),
+            ValueNotifier(
+              const Swimlane(parentId: 'lane-b', title: 'Lane B', cards: []),
+            ),
           ],
           onCardDropped: (_, _, {beforeCardId}) async {},
           onCardReparented: (_, _) async {},
