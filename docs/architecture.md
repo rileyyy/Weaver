@@ -263,7 +263,7 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
 - **A Space's own history is separate.** Creating and renaming a Space
   append a `SpaceHistoryEntry` (`created`, `name`), with the same who and
   when, since `WorkItemHistory` is keyed by a work item. Nothing reads it
-  yet. Its account and key FKs are `Restrict` like work item history's, so
+  yet (ticket 47). Its account and key FKs are `Restrict` like work item history's, so
   an admin who created a Space can't be hard-deleted either.
 - **Rank isn't recorded.** It's a card's position in its board cell, which
   every drag rewrites; a reorder alone records nothing.
@@ -927,8 +927,9 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
     later navigation reuses ids already known client-side, and a
     breadcrumb's title is just the card title captured at drill-in.
   - `switchSpace` goes through `_changeScope` too, resets the trail to the
-    new Space's root, remembers it, and reloads the Hierarchy/Roadmap data
-    if it was loaded. Those layouts load only the current Space's items.
+    new Space's root, remembers it, and drops the old Space's
+    Hierarchy/Roadmap items (discarding a load in flight) before reloading
+    them if they'd been asked for. Those layouts load only the current Space's items.
     With no Space at all there's no scope: the board says one has to be
     created, and `refreshAfterAdminChanges` opens the first one.
 - **Generations guard against overlapping loads.** Every scope load bumps

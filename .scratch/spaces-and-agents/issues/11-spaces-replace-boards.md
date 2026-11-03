@@ -4,7 +4,7 @@
 
 **Blocked by:** 10
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Space entity with name; work items carry a required Space; a new root item is created in a chosen Space, and children inherit their parent's
 - [x] The Board entity, its endpoints, MCP tools and UI are removed (clean schema change, no data migration)
@@ -24,6 +24,11 @@
 **2026-11-03, implementation (`feature/spaces-replace-boards`):**
 
 - The cross-Space reparent integration tests (`SpaceTests` in `Weaver.Api.IntegrationTests`, REST and MCP) are written and compile, but haven't run: the machine they were written on has no Docker for Testcontainers. Tick the last box once they pass. Unit tests cover the same rule in the domain and the service.
-- Space creation and renames go to a separate `SpaceHistory` table, since work item history is keyed by a work item. Nothing reads it yet (no endpoint or UI); an item's own history records its Space on create.
+- Space creation and renames go to a separate `SpaceHistory` table, since work item history is keyed by a work item. Nothing reads it yet (no endpoint or UI): ticket 47. An item's own history records its Space on create.
 - A child created with a `spaceId` other than its parent's is a 400, not a move.
 - The migration needs an empty `WorkItems` table (no data migration, as asked); reset local databases.
+
+**2026-11-03, code review:**
+
+- Fixed: switching Space could leave the old Space's items in the Hierarchy and Roadmap (until the reload returned, for good if it failed, or when a first load was still in flight); moving items off a deleted status ranked top-level items as one cell across Spaces; Space history used different JSON options from work item history; the Admin page sorted Spaces case-sensitively.
+- Left as is: the domain re-checks the reparent rules in `MoveToParent` after the service's early `EnsureCanMoveUnder` (deliberate, so every caller is covered); `GetChildrenAsync`'s "parent or Space" pair of nullable ids, and `CreateAsync`'s long optional parameter list, are worth a request type when ticket 17's server-side query reshapes these calls; `SpaceAdminRepository.list` and `SpaceRepository.loadSpaces` share an endpoint but keep the admin/read split the statuses already have.
