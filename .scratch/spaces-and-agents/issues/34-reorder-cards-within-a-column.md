@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Dropping a card above or below another in the same cell reorders it, with a drop indicator
 - [x] Order is persisted with the existing rank mechanism, including respacing on ties
