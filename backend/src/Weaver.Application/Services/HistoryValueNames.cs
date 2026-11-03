@@ -6,14 +6,15 @@ using Weaver.Domain;
 namespace Weaver.Application.Services;
 
 /// <summary>
-/// Names for the ids history values hold (a status, layer, priority, user or another work
-/// item), so readers don't each have to look them up. Looked up when read, so an id whose
+/// Names for the ids history values hold (a Space, status, layer, priority, user or another
+/// work item), so readers don't each have to look them up. Looked up when read, so an id whose
 /// row is gone since has no name and readers fall back to the raw value.
 /// </summary>
 internal sealed class HistoryValueNames
 {
     private enum Kind
     {
+        Space,
         Status,
         Layer,
         Priority,
@@ -23,6 +24,7 @@ internal sealed class HistoryValueNames
 
     private static readonly Dictionary<string, Kind> KindByField = new()
     {
+        [WorkItemField.SpaceId] = Kind.Space,
         [WorkItemField.StatusId] = Kind.Status,
         [WorkItemField.LayerId] = Kind.Layer,
         [WorkItemField.PriorityId] = Kind.Priority,
@@ -85,6 +87,8 @@ internal sealed class HistoryValueNames
         CancellationToken ct) =>
         kind switch
         {
+            Kind.Space => (await db.Spaces.Where(s => ids.Contains(s.Id)).Select(s => new { s.Id, s.Name }).ToListAsync(ct))
+                .Select(x => (x.Id, x.Name)).ToList(),
             Kind.Status => (await db.Statuses.Where(s => ids.Contains(s.Id)).Select(s => new { s.Id, s.Name }).ToListAsync(ct))
                 .Select(x => (x.Id, x.Name)).ToList(),
             Kind.Layer => (await db.WorkItemLayers.Where(l => ids.Contains(l.Id)).Select(l => new { l.Id, l.Name }).ToListAsync(ct))

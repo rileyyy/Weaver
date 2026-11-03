@@ -26,7 +26,7 @@ public class WorkItemToolsTests
         _tools = new WorkItemTools(_workItems.Object, new HttpCallerContext(new HttpContextAccessor()));
     }
 
-    private static WorkItem MakeWorkItem() => WorkItem.Create("A work item", null, null, Guid.NewGuid(), rank: 1.0);
+    private static WorkItem MakeWorkItem() => WorkItem.Create(Guid.NewGuid(), "A work item", null, Guid.NewGuid(), rank: 1.0);
 
     [Test]
     public async Task GetWorkItem_WhenFound_ReturnsDto()
@@ -53,20 +53,44 @@ public class WorkItemToolsTests
     {
         var parentId = Guid.NewGuid();
         var child = MakeWorkItem();
-        _workItems.Setup(w => w.GetChildrenAsync(parentId, It.IsAny<CancellationToken>())).ReturnsAsync([child]);
+        _workItems.Setup(w => w.GetChildrenAsync(parentId, null, It.IsAny<CancellationToken>())).ReturnsAsync([child]);
 
-        var result = await _tools.ListWorkItemChildren(parentId, CancellationToken.None);
+        var result = await _tools.ListWorkItemChildren(parentId, ct: CancellationToken.None);
 
         Assert.That(result.Single().Id, Is.EqualTo(child.Id));
+    }
+
+    [Test]
+    public async Task ListWorkItemChildren_WithOnlyASpace_ListsItsTopLevelItems()
+    {
+        var spaceId = Guid.NewGuid();
+        var top = MakeWorkItem();
+        _workItems.Setup(w => w.GetChildrenAsync(null, spaceId, It.IsAny<CancellationToken>())).ReturnsAsync([top]);
+
+        var result = await _tools.ListWorkItemChildren(spaceId: spaceId, ct: CancellationToken.None);
+
+        Assert.That(result.Single().Id, Is.EqualTo(top.Id));
+    }
+
+    [Test]
+    public void ListWorkItemChildren_WithNeitherParentNorSpace_ThrowsMcpExceptionWithTheServiceMessage()
+    {
+        _workItems.Setup(w => w.GetChildrenAsync(null, null, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DomainValidationException("Give a parent, or a Space."));
+
+        var ex = Assert.ThrowsAsync<McpException>(() => _tools.ListWorkItemChildren());
+
+        Assert.That(ex!.Message, Is.EqualTo("Give a parent, or a Space."));
     }
 
     [Test]
     public async Task ListAllWorkItems_DelegatesTheRequestedPageAndMapsResults()
     {
         var items = new[] { MakeWorkItem(), MakeWorkItem() };
-        _workItems.Setup(w => w.GetAllAsync(500, 2, It.IsAny<CancellationToken>())).ReturnsAsync(items);
+        var spaceId = Guid.NewGuid();
+        _workItems.Setup(w => w.GetAllAsync(500, 2, spaceId, It.IsAny<CancellationToken>())).ReturnsAsync(items);
 
-        var result = await _tools.ListAllWorkItems(offset: 500, limit: 2, CancellationToken.None);
+        var result = await _tools.ListAllWorkItems(offset: 500, limit: 2, spaceId, CancellationToken.None);
 
         Assert.That(result.Select(d => d.Id), Is.EqualTo(items.Select(i => i.Id)));
     }
@@ -75,7 +99,7 @@ public class WorkItemToolsTests
     public async Task ListAllWorkItems_DefaultsToTheFirstPageOfTheDefaultSize()
     {
         _workItems
-            .Setup(w => w.GetAllAsync(0, WorkItemService.DefaultPageSize, It.IsAny<CancellationToken>()))
+            .Setup(w => w.GetAllAsync(0, WorkItemService.DefaultPageSize, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
 
         var result = await _tools.ListAllWorkItems();
@@ -88,7 +112,7 @@ public class WorkItemToolsTests
     public void ListAllWorkItems_WhenThePageIsInvalid_ThrowsMcpExceptionWithTheServiceMessage()
     {
         _workItems
-            .Setup(w => w.GetAllAsync(0, 0, It.IsAny<CancellationToken>()))
+            .Setup(w => w.GetAllAsync(0, 0, null, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new DomainValidationException("Limit must be between 1 and 1000."));
 
         var ex = Assert.ThrowsAsync<McpException>(() => _tools.ListAllWorkItems(offset: 0, limit: 0));
@@ -104,14 +128,15 @@ public class WorkItemToolsTests
         var afterId = Guid.NewGuid();
         var layerId = Guid.NewGuid();
         var priorityId = Guid.NewGuid();
+        var spaceId = Guid.NewGuid();
         var created = MakeWorkItem();
         _workItems
             .Setup(w => w.CreateAsync(
-                "Title", "Description", parentId, statusId, afterId, layerId, priorityId, It.IsAny<CancellationToken>()))
+                "Title", "Description", parentId, statusId, afterId, layerId, priorityId, spaceId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(created);
 
         var result = await _tools.CreateWorkItem(
-            "Title", statusId, "Description", parentId, afterId, layerId, priorityId, ct: CancellationToken.None);
+            "Title", statusId, "Description", parentId, afterId, layerId, priorityId, spaceId, ct: CancellationToken.None);
 
         Assert.That(result.Id, Is.EqualTo(created.Id));
     }
@@ -124,7 +149,7 @@ public class WorkItemToolsTests
         var domainException = new EntityNotFoundException(nameof(WorkItem), missingParentId);
         _workItems
             .Setup(w => w.CreateAsync(
-                "Title", null, missingParentId, statusId, null, null, null, It.IsAny<CancellationToken>()))
+                "Title", null, missingParentId, statusId, null, null, null, null, It.IsAny<CancellationToken>()))
             .ThrowsAsync(domainException);
 
         var thrown = Assert.ThrowsAsync<McpException>(() =>

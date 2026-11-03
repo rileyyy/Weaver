@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Weaver.Application.Services;
+using Weaver.Domain;
 using Weaver.Domain.Exceptions;
 using Weaver.Infrastructure;
 using Weaver.Infrastructure.Configurations;
@@ -13,6 +14,7 @@ public class WorkItemLinkServiceTests
     private WeaverDbContext _db = null!;
     private WorkItemLinkService _links = null!;
     private WorkItemService _workItems = null!;
+    private Space _space = null!;
 
     [SetUp]
     public void SetUp()
@@ -21,6 +23,7 @@ public class WorkItemLinkServiceTests
         _db = TestDatabase.Create(_clock);
         _links = new WorkItemLinkService(_db, FakeCallerContext.Anyone());
         _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), FakeCallerContext.Anyone());
+        _space = TestSpaces.Add(_db);
     }
 
     [TearDown]
@@ -29,8 +32,8 @@ public class WorkItemLinkServiceTests
     [Test]
     public async Task CreateAsync_LinksTwoWorkItems()
     {
-        var a = await _workItems.CreateAsync("A", null, null, StatusConfiguration.ToDoId);
-        var b = await _workItems.CreateAsync("B", null, null, StatusConfiguration.ToDoId);
+        var a = await _workItems.CreateAsync("A", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var b = await _workItems.CreateAsync("B", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
 
         var link = await _links.CreateAsync(a.Id, b.Id);
 
@@ -41,7 +44,7 @@ public class WorkItemLinkServiceTests
     [Test]
     public async Task CreateAsync_WithSameId_ThrowsSelfWorkItemLinkException()
     {
-        var a = await _workItems.CreateAsync("A", null, null, StatusConfiguration.ToDoId);
+        var a = await _workItems.CreateAsync("A", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
 
         Assert.ThrowsAsync<SelfWorkItemLinkException>(() => _links.CreateAsync(a.Id, a.Id));
     }
@@ -55,8 +58,8 @@ public class WorkItemLinkServiceTests
     [Test]
     public async Task CreateAsync_WhenAlreadyLinked_ThrowsDuplicateWorkItemLinkException()
     {
-        var a = await _workItems.CreateAsync("A", null, null, StatusConfiguration.ToDoId);
-        var b = await _workItems.CreateAsync("B", null, null, StatusConfiguration.ToDoId);
+        var a = await _workItems.CreateAsync("A", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var b = await _workItems.CreateAsync("B", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
         await _links.CreateAsync(a.Id, b.Id);
 
         Assert.ThrowsAsync<DuplicateWorkItemLinkException>(() => _links.CreateAsync(a.Id, b.Id));
@@ -65,8 +68,8 @@ public class WorkItemLinkServiceTests
     [Test]
     public async Task CreateAsync_WhenAlreadyLinkedInReverse_ThrowsDuplicateWorkItemLinkException()
     {
-        var a = await _workItems.CreateAsync("A", null, null, StatusConfiguration.ToDoId);
-        var b = await _workItems.CreateAsync("B", null, null, StatusConfiguration.ToDoId);
+        var a = await _workItems.CreateAsync("A", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var b = await _workItems.CreateAsync("B", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
         await _links.CreateAsync(a.Id, b.Id);
 
         Assert.ThrowsAsync<DuplicateWorkItemLinkException>(() => _links.CreateAsync(b.Id, a.Id));
@@ -75,9 +78,9 @@ public class WorkItemLinkServiceTests
     [Test]
     public async Task ListForWorkItemAsync_ReturnsLinksRegardlessOfWhichSideCreatedThem()
     {
-        var a = await _workItems.CreateAsync("A", null, null, StatusConfiguration.ToDoId);
-        var b = await _workItems.CreateAsync("B", null, null, StatusConfiguration.ToDoId);
-        var c = await _workItems.CreateAsync("C", null, null, StatusConfiguration.ToDoId);
+        var a = await _workItems.CreateAsync("A", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var b = await _workItems.CreateAsync("B", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var c = await _workItems.CreateAsync("C", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
         await _links.CreateAsync(a.Id, b.Id);
         await _links.CreateAsync(c.Id, a.Id);
 
@@ -89,8 +92,8 @@ public class WorkItemLinkServiceTests
     [Test]
     public async Task DeleteAsync_RemovesTheLink()
     {
-        var a = await _workItems.CreateAsync("A", null, null, StatusConfiguration.ToDoId);
-        var b = await _workItems.CreateAsync("B", null, null, StatusConfiguration.ToDoId);
+        var a = await _workItems.CreateAsync("A", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var b = await _workItems.CreateAsync("B", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
         var link = await _links.CreateAsync(a.Id, b.Id);
 
         await _links.DeleteAsync(link.Id);

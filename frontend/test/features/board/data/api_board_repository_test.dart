@@ -7,8 +7,11 @@ import 'package:http/testing.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/board/data/api_board_repository.dart';
 import 'package:weaver/shared/data/api_layer_repository.dart';
+import 'package:weaver/shared/data/api_space_repository.dart';
 import 'package:weaver/shared/data/api_status_repository.dart';
 import 'package:weaver/shared/data/api_user_directory_repository.dart';
+import 'package:weaver/shared/models/space.dart';
+
 import '../../../core/network/fakes/fixed_api_endpoint.dart';
 
 http.Response _jsonResponse(Object body, {int statusCode = 200}) =>
@@ -28,6 +31,7 @@ Map<String, dynamic> _itemJson(
 }) => {
   'id': id,
   'number': number,
+  'spaceId': 'space-home',
   'title': id,
   'parentId': parentId,
   'statusId': 'status-todo',
@@ -54,6 +58,7 @@ void main() {
     ApiStatusRepository(client, endpoint),
     ApiLayerRepository(client, endpoint),
     ApiUserDirectoryRepository(client, endpoint),
+    ApiSpaceRepository(client, endpoint),
   );
 
   /// Answers every request with [item] as a write response, recording the
@@ -66,26 +71,52 @@ void main() {
     return _jsonResponse(_writeJson(item ?? _itemJson('card-1')));
   });
 
-  test("loadRootScopeItemId returns the first board's scope item", () async {
+  test('loadSpaces parses every Space', () async {
     final client = MockClient((request) async {
-      if (request.url.path == '/api/boards') {
+      if (request.url.path == '/api/spaces') {
         return _jsonResponse([
-          {'id': 'board-1', 'name': 'Main', 'scopeItemId': 'epic-1'},
+          {'id': 'space-home', 'name': 'Home'},
+          {'id': 'space-village', 'name': 'Village'},
         ]);
       }
       throw StateError('Unexpected request: ${request.url}');
     });
 
-    expect(await repositoryFor(client).loadRootScopeItemId(), 'epic-1');
+    expect(await repositoryFor(client).loadSpaces(), const [
+      Space(id: 'space-home', name: 'Home'),
+      Space(id: 'space-village', name: 'Village'),
+    ]);
   });
 
-  test('loadRootScopeItemId returns null when no boards exist', () async {
-    final client = MockClient((request) async {
-      if (request.url.path == '/api/boards') return _jsonResponse([]);
-      throw StateError('Unexpected request: ${request.url}');
+  group('createWorkItem', () {
+    Future<Map<String, dynamic>> sentBody({required String? parentId}) async {
+      late Map<String, dynamic> body;
+      final client = MockClient((request) async {
+        body = jsonDecode(request.body) as Map<String, dynamic>;
+        return _jsonResponse(_itemJson('new-item'), statusCode: 201);
+      });
+      await repositoryFor(client).createWorkItem(
+        title: 'Fix the fence',
+        spaceId: 'space-village',
+        parentId: parentId,
+        statusId: 'status-todo',
+      );
+      return body;
+    }
+
+    test('names the Space for a top-level item', () async {
+      final body = await sentBody(parentId: null);
+
+      expect(body['spaceId'], 'space-village');
+      expect(body['parentId'], isNull);
     });
 
-    expect(await repositoryFor(client).loadRootScopeItemId(), isNull);
+    test("leaves the Space out for a child, which joins its parent's", () async {
+      final body = await sentBody(parentId: 'lane-1');
+
+      expect(body.containsKey('spaceId'), isFalse);
+      expect(body['parentId'], 'lane-1');
+    });
   });
 
   /// Serves /statuses and /work-items/swimlanes for scope `epic-1` with
@@ -103,6 +134,7 @@ void main() {
       return _jsonResponse(layers);
     }
     if (request.url.path == '/api/work-items/swimlanes' &&
+        request.url.queryParameters['spaceId'] == 'space-home' &&
         request.url.queryParameters['scopeItemId'] == 'epic-1') {
       return _jsonResponse([
         {
@@ -134,7 +166,7 @@ void main() {
       requestLog: requests,
     );
 
-    final board = await repositoryFor(client).loadBoard('epic-1');
+    final board = await repositoryFor(client).loadBoard('space-home', 'epic-1');
 
     expect(board.statuses.single.id, 'status-todo');
     expect(board.statuses.single.color, const Color(0xFF1E88E5));
@@ -145,7 +177,7 @@ void main() {
     expect(requests, [
       '$baseUrl/statuses',
       '$baseUrl/work-item-layers',
-      '$baseUrl/work-items/swimlanes?scopeItemId=epic-1',
+      '$baseUrl/work-items/swimlanes?spaceId=space-home&scopeItemId=epic-1',
     ]);
   });
 
@@ -155,7 +187,7 @@ void main() {
       cardFields: {'version': 42},
     );
 
-    final board = await repositoryFor(client).loadBoard('epic-1');
+    final board = await repositoryFor(client).loadBoard('space-home', 'epic-1');
 
     expect(board.swimlanes.single.lane.version, 41);
     expect(board.swimlanes.single.cards.single.version, 42);
@@ -169,24 +201,24 @@ void main() {
       cardFields: {'layerId': 'layer-task'},
     );
 
-    final board = await repositoryFor(client).loadBoard('epic-1');
+    final board = await repositoryFor(client).loadBoard('space-home', 'epic-1');
 
     expect(board.layers.single.color, const Color(0xFF43A047));
     expect(board.swimlanes.single.cards.single.layerId, 'layer-task');
   });
 
-  test('loadBoard treats a null scope as top-level', () async {
+  test("loadBoard treats a null scope as the Space's top level", () async {
     final client = MockClient((request) async {
       if (request.url.path == '/api/statuses') return _jsonResponse([]);
       if (request.url.path == '/api/work-item-layers') return _jsonResponse([]);
       if (request.url.path == '/api/work-items/swimlanes') {
-        expect(request.url.queryParameters, isEmpty);
+        expect(request.url.queryParameters, {'spaceId': 'space-home'});
         return _jsonResponse([]);
       }
       throw StateError('Unexpected request: ${request.url}');
     });
 
-    final board = await repositoryFor(client).loadBoard(null);
+    final board = await repositoryFor(client).loadBoard('space-home', null);
 
     expect(board.swimlanes, isEmpty);
   });
@@ -196,7 +228,7 @@ void main() {
       cardFields: {'startDate': '2026-01-10', 'endDate': null},
     );
 
-    final board = await repositoryFor(client).loadBoard('epic-1');
+    final board = await repositoryFor(client).loadBoard('space-home', 'epic-1');
 
     final card = board.swimlanes.single.cards.single;
     expect(card.startDate, DateTime(2026, 1, 10));
@@ -206,7 +238,7 @@ void main() {
   test("loadBoard parses each card's description", () async {
     final client = boardClient(cardFields: {'description': 'Some detail'});
 
-    final board = await repositoryFor(client).loadBoard('epic-1');
+    final board = await repositoryFor(client).loadBoard('space-home', 'epic-1');
 
     expect(board.swimlanes.single.cards.single.description, 'Some detail');
   });
@@ -218,7 +250,7 @@ void main() {
       },
     );
 
-    final board = await repositoryFor(client).loadBoard('epic-1');
+    final board = await repositoryFor(client).loadBoard('space-home', 'epic-1');
 
     expect(board.swimlanes.single.cards.single.tags, [
       'urgent',
@@ -234,7 +266,7 @@ void main() {
         cardFields: {'assignedToUserId': 'user-card'},
       );
 
-      final board = await repositoryFor(client).loadBoard('epic-1');
+      final board = await repositoryFor(client).loadBoard('space-home', 'epic-1');
 
       expect(board.swimlanes.single.lane.assignedToUserId, 'user-lane');
       expect(board.swimlanes.single.cards.single.assignedToUserId, 'user-card');
@@ -251,7 +283,7 @@ void main() {
       });
 
       await expectLater(
-        repositoryFor(client).loadBoard(null),
+        repositoryFor(client).loadBoard('space-home', null),
         throwsA(
           isA<ApiException>().having(
             (e) => e.message,
@@ -402,7 +434,7 @@ void main() {
         throw StateError('Unexpected request: ${request.url}');
       });
 
-      final items = await repositoryFor(client).loadAllItems();
+      final items = await repositoryFor(client).loadAllItems('space-home');
 
       expect(items.map((i) => i.id), ['root-1', 'child-1']);
       expect(items.first.number, 1);
@@ -418,8 +450,10 @@ void main() {
 
   test('loadAllItems pages until a short page comes back', () async {
     final offsets = <String?>[];
+    final spaces = <String?>{};
     final client = MockClient((request) async {
       offsets.add(request.url.queryParameters['offset']);
+      spaces.add(request.url.queryParameters['spaceId']);
       final offset = int.parse(request.url.queryParameters['offset']!);
       final count = offset == 0 ? allItemsPageSize : 1;
       return _jsonResponse([
@@ -428,9 +462,10 @@ void main() {
       ]);
     });
 
-    final items = await repositoryFor(client).loadAllItems();
+    final items = await repositoryFor(client).loadAllItems('space-home');
 
     expect(offsets, ['0', '$allItemsPageSize']);
+    expect(spaces, {'space-home'});
     expect(items, hasLength(allItemsPageSize + 1));
   });
 
@@ -442,7 +477,7 @@ void main() {
     });
 
     await expectLater(
-      repositoryFor(client).loadAllItems(),
+      repositoryFor(client).loadAllItems('space-home'),
       throwsA(isA<ApiException>()),
     );
   });

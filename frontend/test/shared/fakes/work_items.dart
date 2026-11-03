@@ -5,6 +5,7 @@ import 'package:weaver/shared/models/work_item.dart';
 WorkItem workItem(
   String id, {
   int number = 1,
+  String spaceId = 'home',
   String? parentId,
   String? title,
   String statusId = 'todo',
@@ -19,6 +20,7 @@ WorkItem workItem(
 }) => WorkItem(
   id: id,
   number: number,
+  spaceId: spaceId,
   parentId: parentId,
   title: title ?? id,
   description: description,
@@ -39,6 +41,7 @@ WorkItem workItem(
 WorkItem withVersion(WorkItem item, int version) => WorkItem(
   id: item.id,
   number: item.number,
+  spaceId: item.spaceId,
   parentId: item.parentId,
   title: item.title,
   description: item.description,

@@ -1,5 +1,6 @@
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/board/models/board_data.dart';
+import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
 
@@ -10,18 +11,17 @@ import 'package:weaver/shared/models/work_item.dart';
 /// returns the saved item, carrying its new version. A stale version fails
 /// with a 409 [ApiException].
 abstract class BoardRepository {
-  /// The board's root scope: the first board's scope item, or null
-  /// (top-level items) if no board exists yet. Resolved once; navigating
-  /// the hierarchy from there only calls [loadBoard].
-  Future<String?> loadRootScopeItemId();
+  /// Every Space the board can show, by name.
+  Future<List<Space>> loadSpaces();
 
-  /// Swimlanes are the direct children of [scopeItemId] (or top-level items
-  /// when null); each swimlane's cards are its own direct children.
-  Future<BoardData> loadBoard(String? scopeItemId);
+  /// Swimlanes are the direct children of [scopeItemId] (or the top-level
+  /// items of [spaceId] when null); each swimlane's cards are its own
+  /// direct children.
+  Future<BoardData> loadBoard(String spaceId, String? scopeItemId);
 
-  /// Every work item in the system, flat and unscoped — used by the
-  /// Hierarchy view to build a full parent/child tree client-side.
-  Future<List<WorkItem>> loadAllItems();
+  /// Every work item in [spaceId], flat — used by the Hierarchy and Roadmap
+  /// views to build the Space's full parent/child tree client-side.
+  Future<List<WorkItem>> loadAllItems(String spaceId);
 
   /// One work item as it is now, e.g. after a write was rejected as stale.
   Future<WorkItem> getItem(String id);
@@ -58,13 +58,14 @@ abstract class BoardRepository {
     required int expectedVersion,
   });
 
-  /// Creates a new work item under [parentId] ("null" makes it a top-level
-  /// item, with no parent at all) with [statusId]. Throws on failure. Does
-  /// not return the created item — callers re-load the current scope to
-  /// pick it up.
+  /// Creates a new work item under [parentId] with [statusId], or a
+  /// top-level item of [spaceId] when [parentId] is null (a child always
+  /// joins its parent's Space). Throws on failure. Does not return the
+  /// created item — callers re-load the current scope to pick it up.
   Future<void> createWorkItem({
     required String title,
     String? description,
+    required String spaceId,
     required String? parentId,
     required String statusId,
   });

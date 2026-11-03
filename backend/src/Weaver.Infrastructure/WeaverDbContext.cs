@@ -14,11 +14,13 @@ public class WeaverDbContext : DbContext, IWeaverDbContext
     {
     }
 
+    public DbSet<Space> Spaces => Set<Space>();
+
+    public DbSet<SpaceHistoryEntry> SpaceHistory => Set<SpaceHistoryEntry>();
+
     public DbSet<WorkItem> WorkItems => Set<WorkItem>();
 
     public DbSet<Status> Statuses => Set<Status>();
-
-    public DbSet<Board> Boards => Set<Board>();
 
     public DbSet<User> Users => Set<User>();
 
@@ -80,9 +82,10 @@ public class WeaverDbContext : DbContext, IWeaverDbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.ApplyConfiguration(new SpaceConfiguration());
+        modelBuilder.ApplyConfiguration(new SpaceHistoryEntryConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemConfiguration());
         modelBuilder.ApplyConfiguration(new StatusConfiguration());
-        modelBuilder.ApplyConfiguration(new BoardConfiguration());
         modelBuilder.ApplyConfiguration(new UserConfiguration());
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
         modelBuilder.ApplyConfiguration(new ApiKeyConfiguration());

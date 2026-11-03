@@ -133,7 +133,6 @@ public class WorkItemHistoryTests
         });
     }
 
-    // Boards are views, not work items, so creating one records no history.
     [Test]
     public async Task EveryMcpWriteTool_TakesAnOptionalActorLabel()
     {
@@ -143,7 +142,7 @@ public class WorkItemHistoryTests
         var tools = await mcp.ListToolsAsync();
 
         var writesWithoutLabel = tools
-            .Where(t => t.ProtocolTool.Annotations?.ReadOnlyHint != true && t.Name != "create_board")
+            .Where(t => t.ProtocolTool.Annotations?.ReadOnlyHint != true)
             .Where(t => !t.JsonSchema.GetProperty("properties").TryGetProperty("actorLabel", out _))
             .Select(t => t.Name);
         Assert.That(writesWithoutLabel, Is.Empty);

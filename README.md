@@ -1,22 +1,28 @@
 # Weaver
 
-Weaver is a self-hosted work-item tracker. Work items form a tree of
-arbitrary depth, and the main view is a swimlane board: each parent item is
-a lane, its direct children are cards that move between status columns.
+Weaver is a self-hosted work-item tracker. Work items live in Spaces (such
+as Home or Software) and form trees of arbitrary depth inside them, and the
+main view is a swimlane board: each parent item is a lane, its direct
+children are cards that move between status columns.
 It ships as two container images (API and web app) plus PostgreSQL, and AI
 agents can read and change work items through an MCP endpoint built into
 the API.
 
 ## Features
 
+- **Spaces.** Every work item belongs to one Space. The board shows one
+  Space at a time and opens the last one used on that device; the switcher
+  before the breadcrumbs changes it. Admins add and rename Spaces on the
+  Admin page. An item can only be moved under an item in its own Space.
 - **Swimlane board with drill-down.** Cards move between status columns,
   and up or down within one, by drag and drop, landing where they're
-  dropped; a card can be dropped on another lane's label to reparent it. Tapping the current breadcrumb ("Board" at the top) picks a lane to
+  dropped; a card can be dropped on another lane's label to reparent it. Tapping the current breadcrumb (the Space's name at the top) picks a lane to
   drill into, as does "View sub-items" in a card's detail dialog, so its
   children become the lanes. Earlier breadcrumbs lead back up. Each card's
   left bar shows its layer's colour.
-- **Hierarchy and Roadmap views.** Hierarchy shows every work item as a
-  collapsible tree with resizable Number / Title / Status / Assigned To
+- **Hierarchy and Roadmap views.** Hierarchy shows every work item in the
+  Space as a collapsible tree with resizable Number / Title / Status /
+  Assigned To
   columns. Roadmap is a Gantt-style timeline (week, fortnight, month,
   quarter, year) with weekly gridlines and a today marker.
 - **Time-frame filter.** A from/to range shows only items whose own
@@ -383,8 +389,10 @@ disk.
 - **TLS:** the client (or the machine it runs on) must trust the Caddy
   root certificate, see above.
 
-The tools cover work items, boards, statuses, layers, priorities, users,
-comments, links and repeating items. Updates to details, schedule and tags
+The tools cover work items, Spaces (`list_spaces`; agents can't change
+them), statuses, layers, priorities, users, comments, links and repeating
+items. A top-level item is created with a `spaceId`; a child joins its
+parent's Space. Updates to details, schedule and tags
 change only the arguments you send: leave one out to keep it, or send
 `null` to clear it. Every work-item write accepts an optional
 `expectedVersion` (the item's `Version` from your last read) to avoid

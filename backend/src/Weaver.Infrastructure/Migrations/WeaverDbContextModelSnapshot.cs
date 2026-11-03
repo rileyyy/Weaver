@@ -63,27 +63,6 @@ namespace Weaver.Infrastructure.Migrations
                     b.ToTable("ApiKeys");
                 });
 
-            modelBuilder.Entity("Weaver.Domain.Board", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<Guid?>("ScopeItemId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ScopeItemId");
-
-                    b.ToTable("Boards");
-                });
-
             modelBuilder.Entity("Weaver.Domain.Comment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -181,6 +160,74 @@ namespace Weaver.Infrastructure.Migrations
                             Id = 1,
                             TimeZoneId = "UTC"
                         });
+                });
+
+            modelBuilder.Entity("Weaver.Domain.Space", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Spaces");
+                });
+
+            modelBuilder.Entity("Weaver.Domain.SpaceHistoryEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid?>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActorLabel")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid?>("ApiKeyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Field")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("NewValue")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("OldValue")
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("SpaceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("ApiKeyId");
+
+                    b.HasIndex("SpaceId", "Id");
+
+                    b.ToTable("SpaceHistory", (string)null);
                 });
 
             modelBuilder.Entity("Weaver.Domain.Status", b =>
@@ -334,6 +381,9 @@ namespace Weaver.Infrastructure.Migrations
                     b.Property<Guid?>("RecurrenceSourceId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("SpaceId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateOnly?>("StartDate")
                         .HasColumnType("date");
 
@@ -371,6 +421,8 @@ namespace Weaver.Infrastructure.Migrations
                     b.HasIndex("Number")
                         .IsUnique();
 
+                    b.HasIndex("ParentId");
+
                     b.HasIndex("PriorityId");
 
                     b.HasIndex("StatusId");
@@ -378,7 +430,7 @@ namespace Weaver.Infrastructure.Migrations
                     b.HasIndex("RecurrenceSourceId", "RecurrenceDate")
                         .IsUnique();
 
-                    b.HasIndex("ParentId", "StatusId", "Rank");
+                    b.HasIndex("SpaceId", "ParentId", "StatusId", "Rank");
 
                     b.ToTable("WorkItems");
                 });
@@ -595,16 +647,6 @@ namespace Weaver.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Weaver.Domain.Board", b =>
-                {
-                    b.HasOne("Weaver.Domain.WorkItem", "ScopeItem")
-                        .WithMany()
-                        .HasForeignKey("ScopeItemId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("ScopeItem");
-                });
-
             modelBuilder.Entity("Weaver.Domain.Comment", b =>
                 {
                     b.HasOne("Weaver.Domain.User", "AuthorUser")
@@ -635,6 +677,25 @@ namespace Weaver.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Weaver.Domain.SpaceHistoryEntry", b =>
+                {
+                    b.HasOne("Weaver.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Weaver.Domain.ApiKey", null)
+                        .WithMany()
+                        .HasForeignKey("ApiKeyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Weaver.Domain.Space", null)
+                        .WithMany()
+                        .HasForeignKey("SpaceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Weaver.Domain.WorkItem", b =>
                 {
                     b.HasOne("Weaver.Domain.User", "AssignedToUser")
@@ -662,6 +723,12 @@ namespace Weaver.Infrastructure.Migrations
                         .HasForeignKey("RecurrenceSourceId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("Weaver.Domain.Space", "Space")
+                        .WithMany()
+                        .HasForeignKey("SpaceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Weaver.Domain.Status", "Status")
                         .WithMany()
                         .HasForeignKey("StatusId")
@@ -677,6 +744,8 @@ namespace Weaver.Infrastructure.Migrations
                     b.Navigation("Priority");
 
                     b.Navigation("RecurrenceSource");
+
+                    b.Navigation("Space");
 
                     b.Navigation("Status");
                 });

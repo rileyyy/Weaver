@@ -27,6 +27,8 @@ import 'package:weaver/features/admin/data/api_lookup_admin_repository.dart'
     as _i427;
 import 'package:weaver/features/admin/data/api_server_settings_admin_repository.dart'
     as _i365;
+import 'package:weaver/features/admin/data/api_space_admin_repository.dart'
+    as _i775;
 import 'package:weaver/features/admin/data/api_status_admin_repository.dart'
     as _i550;
 import 'package:weaver/features/admin/data/api_user_admin_repository.dart'
@@ -35,6 +37,8 @@ import 'package:weaver/features/admin/data/lookup_admin_repository.dart'
     as _i377;
 import 'package:weaver/features/admin/data/server_settings_admin_repository.dart'
     as _i300;
+import 'package:weaver/features/admin/data/space_admin_repository.dart'
+    as _i447;
 import 'package:weaver/features/admin/data/status_admin_repository.dart'
     as _i224;
 import 'package:weaver/features/admin/data/user_admin_repository.dart' as _i290;
@@ -42,6 +46,7 @@ import 'package:weaver/features/admin/lookup_admin_view_model.dart' as _i281;
 import 'package:weaver/features/admin/models/lookup_kind.dart' as _i54;
 import 'package:weaver/features/admin/server_settings_admin_view_model.dart'
     as _i338;
+import 'package:weaver/features/admin/space_admin_view_model.dart' as _i742;
 import 'package:weaver/features/admin/status_admin_view_model.dart' as _i609;
 import 'package:weaver/features/admin/user_admin_view_model.dart' as _i486;
 import 'package:weaver/features/auth/auth_view_model.dart' as _i6;
@@ -54,6 +59,9 @@ import 'package:weaver/features/auth/data/secure_token_store.dart' as _i54;
 import 'package:weaver/features/board/board_view_model.dart' as _i314;
 import 'package:weaver/features/board/data/api_board_repository.dart' as _i436;
 import 'package:weaver/features/board/data/board_repository.dart' as _i522;
+import 'package:weaver/features/board/data/flutter_secure_last_space_store.dart'
+    as _i114;
+import 'package:weaver/features/board/data/last_space_store.dart' as _i120;
 import 'package:weaver/features/board/repeating_items_view_model.dart' as _i87;
 import 'package:weaver/features/work_item_detail/data/api_work_item_detail_repository.dart'
     as _i335;
@@ -70,10 +78,12 @@ import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dar
 import 'package:weaver/features/work_item_detail/work_item_history_view_model.dart'
     as _i415;
 import 'package:weaver/shared/data/api_layer_repository.dart' as _i284;
+import 'package:weaver/shared/data/api_space_repository.dart' as _i796;
 import 'package:weaver/shared/data/api_status_repository.dart' as _i209;
 import 'package:weaver/shared/data/api_user_directory_repository.dart' as _i982;
 import 'package:weaver/shared/data/current_user.dart' as _i875;
 import 'package:weaver/shared/data/layer_repository.dart' as _i0;
+import 'package:weaver/shared/data/space_repository.dart' as _i600;
 import 'package:weaver/shared/data/status_repository.dart' as _i770;
 import 'package:weaver/shared/data/user_directory_repository.dart' as _i562;
 import 'package:weaver/shared/data/work_item_store.dart' as _i723;
@@ -96,6 +106,9 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i936.ServerOriginStore>(
       () => _i781.FlutterSecureServerOriginStore(),
+    );
+    gh.lazySingleton<_i120.LastSpaceStore>(
+      () => _i114.FlutterSecureLastSpaceStore(),
     );
     gh.lazySingleton<_i519.Client>(
       () => networkModule.rawHttpClient,
@@ -141,6 +154,12 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i202.ApiEndpoint>(),
       ),
     );
+    gh.lazySingleton<_i447.SpaceAdminRepository>(
+      () => _i775.ApiSpaceAdminRepository(
+        gh<_i519.Client>(),
+        gh<_i202.ApiEndpoint>(),
+      ),
+    );
     gh.lazySingleton<_i0.LayerRepository>(
       () =>
           _i284.ApiLayerRepository(gh<_i519.Client>(), gh<_i202.ApiEndpoint>()),
@@ -162,6 +181,10 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i519.Client>(),
         gh<_i202.ApiEndpoint>(),
       ),
+    );
+    gh.lazySingleton<_i600.SpaceRepository>(
+      () =>
+          _i796.ApiSpaceRepository(gh<_i519.Client>(), gh<_i202.ApiEndpoint>()),
     );
     gh.lazySingleton<_i982.WorkItemDetailRepository>(
       () => _i335.ApiWorkItemDetailRepository(
@@ -230,6 +253,11 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i588.AgentAdminViewModel>(
       () => _i588.AgentAdminViewModel(gh<_i6.AgentAdminRepository>()),
     );
+    gh.factory<_i338.ServerSettingsAdminViewModel>(
+      () => _i338.ServerSettingsAdminViewModel(
+        gh<_i300.ServerSettingsAdminRepository>(),
+      ),
+    );
     gh.lazySingleton<_i522.BoardRepository>(
       () => _i436.ApiBoardRepository(
         gh<_i519.Client>(),
@@ -237,12 +265,11 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i770.StatusRepository>(),
         gh<_i0.LayerRepository>(),
         gh<_i562.UserDirectoryRepository>(),
+        gh<_i600.SpaceRepository>(),
       ),
     );
-    gh.factory<_i338.ServerSettingsAdminViewModel>(
-      () => _i338.ServerSettingsAdminViewModel(
-        gh<_i300.ServerSettingsAdminRepository>(),
-      ),
+    gh.factory<_i742.SpaceAdminViewModel>(
+      () => _i742.SpaceAdminViewModel(gh<_i447.SpaceAdminRepository>()),
     );
     gh.factory<_i486.UserAdminViewModel>(
       () => _i486.UserAdminViewModel(
@@ -254,14 +281,15 @@ extension GetItInjectableX on _i174.GetIt {
       (agentId, _) =>
           _i841.AgentKeysViewModel(gh<_i6.AgentAdminRepository>(), agentId),
     );
+    gh.factory<_i609.StatusAdminViewModel>(
+      () => _i609.StatusAdminViewModel(gh<_i224.StatusAdminRepository>()),
+    );
     gh.factory<_i314.BoardViewModel>(
       () => _i314.BoardViewModel(
         gh<_i522.BoardRepository>(),
         gh<_i723.WorkItemStore>(),
+        gh<_i120.LastSpaceStore>(),
       ),
-    );
-    gh.factory<_i609.StatusAdminViewModel>(
-      () => _i609.StatusAdminViewModel(gh<_i224.StatusAdminRepository>()),
     );
     return this;
   }

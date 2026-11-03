@@ -6,11 +6,13 @@ import 'package:weaver/features/admin/agent_admin_view_model.dart';
 import 'package:weaver/features/admin/lookup_admin_view_model.dart';
 import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/server_settings_admin_view_model.dart';
+import 'package:weaver/features/admin/space_admin_view_model.dart';
 import 'package:weaver/features/admin/status_admin_view_model.dart';
 import 'package:weaver/features/admin/user_admin_view_model.dart';
 import 'package:weaver/features/admin/views/agents_tab.dart';
 import 'package:weaver/features/admin/views/lookup_tab.dart';
 import 'package:weaver/features/admin/views/server_tab.dart';
+import 'package:weaver/features/admin/views/spaces_tab.dart';
 import 'package:weaver/features/admin/views/statuses_tab.dart';
 import 'package:weaver/features/admin/views/users_tab.dart';
 
@@ -19,8 +21,8 @@ Future<void> showAdminPage(BuildContext context) => Navigator.of(
   context,
 ).push(MaterialPageRoute<void>(builder: (_) => const AdminView()));
 
-/// Statuses, priorities, layers, users, agents and server-wide settings, one
-/// tab each. Only offered to admins; the server refuses every change from
+/// Spaces, statuses, priorities, layers, users, agents and server-wide
+/// settings, one tab each. Only offered to admins; the server refuses every change from
 /// anyone else.
 class AdminView extends StatefulWidget {
   const AdminView({super.key});
@@ -30,6 +32,7 @@ class AdminView extends StatefulWidget {
 }
 
 class _AdminViewState extends State<AdminView> {
+  final SpaceAdminViewModel _spaces = getIt<SpaceAdminViewModel>();
   final StatusAdminViewModel _statuses = getIt<StatusAdminViewModel>();
   final LookupAdminViewModel _priorities = getIt<LookupAdminViewModel>(
     param1: LookupKind.priorities,
@@ -45,6 +48,7 @@ class _AdminViewState extends State<AdminView> {
   @override
   void initState() {
     super.initState();
+    unawaited(_spaces.load());
     unawaited(_statuses.load());
     unawaited(_priorities.load());
     unawaited(_layers.load());
@@ -55,6 +59,7 @@ class _AdminViewState extends State<AdminView> {
 
   @override
   void dispose() {
+    _spaces.dispose();
     _statuses.dispose();
     _priorities.dispose();
     _layers.dispose();
@@ -67,7 +72,7 @@ class _AdminViewState extends State<AdminView> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 6,
+      length: 7,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Admin'),
@@ -75,6 +80,7 @@ class _AdminViewState extends State<AdminView> {
             isScrollable: true,
             tabAlignment: TabAlignment.start,
             tabs: [
+              Tab(text: 'Spaces'),
               Tab(text: 'Statuses'),
               Tab(text: 'Priorities'),
               Tab(text: 'Layers'),
@@ -86,6 +92,7 @@ class _AdminViewState extends State<AdminView> {
         ),
         body: TabBarView(
           children: [
+            SpacesTab(viewModel: _spaces),
             StatusesTab(viewModel: _statuses),
             LookupTab(viewModel: _priorities),
             LookupTab(viewModel: _layers),

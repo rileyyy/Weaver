@@ -71,6 +71,8 @@ class WorkItemHistoryEntry {
       'comment' => _verbed('a comment', 'Added', 'Edited', 'Deleted'),
       'link' when oldValue == null => 'Linked $newText',
       'link' => 'Unlinked $oldText',
+      // Recorded alongside 'created', saying where the item started.
+      'spaceId' when oldValue == null => 'In Space $newText',
       'recurrence' => _verbed(
         '',
         'Started repeating',
@@ -98,6 +100,7 @@ class WorkItemHistoryEntry {
     'when': 'When',
     'statusId': 'Status',
     'parentId': 'Parent',
+    'spaceId': 'Space',
     'startDate': 'Start date',
     'endDate': 'End date',
     'assignedToUserId': 'Assignee',

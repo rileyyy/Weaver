@@ -22,37 +22,43 @@ public class WorkItemsController : ControllerBase
     }
 
     /// <summary>
-    /// Direct children of <paramref name="parentId"/> (or top-level items when omitted).
+    /// Direct children of <paramref name="parentId"/>, or the top-level items of
+    /// <paramref name="spaceId"/> when the parent is omitted. One of the two is required.
     /// </summary>
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<WorkItemDto>>> GetChildren([FromQuery] Guid? parentId)
+    public async Task<ActionResult<IReadOnlyList<WorkItemDto>>> GetChildren(
+        [FromQuery] Guid? parentId,
+        [FromQuery] Guid? spaceId)
     {
-        var items = await _workItems.GetChildrenAsync(parentId);
+        var items = await _workItems.GetChildrenAsync(parentId, spaceId);
         return Ok(items.Select(WorkItemDto.FromEntity));
     }
 
     /// <summary>
-    /// A board's lanes (children of <paramref name="scopeItemId"/>, or top-level items when
-    /// omitted) with each lane's cards, in one request.
+    /// A board's lanes (children of <paramref name="scopeItemId"/>, or the top-level items of
+    /// <paramref name="spaceId"/> when omitted) with each lane's cards, in one request.
     /// </summary>
     [HttpGet("swimlanes")]
-    public async Task<ActionResult<IReadOnlyList<SwimlaneDto>>> GetSwimlanes([FromQuery] Guid? scopeItemId)
+    public async Task<ActionResult<IReadOnlyList<SwimlaneDto>>> GetSwimlanes(
+        [FromQuery] Guid? scopeItemId,
+        [FromQuery] Guid? spaceId)
     {
-        var swimlanes = await _workItems.GetSwimlanesAsync(scopeItemId);
+        var swimlanes = await _workItems.GetSwimlanesAsync(scopeItemId, spaceId);
         return Ok(swimlanes.Select(SwimlaneDto.FromSwimlane));
     }
 
     /// <summary>
-    /// One page of every work item, flat and unscoped, for the Hierarchy and Roadmap views,
-    /// which page until a response comes back shorter than <paramref name="limit"/> — see
-    /// <see cref="IWorkItemService.GetAllAsync"/>.
+    /// One page of every work item in <paramref name="spaceId"/> (or every Space when
+    /// omitted), flat, for the Hierarchy and Roadmap views, which page until a response comes
+    /// back shorter than <paramref name="limit"/> — see <see cref="IWorkItemService.GetAllAsync"/>.
     /// </summary>
     [HttpGet("all")]
     public async Task<ActionResult<IReadOnlyList<WorkItemDto>>> GetAll(
         [FromQuery] int offset = 0,
-        [FromQuery] int limit = WorkItemService.DefaultPageSize)
+        [FromQuery] int limit = WorkItemService.DefaultPageSize,
+        [FromQuery] Guid? spaceId = null)
     {
-        var items = await _workItems.GetAllAsync(offset, limit);
+        var items = await _workItems.GetAllAsync(offset, limit, spaceId);
         return Ok(items.Select(WorkItemDto.FromEntity));
     }
 
@@ -74,7 +80,8 @@ public class WorkItemsController : ControllerBase
             request.StatusId,
             request.AfterId,
             request.LayerId,
-            request.PriorityId);
+            request.PriorityId,
+            request.SpaceId);
 
         var dto = WorkItemDto.FromEntity(item);
         return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);

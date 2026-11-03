@@ -1,5 +1,3 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Weaver.Application.Auth;
 using Weaver.Application.Persistence;
 using Weaver.Domain;
@@ -13,12 +11,6 @@ namespace Weaver.Application.Services;
 /// </summary>
 internal sealed class WorkItemHistoryRecorder
 {
-    /// <summary>The shape the values have in the API: camelCase, enums by name.</summary>
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
-    {
-        Converters = { new JsonStringEnumConverter() },
-    };
-
     private readonly IWeaverDbContext _db;
     private readonly ICallerContext _caller;
 
@@ -29,14 +21,7 @@ internal sealed class WorkItemHistoryRecorder
     }
 
     /// <summary>The current caller, read when an entry is recorded rather than up front.</summary>
-    public HistoryActor CurrentActor
-    {
-        get
-        {
-            var caller = _caller.Current;
-            return HistoryActor.Create(caller.AccountId, caller.ApiKeyId, caller.ActorLabel);
-        }
-    }
+    public HistoryActor CurrentActor => _caller.Current.HistoryActor;
 
     /// <summary>
     /// Rank is left out: it's a card's position in its board cell, which every drag rewrites,
@@ -52,6 +37,18 @@ internal sealed class WorkItemHistoryRecorder
         }
     }
 
+    /// <summary>
+    /// A new item records its creation (with its title) and the Space it was created in, so
+    /// its history says where it started even after a move between Spaces (ticket 16).
+    /// </summary>
+    public void RecordCreation(WorkItem item, HistoryActor actor)
+    {
+        Add(item.Id, actor, WorkItemHistoryField.Created, null, item.Title);
+        Add(item.Id, actor, WorkItemField.SpaceId, null, item.SpaceId);
+    }
+
+    public void RecordCreation(WorkItem item) => RecordCreation(item, CurrentActor);
+
     public void Record(Guid workItemId, string field, object? oldValue, object? newValue) =>
         Add(workItemId, CurrentActor, field, oldValue, newValue);
 
@@ -59,7 +56,6 @@ internal sealed class WorkItemHistoryRecorder
         Add(workItemId, actor, field, oldValue, newValue);
 
     private void Add(Guid workItemId, HistoryActor actor, string field, object? oldValue, object? newValue) =>
-        _db.WorkItemHistory.Add(WorkItemHistoryEntry.Record(workItemId, actor, field, ToJson(oldValue), ToJson(newValue)));
-
-    private static string? ToJson(object? value) => value is null ? null : JsonSerializer.Serialize(value, Json);
+        _db.WorkItemHistory.Add(WorkItemHistoryEntry.Record(
+            workItemId, actor, field, HistoryJson.Serialize(oldValue), HistoryJson.Serialize(newValue)));
 }

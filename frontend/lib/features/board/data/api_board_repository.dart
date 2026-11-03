@@ -7,8 +7,10 @@ import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/swimlane_items.dart';
 import 'package:weaver/shared/data/layer_repository.dart';
+import 'package:weaver/shared/data/space_repository.dart';
 import 'package:weaver/shared/data/status_repository.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
+import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
 
@@ -16,10 +18,8 @@ import 'package:weaver/shared/models/work_item.dart';
 const int allItemsPageSize = 500;
 
 /// Board data backed by the REST API. Swimlanes are the direct children of
-/// whichever scope item [loadBoard] is asked for (the first board's scope
-/// item, or top-level items, by default); each swimlane's cards are that
-/// swimlane's own direct children — mirroring `Board`'s doc comment on the
-/// backend.
+/// whichever scope item [loadBoard] is asked for (or the Space's top-level
+/// items); each swimlane's cards are that swimlane's own direct children.
 @LazySingleton(as: BoardRepository)
 class ApiBoardRepository implements BoardRepository {
   ApiBoardRepository(
@@ -28,12 +28,14 @@ class ApiBoardRepository implements BoardRepository {
     this._statuses,
     this._layers,
     this._users,
+    this._spaces,
   ) : _api = JsonApiClient(client, endpoint);
 
   final JsonApiClient _api;
   final StatusRepository _statuses;
   final LayerRepository _layers;
   final UserDirectoryRepository _users;
+  final SpaceRepository _spaces;
 
   static WorkItem _item(Object? json) =>
       WorkItem.fromJson(json as Map<String, dynamic>);
@@ -44,14 +46,10 @@ class ApiBoardRepository implements BoardRepository {
       _item((json as Map<String, dynamic>)['item']);
 
   @override
-  Future<String?> loadRootScopeItemId() => _api.get('/boards', (json) {
-    final boards = json as List<dynamic>;
-    if (boards.isEmpty) return null;
-    return (boards.first as Map<String, dynamic>)['scopeItemId'] as String?;
-  }, failureMessage: 'Failed to load boards');
+  Future<List<Space>> loadSpaces() => _spaces.loadSpaces();
 
   @override
-  Future<BoardData> loadBoard(String? scopeItemId) async {
+  Future<BoardData> loadBoard(String spaceId, String? scopeItemId) async {
     // Three requests at most (statuses and layers are cached after the
     // first load): /swimlanes returns every lane with its cards, instead of
     // one request per lane.
@@ -60,20 +58,24 @@ class ApiBoardRepository implements BoardRepository {
     final swimlanes = await _api.get(
       '/work-items/swimlanes',
       (json) => JsonApiClient.listOf(json, _toSwimlane),
-      query: scopeItemId == null ? null : {'scopeItemId': scopeItemId},
+      query: {'spaceId': spaceId, 'scopeItemId': ?scopeItemId},
       failureMessage: 'Failed to load the board',
     );
     return BoardData(statuses: statuses, swimlanes: swimlanes, layers: layers);
   }
 
   @override
-  Future<List<WorkItem>> loadAllItems() async {
+  Future<List<WorkItem>> loadAllItems(String spaceId) async {
     final items = <WorkItem>[];
     while (true) {
       final page = await _api.get(
         '/work-items/all',
         (json) => JsonApiClient.listOf(json, WorkItem.fromJson),
-        query: {'offset': '${items.length}', 'limit': '$allItemsPageSize'},
+        query: {
+          'spaceId': spaceId,
+          'offset': '${items.length}',
+          'limit': '$allItemsPageSize',
+        },
         failureMessage: 'Failed to load work items',
       );
       items.addAll(page);
@@ -142,6 +144,7 @@ class ApiBoardRepository implements BoardRepository {
   Future<void> createWorkItem({
     required String title,
     String? description,
+    required String spaceId,
     required String? parentId,
     required String statusId,
   }) => _api.postIgnoringBody('/work-items', {
@@ -149,6 +152,8 @@ class ApiBoardRepository implements BoardRepository {
     'description': description,
     'parentId': parentId,
     'statusId': statusId,
+    // A child joins its parent's Space, so only a top-level item names one.
+    if (parentId == null) 'spaceId': spaceId,
   }, failureMessage: 'Failed to create work item');
 
   @override

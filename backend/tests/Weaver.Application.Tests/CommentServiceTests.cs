@@ -16,6 +16,7 @@ public class CommentServiceTests
     private FakeCallerContext _caller = null!;
     private CommentService _comments = null!;
     private WorkItemService _workItems = null!;
+    private Space _space = null!;
     private Guid _authorId;
     private Guid _otherUserId;
 
@@ -27,6 +28,7 @@ public class CommentServiceTests
         _caller = FakeCallerContext.Anyone();
         _comments = new CommentService(_db, _clock, _caller);
         _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), FakeCallerContext.Anyone());
+        _space = TestSpaces.Add(_db);
 
         var alice = User.CreateHuman("alice", "alice");
         var bob = User.CreateHuman("bob", "bob");
@@ -49,7 +51,7 @@ public class CommentServiceTests
     [Test]
     public async Task CreateAsync_AddsACommentAuthoredByTheCaller()
     {
-        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
 
         var comment = await As(_authorId).CreateAsync(item.Id, "Looks good");
 
@@ -68,7 +70,7 @@ public class CommentServiceTests
     [Test]
     public async Task ListForWorkItemAsync_ReturnsCommentsOldestFirst()
     {
-        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
         var first = await As(_authorId).CreateAsync(item.Id, "First");
         var second = await As(_otherUserId).CreateAsync(item.Id, "Second");
 
@@ -80,7 +82,7 @@ public class CommentServiceTests
     [Test]
     public async Task UpdateAsync_ByTheAuthor_ChangesTheBodyAndSetsUpdatedAtUtc()
     {
-        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
         var comment = await As(_authorId).CreateAsync(item.Id, "Original");
         _clock.Advance(TimeSpan.FromMinutes(5));
 
@@ -94,7 +96,7 @@ public class CommentServiceTests
     [Test]
     public async Task UpdateAsync_ByAnotherUser_ThrowsCommentAuthorMismatchException()
     {
-        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
         var comment = await As(_authorId).CreateAsync(item.Id, "Original");
 
         Assert.ThrowsAsync<CommentAuthorMismatchException>(() =>
@@ -104,7 +106,7 @@ public class CommentServiceTests
     [Test]
     public async Task DeleteAsync_ByTheAuthor_RemovesTheComment()
     {
-        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
         var comment = await As(_authorId).CreateAsync(item.Id, "Original");
 
         await As(_authorId).DeleteAsync(comment.Id);
@@ -115,7 +117,7 @@ public class CommentServiceTests
     [Test]
     public async Task DeleteAsync_ByAnotherUser_ThrowsCommentAuthorMismatchException()
     {
-        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
         var comment = await As(_authorId).CreateAsync(item.Id, "Original");
 
         Assert.ThrowsAsync<CommentAuthorMismatchException>(() =>
@@ -133,7 +135,7 @@ public class CommentServiceTests
     [TestCase("  ")]
     public async Task CreateAsync_WithBlankBody_ThrowsDomainValidationException(string body)
     {
-        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
 
         Assert.ThrowsAsync<DomainValidationException>(() => As(_authorId).CreateAsync(item.Id, body));
     }
@@ -141,7 +143,7 @@ public class CommentServiceTests
     [Test]
     public async Task CreateAsync_WithBodyOverMaxLength_ThrowsDomainValidationException()
     {
-        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
         var body = new string('a', Comment.BodyMaxLength + 1);
 
         Assert.ThrowsAsync<DomainValidationException>(() => As(_authorId).CreateAsync(item.Id, body));
@@ -150,7 +152,7 @@ public class CommentServiceTests
     [Test]
     public async Task UpdateAsync_WithBlankBody_ThrowsAndKeepsTheOriginalBody()
     {
-        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId);
+        var item = await _workItems.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
         var comment = await As(_authorId).CreateAsync(item.Id, "Looks good");
 
         Assert.ThrowsAsync<DomainValidationException>(() => As(_authorId).UpdateAsync(comment.Id, " "));

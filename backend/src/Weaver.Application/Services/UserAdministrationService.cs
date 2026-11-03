@@ -154,7 +154,8 @@ public class UserAdministrationService : IUserAdministrationService
             throw new UserHasCommentsException(user.Username, commentCount);
         }
 
-        if (await _db.WorkItemHistory.AnyAsync(e => e.AccountId == userId, ct))
+        if (await _db.WorkItemHistory.AnyAsync(e => e.AccountId == userId, ct)
+            || await _db.SpaceHistory.AnyAsync(e => e.AccountId == userId, ct))
         {
             throw new UserHasHistoryException(user.Username);
         }

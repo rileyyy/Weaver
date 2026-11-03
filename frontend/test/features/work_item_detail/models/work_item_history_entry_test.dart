@@ -95,6 +95,30 @@ void main() {
       );
     });
 
+    test('the Space an item was created in reads by name', () {
+      expect(
+        _change(
+          _entryJson(field: 'spaceId', newValue: 'space-1', newName: 'Home'),
+        ),
+        'In Space Home',
+      );
+    });
+
+    test('a Space change is labelled Space', () {
+      expect(
+        _change(
+          _entryJson(
+            field: 'spaceId',
+            oldValue: 'space-1',
+            newValue: 'space-2',
+            oldName: 'Home',
+            newName: 'Village',
+          ),
+        ),
+        'Space: Home → Village',
+      );
+    });
+
     test('a When change is labelled When', () {
       expect(
         _change(

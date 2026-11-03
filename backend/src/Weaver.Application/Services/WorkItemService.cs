@@ -25,19 +25,23 @@ public class WorkItemService : IWorkItemService
     public Task<WorkItem?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
         _db.WorkItems.AsNoTracking().FirstOrDefaultAsync(w => w.Id == id, ct);
 
-    public async Task<IReadOnlyList<WorkItem>> GetChildrenAsync(Guid? parentId, CancellationToken ct = default) =>
-        await _db.WorkItems
+    public async Task<IReadOnlyList<WorkItem>> GetChildrenAsync(
+        Guid? parentId,
+        Guid? spaceId = null,
+        CancellationToken ct = default) =>
+        await ChildrenQuery(parentId, spaceId)
             .AsNoTracking()
-            .Where(w => w.ParentId == parentId)
             .OrderBy(w => w.Rank)
             .ThenBy(w => w.Number)
             .ToListAsync(ct);
 
-    public async Task<IReadOnlyList<Swimlane>> GetSwimlanesAsync(Guid? scopeItemId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<Swimlane>> GetSwimlanesAsync(
+        Guid? scopeItemId,
+        Guid? spaceId = null,
+        CancellationToken ct = default)
     {
-        var lanes = await _db.WorkItems
+        var lanes = await ChildrenQuery(scopeItemId, spaceId)
             .AsNoTracking()
-            .Where(w => w.ParentId == scopeItemId)
             .OrderBy(w => w.Rank)
             .ThenBy(w => w.Number)
             .ToListAsync(ct);
@@ -54,7 +58,11 @@ public class WorkItemService : IWorkItemService
         return lanes.Select(lane => new Swimlane(lane, cardsByLane[lane.Id].ToList())).ToList();
     }
 
-    public async Task<IReadOnlyList<WorkItem>> GetAllAsync(int offset, int limit, CancellationToken ct = default)
+    public async Task<IReadOnlyList<WorkItem>> GetAllAsync(
+        int offset,
+        int limit,
+        Guid? spaceId = null,
+        CancellationToken ct = default)
     {
         if (offset < 0)
         {
@@ -66,7 +74,8 @@ public class WorkItemService : IWorkItemService
             throw new DomainValidationException($"Limit must be between 1 and {MaxPageSize}.");
         }
 
-        return await _db.WorkItems
+        var items = spaceId is null ? _db.WorkItems : _db.WorkItems.Where(w => w.SpaceId == spaceId);
+        return await items
             .AsNoTracking()
             .OrderBy(w => w.Rank)
             .ThenBy(w => w.Number)
@@ -83,12 +92,11 @@ public class WorkItemService : IWorkItemService
         Guid? afterId = null,
         Guid? layerId = null,
         Guid? priorityId = null,
+        Guid? spaceId = null,
         CancellationToken ct = default)
     {
-        if (parentId is not null && !await _db.WorkItems.AnyAsync(w => w.Id == parentId, ct))
-        {
-            throw new EntityNotFoundException(nameof(WorkItem), parentId.Value);
-        }
+        var parent = parentId is null ? null : await FindParentAsync(parentId.Value, ct);
+        var itemSpaceId = await ResolveSpaceForNewItemAsync(parent, spaceId, ct);
 
         if (!await _db.Statuses.AnyAsync(s => s.Id == statusId, ct))
         {
@@ -97,13 +105,69 @@ public class WorkItemService : IWorkItemService
 
         await EnsureDetailLookupsExistAsync(layerId, priorityId, ct);
 
-        var rank = await ComputeRankAsync(parentId, statusId, afterId, excludeItemId: null, ct);
-        var item = WorkItem.Create(title, description, parentId, statusId, rank, layerId, priorityId);
+        var rank = await ComputeRankAsync(itemSpaceId, parentId, statusId, afterId, excludeItemId: null, ct);
+        var item = parent is null
+            ? WorkItem.Create(itemSpaceId, title, description, statusId, rank, layerId, priorityId)
+            : WorkItem.CreateChildOf(parent, title, description, statusId, rank, layerId, priorityId);
 
         _db.WorkItems.Add(item);
-        _history.Record(item.Id, WorkItemHistoryField.Created, null, item.Title);
+        _history.RecordCreation(item);
         await _db.SaveChangesAsync(ct);
         return item;
+    }
+
+    /// <summary>
+    /// A top-level item goes in the Space the caller chose; a child always goes in its
+    /// parent's, so naming a different one is a contradiction rather than a request to move.
+    /// </summary>
+    private async Task<Guid> ResolveSpaceForNewItemAsync(WorkItem? parent, Guid? spaceId, CancellationToken ct)
+    {
+        if (parent is not null)
+        {
+            if (spaceId is not null && spaceId != parent.SpaceId)
+            {
+                throw new DomainValidationException(
+                    $"A child is created in its parent's Space ({parent.SpaceId}); leave the Space out or send that one.");
+            }
+
+            return parent.SpaceId;
+        }
+
+        if (spaceId is not { } chosen)
+        {
+            throw new DomainValidationException("A top-level work item needs a Space.");
+        }
+
+        if (!await _db.Spaces.AnyAsync(s => s.Id == chosen, ct))
+        {
+            throw new EntityNotFoundException(nameof(Space), chosen);
+        }
+
+        return chosen;
+    }
+
+    private async Task<WorkItem> FindParentAsync(Guid parentId, CancellationToken ct) =>
+        await _db.WorkItems.AsNoTracking().FirstOrDefaultAsync(w => w.Id == parentId, ct)
+            ?? throw new EntityNotFoundException(nameof(WorkItem), parentId);
+
+    /// <summary>
+    /// The direct children of <paramref name="parentId"/>, or the top level of
+    /// <paramref name="spaceId"/> when there's no parent: top-level items only mean something
+    /// within one Space.
+    /// </summary>
+    private IQueryable<WorkItem> ChildrenQuery(Guid? parentId, Guid? spaceId)
+    {
+        if (parentId is not null)
+        {
+            return _db.WorkItems.Where(w => w.ParentId == parentId);
+        }
+
+        if (spaceId is null)
+        {
+            throw new DomainValidationException("Give a parent, or a Space to list its top-level work items.");
+        }
+
+        return _db.WorkItems.Where(w => w.SpaceId == spaceId && w.ParentId == null);
     }
 
     public async Task<WorkItemWriteResult> ChangeStatusAsync(
@@ -120,7 +184,7 @@ public class WorkItemService : IWorkItemService
             throw new EntityNotFoundException(nameof(Status), newStatusId);
         }
 
-        var rank = await ComputeRankAsync(item.ParentId, newStatusId, afterId, excludeItemId: id, ct);
+        var rank = await ComputeRankAsync(item.SpaceId, item.ParentId, newStatusId, afterId, excludeItemId: id, ct);
         return await SaveWriteAsync(item, item.MoveToStatus(newStatusId, rank), ct);
     }
 
@@ -133,6 +197,7 @@ public class WorkItemService : IWorkItemService
     {
         var item = await FindForWriteAsync(id, expectedVersion, ct);
 
+        WorkItem? newParent = null;
         if (newParentId is not null)
         {
             if (await _hierarchy.IsSelfOrDescendantAsync(id, newParentId.Value, ct))
@@ -140,14 +205,12 @@ public class WorkItemService : IWorkItemService
                 throw new CyclicParentException(id, newParentId.Value);
             }
 
-            if (!await _db.WorkItems.AnyAsync(w => w.Id == newParentId, ct))
-            {
-                throw new EntityNotFoundException(nameof(WorkItem), newParentId.Value);
-            }
+            newParent = await FindParentAsync(newParentId.Value, ct);
         }
 
-        var rank = await ComputeRankAsync(newParentId, item.StatusId, afterId, excludeItemId: id, ct);
-        return await SaveWriteAsync(item, item.MoveToParent(newParentId, rank), ct);
+        item.EnsureCanMoveUnder(newParent);
+        var rank = await ComputeRankAsync(item.SpaceId, newParentId, item.StatusId, afterId, excludeItemId: id, ct);
+        return await SaveWriteAsync(item, item.MoveToParent(newParent, rank), ct);
     }
 
     public async Task<WorkItemWriteResult> RescheduleAsync(
@@ -216,7 +279,6 @@ public class WorkItemService : IWorkItemService
         }
 
         var deletedIds = descendants.Select(w => w.Id).Append(id).ToList();
-        await EnsureNotBoardScopeAsync(id, deletedIds, ct);
 
         // Link FKs are Restrict (two Cascade paths to WorkItems is rejected by
         // EF), so links touching the deleted subtree must be removed explicitly
@@ -254,23 +316,6 @@ public class WorkItemService : IWorkItemService
             {
                 _history.Record(link.LinkedWorkItemId, WorkItemHistoryField.Link, link.WorkItemId, null);
             }
-        }
-    }
-
-    /// <summary>
-    /// A board is a saved view other users rely on, so deleting its scope item is rejected
-    /// rather than silently deleting the board or widening it to top-level.
-    /// </summary>
-    private async Task EnsureNotBoardScopeAsync(Guid rootId, IReadOnlyList<Guid> deletedIds, CancellationToken ct)
-    {
-        var scopedBoardId = await _db.Boards
-            .Where(b => b.ScopeItemId != null && deletedIds.Contains(b.ScopeItemId.Value))
-            .Select(b => (Guid?)b.Id)
-            .FirstOrDefaultAsync(ct);
-
-        if (scopedBoardId is not null)
-        {
-            throw new WorkItemIsBoardScopeException(rootId, scopedBoardId.Value);
         }
     }
 
@@ -333,13 +378,14 @@ public class WorkItemService : IWorkItemService
     /// cell is loaded only when two neighbours share a rank and have to be respaced.
     /// </summary>
     private async Task<double> ComputeRankAsync(
+        Guid spaceId,
         Guid? parentId,
         Guid statusId,
         Guid? afterId,
         Guid? excludeItemId,
         CancellationToken ct)
     {
-        var cell = CellQuery(parentId, statusId, excludeItemId);
+        var cell = CellQuery(spaceId, parentId, statusId, excludeItemId);
 
         if (afterId is null)
         {
@@ -368,9 +414,13 @@ public class WorkItemService : IWorkItemService
         return RankCalculator.GetRankBetween(afterRank, nextRank);
     }
 
-    private IQueryable<WorkItem> CellQuery(Guid? parentId, Guid statusId, Guid? excludeItemId)
+    /// <summary>
+    /// A cell is per Space as well as per parent and status, so each Space's top-level items
+    /// rank among themselves.
+    /// </summary>
+    private IQueryable<WorkItem> CellQuery(Guid spaceId, Guid? parentId, Guid statusId, Guid? excludeItemId)
     {
-        var query = _db.WorkItems.Where(w => w.ParentId == parentId && w.StatusId == statusId);
+        var query = _db.WorkItems.Where(w => w.SpaceId == spaceId && w.ParentId == parentId && w.StatusId == statusId);
         return excludeItemId is null ? query : query.Where(w => w.Id != excludeItemId);
     }
 

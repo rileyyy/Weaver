@@ -5,6 +5,7 @@ namespace Weaver.Api.Contracts;
 public record WorkItemDto(
     Guid Id,
     int Number,
+    Guid SpaceId,
     Guid? ParentId,
     string Title,
     string? Description,
@@ -27,6 +28,7 @@ public record WorkItemDto(
     public static WorkItemDto FromEntity(WorkItem item) => new(
         item.Id,
         item.Number,
+        item.SpaceId,
         item.ParentId,
         item.Title,
         item.Description,

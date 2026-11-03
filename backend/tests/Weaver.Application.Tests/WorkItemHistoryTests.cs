@@ -22,6 +22,7 @@ public class WorkItemHistoryTests
     private WorkItemService _workItems = null!;
     private WorkItemHistoryService _history = null!;
     private User _alice = null!;
+    private Space _home = null!;
 
     [SetUp]
     public void SetUp()
@@ -29,6 +30,7 @@ public class WorkItemHistoryTests
         _clock = new FixedTimeProvider(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
         _db = TestDatabase.Create(_clock);
         _alice = TestUsers.Add(_db, "alice");
+        _home = TestSpaces.Add(_db, "Home");
         _caller = new FakeCallerContext(_alice.Id);
         _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), _caller);
         _history = new WorkItemHistoryService(_db);
@@ -42,7 +44,7 @@ public class WorkItemHistoryTests
     {
         var item = await CreateAsync("Write the tests");
 
-        var entry = (await _history.ListForWorkItemAsync(item.Id)).Single();
+        var entry = await CreatedEntryAsync(item.Id);
 
         Assert.Multiple(() =>
         {
@@ -56,6 +58,25 @@ public class WorkItemHistoryTests
     }
 
     [Test]
+    public async Task Create_RecordsTheItemsSpace_NamedForReaders()
+    {
+        var item = await CreateAsync("Write the tests");
+        var child = await CreateAsync("Sub-task", item.Id);
+
+        var entries = await _history.ListForWorkItemAsync(child.Id);
+
+        var space = entries.Single(e => e.Field == WorkItemField.SpaceId);
+        Assert.Multiple(() =>
+        {
+            Assert.That(entries.Select(e => e.Field), Is.EqualTo(new[] { WorkItemField.SpaceId, WorkItemHistoryField.Created }));
+            Assert.That(space.OldValue, Is.Null);
+            Assert.That(space.NewValue?.GetGuid(), Is.EqualTo(_home.Id));
+            Assert.That(space.NewName, Is.EqualTo("Home"));
+            Assert.That(space.AccountId, Is.EqualTo(_alice.Id));
+        });
+    }
+
+    [Test]
     public async Task Write_RecordsTheApiKeyAndTrimmedActorLabelTheCallerSent()
     {
         var keyId = Guid.NewGuid();
@@ -63,7 +84,7 @@ public class WorkItemHistoryTests
 
         var item = await CreateAsync("Task");
 
-        var entry = (await _history.ListForWorkItemAsync(item.Id)).Single();
+        var entry = await CreatedEntryAsync(item.Id);
         Assert.Multiple(() =>
         {
             Assert.That(entry.ApiKeyId, Is.EqualTo(keyId));
@@ -329,8 +350,9 @@ public class WorkItemHistoryTests
         await recurrences.GenerateDueAsync();
 
         var generated = _db.WorkItems.Single(w => w.RecurrenceSourceId == item.Id && w.Id != setUpOccurrence.Id);
-        var byCaller = (await _history.ListForWorkItemAsync(setUpOccurrence.Id)).Single();
-        var bySystem = (await _history.ListForWorkItemAsync(generated.Id)).Single();
+        var byCaller = await CreatedEntryAsync(setUpOccurrence.Id);
+        var bySystem = await CreatedEntryAsync(generated.Id);
+        var systemSpace = (await _history.ListForWorkItemAsync(generated.Id)).Single(e => e.Field == WorkItemField.SpaceId);
         Assert.Multiple(() =>
         {
             Assert.That(byCaller.Field, Is.EqualTo(WorkItemHistoryField.Created));
@@ -338,6 +360,8 @@ public class WorkItemHistoryTests
             Assert.That(bySystem.Field, Is.EqualTo(WorkItemHistoryField.Created));
             Assert.That(bySystem.AccountId, Is.Null);
             Assert.That(bySystem.NewValue?.GetString(), Is.EqualTo("Report"));
+            Assert.That(systemSpace.AccountId, Is.Null);
+            Assert.That(systemSpace.NewValue?.GetGuid(), Is.EqualTo(_home.Id));
         });
     }
 
@@ -431,12 +455,18 @@ public class WorkItemHistoryTests
         _caller);
 
     private Task<WorkItem> CreateAsync(string title, Guid? parentId = null) =>
-        _workItems.CreateAsync(title, null, parentId, StatusConfiguration.ToDoId);
+        _workItems.CreateAsync(title, null, parentId, StatusConfiguration.ToDoId, spaceId: parentId is null ? _home.Id : null);
 
-    /// <summary>The entries after "created", newest first, as (field, old JSON, new JSON).</summary>
+    private async Task<WorkItemHistoryView> CreatedEntryAsync(Guid workItemId) =>
+        (await _history.ListForWorkItemAsync(workItemId)).Single(e => e.Field == WorkItemHistoryField.Created);
+
+    /// <summary>
+    /// The entries after the two that creating the item records ("created" and its Space),
+    /// newest first, as (field, old JSON, new JSON).
+    /// </summary>
     private async Task<IReadOnlyList<(string Field, string? Old, string? New)>> ChangesAsync(Guid workItemId) =>
         (await _history.ListForWorkItemAsync(workItemId))
-        .Where(e => e.Field != WorkItemHistoryField.Created)
+        .SkipLast(2)
         .Select(e => (e.Field, e.OldValue?.GetRawText(), e.NewValue?.GetRawText()))
         .ToList();
 }

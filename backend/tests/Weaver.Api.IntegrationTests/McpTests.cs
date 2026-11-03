@@ -114,6 +114,7 @@ public class McpTests
         {
             ["title"] = "Not allowed",
             ["statusId"] = SeededStatuses.ToDo,
+            ["spaceId"] = await ApiClient.SharedSpaceIdAsync(),
         });
         var delete = await mcp.CallToolAsync("delete_work_item", new Dictionary<string, object?> { ["id"] = item.Id });
         var stillThere = await human.GetAsync($"/api/work-items/{item.Id}");
@@ -154,6 +155,7 @@ public class McpTests
         {
             ["title"] = "Written over MCP",
             ["statusId"] = SeededStatuses.ToDo,
+            ["spaceId"] = await ApiClient.SharedSpaceIdAsync(),
         });
         var created = JsonSerializer.Deserialize<WorkItemDto>(TextOf(create), ApiClient.Json)!;
         var delete = await mcp.CallToolAsync("delete_work_item", new Dictionary<string, object?> { ["id"] = created.Id });
@@ -187,7 +189,7 @@ public class McpTests
     }
 
     // Agents never change admin data (ADR-0004). AdminAuthorizer refuses them anyway, but no MCP
-    // tool should offer the change: every write is on work items, their comments, or boards.
+    // tool should offer the change: every write is on work items or their comments.
     [Test]
     public async Task Mcp_OffersAReadWriteAgentNoAdminWriteTools()
     {
@@ -202,7 +204,7 @@ public class McpTests
             Assert.That(writes, Does.Contain("create_work_item"));
             Assert.That(
                 writes,
-                Has.All.Matches<string>(n => n.Contains("work_item") || n.EndsWith("_comment") || n.EndsWith("_board")));
+                Has.All.Matches<string>(n => n.Contains("work_item") || n.EndsWith("_comment")));
         });
     }
 

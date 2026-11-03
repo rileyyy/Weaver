@@ -23,7 +23,7 @@ public static class DependencyInjection
             .AddScoped<ICommentService, CommentService>()
             .AddScoped<IWorkItemLinkService, WorkItemLinkService>()
             .AddScoped<IWorkItemHistoryService, WorkItemHistoryService>()
-            .AddScoped<IBoardService, BoardService>()
+            .AddScoped<ISpaceService, SpaceService>()
             .AddScoped<IStatusService, StatusService>()
             .AddScoped<IWorkItemLayerService, WorkItemLayerService>()
             .AddScoped<IWorkItemPriorityService, WorkItemPriorityService>()

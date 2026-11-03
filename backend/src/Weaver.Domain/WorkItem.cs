@@ -3,10 +3,10 @@ using Weaver.Domain.Exceptions;
 namespace Weaver.Domain;
 
 /// <summary>
-/// A node in the work item tree. State changes go through methods so the rules below hold
-/// for every caller (REST, MCP, background work), not just the ones a service remembers to
-/// check. Rules that need other rows (cycle detection, existence of the new parent, rank
-/// neighbours) stay in the service, which then calls these methods.
+/// A node in a work item tree, inside one <see cref="Space"/>. State changes go through
+/// methods so the rules below hold for every caller (REST, MCP, background work), not just the
+/// ones a service remembers to check. Rules that need other rows (cycle detection, existence
+/// of the new parent, rank neighbours) stay in the service, which then calls these methods.
 /// </summary>
 public class WorkItem : IHasUpdatedAt
 {
@@ -33,6 +33,12 @@ public class WorkItem : IHasUpdatedAt
     /// purely for display.
     /// </summary>
     public int Number { get; private set; }
+
+    /// <summary>
+    /// The Space the item belongs to. A top-level item is created in a chosen Space and every
+    /// descendant shares it; reparenting can't change it (ADR-0001).
+    /// </summary>
+    public Guid SpaceId { get; private set; }
 
     public Guid? ParentId { get; private set; }
 
@@ -107,6 +113,8 @@ public class WorkItem : IHasUpdatedAt
 
     public uint Version { get; private set; }
 
+    public Space? Space { get; private set; }
+
     public WorkItem? Parent { get; private set; }
 
     public ICollection<WorkItem> Children { get; private set; } = new List<WorkItem>();
@@ -121,20 +129,44 @@ public class WorkItem : IHasUpdatedAt
 
     public WorkItem? RecurrenceSource { get; private set; }
 
+    /// <summary>A top-level item in <paramref name="spaceId"/>.</summary>
     public static WorkItem Create(
+        Guid spaceId,
         string title,
         string? description,
-        Guid? parentId,
         Guid statusId,
         double rank,
         Guid? layerId = null,
-        Guid? priorityId = null)
+        Guid? priorityId = null) =>
+        New(spaceId, null, title, description, statusId, rank, layerId, priorityId);
+
+    /// <summary>A child of <paramref name="parent"/>, in the parent's Space.</summary>
+    public static WorkItem CreateChildOf(
+        WorkItem parent,
+        string title,
+        string? description,
+        Guid statusId,
+        double rank,
+        Guid? layerId = null,
+        Guid? priorityId = null) =>
+        New(parent.SpaceId, parent.Id, title, description, statusId, rank, layerId, priorityId);
+
+    private static WorkItem New(
+        Guid spaceId,
+        Guid? parentId,
+        string title,
+        string? description,
+        Guid statusId,
+        double rank,
+        Guid? layerId,
+        Guid? priorityId)
     {
         TextValidation.RequireText(title, "Title", TitleMaxLength);
 
         return new WorkItem
         {
             Id = Guid.NewGuid(),
+            SpaceId = spaceId,
             ParentId = parentId,
             StatusId = statusId,
             Rank = rank,
@@ -211,21 +243,36 @@ public class WorkItem : IHasUpdatedAt
     }
 
     /// <summary>
-    /// Moves the item under another parent, keeping its status. The caller must already have
-    /// checked the new parent isn't one of this item's descendants; an item being its own
-    /// parent is rejected here.
+    /// Moves the item under another parent (or to the top level of its Space when
+    /// <paramref name="parent"/> is null), keeping its status and Space. The caller must
+    /// already have checked the new parent isn't one of this item's descendants; an item being
+    /// its own parent, or a parent in another Space, is rejected here.
     /// </summary>
-    public IReadOnlyList<FieldChange> MoveToParent(Guid? parentId, double rank)
+    public IReadOnlyList<FieldChange> MoveToParent(WorkItem? parent, double rank)
     {
-        if (parentId == Id)
+        EnsureCanMoveUnder(parent);
+
+        var changed = new ChangedFields();
+        ParentId = changed.Set(WorkItemField.ParentId, ParentId, parent?.Id);
+        Rank = changed.Set(WorkItemField.Rank, Rank, rank);
+        return changed.Changes;
+    }
+
+    /// <summary>
+    /// The checks <see cref="MoveToParent"/> makes, for a caller that wants to reject a move
+    /// before working out where in the new cell the item goes.
+    /// </summary>
+    public void EnsureCanMoveUnder(WorkItem? parent)
+    {
+        if (parent?.Id == Id)
         {
             throw new CyclicParentException(Id, Id);
         }
 
-        var changed = new ChangedFields();
-        ParentId = changed.Set(WorkItemField.ParentId, ParentId, parentId);
-        Rank = changed.Set(WorkItemField.Rank, Rank, rank);
-        return changed.Changes;
+        if (parent is not null && parent.SpaceId != SpaceId)
+        {
+            throw new CrossSpaceParentException(Id, parent.Id);
+        }
     }
 
     /// <summary>Changes the item's place within its current board cell.</summary>
@@ -263,12 +310,14 @@ public class WorkItem : IHasUpdatedAt
 
     /// <summary>
     /// A copy of this item for one occurrence of a repetition: same descriptive fields,
-    /// assignee and tags, placed under <paramref name="parentId"/> and scheduled on
-    /// <paramref name="date"/>. Comments, links, schedule and repetition are not copied.
+    /// assignee, tags and Space, placed under <paramref name="parentId"/> and scheduled on
+    /// <paramref name="date"/>. Comments, links, schedule and repetition are not copied. The
+    /// caller places it under the template's parent or a copy of one of its descendants, so
+    /// the copy's Space matches its parent's.
     /// </summary>
     public WorkItem CopyForOccurrence(Guid? parentId, Guid statusId, double rank, DateOnly date)
     {
-        var copy = Create(Title, Description, parentId, statusId, rank, LayerId, PriorityId);
+        var copy = New(SpaceId, parentId, Title, Description, statusId, rank, LayerId, PriorityId);
         copy.AssignedToUserId = AssignedToUserId;
         copy._tags = [.. _tags];
         copy.When = When;

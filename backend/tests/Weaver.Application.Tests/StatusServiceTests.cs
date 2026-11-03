@@ -102,14 +102,28 @@ public class StatusServiceTests
     }
 
     [Test]
+    public async Task DeleteAsync_MovingTopLevelItems_AppendsThemWithinTheirOwnSpace()
+    {
+        var home = Guid.NewGuid();
+        var village = Guid.NewGuid();
+        AddItem(null, StatusConfiguration.DoneId, 100, home);
+        var villageDoing = AddItem(null, StatusConfiguration.DoingId, 1, village);
+
+        await _statuses.DeleteAsync(_admin.Id, StatusConfiguration.DoingId, StatusConfiguration.DoneId);
+
+        Assert.That((await Reload(villageDoing)).Rank, Is.EqualTo(1).Within(double.Epsilon),
+            "Village's top-level Done cell was empty; Home's ranks belong to another cell");
+    }
+
+    [Test]
     public async Task DeleteAsync_WithAReplacement_AppendsMovedItemsToEachLanesColumnInOrder()
     {
         var lane = AddItem(null, StatusConfiguration.ToDoId, 1);
-        var existingDone = AddItem(lane.Id, StatusConfiguration.DoneId, 5);
-        var firstDoing = AddItem(lane.Id, StatusConfiguration.DoingId, 1);
-        var secondDoing = AddItem(lane.Id, StatusConfiguration.DoingId, 2);
+        var existingDone = AddItem(lane, StatusConfiguration.DoneId, 5);
+        var firstDoing = AddItem(lane, StatusConfiguration.DoingId, 1);
+        var secondDoing = AddItem(lane, StatusConfiguration.DoingId, 2);
         var otherLane = AddItem(null, StatusConfiguration.ToDoId, 2);
-        var otherLaneDoing = AddItem(otherLane.Id, StatusConfiguration.DoingId, 1);
+        var otherLaneDoing = AddItem(otherLane, StatusConfiguration.DoingId, 1);
 
         await _statuses.DeleteAsync(_admin.Id, StatusConfiguration.DoingId, StatusConfiguration.DoneId);
 
@@ -136,9 +150,11 @@ public class StatusServiceTests
         Assert.ThrowsAsync<LastLookupValueException>(() => _statuses.DeleteAsync(_admin.Id, StatusConfiguration.ToDoId, null));
     }
 
-    private WorkItem AddItem(Guid? parentId, Guid statusId, double rank)
+    private WorkItem AddItem(WorkItem? parent, Guid statusId, double rank, Guid? spaceId = null)
     {
-        var item = WorkItem.Create("Item", null, parentId, statusId, rank);
+        var item = parent is null
+            ? WorkItem.Create(spaceId ?? Guid.NewGuid(), "Item", null, statusId, rank)
+            : WorkItem.CreateChildOf(parent, "Item", null, statusId, rank);
         _db.WorkItems.Add(item);
         _db.SaveChanges();
         return item;

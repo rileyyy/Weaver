@@ -35,6 +35,7 @@ WorkItem _item({
 }) => WorkItem(
   number: 1,
   id: id,
+  spaceId: 'home',
   parentId: null,
   title: title,
   description: description,

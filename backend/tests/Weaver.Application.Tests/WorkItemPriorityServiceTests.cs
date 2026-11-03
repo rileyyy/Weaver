@@ -258,7 +258,7 @@ public class WorkItemPriorityServiceTests
 
     private WorkItem AddItem(Guid priorityId)
     {
-        var item = WorkItem.Create("Item", null, null, StatusConfiguration.ToDoId, 1, priorityId: priorityId);
+        var item = WorkItem.Create(Guid.NewGuid(), "Item", null, StatusConfiguration.ToDoId, 1, priorityId: priorityId);
         _db.WorkItems.Add(item);
         _db.SaveChanges();
         return item;
