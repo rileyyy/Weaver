@@ -9,7 +9,6 @@
 // coverage:ignore-file
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:http/http.dart' as _i519;
 import 'package:injectable/injectable.dart' as _i526;
@@ -77,6 +76,7 @@ import 'package:weaver/shared/data/current_user.dart' as _i875;
 import 'package:weaver/shared/data/layer_repository.dart' as _i0;
 import 'package:weaver/shared/data/status_repository.dart' as _i770;
 import 'package:weaver/shared/data/user_directory_repository.dart' as _i562;
+import 'package:weaver/shared/data/work_item_store.dart' as _i723;
 import 'package:weaver/shared/recurrence/data/api_recurrence_repository.dart'
     as _i919;
 import 'package:weaver/shared/recurrence/data/recurrence_repository.dart'
@@ -90,6 +90,7 @@ extension GetItInjectableX on _i174.GetIt {
   }) {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
     final networkModule = _$NetworkModule();
+    gh.lazySingleton<_i723.WorkItemStore>(() => _i723.WorkItemStore());
     gh.lazySingleton<_i54.SecureTokenStore>(
       () => _i347.FlutterSecureTokenStore(),
     );
@@ -190,6 +191,13 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i60.RepeatSettingsViewModel>(
       () => _i60.RepeatSettingsViewModel(gh<_i65.RecurrenceRepository>()),
     );
+    gh.factory<_i194.WorkItemDetailViewModel>(
+      () => _i194.WorkItemDetailViewModel(
+        gh<_i982.WorkItemDetailRepository>(),
+        gh<_i875.CurrentUser>(),
+        gh<_i723.WorkItemStore>(),
+      ),
+    );
     gh.lazySingleton<_i377.LookupAdminRepository>(
       () => _i427.ApiLookupAdminRepository(
         gh<_i519.Client>(),
@@ -236,12 +244,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i300.ServerSettingsAdminRepository>(),
       ),
     );
-    gh.factory<_i194.WorkItemDetailViewModel>(
-      () => _i194.WorkItemDetailViewModel(
-        gh<_i982.WorkItemDetailRepository>(),
-        gh<_i875.CurrentUser>(),
-      ),
-    );
     gh.factory<_i486.UserAdminViewModel>(
       () => _i486.UserAdminViewModel(
         gh<_i290.UserAdminRepository>(),
@@ -252,11 +254,14 @@ extension GetItInjectableX on _i174.GetIt {
       (agentId, _) =>
           _i841.AgentKeysViewModel(gh<_i6.AgentAdminRepository>(), agentId),
     );
+    gh.factory<_i314.BoardViewModel>(
+      () => _i314.BoardViewModel(
+        gh<_i522.BoardRepository>(),
+        gh<_i723.WorkItemStore>(),
+      ),
+    );
     gh.factory<_i609.StatusAdminViewModel>(
       () => _i609.StatusAdminViewModel(gh<_i224.StatusAdminRepository>()),
-    );
-    gh.factory<_i314.BoardViewModel>(
-      () => _i314.BoardViewModel(gh<_i522.BoardRepository>()),
     );
     return this;
   }

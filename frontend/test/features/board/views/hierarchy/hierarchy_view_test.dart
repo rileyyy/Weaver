@@ -3,12 +3,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
-import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/views/hierarchy/hierarchy_layout.dart';
 import 'package:weaver/features/board/views/hierarchy/hierarchy_view.dart';
+import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
+
+import '../../../../shared/fakes/work_items.dart';
 
 const _projectColor = Color(0xFFD81B60);
 
@@ -31,9 +34,9 @@ class _HierarchyOnlyRepository implements BoardRepository {
   );
 
   @override
-  Future<List<HierarchyItem>> loadAllItems() async => const [
-    HierarchyItem(
-      id: 'root',
+  Future<List<WorkItem>> loadAllItems() async => [
+    workItem(
+      'root',
       number: 1,
       parentId: null,
       title: 'A root item with a fairly long title',
@@ -41,8 +44,8 @@ class _HierarchyOnlyRepository implements BoardRepository {
       layerId: 'project',
       tags: ['urgent', 'design'],
     ),
-    HierarchyItem(
-      id: 'child',
+    workItem(
+      'child',
       number: 2,
       parentId: 'root',
       title: 'Child',
@@ -59,7 +62,10 @@ class _HierarchyOnlyRepository implements BoardRepository {
 
 void main() {
   testWidgets("a title is underlined in its layer's colour", (tester) async {
-    final viewModel = BoardViewModel(_HierarchyOnlyRepository());
+    final viewModel = BoardViewModel(
+      _HierarchyOnlyRepository(),
+      WorkItemStore(),
+    );
     await viewModel.load();
     await viewModel.loadHierarchy();
 
@@ -91,7 +97,10 @@ void main() {
     tester.view.physicalSize = const Size(400, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final viewModel = BoardViewModel(_HierarchyOnlyRepository());
+    final viewModel = BoardViewModel(
+      _HierarchyOnlyRepository(),
+      WorkItemStore(),
+    );
     await viewModel.load();
     await viewModel.loadHierarchy();
 
@@ -126,7 +135,10 @@ void main() {
       tester.view.physicalSize = const Size(1400, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      final viewModel = BoardViewModel(_HierarchyOnlyRepository());
+      final viewModel = BoardViewModel(
+        _HierarchyOnlyRepository(),
+        WorkItemStore(),
+      );
       await viewModel.load();
       await viewModel.loadHierarchy();
 

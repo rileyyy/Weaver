@@ -888,23 +888,43 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   `_hierarchyGeneration`. A load's result, and the clearing of its
   spinner, is only applied if no newer load started meanwhile, so a slow
   older response can't overwrite a newer scope.
-- **Optimistic mutations go through `_optimistic`** (apply, persist,
-  revert lanes, revert hierarchy). The revert undoes only that one item's
-  change by id, and is skipped if the lanes or hierarchy were reloaded
-  since. Restoring a whole-list snapshot, as before, could undo a
-  different change that had succeeded in the meantime. Moves, reparents,
-  reschedules, assigns and tag changes update both the swimlane cards and
-  the Hierarchy/Roadmap items.
-- **The detail dialog reports whether it changed anything.**
-  `showWorkItemDetailDialog` returns `true` if a field, tag, schedule or
-  assignee was saved, the item was deleted, or a nested sub-item dialog
-  reported a change. The board then refreshes the current scope and, if
-  loaded, the hierarchy. Detail edits go through
-  `WorkItemDetailRepository`, not `BoardViewModel`, so without this the
-  board showed stale data. After "View sub-items" only the hierarchy is
+- **Items live once, in `WorkItemStore`** (`lib/shared/data/`, a lazy
+  singleton). The board keeps only its layout: lanes, card order within
+  them, and which ids the Hierarchy/Roadmap show. It draws every card, lane
+  label and Hierarchy row from the store and redraws whenever the store
+  notifies, so an edit made anywhere shows on every layout. A new
+  work-item field goes on the shared `WorkItem` model only.
+- **Every write goes through `WorkItemStore.write`**, which takes the
+  `expectedVersion` from the stored copy and keeps the item the server
+  returns.
+  - Optimistic edits sit on top of the server copy rather than replacing
+    it, so a failed one is dropped without undoing any other edit.
+  - Writes to one item go one at a time, each with the version the
+    previous answer returned: `xmin` moves on every update, so a second
+    write sent early would be rejected as stale. Other items aren't held
+    up.
+  - A 409 reloads just that item (`WorkItemConflict.latest`), and the
+    writes already queued behind it fail without being sent, since they
+    were made against the stale copy. The board then puts the card where
+    the reloaded copy says (another lane, or off the board) and says
+    someone else changed it first.
+  - Loads pass `asOf: store.revision` read before they started, so a slow
+    load can't put back an older copy of an item saved meanwhile.
+- **Card position is the board's own optimistic state** (`_save`'s
+  `applyLayout`/`revertLayout`). The revert undoes only that card's move
+  by id, and is skipped if the scope was reloaded since. Restoring a
+  whole-list snapshot, as before, could undo a different move that had
+  succeeded in the meantime.
+- **The detail dialog reads and saves its item through the store**, so
+  its saves are queued and versioned like the board's, and a delete
+  removes the item from the store, which every layout then drops.
+  `showWorkItemDetailDialog` only returns `true` for changes the store
+  can't carry: repeat settings, which can create items, saved here or in a
+  nested dialog. The board then refreshes the current scope and, if
+  loaded, the hierarchy. After "View sub-items" only the hierarchy is
   refreshed: the drill-in already loads the new scope, and refreshing the
-  old one would be the newer load and cancel it. The longer-term fix is a
-  shared per-item store both features read from.
+  old one would be the newer load and cancel it. A parent dialog reloads
+  its Sub-Items list whenever a nested dialog closes.
 
 ### Admin page
 

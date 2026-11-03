@@ -1,15 +1,15 @@
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
 abstract class WorkItemDetailRepository {
-  Future<WorkItemDetail> getItem(String id);
+  Future<WorkItem> getItem(String id);
 
   /// This item's direct children, for the detail screen's "Sub-Items"
   /// section — the same `parentId`-scoped `/work-items` query the board
@@ -33,10 +33,10 @@ abstract class WorkItemDetailRepository {
 
   Future<List<User>> loadUsers();
 
-  /// [expectedVersion] is the [WorkItemDetail.version] the edit was based
+  /// [expectedVersion] is the [WorkItem.version] the edit was based
   /// on; the save fails with a 409 [ApiException] if the item has changed
   /// since. Every write here takes one, including [deleteItem].
-  Future<WorkItemDetail> updateDetails(
+  Future<WorkItem> updateDetails(
     String id, {
     required String title,
     required String? description,
@@ -48,19 +48,19 @@ abstract class WorkItemDetailRepository {
   /// Saves just the description, leaving the title, layer and priority as
   /// they are on the server, for edits that don't come from the details
   /// form (ticking a task).
-  Future<WorkItemDetail> updateDescription(
+  Future<WorkItem> updateDescription(
     String id,
     String description, {
     required int expectedVersion,
   });
 
-  Future<WorkItemDetail> assign(
+  Future<WorkItem> assign(
     String id,
     String? userId, {
     required int expectedVersion,
   });
 
-  Future<WorkItemDetail> reschedule(
+  Future<WorkItem> reschedule(
     String id,
     DateTime? startDate,
     DateTime? endDate, {
@@ -68,7 +68,7 @@ abstract class WorkItemDetailRepository {
   });
 
   /// Replaces this work item's full tag list.
-  Future<WorkItemDetail> updateTags(
+  Future<WorkItem> updateTags(
     String id,
     List<String> tags, {
     required int expectedVersion,

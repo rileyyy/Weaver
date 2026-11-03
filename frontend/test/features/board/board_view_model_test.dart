@@ -9,32 +9,35 @@ import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/card_sort_option.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/scope_crumb.dart';
-import 'package:weaver/features/board/models/swimlane.dart';
+import 'package:weaver/features/board/models/swimlane_items.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
+import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
+import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
+
+import '../../shared/fakes/work_items.dart';
 
 const _todoColor = Color(0xFF1E88E5);
 
 const _taskColor = Color(0xFF43A047);
 
-const _rootBoard = BoardData(
-  layers: [
+final _rootBoard = BoardData(
+  layers: const [
     WorkItemLayer(id: 'task', name: 'Task', order: 0, color: _taskColor),
   ],
-  statuses: [
+  statuses: const [
     WorkItemStatus(id: 'done', name: 'Done', order: 1),
     WorkItemStatus(id: 'todo', name: 'To Do', order: 0, color: _todoColor),
   ],
   swimlanes: [
-    Swimlane(
-      parentId: 'lane-a',
-      title: 'Lane A',
+    SwimlaneItems(
+      lane: workItem('lane-a', title: 'Lane A'),
       cards: [
-        WorkItemCard(
-          id: 'card-1',
+        workItem(
+          'card-1',
           number: 1,
           title: 'Card 1',
           parentId: 'lane-a',
@@ -42,12 +45,11 @@ const _rootBoard = BoardData(
         ),
       ],
     ),
-    Swimlane(
-      parentId: 'lane-b',
-      title: 'Lane B',
+    SwimlaneItems(
+      lane: workItem('lane-b', title: 'Lane B'),
       cards: [
-        WorkItemCard(
-          id: 'card-2',
+        workItem(
+          'card-2',
           number: 2,
           title: 'Card 2',
           parentId: 'lane-b',
@@ -58,13 +60,8 @@ const _rootBoard = BoardData(
   ],
 );
 
-WorkItemCard _laneACard(String id, String statusId) => WorkItemCard(
-  id: id,
-  number: 1,
-  title: id,
-  parentId: 'lane-a',
-  statusId: statusId,
-);
+WorkItem _laneACard(String id, String statusId) =>
+    workItem(id, number: 1, title: id, parentId: 'lane-a', statusId: statusId);
 
 /// One lane whose To Do cell holds t1, t2, t3 and whose Done cell holds
 /// d1, d2, in rank order.
@@ -74,9 +71,8 @@ final _reorderBoard = BoardData(
     WorkItemStatus(id: 'done', name: 'Done', order: 1),
   ],
   swimlanes: [
-    Swimlane(
-      parentId: 'lane-a',
-      title: 'Lane A',
+    SwimlaneItems(
+      lane: workItem('lane-a', title: 'Lane A'),
       cards: [
         _laneACard('t1', 'todo'),
         _laneACard('d1', 'done'),
@@ -88,15 +84,14 @@ final _reorderBoard = BoardData(
   ],
 );
 
-const _card1Children = BoardData(
-  statuses: [WorkItemStatus(id: 'todo', name: 'To Do', order: 0)],
+final _card1Children = BoardData(
+  statuses: const [WorkItemStatus(id: 'todo', name: 'To Do', order: 0)],
   swimlanes: [
-    Swimlane(
-      parentId: 'card-1',
-      title: 'Card 1',
+    SwimlaneItems(
+      lane: workItem('card-1', title: 'Card 1'),
       cards: [
-        WorkItemCard(
-          id: 'grandchild-1',
+        workItem(
+          'grandchild-1',
           number: 3,
           title: 'Grandchild',
           parentId: 'card-1',
@@ -111,6 +106,10 @@ const _card1Children = BoardData(
 /// root scope (`rootScopeId`) and `'card-1'` — anything else (e.g. drilling
 /// into `card-2`, which has no fixture) errors, to exercise the
 /// no-children/failure path.
+///
+/// It keeps a "server" copy of every fixture item. Writes check the
+/// `expectedVersion` against it like the real API (409 when stale), apply
+/// the change and bump the version; loads return the server copies.
 class _TestBoardRepository implements BoardRepository {
   _TestBoardRepository({
     this.changeStatusError,
@@ -122,8 +121,20 @@ class _TestBoardRepository implements BoardRepository {
     this.hierarchyItems = const [],
     this.hierarchyError,
     this.users = const [],
-    this.rootBoard = _rootBoard,
-  });
+    BoardData? rootBoard,
+  }) : rootBoard = rootBoard ?? _rootBoard {
+    for (final board in [this.rootBoard, _card1Children]) {
+      for (final lane in board.swimlanes) {
+        server[lane.lane.id] ??= lane.lane;
+        for (final card in lane.cards) {
+          server[card.id] ??= card;
+        }
+      }
+    }
+    for (final item in hierarchyItems) {
+      server[item.id] ??= item;
+    }
+  }
 
   final BoardData rootBoard;
 
@@ -133,9 +144,17 @@ class _TestBoardRepository implements BoardRepository {
   final Exception? createError;
   final Exception? assignError;
   final Exception? tagsError;
-  final List<HierarchyItem> hierarchyItems;
+  final List<WorkItem> hierarchyItems;
   final Exception? hierarchyError;
   List<User> users;
+
+  /// The server's copy of every item, by id.
+  final Map<String, WorkItem> server = {};
+
+  /// The `expectedVersion` each write was sent with, in order, as
+  /// `'<id>@<version>'`.
+  final List<String> sentVersions = [];
+
   final List<String> statusChanges = [];
 
   /// The `afterId` sent with each of [statusChanges], in the same order.
@@ -144,6 +163,7 @@ class _TestBoardRepository implements BoardRepository {
   final List<String> reschedules = [];
   final List<String?> requestedScopes = [];
   final List<String> creates = [];
+  final List<String> itemLoads = [];
 
   /// When set, [createWorkItem] waits on it, so a test can navigate while
   /// a create is in flight.
@@ -159,10 +179,14 @@ class _TestBoardRepository implements BoardRepository {
 
   /// When non-null, each [loadAllItems] call parks a completer here instead
   /// of returning immediately.
-  List<Completer<List<HierarchyItem>>>? pendingHierarchyLoads;
+  List<Completer<List<WorkItem>>>? pendingHierarchyLoads;
   final List<String> assigns = [];
   final List<String> tagUpdates = [];
   int loadAllItemsCallCount = 0;
+
+  /// Someone else changes [id] on the server, moving its version on.
+  void editElsewhere(String id, WorkItem Function(WorkItem item) edit) =>
+      server[id] = withVersion(edit(server[id]!), server[id]!.version + 1);
 
   @override
   Future<String?> loadRootScopeItemId() => Future.value();
@@ -171,57 +195,108 @@ class _TestBoardRepository implements BoardRepository {
   Future<BoardData> loadBoard(String? scopeItemId) async {
     requestedScopes.add(scopeItemId);
     await loadGates[scopeItemId]?.future;
-    if (scopeItemId == null) return rootBoard;
-    if (scopeItemId == 'card-1') return _card1Children;
+    if (scopeItemId == null) return _fromServer(rootBoard);
+    if (scopeItemId == 'card-1') return _fromServer(_card1Children);
     throw ApiException('No fixture for scope $scopeItemId', statusCode: 404);
   }
 
+  BoardData _fromServer(BoardData board) => BoardData(
+    statuses: board.statuses,
+    layers: board.layers,
+    swimlanes: [
+      for (final lane in board.swimlanes)
+        SwimlaneItems(
+          lane: server[lane.lane.id]!,
+          cards: [for (final card in lane.cards) server[card.id]!],
+        ),
+    ],
+  );
+
   @override
-  Future<List<HierarchyItem>> loadAllItems() async {
+  Future<List<WorkItem>> loadAllItems() async {
     loadAllItemsCallCount++;
     final pending = pendingHierarchyLoads;
     if (pending != null) {
-      final load = Completer<List<HierarchyItem>>();
+      final load = Completer<List<WorkItem>>();
       pending.add(load);
       return load.future;
     }
     final error = hierarchyError;
     if (error != null) throw error;
-    return hierarchyItems;
+    return [for (final item in hierarchyItems) server[item.id]!];
+  }
+
+  @override
+  Future<WorkItem> getItem(String id) async {
+    itemLoads.add(id);
+    return server[id]!;
   }
 
   @override
   Future<List<User>> loadUsers() => Future.value(users);
 
+  Future<WorkItem> _write(
+    String id,
+    int expectedVersion,
+    Exception? error,
+    WorkItem Function(WorkItem item) change,
+  ) async {
+    sentVersions.add('$id@$expectedVersion');
+    if (error != null) throw error;
+    final current = server[id]!;
+    if (current.version != expectedVersion) {
+      throw const ApiException('Changed by someone else', statusCode: 409);
+    }
+    return server[id] = withVersion(change(current), current.version + 1);
+  }
+
   @override
-  Future<void> changeStatus(
+  Future<WorkItem> changeStatus(
     String cardId,
     String newStatusId, {
     required String? afterId,
+    required int expectedVersion,
   }) async {
     statusChanges.add('$cardId->$newStatusId');
     statusChangeAnchors.add(afterId);
     await statusGates[cardId]?.future;
-    final error = changeStatusError;
-    if (error != null) throw error;
+    return _write(
+      cardId,
+      expectedVersion,
+      changeStatusError,
+      (item) => item.withStatus(newStatusId),
+    );
   }
 
   @override
-  Future<void> reparentItem(String itemId, String newParentId) async {
+  Future<WorkItem> reparentItem(
+    String itemId,
+    String newParentId, {
+    required int expectedVersion,
+  }) {
     reparents.add('$itemId->$newParentId');
-    final error = reparentError;
-    if (error != null) throw error;
+    return _write(
+      itemId,
+      expectedVersion,
+      reparentError,
+      (item) => item.movedToParent(newParentId),
+    );
   }
 
   @override
-  Future<void> rescheduleItem(
+  Future<WorkItem> rescheduleItem(
     String itemId,
     DateTime? startDate,
-    DateTime? endDate,
-  ) async {
+    DateTime? endDate, {
+    required int expectedVersion,
+  }) {
     reschedules.add('$itemId->$startDate..$endDate');
-    final error = rescheduleError;
-    if (error != null) throw error;
+    return _write(
+      itemId,
+      expectedVersion,
+      rescheduleError,
+      (item) => item.rescheduled(startDate, endDate),
+    );
   }
 
   @override
@@ -238,53 +313,76 @@ class _TestBoardRepository implements BoardRepository {
   }
 
   @override
-  Future<void> assign(String workItemId, String? userId) async {
+  Future<WorkItem> assign(
+    String workItemId,
+    String? userId, {
+    required int expectedVersion,
+  }) {
     assigns.add('$workItemId->$userId');
-    final error = assignError;
-    if (error != null) throw error;
+    return _write(
+      workItemId,
+      expectedVersion,
+      assignError,
+      (item) => item.assigned(userId),
+    );
   }
 
   @override
-  Future<void> setTags(String workItemId, List<String> tags) async {
+  Future<WorkItem> setTags(
+    String workItemId,
+    List<String> tags, {
+    required int expectedVersion,
+  }) {
     tagUpdates.add('$workItemId->${tags.join(',')}');
-    final error = tagsError;
-    if (error != null) throw error;
+    return _write(
+      workItemId,
+      expectedVersion,
+      tagsError,
+      (item) => item.tagged(tags),
+    );
   }
 }
 
 class _FailingLoadRepository implements BoardRepository {
-  @override
-  Future<String?> loadRootScopeItemId() =>
-      Future.error(const ApiException('network down'));
+  static const _down = ApiException('network down');
 
   @override
-  Future<BoardData> loadBoard(String? scopeItemId) =>
-      Future.error(const ApiException('network down'));
+  Future<String?> loadRootScopeItemId() => Future.error(_down);
 
   @override
-  Future<List<HierarchyItem>> loadAllItems() =>
-      Future.error(const ApiException('network down'));
+  Future<BoardData> loadBoard(String? scopeItemId) => Future.error(_down);
+
+  @override
+  Future<List<WorkItem>> loadAllItems() => Future.error(_down);
+
+  @override
+  Future<WorkItem> getItem(String id) => Future.error(_down);
 
   @override
   Future<List<User>> loadUsers() => Future.value(const []);
 
   @override
-  Future<void> changeStatus(
+  Future<WorkItem> changeStatus(
     String cardId,
     String newStatusId, {
     required String? afterId,
-  }) => Future.value();
+    required int expectedVersion,
+  }) => Future.error(_down);
 
   @override
-  Future<void> reparentItem(String itemId, String newParentId) =>
-      Future.value();
+  Future<WorkItem> reparentItem(
+    String itemId,
+    String newParentId, {
+    required int expectedVersion,
+  }) => Future.error(_down);
 
   @override
-  Future<void> rescheduleItem(
+  Future<WorkItem> rescheduleItem(
     String itemId,
     DateTime? startDate,
-    DateTime? endDate,
-  ) => Future.value();
+    DateTime? endDate, {
+    required int expectedVersion,
+  }) => Future.error(_down);
 
   @override
   Future<void> createWorkItem({
@@ -295,19 +393,29 @@ class _FailingLoadRepository implements BoardRepository {
   }) => Future.value();
 
   @override
-  Future<void> assign(String workItemId, String? userId) => Future.value();
+  Future<WorkItem> assign(
+    String workItemId,
+    String? userId, {
+    required int expectedVersion,
+  }) => Future.error(_down);
 
   @override
-  Future<void> setTags(String workItemId, List<String> tags) => Future.value();
+  Future<WorkItem> setTags(
+    String workItemId,
+    List<String> tags, {
+    required int expectedVersion,
+  }) => Future.error(_down);
 }
 
 void main() {
   late _TestBoardRepository repository;
+  late WorkItemStore items;
   late BoardViewModel viewModel;
 
   setUp(() async {
     repository = _TestBoardRepository();
-    viewModel = BoardViewModel(repository);
+    items = WorkItemStore();
+    viewModel = BoardViewModel(repository, items);
     await viewModel.load();
   });
 
@@ -327,7 +435,10 @@ void main() {
   });
 
   test('load sets loadError when the repository throws', () async {
-    final failingViewModel = BoardViewModel(_FailingLoadRepository());
+    final failingViewModel = BoardViewModel(
+      _FailingLoadRepository(),
+      WorkItemStore(),
+    );
     await failingViewModel.load();
 
     expect(failingViewModel.loadError, isNotNull);
@@ -366,7 +477,10 @@ void main() {
       final failingRepository = _TestBoardRepository(
         changeStatusError: const ApiException('conflict'),
       );
-      final failingViewModel = BoardViewModel(failingRepository);
+      final failingViewModel = BoardViewModel(
+        failingRepository,
+        WorkItemStore(),
+      );
       await failingViewModel.load();
       final card = failingViewModel.swimlanes[0].cards.single;
 
@@ -496,7 +610,10 @@ void main() {
       final failingRepository = _TestBoardRepository(
         reparentError: const ApiException('cycle'),
       );
-      final failingViewModel = BoardViewModel(failingRepository);
+      final failingViewModel = BoardViewModel(
+        failingRepository,
+        WorkItemStore(),
+      );
       await failingViewModel.load();
       final card = failingViewModel.swimlanes[0].cards.single;
 
@@ -538,7 +655,10 @@ void main() {
       final failingRepository = _TestBoardRepository(
         rescheduleError: const ApiException('boom'),
       );
-      final failingViewModel = BoardViewModel(failingRepository);
+      final failingViewModel = BoardViewModel(
+        failingRepository,
+        WorkItemStore(),
+      );
       await failingViewModel.load();
       final card = failingViewModel.swimlanes[0].cards.single;
 
@@ -587,9 +707,9 @@ void main() {
 
   test('assign updates a matching Hierarchy item too', () async {
     final repository = _TestBoardRepository(
-      hierarchyItems: const [
-        HierarchyItem(
-          id: 'root-1',
+      hierarchyItems: [
+        workItem(
+          'root-1',
           number: 1,
           parentId: null,
           title: 'Root',
@@ -597,7 +717,7 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository);
+    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
 
@@ -615,7 +735,10 @@ void main() {
       final failingRepository = _TestBoardRepository(
         assignError: const ApiException('boom'),
       );
-      final failingViewModel = BoardViewModel(failingRepository);
+      final failingViewModel = BoardViewModel(
+        failingRepository,
+        WorkItemStore(),
+      );
       await failingViewModel.load();
       final card = failingViewModel.swimlanes[0].cards.single;
 
@@ -650,9 +773,9 @@ void main() {
 
   test('setTags updates a matching Hierarchy item too', () async {
     final repository = _TestBoardRepository(
-      hierarchyItems: const [
-        HierarchyItem(
-          id: 'root-1',
+      hierarchyItems: [
+        workItem(
+          'root-1',
           number: 1,
           parentId: null,
           title: 'Root',
@@ -660,7 +783,7 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository);
+    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
 
@@ -675,7 +798,10 @@ void main() {
       final failingRepository = _TestBoardRepository(
         tagsError: const ApiException('boom'),
       );
-      final failingViewModel = BoardViewModel(failingRepository);
+      final failingViewModel = BoardViewModel(
+        failingRepository,
+        WorkItemStore(),
+      );
       await failingViewModel.load();
       final card = failingViewModel.swimlanes[0].cards.single;
 
@@ -708,9 +834,9 @@ void main() {
 
   test('addTags adds to a Hierarchy item that is not on the board', () async {
     final repository = _TestBoardRepository(
-      hierarchyItems: const [
-        HierarchyItem(
-          id: 'root-1',
+      hierarchyItems: [
+        workItem(
+          'root-1',
           number: 1,
           parentId: null,
           title: 'Root',
@@ -719,7 +845,7 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository);
+    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
 
@@ -736,7 +862,7 @@ void main() {
     final failingRepository = _TestBoardRepository(
       tagsError: const ApiException('boom'),
     );
-    final failingViewModel = BoardViewModel(failingRepository);
+    final failingViewModel = BoardViewModel(failingRepository, WorkItemStore());
     await failingViewModel.load();
     final card = failingViewModel.swimlanes[0].cards.single;
 
@@ -767,7 +893,10 @@ void main() {
       final failingRepository = _TestBoardRepository(
         createError: const ApiException('boom'),
       );
-      final failingViewModel = BoardViewModel(failingRepository);
+      final failingViewModel = BoardViewModel(
+        failingRepository,
+        WorkItemStore(),
+      );
       await failingViewModel.load();
 
       await failingViewModel.createWorkItem(
@@ -860,7 +989,10 @@ void main() {
   test(
     'canCreateWorkItem is false while loading and after a failed load',
     () async {
-      final failingViewModel = BoardViewModel(_FailingLoadRepository());
+      final failingViewModel = BoardViewModel(
+        _FailingLoadRepository(),
+        WorkItemStore(),
+      );
       expect(failingViewModel.canCreateWorkItem, isFalse);
 
       await failingViewModel.load();
@@ -1096,6 +1228,7 @@ void main() {
             User(id: 'user-1', username: 'riley', kind: UserKind.human),
           ],
         ),
+        WorkItemStore(),
       );
       await withUsers.load();
 
@@ -1166,9 +1299,9 @@ void main() {
     'availableTags returns the distinct, sorted union of every card and hierarchy tag',
     () async {
       final repository = _TestBoardRepository(
-        hierarchyItems: const [
-          HierarchyItem(
-            id: 'root-1',
+        hierarchyItems: [
+          workItem(
+            'root-1',
             number: 1,
             parentId: null,
             title: 'Root',
@@ -1177,7 +1310,7 @@ void main() {
           ),
         ],
       );
-      final withTags = BoardViewModel(repository);
+      final withTags = BoardViewModel(repository, WorkItemStore());
       await withTags.load();
       await withTags.loadHierarchy();
       await withTags.setTags(withTags.swimlanes[0].cards.single.id, [
@@ -1261,16 +1394,16 @@ void main() {
 
   test('loadHierarchy populates hierarchyRoots and hierarchyLoaded', () async {
     final repository = _TestBoardRepository(
-      hierarchyItems: const [
-        HierarchyItem(
-          id: 'root-1',
+      hierarchyItems: [
+        workItem(
+          'root-1',
           number: 1,
           parentId: null,
           title: 'Root',
           statusId: 'todo',
         ),
-        HierarchyItem(
-          id: 'child-1',
+        workItem(
+          'child-1',
           number: 2,
           parentId: 'root-1',
           title: 'Child',
@@ -1278,7 +1411,7 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository);
+    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
     await hierarchyViewModel.load();
     expect(hierarchyViewModel.hierarchyLoaded, isFalse);
 
@@ -1297,7 +1430,7 @@ void main() {
       final repository = _TestBoardRepository(
         hierarchyError: const ApiException('network down'),
       );
-      final hierarchyViewModel = BoardViewModel(repository);
+      final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
       await hierarchyViewModel.load();
 
       await hierarchyViewModel.loadHierarchy();
@@ -1311,16 +1444,16 @@ void main() {
     'hierarchyRoots keeps an ancestor visible when only a descendant matches the search',
     () async {
       final repository = _TestBoardRepository(
-        hierarchyItems: const [
-          HierarchyItem(
-            id: 'root-1',
+        hierarchyItems: [
+          workItem(
+            'root-1',
             number: 1,
             parentId: null,
             title: 'Unrelated root',
             statusId: 'todo',
           ),
-          HierarchyItem(
-            id: 'child-1',
+          workItem(
+            'child-1',
             number: 2,
             parentId: 'root-1',
             title: 'Fix red button',
@@ -1328,7 +1461,7 @@ void main() {
           ),
         ],
       );
-      final hierarchyViewModel = BoardViewModel(repository);
+      final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
       await hierarchyViewModel.load();
       await hierarchyViewModel.loadHierarchy();
       hierarchyViewModel.setSearchQuery('red');
@@ -1341,16 +1474,16 @@ void main() {
 
   test('hierarchyRoots excludes a subtree with no matching item', () async {
     final repository = _TestBoardRepository(
-      hierarchyItems: const [
-        HierarchyItem(
-          id: 'root-1',
+      hierarchyItems: [
+        workItem(
+          'root-1',
           number: 1,
           parentId: null,
           title: 'Matches',
           statusId: 'todo',
         ),
-        HierarchyItem(
-          id: 'root-2',
+        workItem(
+          'root-2',
           number: 2,
           parentId: null,
           title: 'Does not',
@@ -1358,7 +1491,7 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository);
+    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
     hierarchyViewModel.setSearchQuery('matches');
@@ -1368,16 +1501,16 @@ void main() {
 
   test('hierarchyRoots excludes items in a hidden status column', () async {
     final repository = _TestBoardRepository(
-      hierarchyItems: const [
-        HierarchyItem(
-          id: 'root-1',
+      hierarchyItems: [
+        workItem(
+          'root-1',
           number: 1,
           parentId: null,
           title: 'Todo item',
           statusId: 'todo',
         ),
-        HierarchyItem(
-          id: 'root-2',
+        workItem(
+          'root-2',
           number: 2,
           parentId: null,
           title: 'Done item',
@@ -1385,7 +1518,7 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository);
+    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
     hierarchyViewModel.toggleStatusVisibility('done');
@@ -1395,17 +1528,17 @@ void main() {
 
   test('hierarchyRoots excludes items not matching the tag filter', () async {
     final repository = _TestBoardRepository(
-      hierarchyItems: const [
-        HierarchyItem(
-          id: 'root-1',
+      hierarchyItems: [
+        workItem(
+          'root-1',
           number: 1,
           parentId: null,
           title: 'Tagged',
           statusId: 'todo',
           tags: ['urgent'],
         ),
-        HierarchyItem(
-          id: 'root-2',
+        workItem(
+          'root-2',
           number: 2,
           parentId: null,
           title: 'Untagged',
@@ -1413,7 +1546,7 @@ void main() {
         ),
       ],
     );
-    final hierarchyViewModel = BoardViewModel(repository);
+    final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
     hierarchyViewModel.toggleTagFilter('urgent');
@@ -1425,16 +1558,16 @@ void main() {
     'hierarchyComparator for title sorts siblings case-insensitively',
     () async {
       final repository = _TestBoardRepository(
-        hierarchyItems: const [
-          HierarchyItem(
-            id: 'a',
+        hierarchyItems: [
+          workItem(
+            'a',
             number: 1,
             parentId: null,
             title: 'banana',
             statusId: 'todo',
           ),
-          HierarchyItem(
-            id: 'b',
+          workItem(
+            'b',
             number: 2,
             parentId: null,
             title: 'Apple',
@@ -1442,7 +1575,7 @@ void main() {
           ),
         ],
       );
-      final hierarchyViewModel = BoardViewModel(repository);
+      final hierarchyViewModel = BoardViewModel(repository, WorkItemStore());
       await hierarchyViewModel.load();
       await hierarchyViewModel.loadHierarchy();
       hierarchyViewModel.setSortOption(CardSortOption.title);
@@ -1478,8 +1611,8 @@ void main() {
   );
 
   group('overlapping async work', () {
-    HierarchyItem hierarchyItem(String title) => HierarchyItem(
-      id: 'x',
+    WorkItem hierarchyItem(String title) => workItem(
+      'x',
       number: 1,
       parentId: null,
       title: title,
@@ -1581,7 +1714,7 @@ void main() {
 
     setUp(() async {
       reorderRepository = _TestBoardRepository(rootBoard: _reorderBoard);
-      reorderViewModel = BoardViewModel(reorderRepository);
+      reorderViewModel = BoardViewModel(reorderRepository, WorkItemStore());
       await reorderViewModel.load();
     });
 
@@ -1666,7 +1799,7 @@ void main() {
         rootBoard: _reorderBoard,
         changeStatusError: const ApiException('rejected'),
       );
-      reorderViewModel = BoardViewModel(failing);
+      reorderViewModel = BoardViewModel(failing, WorkItemStore());
       await reorderViewModel.load();
 
       await reorderViewModel.moveCard(
@@ -1727,23 +1860,23 @@ void main() {
 
     setUp(() async {
       hierarchyRepository = _TestBoardRepository(
-        hierarchyItems: const [
-          HierarchyItem(
-            id: 'lane-a',
+        hierarchyItems: [
+          workItem(
+            'lane-a',
             number: 10,
             parentId: null,
             title: 'Lane A',
             statusId: 'todo',
           ),
-          HierarchyItem(
-            id: 'lane-b',
+          workItem(
+            'lane-b',
             number: 11,
             parentId: null,
             title: 'Lane B',
             statusId: 'todo',
           ),
-          HierarchyItem(
-            id: 'card-1',
+          workItem(
+            'card-1',
             number: 1,
             parentId: 'lane-a',
             title: 'Card 1',
@@ -1751,7 +1884,7 @@ void main() {
           ),
         ],
       );
-      hierarchyViewModel = BoardViewModel(hierarchyRepository);
+      hierarchyViewModel = BoardViewModel(hierarchyRepository, WorkItemStore());
       await hierarchyViewModel.load();
       await hierarchyViewModel.loadHierarchy();
     });
@@ -1800,7 +1933,7 @@ void main() {
         changeStatusError: const ApiException('rejected'),
         hierarchyItems: hierarchyRepository.hierarchyItems,
       );
-      hierarchyViewModel = BoardViewModel(failing);
+      hierarchyViewModel = BoardViewModel(failing, WorkItemStore());
       await hierarchyViewModel.load();
       await hierarchyViewModel.loadHierarchy();
 
@@ -1909,7 +2042,7 @@ void main() {
             User(id: 'u1', username: 'alice', kind: UserKind.human),
           ],
         );
-        final viewModel = BoardViewModel(repository);
+        final viewModel = BoardViewModel(repository, WorkItemStore());
         addTearDown(viewModel.dispose);
         await viewModel.load();
         await viewModel.loadHierarchy();
@@ -1929,13 +2062,190 @@ void main() {
 
     test('leaves an unopened hierarchy unloaded', () async {
       final repository = _TestBoardRepository();
-      final viewModel = BoardViewModel(repository);
+      final viewModel = BoardViewModel(repository, WorkItemStore());
       addTearDown(viewModel.dispose);
       await viewModel.load();
 
       await viewModel.refreshAfterAdminChanges();
 
       expect(repository.loadAllItemsCallCount, 0);
+    });
+  });
+
+  group('the shared item store', () {
+    WorkItemCard card1() => viewModel.swimlanes[0].cards.single;
+
+    test('every board write sends the version the last one returned', () async {
+      await viewModel.moveCard(card1(), 'done');
+      await viewModel.setTags('card-1', ['urgent']);
+      await viewModel.assign('card-1', 'user-1');
+      await viewModel.rescheduleCard(card1(), DateTime(2026, 3, 1), null);
+      await viewModel.reparentCard(card1(), 'lane-b');
+
+      expect(repository.sentVersions, [
+        'card-1@1',
+        'card-1@2',
+        'card-1@3',
+        'card-1@4',
+        'card-1@5',
+      ]);
+      expect(items['card-1']?.version, 6);
+      expect(viewModel.moveError, isNull);
+    });
+
+    test('a write started while another on the same card is in flight waits '
+        'for it and sends the newer version', () async {
+      repository.statusGates['card-1'] = Completer<void>();
+      final move = viewModel.moveCard(card1(), 'done');
+      final tag = viewModel.setTags('card-1', ['urgent']);
+      await pumpEventQueue();
+
+      expect(repository.tagUpdates, isEmpty, reason: 'still queued');
+      expect(card1().statusId, 'done');
+      expect(card1().tags, ['urgent']);
+
+      repository.statusGates['card-1']!.complete();
+      await move;
+      await tag;
+
+      expect(repository.sentVersions, ['card-1@1', 'card-1@2']);
+      expect(card1().statusId, 'done');
+      expect(card1().tags, ['urgent']);
+      expect(viewModel.moveError, isNull);
+    });
+
+    test(
+      'a conflict reloads the card, says so, and leaves other cards alone',
+      () async {
+        repository.editElsewhere(
+          'card-1',
+          (item) => workItem(
+            'card-1',
+            number: 1,
+            title: 'Renamed elsewhere',
+            parentId: 'lane-a',
+          ),
+        );
+        repository.statusGates['card-2'] = Completer<void>();
+        final otherMove = viewModel.moveCard(
+          viewModel.swimlanes[1].cards.single,
+          'done',
+        );
+
+        await viewModel.moveCard(card1(), 'done');
+
+        expect(card1().title, 'Renamed elsewhere');
+        expect(card1().statusId, 'todo');
+        expect(items['card-1']?.version, 2);
+        expect(repository.itemLoads, ['card-1']);
+        expect(viewModel.moveError, contains('Someone else changed'));
+        expect(viewModel.moveError, contains('latest version'));
+        expect(
+          viewModel.swimlanes[1].cards.single.statusId,
+          'done',
+          reason: "card-2's move is still in flight and still shown",
+        );
+
+        repository.statusGates['card-2']!.complete();
+        await otherMove;
+        expect(viewModel.swimlanes[1].cards.single.statusId, 'done');
+      },
+    );
+
+    test('after a conflict the next write uses the reloaded version', () async {
+      repository.editElsewhere('card-1', (item) => item);
+      await viewModel.moveCard(card1(), 'done');
+      viewModel.clearMoveError();
+
+      await viewModel.moveCard(card1(), 'done');
+
+      expect(repository.sentVersions, ['card-1@1', 'card-1@2']);
+      expect(card1().statusId, 'done');
+      expect(viewModel.moveError, isNull);
+    });
+
+    test(
+      'a conflict on a card someone else moved shows it in its new lane',
+      () async {
+        repository.editElsewhere(
+          'card-1',
+          (item) => item.movedToParent('lane-b'),
+        );
+
+        await viewModel.setTags('card-1', ['urgent']);
+
+        expect(viewModel.swimlanes[0].cards, isEmpty);
+        expect(viewModel.swimlanes[1].cards.map((c) => c.id), [
+          'card-2',
+          'card-1',
+        ]);
+        expect(items['card-1']?.tags, isEmpty);
+      },
+    );
+
+    test(
+      'a conflict on a card moved out of this board takes it off the board',
+      () async {
+        repository.editElsewhere(
+          'card-1',
+          (item) => item.movedToParent('elsewhere'),
+        );
+
+        await viewModel.moveCard(card1(), 'done');
+
+        expect(viewModel.swimlanes[0].cards, isEmpty);
+        expect(viewModel.moveError, isNotNull);
+      },
+    );
+
+    test('an edit saved to the store elsewhere shows on the board and in the '
+        'hierarchy without a reload', () async {
+      repository = _TestBoardRepository(
+        hierarchyItems: [
+          workItem('lane-a', title: 'Lane A'),
+          workItem('card-1', title: 'Card 1', parentId: 'lane-a'),
+        ],
+      );
+      viewModel = BoardViewModel(repository, items);
+      await viewModel.load();
+      await viewModel.loadHierarchy();
+      final scopeLoads = repository.requestedScopes.length;
+      var notified = false;
+      viewModel.addListener(() => notified = true);
+
+      await items.write(
+        'card-1',
+        send: (version) async => withVersion(
+          workItem(
+            'card-1',
+            title: 'Renamed in the dialog',
+            parentId: 'lane-a',
+          ),
+          version + 1,
+        ),
+        reload: () => throw StateError('No conflict expected'),
+      );
+
+      expect(notified, isTrue);
+      expect(card1().title, 'Renamed in the dialog');
+      expect(
+        viewModel.hierarchyRoots.single.children.single.item.title,
+        'Renamed in the dialog',
+      );
+      expect(repository.requestedScopes.length, scopeLoads);
+    });
+
+    test('an item removed from the store leaves the board', () {
+      items.remove('card-1');
+
+      expect(viewModel.swimlanes[0].cards, isEmpty);
+      expect(viewModel.swimlanes[1].cards.single.id, 'card-2');
+    });
+
+    test('a board disposed of stops listening to the store', () {
+      viewModel.dispose();
+
+      expect(() => items.remove('card-1'), returnsNormally);
     });
   });
 }

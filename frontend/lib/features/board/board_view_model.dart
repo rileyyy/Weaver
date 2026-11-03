@@ -10,6 +10,7 @@ import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/hierarchy_node.dart';
 import 'package:weaver/features/board/models/scope_crumb.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
+import 'package:weaver/features/board/models/swimlane_items.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/state/board_filters.dart';
 import 'package:weaver/features/board/state/hierarchy_tree_builder.dart';
@@ -17,7 +18,10 @@ import 'package:weaver/features/board/state/swimlane_edits.dart';
 import 'package:weaver/features/board/state/tag_additions.dart';
 import 'package:weaver/features/board/state/user_directory.dart';
 import 'package:weaver/features/board/state/work_item_sorting.dart';
+import 'package:weaver/shared/data/work_item_conflict.dart';
+import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
@@ -26,11 +30,19 @@ Future<void> _noRetry() => Future.value();
 /// Orchestrates the board: which scope is shown (loading, drill-down,
 /// breadcrumbs, retry) and optimistic mutations. Filtering, sorting, tree
 /// building, lane edits and user lookups live in `state/` as pure units.
+///
+/// The items themselves live in the shared [WorkItemStore]; this keeps only
+/// the layout (which lanes, which cards in which order, which items the
+/// Hierarchy shows) and redraws from the store whenever it changes, so an
+/// edit made anywhere, including the detail dialog, shows on every layout.
 @injectable
 class BoardViewModel extends ViewModel {
-  BoardViewModel(this._repository);
+  BoardViewModel(this._repository, this._items) {
+    _items.addListener(_onItemsChanged);
+  }
 
   final BoardRepository _repository;
+  final WorkItemStore _items;
 
   List<WorkItemStatus> _statuses = const [];
   Map<String, WorkItemStatus> _statusById = const {};
@@ -42,7 +54,7 @@ class BoardViewModel extends ViewModel {
   String? _moveError;
   Future<void> Function() _retry = _noRetry;
   BoardFilters _filters = const BoardFilters();
-  List<HierarchyItem> _hierarchyItems = const [];
+  List<String> _hierarchyItemIds = const [];
   bool _isHierarchyLoading = false;
   String? _hierarchyLoadError;
   bool _hierarchyLoaded = false;
@@ -57,16 +69,51 @@ class BoardViewModel extends ViewModel {
   // Derived values the views read many times per frame. Every state change
   // notifies, so they're cached until the next notification.
   List<HierarchyNode>? _hierarchyRootsCache;
+  List<HierarchyItem>? _hierarchyItemsCache;
   List<WorkItemStatus>? _visibleStatusesCache;
   List<String>? _availableTagsCache;
 
   @override
   void notifyIfActive() {
     _hierarchyRootsCache = null;
+    _hierarchyItemsCache = null;
     _visibleStatusesCache = null;
     _availableTagsCache = null;
     super.notifyIfActive();
   }
+
+  @override
+  void dispose() {
+    _items.removeListener(_onItemsChanged);
+    super.dispose();
+  }
+
+  void _onItemsChanged() {
+    _swimlanes = _drawnFromStore(_swimlanes);
+    notifyIfActive();
+  }
+
+  /// [lanes] with every lane and card redrawn from the store, keeping their
+  /// order. An item the store no longer holds (deleted) is dropped.
+  List<Swimlane> _drawnFromStore(List<Swimlane> lanes) => [
+    for (final lane in lanes)
+      if (_items[lane.parentId] case final laneItem?)
+        Swimlane(
+          parentId: lane.parentId,
+          title: laneItem.title,
+          assignedToUserId: laneItem.assignedToUserId,
+          cards: [
+            for (final card in lane.cards)
+              if (_items[card.id] case final item?)
+                WorkItemCard.fromWorkItem(item, laneId: lane.parentId),
+          ],
+        ),
+  ];
+
+  List<HierarchyItem> get _hierarchyItems => _hierarchyItemsCache ??= [
+    for (final id in _hierarchyItemIds)
+      if (_items[id] case final item?) HierarchyItem.fromWorkItem(item),
+  ];
 
   List<WorkItemStatus> get statuses => _statuses;
   List<Swimlane> get swimlanes => _swimlanes;
@@ -165,9 +212,11 @@ class BoardViewModel extends ViewModel {
     notifyIfActive();
 
     try {
+      final asOf = _items.revision;
       final items = await _repository.loadAllItems();
       if (generation != _hierarchyGeneration) return;
-      _hierarchyItems = items;
+      _hierarchyItemIds = [for (final item in items) item.id];
+      _items.putAll(items, asOf: asOf);
     } on ApiException {
       if (generation != _hierarchyGeneration) return;
       _hierarchyLoadError =
@@ -221,6 +270,7 @@ class BoardViewModel extends ViewModel {
 
   Future<void> load() => _changeScope(
     () async {
+      final asOf = _items.revision;
       final rootScopeId = await _repository.loadRootScopeItemId();
       final data = await _repository.loadBoard(rootScopeId);
       if (isDisposed) return () {};
@@ -233,7 +283,7 @@ class BoardViewModel extends ViewModel {
         users = const [];
       }
       return () {
-        _applyScope(data);
+        _applyScope(data, asOf);
         _breadcrumbs = [ScopeCrumb(id: rootScopeId, title: 'Board')];
         _users = UserDirectory(users);
       };
@@ -254,8 +304,9 @@ class BoardViewModel extends ViewModel {
     final current = _breadcrumbs.last;
     return _changeScope(
       () async {
+        final asOf = _items.revision;
         final data = await _repository.loadBoard(current.id);
-        return () => _applyScope(data);
+        return () => _applyScope(data, asOf);
       },
       errorMessage:
           'Could not refresh the board. Check your connection and try again.',
@@ -277,9 +328,10 @@ class BoardViewModel extends ViewModel {
   /// Re-scopes the board to [target]'s own children, typically one of
   /// [drillDownTargets], and pushes [target] onto the breadcrumb trail.
   Future<void> drillIntoScope(ScopeCrumb target) => _changeScope(() async {
+    final asOf = _items.revision;
     final data = await _repository.loadBoard(target.id);
     return () {
-      _applyScope(data);
+      _applyScope(data, asOf);
       _breadcrumbs = [..._breadcrumbs, target];
     };
   }, errorMessage: 'Could not open "${target.title}". Try again.');
@@ -295,9 +347,10 @@ class BoardViewModel extends ViewModel {
     final target = trail.last;
 
     return _changeScope(() async {
+      final asOf = _items.revision;
       final data = await _repository.loadBoard(target.id);
       return () {
-        _applyScope(data);
+        _applyScope(data, asOf);
         _breadcrumbs = trail;
       };
     }, errorMessage: 'Could not go back to "${target.title}". Try again.');
@@ -332,29 +385,26 @@ class BoardViewModel extends ViewModel {
         newStatusId == card.statusId && afterId == originalAnchor;
     if (isAlreadyThere) return Future.value();
 
-    return _optimistic(
-      apply: () {
-        _swimlanes = _swimlanes.withCardPlaced(
-          card.id,
-          newStatusId,
-          afterId: afterId,
-        );
-        _hierarchyItems = _withHierarchyItem(
-          card.id,
-          (item) => item.withStatus(newStatusId),
-        );
-      },
-      persist: () =>
-          _repository.changeStatus(card.id, newStatusId, afterId: afterId),
-      revertLanes: () => _swimlanes = _swimlanes.withCardRestored(
+    return _save(
+      card.id,
+      optimistic: (item) => item.withStatus(newStatusId),
+      send: (version) => _repository.changeStatus(
+        card.id,
+        newStatusId,
+        afterId: afterId,
+        expectedVersion: version,
+      ),
+      applyLayout: () => _swimlanes = _swimlanes.withCardPlaced(
+        card.id,
+        newStatusId,
+        afterId: afterId,
+      ),
+      revertLayout: () => _swimlanes = _swimlanes.withCardRestored(
         card.id,
         card.statusId,
         originalCellIds: originalCellIds,
       ),
-      revertHierarchy: () => _hierarchyItems = _withHierarchyItem(
-        card.id,
-        (item) => item.withStatus(card.statusId),
-      ),
+      title: card.title,
       errorMessage: 'Could not move "${card.title}". Try again.',
     );
   }
@@ -375,29 +425,26 @@ class BoardViewModel extends ViewModel {
         .cards
         .indexWhere((c) => c.id == card.id);
 
-    return _optimistic(
-      apply: () {
-        _swimlanes = _swimlanes.withCardMovedToLane(
-          card.id,
-          card.parentId,
-          newParentId,
-        );
-        _hierarchyItems = _withHierarchyItem(
-          card.id,
-          (item) => item.movedToParent(newParentId),
-        );
-      },
-      persist: () => _repository.reparentItem(card.id, newParentId),
-      revertLanes: () => _swimlanes = _swimlanes.withCardMovedToLane(
+    return _save(
+      card.id,
+      optimistic: (item) => item.movedToParent(newParentId),
+      send: (version) => _repository.reparentItem(
+        card.id,
+        newParentId,
+        expectedVersion: version,
+      ),
+      applyLayout: () => _swimlanes = _swimlanes.withCardMovedToLane(
+        card.id,
+        card.parentId,
+        newParentId,
+      ),
+      revertLayout: () => _swimlanes = _swimlanes.withCardMovedToLane(
         card.id,
         newParentId,
         card.parentId,
         atIndex: originalIndex,
       ),
-      revertHierarchy: () => _hierarchyItems = _withHierarchyItem(
-        card.id,
-        (item) => item.movedToParent(card.parentId),
-      ),
+      title: card.title,
       errorMessage: 'Could not move "${card.title}". Try again.',
     );
   }
@@ -412,100 +459,48 @@ class BoardViewModel extends ViewModel {
   ) {
     if (!_swimlanes.hasLane(card.parentId)) return Future.value();
 
-    return _optimistic(
-      apply: () {
-        _swimlanes = _swimlanes.withCard(
-          card.id,
-          (c) => c.rescheduled(startDate, endDate),
-        );
-        _hierarchyItems = _withHierarchyItem(
-          card.id,
-          (item) => item.rescheduled(startDate, endDate),
-        );
-      },
-      persist: () => _repository.rescheduleItem(card.id, startDate, endDate),
-      revertLanes: () => _swimlanes = _swimlanes.withCard(
+    return _save(
+      card.id,
+      optimistic: (item) => item.rescheduled(startDate, endDate),
+      send: (version) => _repository.rescheduleItem(
         card.id,
-        (c) => c.rescheduled(card.startDate, card.endDate),
+        startDate,
+        endDate,
+        expectedVersion: version,
       ),
-      revertHierarchy: () => _hierarchyItems = _withHierarchyItem(
-        card.id,
-        (item) => item.rescheduled(card.startDate, card.endDate),
-      ),
+      title: card.title,
       errorMessage: 'Could not reschedule "${card.title}". Try again.',
     );
   }
 
   /// Sets or clears who the work item identified by [workItemId] is
-  /// assigned to. [workItemId] may be a card, a swimlane's own parent item,
-  /// a Hierarchy item, or several of those at once (the same work item can
-  /// appear in more than one place) — every matching in-memory
-  /// representation is updated together. Applies optimistically, then rolls
-  /// back if the backend rejects it.
-  Future<void> assign(String workItemId, String? userId) {
-    final previousUserId = _currentAssigneeOf(workItemId);
+  /// assigned to. [workItemId] may be a card, a swimlane's own parent item
+  /// or a Hierarchy item; every layout showing it follows. Applies
+  /// optimistically, then rolls back if the backend rejects it.
+  Future<void> assign(String workItemId, String? userId) => _save(
+    workItemId,
+    optimistic: (item) => item.assigned(userId),
+    send: (version) =>
+        _repository.assign(workItemId, userId, expectedVersion: version),
+    errorMessage: 'Could not update the assignee. Try again.',
+  );
 
-    return _optimistic(
-      apply: () {
-        _swimlanes = _swimlanes.withAssignee(workItemId, userId);
-        _hierarchyItems = _withHierarchyItem(
-          workItemId,
-          (item) => item.assigned(userId),
-        );
-      },
-      persist: () => _repository.assign(workItemId, userId),
-      revertLanes: () =>
-          _swimlanes = _swimlanes.withAssignee(workItemId, previousUserId),
-      revertHierarchy: () => _hierarchyItems = _withHierarchyItem(
-        workItemId,
-        (item) => item.assigned(previousUserId),
-      ),
-      errorMessage: 'Could not update the assignee. Try again.',
-    );
-  }
-
-  /// Replaces the tag list of the work item identified by [workItemId] —
-  /// the view-model mirror of [assign], same dual-update-then-rollback
-  /// shape (a work item's tags may need updating in both a swimlane card
-  /// and a Hierarchy item at once).
-  Future<void> setTags(String workItemId, List<String> tags) {
-    final previousTags = _currentTagsOf(workItemId);
-
-    return _optimistic(
-      apply: () {
-        _swimlanes = _swimlanes.withCard(workItemId, (c) => c.tagged(tags));
-        _hierarchyItems = _withHierarchyItem(
-          workItemId,
-          (item) => item.tagged(tags),
-        );
-      },
-      persist: () => _repository.setTags(workItemId, tags),
-      revertLanes: () {
-        if (previousTags != null) {
-          _swimlanes = _swimlanes.withCard(
-            workItemId,
-            (c) => c.tagged(previousTags),
-          );
-        }
-      },
-      revertHierarchy: () {
-        if (previousTags != null) {
-          _hierarchyItems = _withHierarchyItem(
-            workItemId,
-            (item) => item.tagged(previousTags),
-          );
-        }
-      },
-      errorMessage: 'Could not update the tags. Try again.',
-    );
-  }
+  /// Replaces the tag list of the work item identified by [workItemId],
+  /// the same way [assign] does.
+  Future<void> setTags(String workItemId, List<String> tags) => _save(
+    workItemId,
+    optimistic: (item) => item.tagged(tags),
+    send: (version) =>
+        _repository.setTags(workItemId, tags, expectedVersion: version),
+    errorMessage: 'Could not update the tags. Try again.',
+  );
 
   /// Adds [tags] to the work item identified by [workItemId] — the quick
   /// add from a card, Hierarchy row or Roadmap row. Tags it already has
   /// (ignoring case) and blank entries are dropped; if nothing is left to
   /// add, nothing is sent.
   Future<void> addTags(String workItemId, List<String> tags) {
-    final current = _currentTagsOf(workItemId) ?? const [];
+    final current = _items[workItemId]?.tags ?? const [];
     final updated = withTagsAdded(current, tags);
     if (updated.length == current.length) return Future.value();
     return setTags(workItemId, updated);
@@ -649,56 +644,85 @@ class BoardViewModel extends ViewModel {
     }
   }
 
-  /// Applies a change locally, persists it, and on failure reverts just
-  /// that change (per item, not a whole-list snapshot, so a failed move
-  /// can't undo a different move that succeeded in the meantime). A revert
-  /// is skipped if the data it would touch has been reloaded since — the
-  /// reload already reflects the server.
-  Future<void> _optimistic({
-    required void Function() apply,
-    required Future<void> Function() persist,
-    required void Function() revertLanes,
-    void Function()? revertHierarchy,
+  /// Saves a change to [id] through the store, which shows [optimistic] at
+  /// once, sends the item's version and undoes [optimistic] if the save
+  /// fails. [applyLayout] and [revertLayout] do the same for where the card
+  /// sits on the board; the revert undoes just this change, by id, and is
+  /// skipped if the scope was reloaded since, as the reload already shows
+  /// the server's layout.
+  Future<void> _save(
+    String id, {
+    required WorkItemEdit optimistic,
+    required Future<WorkItem> Function(int expectedVersion) send,
+    void Function()? applyLayout,
+    void Function()? revertLayout,
+    String? title,
     required String errorMessage,
   }) async {
     final scopeGeneration = _scopeGeneration;
-    final hierarchyGeneration = _hierarchyGeneration;
-    apply();
-    notifyIfActive();
-
+    applyLayout?.call();
     try {
-      await persist();
+      await _items.write(
+        id,
+        optimistic: optimistic,
+        send: send,
+        reload: () => _repository.getItem(id),
+      );
+    } on WorkItemConflict catch (conflict) {
+      if (scopeGeneration == _scopeGeneration) {
+        revertLayout?.call();
+        _placeInLane(id, conflict.latest);
+      }
+      _moveError = _conflictMessage(title ?? _items[id]?.title, conflict);
+      notifyIfActive();
     } on ApiException {
-      if (scopeGeneration == _scopeGeneration) revertLanes();
-      if (hierarchyGeneration == _hierarchyGeneration) revertHierarchy?.call();
+      if (scopeGeneration == _scopeGeneration) revertLayout?.call();
       _moveError = errorMessage;
       notifyIfActive();
     }
   }
 
-  void _applyScope(BoardData data) {
+  /// After a conflict reload, someone else may have moved the card to
+  /// another parent: show it in that lane, or not at all if this board
+  /// doesn't show that lane. Its status needs nothing, since cells are
+  /// drawn from the stored status.
+  void _placeInLane(String id, WorkItem? latest) {
+    final laneId = _swimlanes.laneIdOf(id);
+    final parentId = latest?.parentId;
+    if (latest == null || laneId == null || parentId == laneId) return;
+    _swimlanes = parentId != null && _swimlanes.hasLane(parentId)
+        ? _swimlanes.withCardMovedToLane(id, laneId, parentId)
+        : _swimlanes.withoutCard(id);
+  }
+
+  static String _conflictMessage(String? title, WorkItemConflict conflict) {
+    final what = title == null ? 'this item' : '"$title"';
+    final notSaved =
+        'Someone else changed $what first, so your change was not saved.';
+    return conflict.latest == null
+        ? '$notSaved Refresh to see the latest version.'
+        : '$notSaved It now shows the latest version.';
+  }
+
+  void _applyScope(BoardData data, int asOf) {
     _statuses = [...data.statuses]..sort((a, b) => a.order.compareTo(b.order));
     _statusById = {for (final status in _statuses) status.id: status};
     _layerById = {for (final layer in data.layers) layer.id: layer};
-    _swimlanes = data.swimlanes;
+    _items.putAll([
+      for (final lane in data.swimlanes) ...[lane.lane, ...lane.cards],
+    ], asOf: asOf);
+    _swimlanes = _drawnFromStore([
+      for (final lane in data.swimlanes) _layoutOf(lane),
+    ]);
   }
 
-  List<HierarchyItem> _withHierarchyItem(
-    String id,
-    HierarchyItem Function(HierarchyItem) update,
-  ) => [
-    for (final item in _hierarchyItems)
-      if (item.id == id) update(item) else item,
-  ];
-
-  String? _currentAssigneeOf(String workItemId) =>
-      _swimlanes.assigneeOf(workItemId) ??
-      _hierarchyItems
-          .where((item) => item.id == workItemId)
-          .firstOrNull
-          ?.assignedToUserId;
-
-  List<String>? _currentTagsOf(String workItemId) =>
-      _swimlanes.tagsOf(workItemId) ??
-      _hierarchyItems.where((item) => item.id == workItemId).firstOrNull?.tags;
+  static Swimlane _layoutOf(SwimlaneItems lane) => Swimlane(
+    parentId: lane.lane.id,
+    title: lane.lane.title,
+    assignedToUserId: lane.lane.assignedToUserId,
+    cards: [
+      for (final card in lane.cards)
+        WorkItemCard.fromWorkItem(card, laneId: lane.lane.id),
+    ],
+  );
 }

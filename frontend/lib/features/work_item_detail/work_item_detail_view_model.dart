@@ -8,23 +8,29 @@ import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/shared/data/current_user.dart';
+import 'package:weaver/shared/data/work_item_conflict.dart';
+import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/markdown/task_list.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
+/// The item itself is read from and saved through the shared
+/// [WorkItemStore], so every save sends the version it was based on and the
+/// board shows it as soon as it's saved.
 @injectable
 class WorkItemDetailViewModel extends ViewModel {
-  WorkItemDetailViewModel(this._repository, this._currentUser);
+  WorkItemDetailViewModel(this._repository, this._currentUser, this._items);
 
   final WorkItemDetailRepository _repository;
   final CurrentUser _currentUser;
+  final WorkItemStore _items;
 
-  WorkItemDetail? _item;
+  String? _itemId;
   List<WorkItemStatus> _statuses = const [];
   List<WorkItemLayer> _layers = const [];
   List<WorkItemPriority> _priorities = const [];
@@ -41,7 +47,13 @@ class WorkItemDetailViewModel extends ViewModel {
   int _reloadGeneration = 0;
   bool _hasChanges = false;
 
-  WorkItemDetail? get item => _item;
+  /// Null until [load] succeeds, and again once the item is deleted.
+  WorkItem? get item => switch (_itemId) {
+    final id? => _items[id],
+    null => null,
+  };
+
+  String get _id => _itemId!;
   List<WorkItemStatus> get statuses => _statuses;
   List<WorkItemLayer> get layers => _layers;
   List<WorkItemPriority> get priorities => _priorities;
@@ -60,9 +72,10 @@ class WorkItemDetailViewModel extends ViewModel {
   /// stale values would overwrite the other person's change on the next save.
   int get reloadGeneration => _reloadGeneration;
 
-  /// True once anything that other views show (fields, tags, schedule,
-  /// assignee, deletion, or a sub-item) was changed from this dialog, so
-  /// the caller knows to refresh when it closes.
+  /// True once a sub-item dialog opened from this one reported a change the
+  /// shared store can't show by itself (see [onNestedDialogClosed]), so the
+  /// caller knows to refresh when this dialog closes. Saving or deleting the
+  /// item doesn't count: the store already carries that to every view.
   bool get hasChanges => _hasChanges;
 
   /// Only the author may edit or delete a comment (the server enforces it
@@ -72,7 +85,7 @@ class WorkItemDetailViewModel extends ViewModel {
 
   String? get statusName {
     for (final status in _statuses) {
-      if (status.id == _item?.statusId) return status.name;
+      if (status.id == item?.statusId) return status.name;
     }
     return null;
   }
@@ -93,6 +106,7 @@ class WorkItemDetailViewModel extends ViewModel {
     notifyIfActive();
 
     try {
+      final asOf = _items.revision;
       final (
         item,
         statuses,
@@ -112,7 +126,8 @@ class WorkItemDetailViewModel extends ViewModel {
         _repository.loadLinks(id),
         _repository.loadChildren(id),
       ).wait;
-      _item = item;
+      _items.putAll([item], asOf: asOf);
+      _itemId = id;
       _statuses = statuses;
       _layers = layers;
       _priorities = priorities;
@@ -164,13 +179,13 @@ class WorkItemDetailViewModel extends ViewModel {
     final error = titleError(title);
     if (error != null) return _reject(error);
     return _save(
-      () => _repository.updateDetails(
-        _item!.id,
+      (version) => _repository.updateDetails(
+        _id,
         title: title,
         description: description,
         layerId: layerId,
         priorityId: priorityId,
-        expectedVersion: _item!.version,
+        expectedVersion: version,
       ),
     );
   }
@@ -179,43 +194,42 @@ class WorkItemDetailViewModel extends ViewModel {
   /// description (counted as in [toggleTask]) and saves only the
   /// description, so a tick never carries unsaved form edits with it.
   Future<bool> toggleDescriptionTask(int taskIndex) {
-    final description = toggleTask(_item!.description ?? '', taskIndex);
+    final description = toggleTask(item!.description ?? '', taskIndex);
     return _save(
-      () => _repository.updateDescription(
-        _item!.id,
+      (version) => _repository.updateDescription(
+        _id,
         description,
-        expectedVersion: _item!.version,
+        expectedVersion: version,
       ),
     );
   }
 
   Future<bool> saveAssignee(String? userId) => _save(
-    () =>
-        _repository.assign(_item!.id, userId, expectedVersion: _item!.version),
+    (version) => _repository.assign(_id, userId, expectedVersion: version),
   );
 
   /// Deletes this work item and any sub-items — the confirmation dialog
   /// already warns the user about the subtree, so this always cascades
   /// rather than asking a second time.
-  Future<bool> deleteItem() => _mutate(
-    () async {
+  ///
+  /// The item leaves the shared store, so every layout drops it.
+  Future<bool> deleteItem() async {
+    // Queued through the store like a save, so a delete right after a save
+    // sends the version that save returned rather than a stale one.
+    final deleted = await _save((version) async {
       await _repository.deleteItem(
-        _item!.id,
+        _id,
         cascade: true,
-        expectedVersion: _item!.version,
+        expectedVersion: version,
       );
-      _hasChanges = true;
-    },
-    errorMessage: 'Could not delete this work item. Try again.',
-    onConflict: _reloadAfterConflict,
-  );
+      return item!;
+    }, errorMessage: 'Could not delete this work item. Try again.');
+    if (deleted) _items.remove(_id);
+    return deleted;
+  }
 
   Future<bool> saveTags(List<String> tags) => _save(
-    () => _repository.updateTags(
-      _item!.id,
-      tags,
-      expectedVersion: _item!.version,
-    ),
+    (version) => _repository.updateTags(_id, tags, expectedVersion: version),
   );
 
   Future<bool> saveSchedule(DateTime? startDate, DateTime? endDate) {
@@ -223,11 +237,11 @@ class WorkItemDetailViewModel extends ViewModel {
       return _reject('The start date must not be after the end date.');
     }
     return _save(
-      () => _repository.reschedule(
-        _item!.id,
+      (version) => _repository.reschedule(
+        _id,
         startDate,
         endDate,
-        expectedVersion: _item!.version,
+        expectedVersion: version,
       ),
     );
   }
@@ -244,7 +258,7 @@ class WorkItemDetailViewModel extends ViewModel {
   // duplicate.
 
   Future<bool> addComment(String body) => _mutate(() async {
-    final created = await _repository.addComment(_item!.id, body);
+    final created = await _repository.addComment(_id, body);
     _comments = [..._comments, created];
   }, errorMessage: 'Could not add your comment. Try again.');
 
@@ -266,7 +280,7 @@ class WorkItemDetailViewModel extends ViewModel {
 
   Future<bool> addLink(String targetWorkItemId) => _mutate(
     () async {
-      final created = await _repository.addLink(_item!.id, targetWorkItemId);
+      final created = await _repository.addLink(_id, targetWorkItemId);
       _links = [..._links, created];
     },
     errorMessage:
@@ -282,44 +296,41 @@ class WorkItemDetailViewModel extends ViewModel {
   }, errorMessage: 'Could not remove this link. Try again.');
 
   /// Called when a nested dialog (a sub-item, or the repeating item that
-  /// created this one) reports a change: reloads the Sub-Items list and
-  /// marks this dialog as changed.
-  Future<void> onSubItemChanged() async {
-    _hasChanges = true;
+  /// created this one) closes. The Sub-Items list is reloaded either way,
+  /// since its titles and statuses may have been edited there; [changed]
+  /// (the nested dialog's own result) marks this dialog as changed too.
+  Future<void> onNestedDialogClosed({required bool changed}) async {
+    if (changed) _hasChanges = true;
     try {
-      _children = await _repository.loadChildren(_item!.id);
+      _children = await _repository.loadChildren(_id);
     } on Exception {
-      // Keep the current list; the caller's refresh still picks up the change.
+      // Keep the current list; it only goes stale.
     }
     notifyIfActive();
   }
 
-  Future<bool> _save(Future<WorkItemDetail> Function() action) => _mutate(
-    () async {
-      _item = await action();
-      _hasChanges = true;
-    },
-    errorMessage: 'Could not save your change. Try again.',
-    onConflict: _reloadAfterConflict,
+  Future<bool> _save(
+    Future<WorkItem> Function(int expectedVersion) send, {
+    String errorMessage = 'Could not save your change. Try again.',
+  }) => _mutate(
+    () => _items.write(_id, send: send, reload: () => _repository.getItem(_id)),
+    errorMessage: errorMessage,
   );
 
-  Future<void> _reloadAfterConflict() async {
+  void _reportConflict(WorkItemConflict conflict) {
     const notSaved =
         'Someone else changed this work item, so your change was not saved.';
-    if (isDisposed) return;
-    try {
-      _item = await _repository.getItem(_item!.id);
-      _reloadGeneration++;
-      _saveError = '$notSaved The latest version is now shown.';
-    } on Exception {
+    if (conflict.latest == null) {
       _saveError = '$notSaved Close and reopen it to see the latest version.';
+      return;
     }
+    _reloadGeneration++;
+    _saveError = '$notSaved The latest version is now shown.';
   }
 
   Future<bool> _mutate(
     Future<void> Function() action, {
     required String errorMessage,
-    Future<void> Function()? onConflict,
   }) async {
     _pendingSaves++;
     _saveError = null;
@@ -328,14 +339,13 @@ class WorkItemDetailViewModel extends ViewModel {
     try {
       await action();
       return true;
+    } on WorkItemConflict catch (conflict) {
+      _reportConflict(conflict);
+      return false;
     } on ApiException catch (e) {
-      if (e.isConflict && onConflict != null) {
-        await onConflict();
-      } else {
-        // A 400 carries the server's validation message ("Each tag must be
-        // at most 50 characters."), which says more than "try again".
-        _saveError = e.statusCode == 400 ? e.message : errorMessage;
-      }
+      // A 400 carries the server's validation message ("Each tag must be
+      // at most 50 characters."), which says more than "try again".
+      _saveError = e.statusCode == 400 ? e.message : errorMessage;
       return false;
     } finally {
       _pendingSaves--;

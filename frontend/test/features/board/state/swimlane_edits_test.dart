@@ -42,13 +42,16 @@ void main() {
     expect(lanes.withCardMovedToLane('4', 'a', 'b'), same(lanes));
   });
 
-  test('assigning updates the lane item and matching cards', () {
-    final assigned = lanes.withAssignee('a', 'u1').withAssignee('4', 'u2');
+  test('removing a card takes it out of its lane only', () {
+    final removed = lanes.withoutCard('2');
 
-    expect(assigned[0].assignedToUserId, 'u1');
-    expect(assigned.assigneeOf('a'), 'u1');
-    expect(assigned.assigneeOf('4'), 'u2');
-    expect(assigned.assigneeOf('1'), isNull);
+    expect(removed[0].cards.map((c) => c.id), ['1', '3']);
+    expect(removed[1].cards.map((c) => c.id), ['4']);
+  });
+
+  test('laneIdOf finds the lane holding a card', () {
+    expect(lanes.laneIdOf('4'), 'b');
+    expect(lanes.laneIdOf('missing'), isNull);
   });
 
   group('placing a card in a status cell', () {

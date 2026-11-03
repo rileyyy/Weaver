@@ -25,6 +25,7 @@ Map<String, dynamic> _itemJson({
   int version = 7,
 }) => {
   'id': 'item-1',
+  'number': 1,
   'parentId': null,
   'title': 'A task',
   'description': null,

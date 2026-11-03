@@ -1,5 +1,4 @@
-import 'package:weaver/core/network/api_dates.dart';
-import 'package:weaver/core/network/json_fields.dart';
+import 'package:weaver/shared/models/work_item.dart';
 
 /// One work item as shown in the Hierarchy view: enough fields to render a
 /// row and to nest it under its parent. A richer, unscoped sibling of
@@ -21,18 +20,18 @@ class HierarchyItem {
     this.tags = const [],
   });
 
-  factory HierarchyItem.fromJson(Map<String, dynamic> json) => HierarchyItem(
-    id: json['id'] as String,
-    number: json['number'] as int,
-    parentId: json['parentId'] as String?,
-    title: json['title'] as String,
-    statusId: json['statusId'] as String,
-    description: json['description'] as String?,
-    startDate: parseCalendarDate(json['startDate']),
-    endDate: parseCalendarDate(json['endDate']),
-    assignedToUserId: json['assignedToUserId'] as String?,
-    layerId: json['layerId'] as String?,
-    tags: stringList(json['tags']),
+  factory HierarchyItem.fromWorkItem(WorkItem item) => HierarchyItem(
+    id: item.id,
+    number: item.number,
+    parentId: item.parentId,
+    title: item.title,
+    statusId: item.statusId,
+    description: item.description,
+    startDate: item.startDate,
+    endDate: item.endDate,
+    assignedToUserId: item.assignedToUserId,
+    layerId: item.layerId,
+    tags: item.tags,
   );
 
   final String id;
@@ -53,85 +52,6 @@ class HierarchyItem {
   /// if any; its colour marks the item on the board.
   final String? layerId;
 
-  /// Short free-text labels, zero or more — see [tagged].
+  /// Short free-text labels, zero or more.
   final List<String> tags;
-
-  /// Sets this item's assignee, keeping everything else — the model-level
-  /// mirror of the backend's `Assign`.
-  HierarchyItem assigned(String? userId) => HierarchyItem(
-    id: id,
-    number: number,
-    parentId: parentId,
-    title: title,
-    statusId: statusId,
-    description: description,
-    startDate: startDate,
-    endDate: endDate,
-    assignedToUserId: userId,
-    layerId: layerId,
-    tags: tags,
-  );
-
-  /// Sets this item's tags (the full replacement list), keeping everything
-  /// else — the model-level mirror of the backend's `SetTags`.
-  HierarchyItem tagged(List<String> tags) => HierarchyItem(
-    id: id,
-    number: number,
-    parentId: parentId,
-    title: title,
-    statusId: statusId,
-    description: description,
-    startDate: startDate,
-    endDate: endDate,
-    assignedToUserId: assignedToUserId,
-    layerId: layerId,
-    tags: tags,
-  );
-
-  /// Moves this item to another status column — mirrors the backend's
-  /// `ChangeStatus`, so the Hierarchy/Roadmap views follow board drags.
-  HierarchyItem withStatus(String statusId) => HierarchyItem(
-    id: id,
-    number: number,
-    parentId: parentId,
-    title: title,
-    statusId: statusId,
-    description: description,
-    startDate: startDate,
-    endDate: endDate,
-    assignedToUserId: assignedToUserId,
-    layerId: layerId,
-    tags: tags,
-  );
-
-  /// Mirrors the backend's `Reparent`.
-  HierarchyItem movedToParent(String? parentId) => HierarchyItem(
-    id: id,
-    number: number,
-    parentId: parentId,
-    title: title,
-    statusId: statusId,
-    description: description,
-    startDate: startDate,
-    endDate: endDate,
-    assignedToUserId: assignedToUserId,
-    layerId: layerId,
-    tags: tags,
-  );
-
-  /// Mirrors the backend's `Reschedule`.
-  HierarchyItem rescheduled(DateTime? startDate, DateTime? endDate) =>
-      HierarchyItem(
-        id: id,
-        number: number,
-        parentId: parentId,
-        title: title,
-        statusId: statusId,
-        description: description,
-        startDate: startDate,
-        endDate: endDate,
-        assignedToUserId: assignedToUserId,
-        layerId: layerId,
-        tags: tags,
-      );
 }

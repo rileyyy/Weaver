@@ -5,13 +5,12 @@ import 'package:weaver/core/network/api_endpoint.dart';
 import 'package:weaver/core/network/json_api_client.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
-import 'package:weaver/features/board/models/hierarchy_item.dart';
-import 'package:weaver/features/board/models/swimlane.dart';
-import 'package:weaver/features/board/models/work_item_card.dart';
+import 'package:weaver/features/board/models/swimlane_items.dart';
 import 'package:weaver/shared/data/layer_repository.dart';
 import 'package:weaver/shared/data/status_repository.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item.dart';
 
 /// Items per `/work-items/all` request; the server allows up to 1000.
 const int allItemsPageSize = 500;
@@ -35,6 +34,14 @@ class ApiBoardRepository implements BoardRepository {
   final StatusRepository _statuses;
   final LayerRepository _layers;
   final UserDirectoryRepository _users;
+
+  static WorkItem _item(Object? json) =>
+      WorkItem.fromJson(json as Map<String, dynamic>);
+
+  /// Every write answers with the item and the fields it changed; the board
+  /// only needs the item, which carries the new version.
+  static WorkItem _writtenItem(Object? json) =>
+      _item((json as Map<String, dynamic>)['item']);
 
   @override
   Future<String?> loadRootScopeItemId() => _api.get('/boards', (json) {
@@ -60,12 +67,12 @@ class ApiBoardRepository implements BoardRepository {
   }
 
   @override
-  Future<List<HierarchyItem>> loadAllItems() async {
-    final items = <HierarchyItem>[];
+  Future<List<WorkItem>> loadAllItems() async {
+    final items = <WorkItem>[];
     while (true) {
       final page = await _api.get(
         '/work-items/all',
-        (json) => JsonApiClient.listOf(json, HierarchyItem.fromJson),
+        (json) => JsonApiClient.listOf(json, WorkItem.fromJson),
         query: {'offset': '${items.length}', 'limit': '$allItemsPageSize'},
         failureMessage: 'Failed to load work items',
       );
@@ -76,33 +83,60 @@ class ApiBoardRepository implements BoardRepository {
   }
 
   @override
+  Future<WorkItem> getItem(String id) => _api.get(
+    '/work-items/$id',
+    _item,
+    failureMessage: 'Failed to load work item',
+  );
+
+  @override
   Future<List<User>> loadUsers() => _users.loadUsers();
 
   @override
-  Future<void> changeStatus(
+  Future<WorkItem> changeStatus(
     String cardId,
     String newStatusId, {
     required String? afterId,
-  }) => _api.putIgnoringBody('/work-items/$cardId/status', {
-    'statusId': newStatusId,
-    'afterId': afterId,
-  }, failureMessage: 'Failed to change status');
+    required int expectedVersion,
+  }) => _api.put(
+    '/work-items/$cardId/status',
+    {
+      'statusId': newStatusId,
+      'afterId': afterId,
+      'expectedVersion': expectedVersion,
+    },
+    _writtenItem,
+    failureMessage: 'Failed to change status',
+  );
 
   @override
-  Future<void> reparentItem(String itemId, String newParentId) =>
-      _api.putIgnoringBody('/work-items/$itemId/parent', {
-        'parentId': newParentId,
-      }, failureMessage: 'Failed to move item');
+  Future<WorkItem> reparentItem(
+    String itemId,
+    String newParentId, {
+    required int expectedVersion,
+  }) => _api.put(
+    '/work-items/$itemId/parent',
+    {'parentId': newParentId, 'expectedVersion': expectedVersion},
+    _writtenItem,
+    failureMessage: 'Failed to move item',
+  );
 
   @override
-  Future<void> rescheduleItem(
+  Future<WorkItem> rescheduleItem(
     String itemId,
     DateTime? startDate,
-    DateTime? endDate,
-  ) => _api.patchIgnoringBody('/work-items/$itemId/schedule', {
-    'startDate': formatCalendarDate(startDate),
-    'endDate': formatCalendarDate(endDate),
-  }, failureMessage: 'Failed to reschedule item');
+    DateTime? endDate, {
+    required int expectedVersion,
+  }) => _api.patch(
+    '/work-items/$itemId/schedule',
+    {
+      'startDate': formatCalendarDate(startDate),
+      'endDate': formatCalendarDate(endDate),
+      'expectedVersion': expectedVersion,
+    },
+    _writtenItem,
+    failureMessage: 'Failed to reschedule item',
+  );
 
   @override
   Future<void> createWorkItem({
@@ -118,26 +152,31 @@ class ApiBoardRepository implements BoardRepository {
   }, failureMessage: 'Failed to create work item');
 
   @override
-  Future<void> assign(String workItemId, String? userId) =>
-      _api.putIgnoringBody(
-        '/work-items/$workItemId/assignee',
-        {'userId': userId},
-        failureMessage: 'Failed to assign work item',
-      );
+  Future<WorkItem> assign(
+    String workItemId,
+    String? userId, {
+    required int expectedVersion,
+  }) => _api.put(
+    '/work-items/$workItemId/assignee',
+    {'userId': userId, 'expectedVersion': expectedVersion},
+    _writtenItem,
+    failureMessage: 'Failed to assign work item',
+  );
 
   @override
-  Future<void> setTags(String workItemId, List<String> tags) =>
-      _api.patchIgnoringBody('/work-items/$workItemId/tags', {
-        'tags': tags,
-      }, failureMessage: 'Failed to set tags');
+  Future<WorkItem> setTags(
+    String workItemId,
+    List<String> tags, {
+    required int expectedVersion,
+  }) => _api.patch(
+    '/work-items/$workItemId/tags',
+    {'tags': tags, 'expectedVersion': expectedVersion},
+    _writtenItem,
+    failureMessage: 'Failed to set tags',
+  );
 
-  static Swimlane _toSwimlane(Map<String, dynamic> json) {
-    final lane = json['lane'] as Map<String, dynamic>;
-    return Swimlane(
-      parentId: lane['id'] as String,
-      title: lane['title'] as String,
-      cards: JsonApiClient.listOf(json['cards'], WorkItemCard.fromJson),
-      assignedToUserId: lane['assignedToUserId'] as String?,
-    );
-  }
+  static SwimlaneItems _toSwimlane(Map<String, dynamic> json) => SwimlaneItems(
+    lane: _item(json['lane']),
+    cards: JsonApiClient.listOf(json['cards'], WorkItem.fromJson),
+  );
 }

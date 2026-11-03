@@ -8,38 +8,35 @@ import 'package:weaver/features/auth/data/secure_token_store.dart';
 import 'package:weaver/features/auth/models/auth_session.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
-import 'package:weaver/features/board/models/hierarchy_item.dart';
-import 'package:weaver/features/board/models/swimlane.dart';
-import 'package:weaver/features/board/models/work_item_card.dart';
+import 'package:weaver/features/board/models/swimlane_items.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
+import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 import 'package:weaver/shared/recurrence/data/recurrence_repository.dart';
 
 import 'core/network/fakes/in_memory_server_origin_store.dart';
+import 'shared/fakes/work_items.dart';
 import 'shared/recurrence/fake_recurrence_repository.dart';
 
 /// Stands in for the real, network-backed [BoardRepository] so this smoke
-/// test never makes an HTTP call.
+/// test never makes an HTTP call. It never writes, so writes aren't stubbed.
 class _StubBoardRepository implements BoardRepository {
   @override
   Future<String?> loadRootScopeItemId() => Future.value();
 
   @override
   Future<BoardData> loadBoard(String? scopeItemId) => Future.value(
-    const BoardData(
-      statuses: [WorkItemStatus(id: 'todo', name: 'To Do', order: 0)],
+    BoardData(
+      statuses: const [WorkItemStatus(id: 'todo', name: 'To Do', order: 0)],
       swimlanes: [
-        Swimlane(
-          parentId: 'epic-board',
-          title: 'Swimlane board',
+        SwimlaneItems(
+          lane: workItem('epic-board', title: 'Swimlane board'),
           cards: [
-            WorkItemCard(
-              id: 'wi-1',
-              number: 1,
+            workItem(
+              'wi-1',
               title: 'Design swimlane layout',
               parentId: 'epic-board',
-              statusId: 'todo',
             ),
           ],
         ),
@@ -48,42 +45,13 @@ class _StubBoardRepository implements BoardRepository {
   );
 
   @override
-  Future<List<HierarchyItem>> loadAllItems() => Future.value(const []);
+  Future<List<WorkItem>> loadAllItems() => Future.value(const []);
 
   @override
   Future<List<User>> loadUsers() => Future.value(const []);
 
   @override
-  Future<void> changeStatus(
-    String cardId,
-    String newStatusId, {
-    required String? afterId,
-  }) => Future.value();
-
-  @override
-  Future<void> reparentItem(String itemId, String newParentId) =>
-      Future.value();
-
-  @override
-  Future<void> rescheduleItem(
-    String itemId,
-    DateTime? startDate,
-    DateTime? endDate,
-  ) => Future.value();
-
-  @override
-  Future<void> createWorkItem({
-    required String title,
-    String? description,
-    required String? parentId,
-    required String statusId,
-  }) => Future.value();
-
-  @override
-  Future<void> assign(String workItemId, String? userId) => Future.value();
-
-  @override
-  Future<void> setTags(String workItemId, List<String> tags) => Future.value();
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }
 
 /// Never actually called: the test pre-populates a non-expired session
