@@ -102,6 +102,20 @@ public class StatusServiceTests
     }
 
     [Test]
+    public async Task DeleteAsync_MovingTopLevelItems_AppendsThemWithinTheirOwnSpace()
+    {
+        var home = Guid.NewGuid();
+        var village = Guid.NewGuid();
+        AddItem(null, StatusConfiguration.DoneId, 100, home);
+        var villageDoing = AddItem(null, StatusConfiguration.DoingId, 1, village);
+
+        await _statuses.DeleteAsync(_admin.Id, StatusConfiguration.DoingId, StatusConfiguration.DoneId);
+
+        Assert.That((await Reload(villageDoing)).Rank, Is.EqualTo(1).Within(double.Epsilon),
+            "Village's top-level Done cell was empty; Home's ranks belong to another cell");
+    }
+
+    [Test]
     public async Task DeleteAsync_WithAReplacement_AppendsMovedItemsToEachLanesColumnInOrder()
     {
         var lane = AddItem(null, StatusConfiguration.ToDoId, 1);
@@ -136,10 +150,10 @@ public class StatusServiceTests
         Assert.ThrowsAsync<LastLookupValueException>(() => _statuses.DeleteAsync(_admin.Id, StatusConfiguration.ToDoId, null));
     }
 
-    private WorkItem AddItem(WorkItem? parent, Guid statusId, double rank)
+    private WorkItem AddItem(WorkItem? parent, Guid statusId, double rank, Guid? spaceId = null)
     {
         var item = parent is null
-            ? WorkItem.Create(Guid.NewGuid(), "Item", null, statusId, rank)
+            ? WorkItem.Create(spaceId ?? Guid.NewGuid(), "Item", null, statusId, rank)
             : WorkItem.CreateChildOf(parent, "Item", null, statusId, rank);
         _db.WorkItems.Add(item);
         _db.SaveChanges();

@@ -60,19 +60,20 @@ public class StatusService : LookupService<Status>, IStatusService
             throw new LookupValueInUseException(Kind, deleted.Name, moving.Count);
         }
 
-        var lastRankByParent = await Db.WorkItems
-            .Where(w => w.StatusId == replacement)
-            .GroupBy(w => w.ParentId)
-            .Select(cell => new { ParentId = cell.Key, LastRank = cell.Max(w => w.Rank) })
-            .ToDictionaryAsync(cell => cell.ParentId ?? Guid.Empty, cell => (double?)cell.LastRank, ct);
+        var lastRankByCell = (await Db.WorkItems
+                .Where(w => w.StatusId == replacement)
+                .GroupBy(w => new { w.SpaceId, w.ParentId })
+                .Select(cell => new { cell.Key.SpaceId, cell.Key.ParentId, LastRank = cell.Max(w => w.Rank) })
+                .ToListAsync(ct))
+            .ToDictionary(cell => (cell.SpaceId, cell.ParentId), cell => (double?)cell.LastRank);
 
-        // Top-level items (no parent) form one cell; Guid.Empty stands in for the null key.
+        // A cell is per Space as well as per parent, so each Space's top-level items are one.
         foreach (var item in moving)
         {
-            var cellKey = item.ParentId ?? Guid.Empty;
-            var rank = RankCalculator.GetRankBetween(lastRankByParent.GetValueOrDefault(cellKey), null);
+            var cellKey = (item.SpaceId, item.ParentId);
+            var rank = RankCalculator.GetRankBetween(lastRankByCell.GetValueOrDefault(cellKey), null);
             History.RecordChanges(item.Id, item.MoveToStatus(replacement, rank));
-            lastRankByParent[cellKey] = rank;
+            lastRankByCell[cellKey] = rank;
         }
     }
 }
