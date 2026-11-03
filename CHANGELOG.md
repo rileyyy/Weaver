@@ -33,6 +33,28 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-03 — When field and quick picks
+
+`feature/when-field-and-quick-picks` (ticket 25 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0003](docs/adr/0003-when-and-backlog.md)).
+
+- **Work items have an optional free-text When** ("after drywall", up to
+  200 characters). It's patched with the other details over
+  `PATCH /work-items/{id}/details` and `update_work_item_details`, is
+  recorded in history, and is copied onto repeat occurrences. A blank
+  When clears it.
+- **Items report `whenResolved`**: true once a When is backed by a start
+  or end date. Typing a When never sets dates, so it stays unresolved
+  until someone (or an agent, ticket 28) gives it dates.
+- **Quick picks are resolved on the server.** `GET /quick-picks` gives
+  this weekend, next week and next month as dates for today in the
+  server time zone; weeks run Monday to Sunday.
+- **The detail dialog has a When field** with a Resolved/Unresolved badge
+  and the three quick picks. The phrase saves on Enter or when the field
+  loses focus; a quick pick sets the item's dates and leaves the phrase
+  as typed.
+
 ## 2026-11-02 — Admin UI for agent accounts and keys
 
 `feature/admin-ui-for-agent-accounts` (ticket 08 of

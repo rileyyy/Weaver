@@ -56,10 +56,15 @@ Space.
 : Every work item that isn't Done and has no dates. Time-framed layouts
 don't show Backlog items.
 
-**When** *(planned)*
+**When**
 : An optional free-text phrase on a work item ("before the Christmas market",
 "after drywall"). It records the intent behind the item's dates.
-**Resolving** a When sets the item's dates and/or adds a blocked-by link.
+**Resolving** a When sets the item's dates and/or adds a blocked-by link;
+the phrase is kept. Until then the When is **unresolved**.
+
+**Quick pick**
+: A When the detail dialog offers as one tap (this weekend, next week, next
+month). The server turns it into dates for today in the server time zone.
 _Avoid:_ sprint, iteration, focus period.
 
 **Tag**

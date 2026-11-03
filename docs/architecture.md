@@ -338,9 +338,19 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
 
 - **Operation-oriented endpoints** for state changes:
   `/work-items/{id}/status`, `/parent`, `/schedule`, `/assignee`, `/tags`,
-  and `/details` for title, description, layer and priority together.
-  Those four share an endpoint because none of them
+  and `/details` for title, description, layer, priority and When
+  together. Those share an endpoint because none of them
   carries the cross-cutting risk that keeps status and parent apart.
+- **When quick picks are resolved on the server.** `GET /quick-picks`
+  returns this weekend, next week (Monday to Sunday) and next month as
+  dates for today from `IServerCalendar`, via `QuickPickDates` in
+  `Weaver.Domain`. A client applies one with an ordinary `PATCH
+  /schedule`, so there's no second way to set dates. No range starts in
+  the past: on a Sunday "this weekend" is just that Sunday.
+- **`whenResolved` is computed, not stored**: true when the item has a
+  When and at least one date (`WorkItem.IsWhenResolved`). Clients and
+  agents read it rather than re-deriving the rule. A blocked-by link
+  will count too once links are typed (ticket 26).
 - **DTOs only** (`Weaver.Api/Contracts`); EF entities are never
   serialised.
 - **Verbs follow the resource.** `POST` creates and answers `201` with a

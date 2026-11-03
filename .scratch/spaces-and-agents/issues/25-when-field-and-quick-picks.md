@@ -4,12 +4,12 @@
 
 **Blocked by:** 01, 09
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] When is stored on the item, patchable over REST and MCP, and recorded in history
-- [ ] Quick picks are resolved to dates by the server, in the configured time zone, with tests around week and month boundaries
-- [ ] The detail dialog shows the When text, whether it's resolved, and the quick picks
-- [ ] Typing a When without dates leaves it unresolved
+- [x] When is stored on the item, patchable over REST and MCP, and recorded in history (the new Postgres integration tests in `WorkItemWhenTests` were written but not run on the implementing machine, which had no Docker; unit and EF InMemory tests pass)
+- [x] Quick picks are resolved to dates by the server, in the configured time zone, with tests around week and month boundaries
+- [x] The detail dialog shows the When text, whether it's resolved, and the quick picks
+- [x] Typing a When without dates leaves it unresolved
 
 ## Comments
 
@@ -20,3 +20,11 @@
 **2026-11-02, from ticket 09 (patch semantics and `expectedVersion`):**
 
 - When belongs with the descriptive fields: add `Optional<string?> When` to `WorkItemDetailsPatch` and a `WorkItemField.When`, and it's patchable over `PATCH /work-items/{id}/details` and `update_work_item_details` with no new endpoint. A quick pick that sets dates goes through `PATCH /schedule`, which already keeps a date that's left out.
+
+**2026-11-03, implementation notes (ticket 25):**
+
+- Weeks run Monday to Sunday and no quick-pick range starts in the past: on a Sunday "this weekend" is just that Sunday, and "next week" starts the next day.
+- A quick pick sets dates only; it doesn't write a When phrase. An item with no When gets dates but no Resolved badge. Revisit if Riley wants the pick's label stored as the phrase.
+- Resolved counts dates only until typed links land (see the comment on ticket 26).
+- Known gap: the When field saves on Enter or blur, so text typed and left focused when the dialog is closed isn't saved, and the dialog's unsaved-changes guard doesn't know about it. Left alone to avoid touching the dialog's PopScope while ticket 36 reworks how the dialog loads items.
+- Not checked by hand in a running app; the dialog is covered by widget tests.
