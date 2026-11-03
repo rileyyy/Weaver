@@ -36,7 +36,7 @@ and [adr/](adr/); sections describing something that plan replaces say so.
 
 **Projects follow the layers.** `Weaver.Domain` has the entities and
 domain exceptions. `Weaver.Application` has the service interfaces
-(`IWorkItemService`, `IBoardService`, …) and implementations, which query
+(`IWorkItemService`, `ISpaceService`, …) and implementations, which query
 through `IWeaverDbContext`: EF Core's `DbSet` API without the Npgsql
 provider, model configuration or migrations. It is deliberately not a
 generic repository; services compose EF queries directly.
@@ -52,17 +52,41 @@ and it is what allows MCP tools to reuse the same business logic (see
 
 ## Domain model
 
-### Work items and boards
+### Work items and Spaces
 
+- **Every work item belongs to exactly one Space**
+  ([ADR-0001](adr/0001-spaces.md)). `WorkItem.SpaceId` is required. A
+  top-level item is created in a chosen Space (`WorkItem.Create`), and a
+  child always takes its parent's (`WorkItem.CreateChildOf`); a create
+  that names a different Space for a child is a 400, not a move.
+  Repeating-item copies are created in their template's Space.
+- **Reparenting never crosses a Space.** `WorkItem.MoveToParent` (through
+  `EnsureCanMoveUnder`) rejects a parent in another Space with
+  `CrossSpaceParentException` (409), next to the "own parent" check; the
+  service checks it before working out a rank. Moving an item to another
+  Space will be its own operation, because it has to remap the item's
+  configuration (ticket 16). Making an item top-level keeps its Space.
+- **"Top level" only means something within a Space.** Listing children
+  (`GET /work-items`, `list_work_item_children`) and swimlanes
+  (`GET /work-items/swimlanes`) takes a parent or scope item, or else a
+  `spaceId` for that Space's top-level items; with neither it's a 400.
+  `/work-items/all` and `list_all_work_items` take an optional `spaceId`.
+- **Spaces are admin configuration.** Anyone signed in lists them
+  (`GET /api/spaces`, `list_spaces`); only a human admin creates or
+  renames one (`POST /api/spaces`, `PUT /api/spaces/{id}`), and there's no
+  MCP tool to change them. Names are unique ignoring case. There's no
+  delete yet: nothing says what happens to a Space's items.
+- **Statuses, priorities and Layers are still global** in this ticket;
+  tickets 12 and 13 make them per Space.
 - **A board is scoped by an ancestor item, not by depth.** A board's
-  swimlanes are the direct children of `Board.ScopeItemId` (or the
-  top-level items when it is null); its cards are each swimlane's direct
-  children. Depth-from-root was rejected: hierarchy depth is unrestricted
-  and branches can have different depths, so "level N" doesn't generalise.
-  Drilling into a card on the frontend is just loading a different scope.
-  The app only reads the first `Board`. The Board entity is removed in
-  Milestone 16: the Board becomes a layout of a View, and items are split
-  into Spaces ([ADR-0001](adr/0001-spaces.md)).
+  swimlanes are the direct children of the scope item (or the Space's
+  top-level items when there is none); its cards are each swimlane's
+  direct children. Depth-from-root was rejected: hierarchy depth is
+  unrestricted and branches can have different depths, so "level N"
+  doesn't generalise. Drilling into a card on the frontend is just loading
+  a different scope. The stored Board entity, which held only a name and a
+  scope item, was removed with ticket 11; the Board is now a layout, and
+  saved Views arrive with ticket 23.
 - **`ChangeStatus` and `Reparent` are separate operations**
   (`ChangeStatusAsync` / `ReparentAsync`, `PUT /work-items/{id}/status` /
   `/parent`), each touching only `StatusId` or `ParentId`. That a column
@@ -89,21 +113,17 @@ and it is what allows MCP tools to reuse the same business logic (see
   topologically sorts tracked deletes against the `Restrict` parent FK.
   Deletes are permanent today; Milestone 16 moves them to the Trash
   ([ADR-0007](adr/0007-trash.md)).
-- **Delete removes links and refuses to delete a board's scope.**
+- **Delete removes links.**
   - Both `WorkItemLink` FKs are `Restrict`, because EF rejects two
     `Cascade`/`SetNull` paths from one table to the same principal. So
     `DeleteAsync` removes every link touching the deleted subtree itself,
     in the same `SaveChanges`. Without that, Postgres rejects the delete
     and the client gets an unmapped 500.
-  - If the item or any cascaded descendant is some board's
-    `ScopeItemId`, the delete is rejected with
-    `WorkItemIsBoardScopeException` (409). A board is a saved view other
-    users rely on; silently deleting it or widening it to top level would
-    be a surprising side effect of deleting a card.
   - The InMemory provider doesn't enforce FKs, so these paths are covered
     by the integration tests against Postgres (see
     [Testing](#testing-strategy)).
-- **Rank is a fractional `double` scoped to `(ParentId, StatusId)`**, not
+- **Rank is a fractional `double` scoped to `(SpaceId, ParentId, StatusId)`**
+  (the Space so each Space's top-level items rank among themselves), not
   globally unique. Drag-and-drop can insert between two siblings without
   rewriting anyone else's rank (`RankCalculator`). There is no rebalancing
   job; when two siblings share a rank (concurrent inserts at the same
@@ -236,6 +256,15 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   rejected write records nothing. The domain write methods return
   `FieldChange`s (old and new value, from `ChangedFields`), so services
   don't diff; a write that changes nothing records nothing.
+- **Creating an item also records its Space** (`spaceId`, old value
+  null), via `WorkItemHistoryRecorder.RecordCreation`, so its history
+  says where it started even after a move between Spaces (ticket 16).
+  Like the other id fields, readers get the Space's name.
+- **A Space's own history is separate.** Creating and renaming a Space
+  append a `SpaceHistoryEntry` (`created`, `name`), with the same who and
+  when, since `WorkItemHistory` is keyed by a work item. Nothing reads it
+  yet. Its account and key FKs are `Restrict` like work item history's, so
+  an admin who created a Space can't be hard-deleted either.
 - **Rank isn't recorded.** It's a card's position in its board cell, which
   every drag rewrites; a reorder alone records nothing.
 - **Changes made as a side effect record too**, attributed to whoever
@@ -354,7 +383,7 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
 - **DTOs only** (`Weaver.Api/Contracts`); EF entities are never
   serialised.
 - **Verbs follow the resource.** `POST` creates and answers `201` with a
-  `Location` (work items, boards, comments; a link's `Location` is its
+  `Location` (work items, Spaces, comments; a link's `Location` is its
   work item's link list, since a link has no view of its own). Patching
   a group of work item fields (`/details`, `/schedule`, `/tags`) is a
   `PATCH` to that sub-resource; replacing a single value (`/status`,
@@ -387,7 +416,7 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   `DomainValidationException` (400 in REST, a tool error in MCP). Use it
   for new field rules instead of adding exception types. Max lengths are
   constants on the entities (`WorkItem.TitleMaxLength`,
-  `Comment.BodyMaxLength`, `Board.NameMaxLength`) that the EF
+  `Comment.BodyMaxLength`, `Space.NameMaxLength`) that the EF
   configurations also use, so the validation limit and the column limit
   can't drift. Before this, oversized input reached the database and
   returned a 500.
@@ -642,7 +671,8 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   admin before that rule doesn't count as "another admin" when the last
   human admin is demoted, deactivated or deleted. MCP has no admin write
   tools at all, and an integration test holds every MCP write tool to work
-  items, comments and boards. A new admin write (Spaces' statuses, Types,
+  items and comments. Creating and renaming Spaces is admin-only too. A
+  new admin write (Spaces' statuses, Types,
   retention) must call `IAdminAuthorizer`; purging the Trash is human-only
   but not admin-only, so it needs its own agent check.
 
@@ -659,9 +689,9 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
 - **Every tool that changes a work item takes an optional `actorLabel`**
   (at most 100 characters) and passes it to `HttpCallerContext`, so its
   history entry shows which part of an agent made the change.
-- **Coverage:** work items, boards, statuses, layers, priorities, users,
-  comments, links, repeating items and server settings. Lookups, users and
-  server settings (`get_server_settings`) are read-only over MCP, and agents
+- **Coverage:** work items, Spaces, statuses, layers, priorities, users,
+  comments, links, repeating items and server settings. Spaces, lookups,
+  users and server settings (`get_server_settings`) are read-only over MCP, and agents
   will never be able to change admin data
   ([ADR-0004](adr/0004-agent-accounts-and-api-keys.md)). A read tool must
   be marked `ReadOnly = true`, or a read-only key is refused it
@@ -890,9 +920,17 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   - `createWorkItem` deliberately doesn't use `_changeScope`: a failed
     create reports through `moveError` and keeps the board, and a create
     must never become the retry target.
-  - `loadRootScopeItemId()` resolves the initial scope once, in `load()`;
+  - `load()` loads the Spaces and opens the last-used one
+    (`LastSpaceStore`, kept on the device in secure storage like the
+    server address), or the first if it's gone or none was remembered.
+    The root breadcrumb is the Space's top level, titled with its name;
     later navigation reuses ids already known client-side, and a
     breadcrumb's title is just the card title captured at drill-in.
+  - `switchSpace` goes through `_changeScope` too, resets the trail to the
+    new Space's root, remembers it, and reloads the Hierarchy/Roadmap data
+    if it was loaded. Those layouts load only the current Space's items.
+    With no Space at all there's no scope: the board says one has to be
+    created, and `refreshAfterAdminChanges` opens the first one.
 - **Generations guard against overlapping loads.** Every scope load bumps
   `_scopeGeneration` and every hierarchy load bumps
   `_hierarchyGeneration`. A load's result, and the clearing of its
@@ -972,8 +1010,11 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   "last administrator") and a generic one otherwise
   (`adminErrorMessage`). Dialogs stay open on an error.
 - **Closing the page reloads the board** (`refreshAfterAdminChanges`:
-  users, current scope, and the hierarchy if loaded), since statuses and
-  users can have been renamed, recoloured or removed.
+  users, Spaces, current scope, and the hierarchy if loaded), since
+  Spaces, statuses and users can have been added, renamed, recoloured or
+  removed.
+- **Spaces are the first tab** (`SpacesTab`): add and rename, no delete
+  or reorder. They're listed by name.
 
 ### Repeating items in the UI
 
@@ -1001,12 +1042,12 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   (`IWorkItemService.GetSwimlanesAsync`) returns the scope's lanes, each
   with its cards, using two queries whatever the lane count; statuses come
   from the cached `StatusRepository`. It replaced one request per lane.
-  Rank is only unique within a (parent, status) cell, so the read queries
+  Rank is only unique within a (Space, parent, status) cell, so the read queries
   order by `Rank, Number` to stay deterministic across columns.
 - **Search, status filter, tag filter, sort and the time-frame filter are
   client-side today.** The board already fetches each lane's full child list,
-  and the Hierarchy/Roadmap views page through `GET /work-items/all`
-  (`offset`/`limit`, at most 1000 per page, 500 by default), so these are
+  and the Hierarchy/Roadmap views page through the current Space's
+  `GET /work-items/all?spaceId=` (`offset`/`limit`, at most 1000 per page, 500 by default), so these are
   predicates and comparators over data in hand. None of them is persisted.
   This breaks the rule that business logic stays out of the client, and is
   replaced by the server-side query and saved Views

@@ -13,10 +13,12 @@ _Avoid:_ task, ticket, card. A card is how the Board draws a work item.
 : A work item's human-facing `#N`, unique across the server. It isn't the
 item's id.
 
-**Space** *(planned)*
+**Space**
 : A top-level container such as Home, Village or Software. It holds a forest
-of work-item trees, and it owns their statuses, priorities and Types. An
-item belongs to exactly one Space.
+of work-item trees. An item belongs to exactly one Space: a top-level item
+is created in one, and children share their parent's. Reparenting never
+crosses a Space. From ticket 12 a Space owns its statuses, priorities and
+Types.
 _Avoid:_ project, workspace, board.
 
 **Type** *(planned; replaces Layer)*
@@ -42,8 +44,8 @@ Each user picks a default View.
 
 **Board**
 : The swimlane layout of a View. Each parent is a lane and its children are
-cards that move between status columns. From Milestone 16 it's no longer
-a stored entity.
+cards that move between status columns. It isn't a stored entity (the old
+Board entity was removed in ticket 11).
 
 **Overview** *(planned)*
 : The built-in View of all scheduled and in-progress work across every

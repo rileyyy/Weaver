@@ -33,6 +33,35 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-03 — Spaces replace Boards
+
+`feature/spaces-replace-boards` (ticket 11 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0001](docs/adr/0001-spaces.md)).
+
+- **Every work item belongs to a Space.** A top-level item is created in
+  a chosen Space (`spaceId` on `POST /work-items` and `create_work_item`);
+  a child joins its parent's. Repeat copies stay in their template's
+  Space.
+- **Reparenting can't cross a Space** (409), over REST and MCP alike.
+- **Top-level listings take a Space.** `GET /work-items` and
+  `/work-items/swimlanes` need a parent/scope item or a `spaceId`;
+  `/work-items/all` and `list_all_work_items` filter by an optional one.
+- **Admins create and rename Spaces** (`/api/spaces`, Admin page → Spaces).
+  Anyone can list them, agents included (`list_spaces`), but no agent can
+  change them.
+- **History records an item's Space** when it's created, by name in the
+  History tab, and a Space's creation and renames go to its own history.
+- **The app shows one Space at a time** and remembers the last one on the
+  device. The breadcrumbs start at the Space's name, with a switcher in
+  front. Hierarchy and Roadmap show the current Space.
+- **The Board entity is gone**, with `/api/boards` and the board MCP tools,
+  and deleting an item no longer checks for a board scoped to it.
+  Statuses, priorities and layers stay global for now (tickets 12, 13).
+- **Reset local databases.** The migration is a clean schema change with
+  no data migration: a database that already has work items can't be
+  upgraded, since they have no Space.
+
 ## 2026-11-03 — When field and quick picks
 
 `feature/when-field-and-quick-picks` (ticket 25 of
