@@ -1,5 +1,4 @@
-import 'package:weaver/core/network/api_dates.dart';
-import 'package:weaver/core/network/json_fields.dart';
+import 'package:weaver/shared/models/work_item.dart';
 
 /// A card on the board: the subset of a work item's fields the board needs
 /// to render. [parentId] is the swimlane's work item id — never mutated by
@@ -20,19 +19,22 @@ class WorkItemCard {
     this.tags = const [],
   });
 
-  factory WorkItemCard.fromJson(Map<String, dynamic> json) => WorkItemCard(
-    id: json['id'] as String,
-    number: json['number'] as int,
-    title: json['title'] as String,
-    parentId: json['parentId'] as String,
-    statusId: json['statusId'] as String,
-    description: json['description'] as String?,
-    startDate: parseCalendarDate(json['startDate']),
-    endDate: parseCalendarDate(json['endDate']),
-    assignedToUserId: json['assignedToUserId'] as String?,
-    layerId: json['layerId'] as String?,
-    tags: stringList(json['tags']),
-  );
+  /// [item] drawn as a card in the lane of [laneId], which owns it on the
+  /// board whatever [WorkItem.parentId] says.
+  factory WorkItemCard.fromWorkItem(WorkItem item, {required String laneId}) =>
+      WorkItemCard(
+        id: item.id,
+        number: item.number,
+        title: item.title,
+        parentId: laneId,
+        statusId: item.statusId,
+        description: item.description,
+        startDate: item.startDate,
+        endDate: item.endDate,
+        assignedToUserId: item.assignedToUserId,
+        layerId: item.layerId,
+        tags: item.tags,
+      );
 
   final String id;
 
@@ -58,7 +60,7 @@ class WorkItemCard {
   /// if any; its colour marks the item on the board.
   final String? layerId;
 
-  /// Short free-text labels, zero or more — see [tagged].
+  /// Short free-text labels, zero or more.
   final List<String> tags;
 
   WorkItemCard copyWith({String? statusId}) => WorkItemCard(
@@ -83,55 +85,6 @@ class WorkItemCard {
     number: number,
     title: title,
     parentId: newParentId,
-    statusId: statusId,
-    description: description,
-    startDate: startDate,
-    endDate: endDate,
-    assignedToUserId: assignedToUserId,
-    layerId: layerId,
-    tags: tags,
-  );
-
-  /// Sets this card's schedule, keeping its status and parent — the
-  /// model-level mirror of the backend's `Reschedule`.
-  WorkItemCard rescheduled(DateTime? startDate, DateTime? endDate) =>
-      WorkItemCard(
-        id: id,
-        number: number,
-        title: title,
-        parentId: parentId,
-        statusId: statusId,
-        description: description,
-        startDate: startDate,
-        endDate: endDate,
-        assignedToUserId: assignedToUserId,
-        layerId: layerId,
-        tags: tags,
-      );
-
-  /// Sets this card's assignee, keeping everything else — the model-level
-  /// mirror of the backend's `Assign`.
-  WorkItemCard assigned(String? userId) => WorkItemCard(
-    id: id,
-    number: number,
-    title: title,
-    parentId: parentId,
-    statusId: statusId,
-    description: description,
-    startDate: startDate,
-    endDate: endDate,
-    assignedToUserId: userId,
-    layerId: layerId,
-    tags: tags,
-  );
-
-  /// Sets this card's tags (the full replacement list), keeping everything
-  /// else — the model-level mirror of the backend's `SetTags`.
-  WorkItemCard tagged(List<String> tags) => WorkItemCard(
-    id: id,
-    number: number,
-    title: title,
-    parentId: parentId,
     statusId: statusId,
     description: description,
     startDate: startDate,

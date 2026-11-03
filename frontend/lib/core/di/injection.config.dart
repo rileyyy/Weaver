@@ -253,11 +253,14 @@ extension GetItInjectableX on _i174.GetIt {
       (agentId, _) =>
           _i841.AgentKeysViewModel(gh<_i6.AgentAdminRepository>(), agentId),
     );
+    gh.factory<_i314.BoardViewModel>(
+      () => _i314.BoardViewModel(
+        gh<_i522.BoardRepository>(),
+        gh<_i723.WorkItemStore>(),
+      ),
+    );
     gh.factory<_i609.StatusAdminViewModel>(
       () => _i609.StatusAdminViewModel(gh<_i224.StatusAdminRepository>()),
-    );
-    gh.factory<_i314.BoardViewModel>(
-      () => _i314.BoardViewModel(gh<_i522.BoardRepository>()),
     );
     return this;
   }

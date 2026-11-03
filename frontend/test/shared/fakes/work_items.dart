@@ -33,3 +33,25 @@ WorkItem workItem(
   version: version,
   tags: tags,
 );
+
+/// [item] as the server would return it after a write: the same fields with
+/// a new [version].
+WorkItem withVersion(WorkItem item, int version) => WorkItem(
+  id: item.id,
+  number: item.number,
+  parentId: item.parentId,
+  title: item.title,
+  description: item.description,
+  statusId: item.statusId,
+  layerId: item.layerId,
+  priorityId: item.priorityId,
+  assignedToUserId: item.assignedToUserId,
+  startDate: item.startDate,
+  endDate: item.endDate,
+  createdAt: item.createdAt,
+  updatedAt: item.updatedAt,
+  version: version,
+  tags: item.tags,
+  recurrenceSourceId: item.recurrenceSourceId,
+  recurrenceDate: item.recurrenceDate,
+);

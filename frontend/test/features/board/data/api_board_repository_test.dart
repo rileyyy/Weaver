@@ -18,9 +18,53 @@ http.Response _jsonResponse(Object body, {int statusCode = 200}) =>
       headers: {'content-type': 'application/json'},
     );
 
+/// A `WorkItemDto` as the server sends it, with [fields] overriding the
+/// defaults.
+Map<String, dynamic> _itemJson(
+  String id, {
+  int number = 1,
+  String? parentId,
+  Map<String, dynamic> fields = const {},
+}) => {
+  'id': id,
+  'number': number,
+  'title': id,
+  'parentId': parentId,
+  'statusId': 'status-todo',
+  'tags': <String>[],
+  'createdAtUtc': '2026-01-01T00:00:00Z',
+  'updatedAtUtc': '2026-01-01T00:00:00Z',
+  'version': 1,
+  ...fields,
+};
+
+/// The body every work-item write answers with.
+Map<String, dynamic> _writeJson(Map<String, dynamic> item) => {
+  'item': item,
+  'changedFields': <String>[],
+};
+
 void main() {
   const baseUrl = 'http://backend.test/api';
   const endpoint = FixedApiEndpoint(baseUrl);
+
+  ApiBoardRepository repositoryFor(http.Client client) => ApiBoardRepository(
+    client,
+    endpoint,
+    ApiStatusRepository(client, endpoint),
+    ApiLayerRepository(client, endpoint),
+    ApiUserDirectoryRepository(client, endpoint),
+  );
+
+  /// Answers every request with [item] as a write response, recording the
+  /// request in [sent].
+  MockClient writeClient(
+    List<http.Request> sent, {
+    Map<String, dynamic>? item,
+  }) => MockClient((request) async {
+    sent.add(request);
+    return _jsonResponse(_writeJson(item ?? _itemJson('card-1')));
+  });
 
   test("loadRootScopeItemId returns the first board's scope item", () async {
     final client = MockClient((request) async {
@@ -32,15 +76,7 @@ void main() {
       throw StateError('Unexpected request: ${request.url}');
     });
 
-    final repository = ApiBoardRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
-
-    expect(await repository.loadRootScopeItemId(), 'epic-1');
+    expect(await repositoryFor(client).loadRootScopeItemId(), 'epic-1');
   });
 
   test('loadRootScopeItemId returns null when no boards exist', () async {
@@ -49,15 +85,7 @@ void main() {
       throw StateError('Unexpected request: ${request.url}');
     });
 
-    final repository = ApiBoardRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
-
-    expect(await repository.loadRootScopeItemId(), isNull);
+    expect(await repositoryFor(client).loadRootScopeItemId(), isNull);
   });
 
   /// Serves /statuses and /work-items/swimlanes for scope `epic-1` with
@@ -78,37 +106,24 @@ void main() {
         request.url.queryParameters['scopeItemId'] == 'epic-1') {
       return _jsonResponse([
         {
-          'lane': {
-            'id': 'lane-1',
-            'number': 10,
-            'title': 'Lane One',
-            'parentId': 'epic-1',
-            'statusId': 'status-todo',
-            ...laneFields,
-          },
+          'lane': _itemJson(
+            'lane-1',
+            number: 10,
+            parentId: 'epic-1',
+            fields: {'title': 'Lane One', ...laneFields},
+          ),
           'cards': [
-            {
-              'id': 'card-1',
-              'number': 1,
-              'title': 'Card One',
-              'parentId': 'lane-1',
-              'statusId': 'status-todo',
-              ...cardFields,
-            },
+            _itemJson(
+              'card-1',
+              parentId: 'lane-1',
+              fields: {'title': 'Card One', ...cardFields},
+            ),
           ],
         },
       ]);
     }
     throw StateError('Unexpected request: ${request.url}');
   });
-
-  ApiBoardRepository repositoryFor(http.Client client) => ApiBoardRepository(
-    client,
-    endpoint,
-    ApiStatusRepository(client, endpoint),
-    ApiLayerRepository(client, endpoint),
-    ApiUserDirectoryRepository(client, endpoint),
-  );
 
   test('loadBoard builds swimlanes from one swimlanes request', () async {
     final requests = <String>[];
@@ -123,8 +138,8 @@ void main() {
 
     expect(board.statuses.single.id, 'status-todo');
     expect(board.statuses.single.color, const Color(0xFF1E88E5));
-    expect(board.swimlanes.single.parentId, 'lane-1');
-    expect(board.swimlanes.single.title, 'Lane One');
+    expect(board.swimlanes.single.lane.id, 'lane-1');
+    expect(board.swimlanes.single.lane.title, 'Lane One');
     expect(board.swimlanes.single.cards.single.id, 'card-1');
     expect(board.swimlanes.single.cards.single.number, 1);
     expect(requests, [
@@ -132,6 +147,18 @@ void main() {
       '$baseUrl/work-item-layers',
       '$baseUrl/work-items/swimlanes?scopeItemId=epic-1',
     ]);
+  });
+
+  test('loadBoard keeps the version of each lane and card', () async {
+    final client = boardClient(
+      laneFields: {'version': 41},
+      cardFields: {'version': 42},
+    );
+
+    final board = await repositoryFor(client).loadBoard('epic-1');
+
+    expect(board.swimlanes.single.lane.version, 41);
+    expect(board.swimlanes.single.cards.single.version, 42);
   });
 
   test('loadBoard loads the layers and each card keeps its layer', () async {
@@ -209,7 +236,7 @@ void main() {
 
       final board = await repositoryFor(client).loadBoard('epic-1');
 
-      expect(board.swimlanes.single.assignedToUserId, 'user-lane');
+      expect(board.swimlanes.single.lane.assignedToUserId, 'user-lane');
       expect(board.swimlanes.single.cards.single.assignedToUserId, 'user-card');
     },
   );
@@ -223,16 +250,8 @@ void main() {
         }, statusCode: 500);
       });
 
-      final repository = ApiBoardRepository(
-        client,
-        endpoint,
-        ApiStatusRepository(client, endpoint),
-        ApiLayerRepository(client, endpoint),
-        ApiUserDirectoryRepository(client, endpoint),
-      );
-
       await expectLater(
-        repository.loadBoard(null),
+        repositoryFor(client).loadBoard(null),
         throwsA(
           isA<ApiException>().having(
             (e) => e.message,
@@ -244,29 +263,49 @@ void main() {
     },
   );
 
-  test('changeStatus puts the new status and rank anchor', () async {
-    http.Request? sentRequest;
+  test('getItem loads one work item', () async {
     final client = MockClient((request) async {
-      sentRequest = request;
-      return http.Response('', 200);
+      if (request.url.path == '/api/work-items/card-1') {
+        return _jsonResponse(
+          _itemJson('card-1', fields: {'title': 'Fresh', 'version': 8}),
+        );
+      }
+      throw StateError('Unexpected request: ${request.url}');
     });
 
-    final repository = ApiBoardRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
-    await repository.changeStatus('card-1', 'status-done', afterId: 'card-2');
+    final item = await repositoryFor(client).getItem('card-1');
 
-    expect(sentRequest, isNotNull);
-    expect(sentRequest!.method, 'PUT');
-    expect(sentRequest!.url.path, '/api/work-items/card-1/status');
-    expect(jsonDecode(sentRequest!.body), {
+    expect(item.title, 'Fresh');
+    expect(item.version, 8);
+  });
+
+  test('changeStatus puts the new status, rank anchor and expected version, '
+      'and returns the saved item', () async {
+    final sent = <http.Request>[];
+    final client = writeClient(
+      sent,
+      item: _itemJson(
+        'card-1',
+        fields: {'statusId': 'status-done', 'version': 6},
+      ),
+    );
+
+    final saved = await repositoryFor(client).changeStatus(
+      'card-1',
+      'status-done',
+      afterId: 'card-2',
+      expectedVersion: 5,
+    );
+
+    expect(sent.single.method, 'PUT');
+    expect(sent.single.url.path, '/api/work-items/card-1/status');
+    expect(jsonDecode(sent.single.body), {
       'statusId': 'status-done',
       'afterId': 'card-2',
+      'expectedVersion': 5,
     });
+    expect(saved.statusId, 'status-done');
+    expect(saved.version, 6);
   });
 
   test('changeStatus throws an ApiException on failure', () async {
@@ -274,40 +313,38 @@ void main() {
       return _jsonResponse({'detail': 'Conflict.'}, statusCode: 409);
     });
 
-    final repository = ApiBoardRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
-
     await expectLater(
-      repository.changeStatus('card-1', 'status-done', afterId: null),
-      throwsA(isA<ApiException>()),
+      repositoryFor(client).changeStatus(
+        'card-1',
+        'status-done',
+        afterId: null,
+        expectedVersion: 1,
+      ),
+      throwsA(
+        isA<ApiException>().having((e) => e.isConflict, 'conflict', true),
+      ),
     );
   });
 
-  test('reparentItem puts the new parent and succeeds on 200', () async {
-    http.Request? sentRequest;
-    final client = MockClient((request) async {
-      sentRequest = request;
-      return http.Response('', 200);
-    });
-
-    final repository = ApiBoardRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
+  test('reparentItem puts the new parent and expected version', () async {
+    final sent = <http.Request>[];
+    final client = writeClient(
+      sent,
+      item: _itemJson('card-1', parentId: 'lane-2', fields: {'version': 3}),
     );
-    await repository.reparentItem('card-1', 'lane-2');
 
-    expect(sentRequest, isNotNull);
-    expect(sentRequest!.method, 'PUT');
-    expect(sentRequest!.url.path, '/api/work-items/card-1/parent');
-    expect(jsonDecode(sentRequest!.body), {'parentId': 'lane-2'});
+    final saved = await repositoryFor(
+      client,
+    ).reparentItem('card-1', 'lane-2', expectedVersion: 2);
+
+    expect(sent.single.method, 'PUT');
+    expect(sent.single.url.path, '/api/work-items/card-1/parent');
+    expect(jsonDecode(sent.single.body), {
+      'parentId': 'lane-2',
+      'expectedVersion': 2,
+    });
+    expect(saved.parentId, 'lane-2');
+    expect(saved.version, 3);
   });
 
   test('reparentItem throws an ApiException on failure', () async {
@@ -315,16 +352,10 @@ void main() {
       return _jsonResponse({'detail': 'Cycle detected.'}, statusCode: 409);
     });
 
-    final repository = ApiBoardRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
-
     await expectLater(
-      repository.reparentItem('card-1', 'lane-2'),
+      repositoryFor(
+        client,
+      ).reparentItem('card-1', 'lane-2', expectedVersion: 1),
       throwsA(isA<ApiException>()),
     );
   });
@@ -344,14 +375,7 @@ void main() {
       throw StateError('Unexpected request: ${request.url}');
     });
 
-    final repository = ApiBoardRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
-    final users = await repository.loadUsers();
+    final users = await repositoryFor(client).loadUsers();
 
     expect(users.single.id, 'user-1');
     expect(users.single.username, 'riley');
@@ -363,39 +387,26 @@ void main() {
       final client = MockClient((request) async {
         if (request.url.path == '/api/work-items/all') {
           return _jsonResponse([
-            {
-              'id': 'root-1',
-              'number': 1,
-              'title': 'Root',
-              'parentId': null,
-              'statusId': 'status-todo',
-              'assignedToUserId': null,
-            },
-            {
-              'id': 'child-1',
-              'number': 2,
-              'title': 'Child',
-              'parentId': 'root-1',
-              'statusId': 'status-todo',
-              'assignedToUserId': 'user-1',
-              'tags': ['urgent'],
-            },
+            _itemJson('root-1', fields: {'version': 4}),
+            _itemJson(
+              'child-1',
+              number: 2,
+              parentId: 'root-1',
+              fields: {
+                'assignedToUserId': 'user-1',
+                'tags': ['urgent'],
+              },
+            ),
           ]);
         }
         throw StateError('Unexpected request: ${request.url}');
       });
 
-      final repository = ApiBoardRepository(
-        client,
-        endpoint,
-        ApiStatusRepository(client, endpoint),
-        ApiLayerRepository(client, endpoint),
-        ApiUserDirectoryRepository(client, endpoint),
-      );
-      final items = await repository.loadAllItems();
+      final items = await repositoryFor(client).loadAllItems();
 
       expect(items.map((i) => i.id), ['root-1', 'child-1']);
       expect(items.first.number, 1);
+      expect(items.first.version, 4);
       expect(items.first.parentId, isNull);
       expect(items.first.assignedToUserId, isNull);
       expect(items.first.tags, isEmpty);
@@ -413,24 +424,11 @@ void main() {
       final count = offset == 0 ? allItemsPageSize : 1;
       return _jsonResponse([
         for (var i = 0; i < count; i++)
-          {
-            'id': 'item-${offset + i}',
-            'number': offset + i,
-            'title': 'Item',
-            'parentId': null,
-            'statusId': 'status-todo',
-          },
+          _itemJson('item-${offset + i}', number: offset + i),
       ]);
     });
-    final repository = ApiBoardRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
 
-    final items = await repository.loadAllItems();
+    final items = await repositoryFor(client).loadAllItems();
 
     expect(offsets, ['0', '$allItemsPageSize']);
     expect(items, hasLength(allItemsPageSize + 1));
@@ -443,43 +441,34 @@ void main() {
       }, statusCode: 500);
     });
 
-    final repository = ApiBoardRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
+    await expectLater(
+      repositoryFor(client).loadAllItems(),
+      throwsA(isA<ApiException>()),
     );
-
-    await expectLater(repository.loadAllItems(), throwsA(isA<ApiException>()));
   });
 
-  test('rescheduleItem patches the new dates and succeeds on 200', () async {
-    http.Request? sentRequest;
-    final client = MockClient((request) async {
-      sentRequest = request;
-      return http.Response('', 200);
-    });
+  test('rescheduleItem patches the new dates and expected version', () async {
+    final sent = <http.Request>[];
+    final client = writeClient(
+      sent,
+      item: _itemJson('card-1', fields: {'startDate': '2026-02-01'}),
+    );
     // A picked day is local midnight; it must be sent as that same calendar
     // day, not shifted by converting to UTC.
     final start = DateTime(2026, 2, 1);
 
-    final repository = ApiBoardRepository(
+    final saved = await repositoryFor(
       client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
-    await repository.rescheduleItem('card-1', start, null);
+    ).rescheduleItem('card-1', start, null, expectedVersion: 7);
 
-    expect(sentRequest, isNotNull);
-    expect(sentRequest!.method, 'PATCH');
-    expect(sentRequest!.url.path, '/api/work-items/card-1/schedule');
-    expect(jsonDecode(sentRequest!.body), {
+    expect(sent.single.method, 'PATCH');
+    expect(sent.single.url.path, '/api/work-items/card-1/schedule');
+    expect(jsonDecode(sent.single.body), {
       'startDate': '2026-02-01',
       'endDate': null,
+      'expectedVersion': 7,
     });
+    expect(saved.startDate, start);
   });
 
   test('rescheduleItem throws an ApiException on failure', () async {
@@ -489,59 +478,47 @@ void main() {
       }, statusCode: 400);
     });
 
-    final repository = ApiBoardRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
-
     await expectLater(
-      repository.rescheduleItem('card-1', DateTime.utc(2026, 2, 1), null),
+      repositoryFor(client).rescheduleItem(
+        'card-1',
+        DateTime.utc(2026, 2, 1),
+        null,
+        expectedVersion: 1,
+      ),
       throwsA(isA<ApiException>()),
     );
   });
 
-  test('assign puts the new assignee and succeeds on 200', () async {
-    http.Request? sentRequest;
-    final client = MockClient((request) async {
-      sentRequest = request;
-      return http.Response('', 200);
-    });
-
-    final repository = ApiBoardRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
+  test('assign puts the new assignee and expected version', () async {
+    final sent = <http.Request>[];
+    final client = writeClient(
+      sent,
+      item: _itemJson('card-1', fields: {'assignedToUserId': 'user-1'}),
     );
-    await repository.assign('card-1', 'user-1');
 
-    expect(sentRequest, isNotNull);
-    expect(sentRequest!.method, 'PUT');
-    expect(sentRequest!.url.path, '/api/work-items/card-1/assignee');
-    expect(jsonDecode(sentRequest!.body), {'userId': 'user-1'});
+    final saved = await repositoryFor(
+      client,
+    ).assign('card-1', 'user-1', expectedVersion: 3);
+
+    expect(sent.single.method, 'PUT');
+    expect(sent.single.url.path, '/api/work-items/card-1/assignee');
+    expect(jsonDecode(sent.single.body), {
+      'userId': 'user-1',
+      'expectedVersion': 3,
+    });
+    expect(saved.assignedToUserId, 'user-1');
   });
 
-  test('assign posts a null userId to clear the assignee', () async {
-    http.Request? sentRequest;
-    final client = MockClient((request) async {
-      sentRequest = request;
-      return http.Response('', 200);
+  test('assign sends a null userId to clear the assignee', () async {
+    final sent = <http.Request>[];
+    final client = writeClient(sent);
+
+    await repositoryFor(client).assign('card-1', null, expectedVersion: 3);
+
+    expect(jsonDecode(sent.single.body), {
+      'userId': null,
+      'expectedVersion': 3,
     });
-
-    final repository = ApiBoardRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
-    await repository.assign('card-1', null);
-
-    expect(jsonDecode(sentRequest!.body), {'userId': null});
   });
 
   test('assign throws an ApiException on failure', () async {
@@ -549,42 +526,37 @@ void main() {
       return _jsonResponse({'detail': 'User not found.'}, statusCode: 404);
     });
 
-    final repository = ApiBoardRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
-
     await expectLater(
-      repository.assign('card-1', 'missing-user'),
+      repositoryFor(
+        client,
+      ).assign('card-1', 'missing-user', expectedVersion: 1),
       throwsA(isA<ApiException>()),
     );
   });
 
-  test('setTags patches the new tag list and succeeds on 200', () async {
-    http.Request? sentRequest;
-    final client = MockClient((request) async {
-      sentRequest = request;
-      return http.Response('', 200);
-    });
-
-    final repository = ApiBoardRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
+  test('setTags patches the new tag list and expected version', () async {
+    final sent = <http.Request>[];
+    final client = writeClient(
+      sent,
+      item: _itemJson(
+        'card-1',
+        fields: {
+          'tags': ['urgent', 'needs review'],
+        },
+      ),
     );
-    await repository.setTags('card-1', ['urgent', 'needs review']);
 
-    expect(sentRequest, isNotNull);
-    expect(sentRequest!.method, 'PATCH');
-    expect(sentRequest!.url.path, '/api/work-items/card-1/tags');
-    expect(jsonDecode(sentRequest!.body), {
+    final saved = await repositoryFor(
+      client,
+    ).setTags('card-1', ['urgent', 'needs review'], expectedVersion: 4);
+
+    expect(sent.single.method, 'PATCH');
+    expect(sent.single.url.path, '/api/work-items/card-1/tags');
+    expect(jsonDecode(sent.single.body), {
       'tags': ['urgent', 'needs review'],
+      'expectedVersion': 4,
     });
+    expect(saved.tags, ['urgent', 'needs review']);
   });
 
   test('setTags throws an ApiException on failure', () async {
@@ -594,16 +566,8 @@ void main() {
       }, statusCode: 400);
     });
 
-    final repository = ApiBoardRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
-
     await expectLater(
-      repository.setTags('card-1', ['']),
+      repositoryFor(client).setTags('card-1', [''], expectedVersion: 1),
       throwsA(isA<ApiException>()),
     );
   });

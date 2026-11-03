@@ -176,33 +176,16 @@ extension SwimlaneEdits on List<Swimlane> {
   Swimlane? _laneOf(String cardId) =>
       where((lane) => lane.cards.any((c) => c.id == cardId)).firstOrNull;
 
-  /// Sets the assignee wherever [workItemId] appears: as a lane's own item,
-  /// a card, or both.
-  List<Swimlane> withAssignee(String workItemId, String? userId) => [
+  /// Takes the card out of whichever lane holds it, e.g. once it turns out
+  /// to belong to a lane this board doesn't show.
+  List<Swimlane> withoutCard(String cardId) => [
     for (final lane in this)
-      (lane.parentId == workItemId ? lane.assigned(userId) : lane)
-          .copyWithCards([
-            for (final card in lane.cards)
-              if (card.id == workItemId) card.assigned(userId) else card,
-          ]),
+      lane.copyWithCards([
+        for (final c in lane.cards)
+          if (c.id != cardId) c,
+      ]),
   ];
 
-  String? assigneeOf(String workItemId) {
-    for (final lane in this) {
-      if (lane.parentId == workItemId) return lane.assignedToUserId;
-      for (final card in lane.cards) {
-        if (card.id == workItemId) return card.assignedToUserId;
-      }
-    }
-    return null;
-  }
-
-  List<String>? tagsOf(String workItemId) {
-    for (final lane in this) {
-      for (final card in lane.cards) {
-        if (card.id == workItemId) return card.tags;
-      }
-    }
-    return null;
-  }
+  /// The id of the lane holding [cardId], or null if no lane does.
+  String? laneIdOf(String cardId) => _laneOf(cardId)?.parentId;
 }

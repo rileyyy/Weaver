@@ -1,4 +1,4 @@
-import 'package:weaver/features/board/models/swimlane.dart';
+import 'package:weaver/features/board/models/swimlane_items.dart';
 import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
@@ -12,7 +12,7 @@ class BoardData {
   });
 
   final List<WorkItemStatus> statuses;
-  final List<Swimlane> swimlanes;
+  final List<SwimlaneItems> swimlanes;
 
   /// Every layer, so cards can be coloured by theirs.
   final List<WorkItemLayer> layers;
