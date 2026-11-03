@@ -20,7 +20,7 @@ public class WorkItemPersistenceTests
     [Test]
     public async Task Enums_AreSentAsTheirNames()
     {
-        var json = await _client.GetStringAsync("/api/statuses");
+        var json = await _client.GetStringAsync($"/api/statuses?spaceId={await ApiClient.SharedSpaceIdAsync()}");
         var category = JsonDocument.Parse(json).RootElement[0].GetProperty("category").GetString();
 
         Assert.That(category, Is.EqualTo("ToDo"));
@@ -29,20 +29,22 @@ public class WorkItemPersistenceTests
     [Test]
     public async Task Priorities_AreSeededInOrder_AndCanBeSetOnAWorkItem()
     {
-        var priorities = await (await _client.GetAsync("/api/work-item-priorities"))
+        var space = await ApiClient.CreateSpaceAsync("Priorities");
+        var priorities = await (await _client.GetAsync($"/api/work-item-priorities?spaceId={space}"))
             .ReadAsync<List<WorkItemPriorityDto>>();
-        var item = await _client.CreateWorkItemAsync("Prioritised");
+        var item = await _client.CreateWorkItemAsync("Prioritised", spaceId: space);
+        var high = await ApiClient.PriorityIdAsync(space, "High");
 
         var updated = (await (await _client.PatchJsonAsync(
             $"/api/work-items/{item.Id}/details",
-            new { priorityId = SeededPriorities.High }))
+            new { priorityId = high }))
             .ReadAsync<WorkItemWriteResponse>()).Item;
 
         Assert.Multiple(() =>
         {
             Assert.That(priorities.Select(p => p.Name), Is.EqualTo(new[] { "Low", "Medium", "High", "Urgent" }));
             Assert.That(item.PriorityId, Is.Null);
-            Assert.That(updated.PriorityId, Is.EqualTo(SeededPriorities.High));
+            Assert.That(updated.PriorityId, Is.EqualTo(high));
         });
     }
 
@@ -93,14 +95,16 @@ public class WorkItemPersistenceTests
     public async Task UpdateDetails_WithAStaleVersion_Returns409()
     {
         var item = await _client.CreateWorkItemAsync("Original");
+        var high = await ApiClient.PriorityIdAsync(item.SpaceId, "High");
+        var low = await ApiClient.PriorityIdAsync(item.SpaceId, "Low");
         var firstEdit = (await (await _client.PatchJsonAsync(
             $"/api/work-items/{item.Id}/details",
-            new { title = "First edit", priorityId = SeededPriorities.High, expectedVersion = item.Version }))
+            new { title = "First edit", priorityId = high, expectedVersion = item.Version }))
             .ReadAsync<WorkItemWriteResponse>()).Item;
 
         var staleEdit = await _client.PatchJsonAsync(
             $"/api/work-items/{item.Id}/details",
-            new { title = "Stale edit", priorityId = SeededPriorities.Low, expectedVersion = item.Version });
+            new { title = "Stale edit", priorityId = low, expectedVersion = item.Version });
         var current = await (await _client.GetAsync($"/api/work-items/{item.Id}")).ReadAsync<WorkItemDto>();
 
         Assert.Multiple(() =>

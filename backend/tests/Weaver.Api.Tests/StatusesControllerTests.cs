@@ -13,23 +13,25 @@ public class StatusesControllerTests
     private Mock<IStatusService> _statuses = null!;
     private StatusesController _controller = null!;
     private Guid _userId;
+    private Guid _spaceId;
 
     [SetUp]
     public void SetUp()
     {
         _statuses = new Mock<IStatusService>(MockBehavior.Strict);
         _userId = Guid.NewGuid();
+        _spaceId = Guid.NewGuid();
         _controller = new StatusesController(_statuses.Object) { ControllerContext = SignedInControllerContext.For(_userId) };
     }
 
     [Test]
     public async Task Create_PassesTheCallerAndReturns201()
     {
-        var status = Status.Create("Review", 3, StatusCategory.Doing, "#00897B");
-        _statuses.Setup(s => s.CreateAsync(_userId, "Review", StatusCategory.Doing, "#00897B", It.IsAny<CancellationToken>()))
+        var status = Status.Create(_spaceId, "Review", 3, StatusCategory.Doing, "#00897B");
+        _statuses.Setup(s => s.CreateAsync(_userId, _spaceId, "Review", StatusCategory.Doing, "#00897B", It.IsAny<CancellationToken>()))
             .ReturnsAsync(status);
 
-        var result = await _controller.Create(new StatusDetailsRequest("Review", StatusCategory.Doing, "#00897B"));
+        var result = await _controller.Create(new CreateStatusRequest(_spaceId, "Review", StatusCategory.Doing, "#00897B"));
 
         var created = result.Result as CreatedAtActionResult;
         Assert.Multiple(() =>
@@ -43,7 +45,7 @@ public class StatusesControllerTests
     [Test]
     public async Task Update_PassesTheCallerAndReturnsTheStatus()
     {
-        var status = Status.Create("Review", 3, StatusCategory.Done, "#123456");
+        var status = Status.Create(_spaceId, "Review", 3, StatusCategory.Done, "#123456");
         _statuses.Setup(s => s.UpdateAsync(_userId, status.Id, "Review", StatusCategory.Done, "#123456", It.IsAny<CancellationToken>()))
             .ReturnsAsync(status);
 
@@ -55,12 +57,12 @@ public class StatusesControllerTests
     [Test]
     public async Task Reorder_ReturnsTheStatusesInTheirNewOrder()
     {
-        var a = Status.Create("A", 1, StatusCategory.ToDo, "#000000");
-        var b = Status.Create("B", 0, StatusCategory.ToDo, "#000000");
-        _statuses.Setup(s => s.ReorderAsync(_userId, new[] { a.Id, b.Id }, It.IsAny<CancellationToken>()))
+        var a = Status.Create(_spaceId, "A", 1, StatusCategory.ToDo, "#000000");
+        var b = Status.Create(_spaceId, "B", 0, StatusCategory.ToDo, "#000000");
+        _statuses.Setup(s => s.ReorderAsync(_userId, _spaceId, new[] { a.Id, b.Id }, It.IsAny<CancellationToken>()))
             .ReturnsAsync([a, b]);
 
-        var result = await _controller.Reorder(new ReorderLookupRequest([a.Id, b.Id]));
+        var result = await _controller.Reorder(_spaceId, new ReorderLookupRequest([a.Id, b.Id]));
 
         var dtos = ((result.Result as OkObjectResult)!.Value as IEnumerable<StatusDto>)!;
         Assert.That(dtos.Select(d => d.Name), Is.EqualTo(new[] { "A", "B" }));

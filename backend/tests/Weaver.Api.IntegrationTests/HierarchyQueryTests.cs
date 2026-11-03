@@ -124,10 +124,13 @@ public class HierarchyQueryTests
         return chain;
     }
 
-    private async Task<WorkItemDto> CreateAfterAsync(string title, Guid parentId, Guid afterId) =>
-        await (await _client.PostJsonAsync(
+    private async Task<WorkItemDto> CreateAfterAsync(string title, Guid parentId, Guid afterId)
+    {
+        var toDo = await ApiClient.StatusIdAsync(await _client.SpaceIdOfAsync(parentId), "To Do");
+        return await (await _client.PostJsonAsync(
             "/api/work-items",
-            new CreateWorkItemRequest(title, null, parentId, SeededStatuses.ToDo, afterId))).ReadAsync<WorkItemDto>();
+            new CreateWorkItemRequest(title, null, parentId, toDo, afterId))).ReadAsync<WorkItemDto>();
+    }
 
     private static async Task ExecuteSqlAsync(FormattableString sql)
     {

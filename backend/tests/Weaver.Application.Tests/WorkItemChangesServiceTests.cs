@@ -3,7 +3,6 @@ using Weaver.Application.Services;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
 using Weaver.Infrastructure;
-using Weaver.Infrastructure.Configurations;
 
 namespace Weaver.Application.Tests;
 
@@ -21,7 +20,7 @@ public class WorkItemChangesServiceTests
     private WorkItemChangesService _changes = null!;
     private User _alice = null!;
     private User _bob = null!;
-    private Space _home = null!;
+    private TestSpace _home = null!;
 
     [SetUp]
     public void SetUp()
@@ -44,7 +43,7 @@ public class WorkItemChangesServiceTests
     {
         var item = await CreateAsync("Paint the hall");
         _clock.Advance(TimeSpan.FromDays(1));
-        await _workItems.ChangeStatusAsync(item.Id, StatusConfiguration.DoingId);
+        await _workItems.ChangeStatusAsync(item.Id, _home.Doing);
         await _workItems.UpdateDetailsAsync(item.Id, new WorkItemDetailsPatch { Title = "Paint the hallway" });
 
         var page = await _changes.ListSinceAsync(new WorkItemChangesQuery(Today));
@@ -133,7 +132,7 @@ public class WorkItemChangesServiceTests
         await _workItems.UpdateDetailsAsync(mine.Id, new WorkItemDetailsPatch { Title = "Mine, renamed" });
         await _workItems.UpdateDetailsAsync(shared.Id, new WorkItemDetailsPatch { Title = "Shared, by alice" });
         SignIn(_bob);
-        await _workItems.ChangeStatusAsync(shared.Id, StatusConfiguration.DoingId);
+        await _workItems.ChangeStatusAsync(shared.Id, _home.Doing);
         SignIn(_alice);
 
         var page = await _changes.ListSinceAsync(new WorkItemChangesQuery(Today, ExcludeOwnChanges: true));
@@ -172,7 +171,7 @@ public class WorkItemChangesServiceTests
         _clock.Advance(TimeSpan.FromDays(1));
         await _workItems.UpdateDetailsAsync(item.Id, new WorkItemDetailsPatch { Title = "Fence, by alice" });
         SignIn(_bob);
-        await _workItems.ChangeStatusAsync(item.Id, StatusConfiguration.DoingId);
+        await _workItems.ChangeStatusAsync(item.Id, _home.Doing);
 
         var changed = (await _changes.ListSinceAsync(new WorkItemChangesQuery(Today))).Items.Single();
 
@@ -185,13 +184,11 @@ public class WorkItemChangesServiceTests
         var village = TestSpaces.Add(_db, "Village");
         var homeItem = await CreateAsync("Boiler");
         var homeDeleted = await CreateAsync("Old boiler");
-        var villageItem = await CreateAsync("Fete", spaceId: village.Id);
-        var villageDeleted = await CreateAsync("Old fete", spaceId: village.Id);
+        var villageItem = await CreateAsync("Fete", space: village);
+        var villageDeleted = await CreateAsync("Old fete", space: village);
         _clock.Advance(TimeSpan.FromDays(1));
-        foreach (var item in new[] { homeItem, villageItem })
-        {
-            await _workItems.ChangeStatusAsync(item.Id, StatusConfiguration.DoingId);
-        }
+        await _workItems.ChangeStatusAsync(homeItem.Id, _home.Doing);
+        await _workItems.ChangeStatusAsync(villageItem.Id, village.Doing);
 
         await _workItems.DeleteAsync(homeDeleted.Id);
         await _workItems.DeleteAsync(villageDeleted.Id);
@@ -303,7 +300,10 @@ public class WorkItemChangesServiceTests
 
     private void SignIn(User user) => _caller.Current = new Caller(user.Id, null, null);
 
-    private Task<WorkItem> CreateAsync(string title, Guid? parentId = null, Guid? spaceId = null) =>
-        _workItems.CreateAsync(
-            title, null, parentId, StatusConfiguration.ToDoId, spaceId: parentId is null ? spaceId ?? _home.Id : null);
+    /// <summary>Children must be of <paramref name="space"/> too, as its To Do is the one they get.</summary>
+    private Task<WorkItem> CreateAsync(string title, Guid? parentId = null, TestSpace? space = null)
+    {
+        space ??= _home;
+        return _workItems.CreateAsync(title, null, parentId, space.ToDo, spaceId: parentId is null ? space.Id : null);
+    }
 }

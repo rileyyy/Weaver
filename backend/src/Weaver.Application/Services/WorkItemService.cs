@@ -91,12 +91,8 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
         var parent = parentId is null ? null : await FindParentAsync(parentId.Value, ct);
         var itemSpaceId = await ResolveSpaceForNewItemAsync(parent, spaceId, ct);
 
-        if (!await _db.Statuses.AnyAsync(s => s.Id == statusId, ct))
-        {
-            throw new EntityNotFoundException(nameof(Status), statusId);
-        }
-
-        await EnsureDetailLookupsExistAsync(layerId, priorityId, ct);
+        await EnsureInSpaceAsync(_db.Statuses, nameof(Status), statusId, itemSpaceId, ct);
+        await EnsureDetailLookupsExistAsync(itemSpaceId, layerId, priorityId, ct);
 
         var rank = await ComputeRankAsync(itemSpaceId, parentId, statusId, afterId, excludeItemId: null, ct);
         var item = parent is null
@@ -172,10 +168,7 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
     {
         var item = await FindForWriteAsync(id, expectedVersion, ct);
 
-        if (!await _db.Statuses.AnyAsync(s => s.Id == newStatusId, ct))
-        {
-            throw new EntityNotFoundException(nameof(Status), newStatusId);
-        }
+        await EnsureInSpaceAsync(_db.Statuses, nameof(Status), newStatusId, item.SpaceId, ct);
 
         var rank = await ComputeRankAsync(item.SpaceId, item.ParentId, newStatusId, afterId, excludeItemId: id, ct);
         return await SaveWriteAsync(item, item.MoveToStatus(newStatusId, rank), ct);
@@ -223,9 +216,9 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
         uint? expectedVersion = null,
         CancellationToken ct = default)
     {
-        await EnsureDetailLookupsExistAsync(patch.LayerId.GetValueOr(null), patch.PriorityId.GetValueOr(null), ct);
-
         var item = await FindForWriteAsync(id, expectedVersion, ct);
+        await EnsureDetailLookupsExistAsync(
+            item.SpaceId, patch.LayerId.GetValueOr(null), patch.PriorityId.GetValueOr(null), ct);
         return await SaveWriteAsync(item, item.UpdateDetails(patch), ct);
     }
 
@@ -340,16 +333,32 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
         return new WorkItemWriteResult(item, changes.Select(c => c.Field).ToList());
     }
 
-    private async Task EnsureDetailLookupsExistAsync(Guid? layerId, Guid? priorityId, CancellationToken ct)
+    private async Task EnsureDetailLookupsExistAsync(Guid spaceId, Guid? layerId, Guid? priorityId, CancellationToken ct)
     {
         if (layerId is not null && !await _db.WorkItemLayers.AnyAsync(l => l.Id == layerId, ct))
         {
             throw new EntityNotFoundException(nameof(WorkItemLayer), layerId.Value);
         }
 
-        if (priorityId is not null && !await _db.WorkItemPriorities.AnyAsync(p => p.Id == priorityId, ct))
+        if (priorityId is { } priority)
         {
-            throw new EntityNotFoundException(nameof(WorkItemPriority), priorityId.Value);
+            await EnsureInSpaceAsync(_db.WorkItemPriorities, nameof(WorkItemPriority), priority, spaceId, ct);
+        }
+    }
+
+    /// <summary>A work item can only take its own Space's statuses and priorities (ADR-0001).</summary>
+    private static async Task EnsureInSpaceAsync<T>(
+        IQueryable<T> values,
+        string kind,
+        Guid id,
+        Guid spaceId,
+        CancellationToken ct) where T : SpaceLookupValue
+    {
+        var valueSpaceId = await values.Where(v => v.Id == id).Select(v => (Guid?)v.SpaceId).FirstOrDefaultAsync(ct)
+            ?? throw new EntityNotFoundException(kind, id);
+        if (valueSpaceId != spaceId)
+        {
+            throw new LookupNotInSpaceException(kind, id, spaceId);
         }
     }
 

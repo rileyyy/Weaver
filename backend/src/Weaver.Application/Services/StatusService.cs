@@ -6,7 +6,7 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
-public class StatusService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller) : LookupService<Status>(db, admins, caller), IStatusService
+public class StatusService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller) : SpaceLookupService<Status>(db, admins, caller), IStatusService
 {
     protected override DbSet<Status> Values => Db.Statuses;
 
@@ -16,11 +16,12 @@ public class StatusService(IWeaverDbContext db, IAdminAuthorizer admins, ICaller
 
     public Task<Status> CreateAsync(
         Guid actorUserId,
+        Guid spaceId,
         string name,
         StatusCategory category,
         string color,
         CancellationToken ct = default) =>
-        AddAsync(actorUserId, order => Status.Create(name, order, category, color), ct);
+        AddAsync(actorUserId, spaceId, order => Status.Create(spaceId, name, order, category, color), ct);
 
     public Task<Status> UpdateAsync(
         Guid actorUserId,

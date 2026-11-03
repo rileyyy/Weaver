@@ -2,7 +2,8 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Domain;
 
-public class Status : LookupValue
+/// <summary>A board column of one Space, with the category that says whether it means done.</summary>
+public class Status : SpaceLookupValue
 {
     /// <summary>For EF Core.</summary>
     private Status()
@@ -10,7 +11,7 @@ public class Status : LookupValue
         Color = string.Empty;
     }
 
-    private Status(string name, int order, StatusCategory category, string color) : base(name, order)
+    private Status(Guid spaceId, string name, int order, StatusCategory category, string color) : base(spaceId, name, order)
     {
         Color = string.Empty;
         Recategorize(category, color);
@@ -25,8 +26,8 @@ public class Status : LookupValue
     /// </summary>
     public string Color { get; private set; }
 
-    public static Status Create(string name, int order, StatusCategory category, string color) =>
-        new(name, order, category, color);
+    public static Status Create(Guid spaceId, string name, int order, StatusCategory category, string color) =>
+        new(spaceId, name, order, category, color);
 
     public void Recategorize(StatusCategory category, string color)
     {

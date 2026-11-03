@@ -26,7 +26,7 @@ public class WorkItemChangesTests
         var gone = await client.CreateWorkItemAsync("Old boiler", spaceId: space);
         var since = DateTimeOffset.UtcNow;
 
-        (await client.PutJsonAsync($"/api/work-items/{kept.Id}/status", new ChangeWorkItemStatusRequest(SeededStatuses.Doing, null))).EnsureSuccessStatusCode();
+        (await client.PutJsonAsync($"/api/work-items/{kept.Id}/status", new ChangeWorkItemStatusRequest(await ApiClient.StatusIdAsync(space, "Doing"), null))).EnsureSuccessStatusCode();
         (await client.DeleteAsync($"/api/work-items/{gone.Id}")).EnsureSuccessStatusCode();
 
         var page = await ChangesAsync(client, since, space);

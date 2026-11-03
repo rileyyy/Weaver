@@ -2,5 +2,5 @@ using Weaver.Domain;
 
 namespace Weaver.Api.Contracts;
 
-/// <summary>The body for creating a status and for editing one.</summary>
+/// <summary>The body for editing a status; its Space never changes.</summary>
 public record StatusDetailsRequest(string Name, StatusCategory Category, string Color);

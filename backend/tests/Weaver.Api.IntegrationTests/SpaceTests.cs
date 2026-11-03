@@ -91,7 +91,8 @@ public class SpaceTests
 
         var response = await client.PostJsonAsync(
             "/api/work-items",
-            new CreateWorkItemRequest("Nowhere", null, null, SeededStatuses.ToDo, null));
+            new CreateWorkItemRequest(
+                "Nowhere", null, null, await ApiClient.StatusIdAsync(await ApiClient.SharedSpaceIdAsync(), "To Do"), null));
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
     }

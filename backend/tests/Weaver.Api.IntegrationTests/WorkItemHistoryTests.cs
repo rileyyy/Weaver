@@ -22,7 +22,7 @@ public class WorkItemHistoryTests
         client.DefaultRequestHeaders.Add("X-Actor-Label", "script: nightly-tidy");
 
         (await client.PatchJsonAsync($"/api/work-items/{item.Id}/details", new { title = "Renamed" })).EnsureSuccessStatusCode();
-        (await client.PutJsonAsync($"/api/work-items/{item.Id}/status", new ChangeWorkItemStatusRequest(SeededStatuses.Doing, null))).EnsureSuccessStatusCode();
+        (await client.PutJsonAsync($"/api/work-items/{item.Id}/status", new ChangeWorkItemStatusRequest(await ApiClient.StatusIdAsync(item.SpaceId, "Doing"), null))).EnsureSuccessStatusCode();
 
         var history = await HistoryAsync(client, item.Id);
 

@@ -14,7 +14,7 @@ public class WorkItemServiceTests
     private FixedTimeProvider _clock = null!;
     private WeaverDbContext _db = null!;
     private WorkItemService _service = null!;
-    private Space _space = null!;
+    private TestSpace _space = null!;
 
     [SetUp]
     public void SetUp()
@@ -35,7 +35,7 @@ public class WorkItemServiceTests
     public void CreateAsync_WithUnknownParent_ThrowsEntityNotFoundException()
     {
         Assert.ThrowsAsync<EntityNotFoundException>(() =>
-            _service.CreateAsync("Task", null, parentId: Guid.NewGuid(), StatusConfiguration.ToDoId));
+            _service.CreateAsync("Task", null, parentId: Guid.NewGuid(), _space.ToDo));
     }
 
     [Test]
@@ -48,32 +48,32 @@ public class WorkItemServiceTests
     [Test]
     public async Task ChangeStatusAsync_MovesColumn_ButNeverChangesParent()
     {
-        var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var child = await _service.CreateAsync("Child", null, parent.Id, StatusConfiguration.ToDoId);
+        var parent = await _service.CreateAsync("Parent", null, null, _space.ToDo, spaceId: _space.Id);
+        var child = await _service.CreateAsync("Child", null, parent.Id, _space.ToDo);
 
-        var moved = (await _service.ChangeStatusAsync(child.Id, StatusConfiguration.DoingId)).Item;
+        var moved = (await _service.ChangeStatusAsync(child.Id, _space.Doing)).Item;
 
-        Assert.That(moved.StatusId, Is.EqualTo(StatusConfiguration.DoingId));
+        Assert.That(moved.StatusId, Is.EqualTo(_space.Doing));
         Assert.That(moved.ParentId, Is.EqualTo(parent.Id));
     }
 
     [Test]
     public async Task ReparentAsync_ChangesParent_ButNeverChangesStatus()
     {
-        var oldParent = await _service.CreateAsync("Old parent", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var newParent = await _service.CreateAsync("New parent", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var child = await _service.CreateAsync("Child", null, oldParent.Id, StatusConfiguration.DoingId);
+        var oldParent = await _service.CreateAsync("Old parent", null, null, _space.ToDo, spaceId: _space.Id);
+        var newParent = await _service.CreateAsync("New parent", null, null, _space.ToDo, spaceId: _space.Id);
+        var child = await _service.CreateAsync("Child", null, oldParent.Id, _space.Doing);
 
         var moved = (await _service.ReparentAsync(child.Id, newParent.Id)).Item;
 
         Assert.That(moved.ParentId, Is.EqualTo(newParent.Id));
-        Assert.That(moved.StatusId, Is.EqualTo(StatusConfiguration.DoingId));
+        Assert.That(moved.StatusId, Is.EqualTo(_space.Doing));
     }
 
     [Test]
     public async Task ReparentAsync_ToItself_ThrowsCyclicParentException()
     {
-        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Item", null, null, _space.ToDo, spaceId: _space.Id);
 
         Assert.ThrowsAsync<CyclicParentException>(() => _service.ReparentAsync(item.Id, item.Id));
     }
@@ -81,9 +81,9 @@ public class WorkItemServiceTests
     [Test]
     public async Task ReparentAsync_ToOwnDescendant_ThrowsCyclicParentException()
     {
-        var root = await _service.CreateAsync("Root", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var child = await _service.CreateAsync("Child", null, root.Id, StatusConfiguration.ToDoId);
-        var grandchild = await _service.CreateAsync("Grandchild", null, child.Id, StatusConfiguration.ToDoId);
+        var root = await _service.CreateAsync("Root", null, null, _space.ToDo, spaceId: _space.Id);
+        var child = await _service.CreateAsync("Child", null, root.Id, _space.ToDo);
+        var grandchild = await _service.CreateAsync("Grandchild", null, child.Id, _space.ToDo);
 
         Assert.ThrowsAsync<CyclicParentException>(() => _service.ReparentAsync(root.Id, grandchild.Id));
     }
@@ -91,9 +91,9 @@ public class WorkItemServiceTests
     [Test]
     public async Task ReparentAsync_ToUnrelatedItem_Succeeds()
     {
-        var root = await _service.CreateAsync("Root", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var child = await _service.CreateAsync("Child", null, root.Id, StatusConfiguration.ToDoId);
-        var unrelated = await _service.CreateAsync("Unrelated", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var root = await _service.CreateAsync("Root", null, null, _space.ToDo, spaceId: _space.Id);
+        var child = await _service.CreateAsync("Child", null, root.Id, _space.ToDo);
+        var unrelated = await _service.CreateAsync("Unrelated", null, null, _space.ToDo, spaceId: _space.Id);
 
         var moved = (await _service.ReparentAsync(child.Id, unrelated.Id)).Item;
 
@@ -103,8 +103,8 @@ public class WorkItemServiceTests
     [Test]
     public async Task DeleteAsync_WithChildren_WithoutCascade_Throws()
     {
-        var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        await _service.CreateAsync("Child", null, parent.Id, StatusConfiguration.ToDoId);
+        var parent = await _service.CreateAsync("Parent", null, null, _space.ToDo, spaceId: _space.Id);
+        await _service.CreateAsync("Child", null, parent.Id, _space.ToDo);
 
         Assert.ThrowsAsync<WorkItemHasChildrenException>(() => _service.DeleteAsync(parent.Id));
     }
@@ -112,9 +112,9 @@ public class WorkItemServiceTests
     [Test]
     public async Task DeleteAsync_WithChildren_WithCascade_DeletesWholeSubtree()
     {
-        var root = await _service.CreateAsync("Root", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var child = await _service.CreateAsync("Child", null, root.Id, StatusConfiguration.ToDoId);
-        await _service.CreateAsync("Grandchild", null, child.Id, StatusConfiguration.ToDoId);
+        var root = await _service.CreateAsync("Root", null, null, _space.ToDo, spaceId: _space.Id);
+        var child = await _service.CreateAsync("Child", null, root.Id, _space.ToDo);
+        await _service.CreateAsync("Grandchild", null, child.Id, _space.ToDo);
 
         await _service.DeleteAsync(root.Id, cascade: true);
 
@@ -124,7 +124,7 @@ public class WorkItemServiceTests
     [Test]
     public async Task DeleteAsync_Leaf_DoesNotRequireCascade()
     {
-        var item = await _service.CreateAsync("Leaf", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Leaf", null, null, _space.ToDo, spaceId: _space.Id);
 
         await _service.DeleteAsync(item.Id);
 
@@ -134,9 +134,9 @@ public class WorkItemServiceTests
     [Test]
     public async Task DeleteAsync_ItemWithLinksOnEitherSide_RemovesThoseLinks()
     {
-        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var linkedFrom = await _service.CreateAsync("Linked from", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var linkedTo = await _service.CreateAsync("Linked to", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Item", null, null, _space.ToDo, spaceId: _space.Id);
+        var linkedFrom = await _service.CreateAsync("Linked from", null, null, _space.ToDo, spaceId: _space.Id);
+        var linkedTo = await _service.CreateAsync("Linked to", null, null, _space.ToDo, spaceId: _space.Id);
         await AddLinkAsync(item.Id, linkedTo.Id);
         await AddLinkAsync(linkedFrom.Id, item.Id);
         var unrelatedLink = await AddLinkAsync(linkedFrom.Id, linkedTo.Id);
@@ -151,10 +151,10 @@ public class WorkItemServiceTests
     [Test]
     public async Task DeleteAsync_WithCascade_RemovesLinksOfDescendants()
     {
-        var root = await _service.CreateAsync("Root", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var child = await _service.CreateAsync("Child", null, root.Id, StatusConfiguration.ToDoId);
-        var grandchild = await _service.CreateAsync("Grandchild", null, child.Id, StatusConfiguration.ToDoId);
-        var outside = await _service.CreateAsync("Outside", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var root = await _service.CreateAsync("Root", null, null, _space.ToDo, spaceId: _space.Id);
+        var child = await _service.CreateAsync("Child", null, root.Id, _space.ToDo);
+        var grandchild = await _service.CreateAsync("Grandchild", null, child.Id, _space.ToDo);
+        var outside = await _service.CreateAsync("Outside", null, null, _space.ToDo, spaceId: _space.Id);
         await AddLinkAsync(outside.Id, grandchild.Id);
 
         await _service.DeleteAsync(root.Id, cascade: true);
@@ -174,13 +174,13 @@ public class WorkItemServiceTests
     [Test]
     public async Task CreateAsync_AfterASiblingThatSharesItsRank_RespacesTheCell()
     {
-        var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var first = await _service.CreateAsync("First", null, parent.Id, StatusConfiguration.ToDoId);
-        var second = await _service.CreateAsync("Second", null, parent.Id, StatusConfiguration.ToDoId, afterId: first.Id);
+        var parent = await _service.CreateAsync("Parent", null, null, _space.ToDo, spaceId: _space.Id);
+        var first = await _service.CreateAsync("First", null, parent.Id, _space.ToDo);
+        var second = await _service.CreateAsync("Second", null, parent.Id, _space.ToDo, afterId: first.Id);
         second.Reposition(first.Rank);
         await _db.SaveChangesAsync();
 
-        var inserted = await _service.CreateAsync("Inserted", null, parent.Id, StatusConfiguration.ToDoId, afterId: first.Id);
+        var inserted = await _service.CreateAsync("Inserted", null, parent.Id, _space.ToDo, afterId: first.Id);
 
         // Which of the two tied items comes first is decided by Number, which InMemory
         // doesn't generate; what must hold is distinct ranks with the new item right after
@@ -197,7 +197,7 @@ public class WorkItemServiceTests
     public async Task Timestamps_ComeFromTheClock_AndOnlyUpdatedAtMovesOnChange()
     {
         var created = _clock.GetUtcNow();
-        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Task", null, null, _space.ToDo, spaceId: _space.Id);
         _clock.Advance(TimeSpan.FromHours(1));
 
         await _service.RescheduleAsync(item.Id, new DateOnly(2026, 9, 2), null);
@@ -212,9 +212,9 @@ public class WorkItemServiceTests
     [Test]
     public async Task GetAllAsync_PagesInRankThenNumberOrder()
     {
-        var first = await _service.CreateAsync("First", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var second = await _service.CreateAsync("Second", null, null, StatusConfiguration.ToDoId, afterId: first.Id, spaceId: _space.Id);
-        var third = await _service.CreateAsync("Third", null, null, StatusConfiguration.ToDoId, afterId: second.Id, spaceId: _space.Id);
+        var first = await _service.CreateAsync("First", null, null, _space.ToDo, spaceId: _space.Id);
+        var second = await _service.CreateAsync("Second", null, null, _space.ToDo, afterId: first.Id, spaceId: _space.Id);
+        var third = await _service.CreateAsync("Third", null, null, _space.ToDo, afterId: second.Id, spaceId: _space.Id);
 
         var page1 = await _service.GetAllAsync(offset: 0, limit: 2);
         var page2 = await _service.GetAllAsync(offset: 2, limit: 2);
@@ -237,9 +237,9 @@ public class WorkItemServiceTests
     [Test]
     public async Task ReparentAsync_WhenTheTreeAlreadyHasACycle_ThrowsInsteadOfReportingNoCycle()
     {
-        var a = await _service.CreateAsync("A", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var b = await _service.CreateAsync("B", null, a.Id, StatusConfiguration.ToDoId);
-        var outsider = await _service.CreateAsync("Outsider", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var a = await _service.CreateAsync("A", null, null, _space.ToDo, spaceId: _space.Id);
+        var b = await _service.CreateAsync("B", null, a.Id, _space.ToDo);
+        var outsider = await _service.CreateAsync("Outsider", null, null, _space.ToDo, spaceId: _space.Id);
         _db.Entry(a).Property(w => w.ParentId).CurrentValue = b.Id;
         await _db.SaveChangesAsync();
 
@@ -257,10 +257,10 @@ public class WorkItemServiceTests
     [Test]
     public async Task GetChildrenAsync_ReturnsOnlyDirectChildren_OrderedByRank()
     {
-        var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var first = await _service.CreateAsync("First", null, parent.Id, StatusConfiguration.ToDoId);
-        var second = await _service.CreateAsync("Second", null, parent.Id, StatusConfiguration.ToDoId, afterId: first.Id);
-        await _service.CreateAsync("Grandchild", null, second.Id, StatusConfiguration.ToDoId);
+        var parent = await _service.CreateAsync("Parent", null, null, _space.ToDo, spaceId: _space.Id);
+        var first = await _service.CreateAsync("First", null, parent.Id, _space.ToDo);
+        var second = await _service.CreateAsync("Second", null, parent.Id, _space.ToDo, afterId: first.Id);
+        await _service.CreateAsync("Grandchild", null, second.Id, _space.ToDo);
 
         var children = await _service.GetChildrenAsync(parent.Id);
 
@@ -270,10 +270,10 @@ public class WorkItemServiceTests
     [Test]
     public async Task GetAllAsync_ReturnsEveryItem_RegardlessOfParent()
     {
-        var root = await _service.CreateAsync("Root", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var child = await _service.CreateAsync("Child", null, root.Id, StatusConfiguration.ToDoId);
-        var grandchild = await _service.CreateAsync("Grandchild", null, child.Id, StatusConfiguration.ToDoId);
-        var unrelated = await _service.CreateAsync("Unrelated", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var root = await _service.CreateAsync("Root", null, null, _space.ToDo, spaceId: _space.Id);
+        var child = await _service.CreateAsync("Child", null, root.Id, _space.ToDo);
+        var grandchild = await _service.CreateAsync("Grandchild", null, child.Id, _space.ToDo);
+        var unrelated = await _service.CreateAsync("Unrelated", null, null, _space.ToDo, spaceId: _space.Id);
 
         var all = await _service.GetAllAsync(offset: 0, limit: 100);
 
@@ -285,8 +285,8 @@ public class WorkItemServiceTests
     [Test]
     public async Task RescheduleAsync_SetsStartAndEndDate_WithoutTouchingStatusOrParent()
     {
-        var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var item = await _service.CreateAsync("Item", null, parent.Id, StatusConfiguration.ToDoId);
+        var parent = await _service.CreateAsync("Parent", null, null, _space.ToDo, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Item", null, parent.Id, _space.ToDo);
         var start = new DateOnly(2026, 9, 25);
         var end = start.AddDays(7);
 
@@ -294,14 +294,14 @@ public class WorkItemServiceTests
 
         Assert.That(rescheduled.StartDate, Is.EqualTo(start));
         Assert.That(rescheduled.EndDate, Is.EqualTo(end));
-        Assert.That(rescheduled.StatusId, Is.EqualTo(StatusConfiguration.ToDoId));
+        Assert.That(rescheduled.StatusId, Is.EqualTo(_space.ToDo));
         Assert.That(rescheduled.ParentId, Is.EqualTo(parent.Id));
     }
 
     [Test]
     public async Task RescheduleAsync_WithNullDates_ClearsAnExistingSchedule()
     {
-        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Item", null, null, _space.ToDo, spaceId: _space.Id);
         await _service.RescheduleAsync(item.Id, new DateOnly(2026, 9, 25), new DateOnly(2026, 9, 26));
 
         var cleared = (await _service.RescheduleAsync(item.Id, null, null)).Item;
@@ -313,7 +313,7 @@ public class WorkItemServiceTests
     [Test]
     public async Task RescheduleAsync_WithStartAfterEnd_ThrowsInvalidWorkItemScheduleException()
     {
-        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Task", null, null, _space.ToDo, spaceId: _space.Id);
         var start = new DateOnly(2026, 9, 25);
         var end = start.AddDays(-1);
 
@@ -331,12 +331,12 @@ public class WorkItemServiceTests
     [Test]
     public async Task ChangeStatusAsync_WithAfterId_OrdersCardBetweenNeighborsInDestinationCell()
     {
-        var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var first = await _service.CreateAsync("First", null, parent.Id, StatusConfiguration.DoingId);
-        var second = await _service.CreateAsync("Second", null, parent.Id, StatusConfiguration.DoingId, afterId: first.Id);
-        var moving = await _service.CreateAsync("Moving", null, parent.Id, StatusConfiguration.ToDoId);
+        var parent = await _service.CreateAsync("Parent", null, null, _space.ToDo, spaceId: _space.Id);
+        var first = await _service.CreateAsync("First", null, parent.Id, _space.Doing);
+        var second = await _service.CreateAsync("Second", null, parent.Id, _space.Doing, afterId: first.Id);
+        var moving = await _service.CreateAsync("Moving", null, parent.Id, _space.ToDo);
 
-        var moved = (await _service.ChangeStatusAsync(moving.Id, StatusConfiguration.DoingId, afterId: first.Id)).Item;
+        var moved = (await _service.ChangeStatusAsync(moving.Id, _space.Doing, afterId: first.Id)).Item;
 
         Assert.That(moved.Rank, Is.GreaterThan(first.Rank));
         Assert.That(moved.Rank, Is.LessThan(second.Rank));
@@ -345,12 +345,12 @@ public class WorkItemServiceTests
     [Test]
     public async Task ChangeStatusAsync_ToItsOwnStatus_ReordersWithinTheCell()
     {
-        var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var first = await _service.CreateAsync("First", null, parent.Id, StatusConfiguration.ToDoId);
-        var second = await _service.CreateAsync("Second", null, parent.Id, StatusConfiguration.ToDoId, afterId: first.Id);
-        var third = await _service.CreateAsync("Third", null, parent.Id, StatusConfiguration.ToDoId, afterId: second.Id);
+        var parent = await _service.CreateAsync("Parent", null, null, _space.ToDo, spaceId: _space.Id);
+        var first = await _service.CreateAsync("First", null, parent.Id, _space.ToDo);
+        var second = await _service.CreateAsync("Second", null, parent.Id, _space.ToDo, afterId: first.Id);
+        var third = await _service.CreateAsync("Third", null, parent.Id, _space.ToDo, afterId: second.Id);
 
-        await _service.ChangeStatusAsync(third.Id, StatusConfiguration.ToDoId, afterId: first.Id);
+        await _service.ChangeStatusAsync(third.Id, _space.ToDo, afterId: first.Id);
 
         var cell = (await _service.GetChildrenAsync(parent.Id)).Select(w => w.Id);
         Assert.That(cell, Is.EqualTo(new[] { first.Id, third.Id, second.Id }));
@@ -359,11 +359,11 @@ public class WorkItemServiceTests
     [Test]
     public async Task ChangeStatusAsync_ToItsOwnStatusWithoutAnchor_MovesToTheTopOfTheCell()
     {
-        var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var first = await _service.CreateAsync("First", null, parent.Id, StatusConfiguration.ToDoId);
-        var second = await _service.CreateAsync("Second", null, parent.Id, StatusConfiguration.ToDoId, afterId: first.Id);
+        var parent = await _service.CreateAsync("Parent", null, null, _space.ToDo, spaceId: _space.Id);
+        var first = await _service.CreateAsync("First", null, parent.Id, _space.ToDo);
+        var second = await _service.CreateAsync("Second", null, parent.Id, _space.ToDo, afterId: first.Id);
 
-        await _service.ChangeStatusAsync(second.Id, StatusConfiguration.ToDoId, afterId: null);
+        await _service.ChangeStatusAsync(second.Id, _space.ToDo, afterId: null);
 
         var cell = (await _service.GetChildrenAsync(parent.Id)).Select(w => w.Id);
         Assert.That(cell, Is.EqualTo(new[] { second.Id, first.Id }));
@@ -372,14 +372,14 @@ public class WorkItemServiceTests
     [Test]
     public async Task ChangeStatusAsync_AfterASiblingThatSharesItsRank_RespacesTheCell()
     {
-        var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var first = await _service.CreateAsync("First", null, parent.Id, StatusConfiguration.ToDoId);
-        var second = await _service.CreateAsync("Second", null, parent.Id, StatusConfiguration.ToDoId, afterId: first.Id);
-        var moving = await _service.CreateAsync("Moving", null, parent.Id, StatusConfiguration.ToDoId, afterId: second.Id);
+        var parent = await _service.CreateAsync("Parent", null, null, _space.ToDo, spaceId: _space.Id);
+        var first = await _service.CreateAsync("First", null, parent.Id, _space.ToDo);
+        var second = await _service.CreateAsync("Second", null, parent.Id, _space.ToDo, afterId: first.Id);
+        var moving = await _service.CreateAsync("Moving", null, parent.Id, _space.ToDo, afterId: second.Id);
         second.Reposition(first.Rank);
         await _db.SaveChangesAsync();
 
-        await _service.ChangeStatusAsync(moving.Id, StatusConfiguration.ToDoId, afterId: first.Id);
+        await _service.ChangeStatusAsync(moving.Id, _space.ToDo, afterId: first.Id);
 
         var cell = (await _service.GetChildrenAsync(parent.Id)).Select(w => w.Id).ToList();
         Assert.Multiple(() =>
@@ -393,7 +393,7 @@ public class WorkItemServiceTests
     public async Task CreateAsync_WithLayerId_SetsTheLayer()
     {
         var item = await _service.CreateAsync(
-            "Task", null, null, StatusConfiguration.ToDoId, layerId: WorkItemLayerConfiguration.TaskId, spaceId: _space.Id);
+            "Task", null, null, _space.ToDo, layerId: WorkItemLayerConfiguration.TaskId, spaceId: _space.Id);
 
         Assert.That(item.LayerId, Is.EqualTo(WorkItemLayerConfiguration.TaskId));
     }
@@ -402,13 +402,13 @@ public class WorkItemServiceTests
     public void CreateAsync_WithUnknownLayerId_ThrowsEntityNotFoundException()
     {
         Assert.ThrowsAsync<EntityNotFoundException>(() =>
-            _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, layerId: Guid.NewGuid(), spaceId: _space.Id));
+            _service.CreateAsync("Task", null, null, _space.ToDo, layerId: Guid.NewGuid(), spaceId: _space.Id));
     }
 
     [Test]
     public async Task CreateAsync_LeavesPriorityUnsetByDefault()
     {
-        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Task", null, null, _space.ToDo, spaceId: _space.Id);
 
         Assert.That(item.PriorityId, Is.Null);
     }
@@ -417,16 +417,16 @@ public class WorkItemServiceTests
     public async Task CreateAsync_WithPriorityId_SetsIt()
     {
         var item = await _service.CreateAsync(
-            "Task", null, null, StatusConfiguration.ToDoId, priorityId: WorkItemPriorityConfiguration.UrgentId, spaceId: _space.Id);
+            "Task", null, null, _space.ToDo, priorityId: _space.Urgent, spaceId: _space.Id);
 
-        Assert.That(item.PriorityId, Is.EqualTo(WorkItemPriorityConfiguration.UrgentId));
+        Assert.That(item.PriorityId, Is.EqualTo(_space.Urgent));
     }
 
     [Test]
     public async Task CreateAsync_WithUnknownPriorityId_ThrowsAndCreatesNothing()
     {
         Assert.ThrowsAsync<EntityNotFoundException>(() =>
-            _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, priorityId: Guid.NewGuid(), spaceId: _space.Id));
+            _service.CreateAsync("Task", null, null, _space.ToDo, priorityId: Guid.NewGuid(), spaceId: _space.Id));
 
         Assert.That(await _db.WorkItems.AnyAsync(), Is.False);
     }
@@ -434,26 +434,26 @@ public class WorkItemServiceTests
     [Test]
     public async Task UpdateDetailsAsync_UpdatesTitleDescriptionLayerAndPriority()
     {
-        var item = await _service.CreateAsync("Old title", "Old description", null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Old title", "Old description", null, _space.ToDo, spaceId: _space.Id);
 
         var updated = (await _service.UpdateDetailsAsync(
-            item.Id, Details("New title", "New description", WorkItemLayerConfiguration.GoalId, WorkItemPriorityConfiguration.UrgentId))).Item;
+            item.Id, Details("New title", "New description", WorkItemLayerConfiguration.GoalId, _space.Urgent))).Item;
 
         Assert.That(updated.Title, Is.EqualTo("New title"));
         Assert.That(updated.Description, Is.EqualTo("New description"));
         Assert.That(updated.LayerId, Is.EqualTo(WorkItemLayerConfiguration.GoalId));
-        Assert.That(updated.PriorityId, Is.EqualTo(WorkItemPriorityConfiguration.UrgentId));
+        Assert.That(updated.PriorityId, Is.EqualTo(_space.Urgent));
     }
 
     [Test]
     public async Task UpdateDetailsAsync_NeverChangesStatusOrParent()
     {
-        var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var item = await _service.CreateAsync("Child", null, parent.Id, StatusConfiguration.DoingId);
+        var parent = await _service.CreateAsync("Parent", null, null, _space.ToDo, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Child", null, parent.Id, _space.Doing);
 
-        var updated = (await _service.UpdateDetailsAsync(item.Id, Details("Renamed", null, null, WorkItemPriorityConfiguration.LowId))).Item;
+        var updated = (await _service.UpdateDetailsAsync(item.Id, Details("Renamed", null, null, _space.Low))).Item;
 
-        Assert.That(updated.StatusId, Is.EqualTo(StatusConfiguration.DoingId));
+        Assert.That(updated.StatusId, Is.EqualTo(_space.Doing));
         Assert.That(updated.ParentId, Is.EqualTo(parent.Id));
     }
 
@@ -468,20 +468,20 @@ public class WorkItemServiceTests
     public async Task UpdateDetailsAsync_WithUnknownPriorityId_ThrowsAndLeavesPriorityUnchanged()
     {
         var item = await _service.CreateAsync(
-            "Item", null, null, StatusConfiguration.ToDoId, priorityId: WorkItemPriorityConfiguration.LowId, spaceId: _space.Id);
+            "Item", null, null, _space.ToDo, priorityId: _space.Low, spaceId: _space.Id);
 
         Assert.ThrowsAsync<EntityNotFoundException>(() =>
             _service.UpdateDetailsAsync(item.Id, Details("Item", null, null, Guid.NewGuid())));
 
         _db.ChangeTracker.Clear();
-        Assert.That((await _db.WorkItems.SingleAsync()).PriorityId, Is.EqualTo(WorkItemPriorityConfiguration.LowId));
+        Assert.That((await _db.WorkItems.SingleAsync()).PriorityId, Is.EqualTo(_space.Low));
     }
 
     [Test]
     public async Task UpdateDetailsAsync_WithNullPriorityId_ClearsIt()
     {
         var item = await _service.CreateAsync(
-            "Item", null, null, StatusConfiguration.ToDoId, priorityId: WorkItemPriorityConfiguration.LowId, spaceId: _space.Id);
+            "Item", null, null, _space.ToDo, priorityId: _space.Low, spaceId: _space.Id);
 
         var updated = (await _service.UpdateDetailsAsync(item.Id, Details("Item", null, null, null))).Item;
 
@@ -498,10 +498,10 @@ public class WorkItemServiceTests
     [Test]
     public async Task UpdateDetailsAsync_WithCurrentExpectedVersion_Succeeds()
     {
-        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Item", null, null, _space.ToDo, spaceId: _space.Id);
 
         var updated = (await _service.UpdateDetailsAsync(
-            item.Id, Details("Renamed", null, null, WorkItemPriorityConfiguration.HighId), expectedVersion: item.Version)).Item;
+            item.Id, Details("Renamed", null, null, _space.High), expectedVersion: item.Version)).Item;
 
         Assert.That(updated.Title, Is.EqualTo("Renamed"));
     }
@@ -509,10 +509,10 @@ public class WorkItemServiceTests
     [Test]
     public async Task UpdateDetailsAsync_WithStaleExpectedVersion_ThrowsAndLeavesItemUnchanged()
     {
-        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Item", null, null, _space.ToDo, spaceId: _space.Id);
 
         Assert.ThrowsAsync<WorkItemVersionConflictException>(() => _service.UpdateDetailsAsync(
-            item.Id, Details("Renamed", null, null, WorkItemPriorityConfiguration.HighId), expectedVersion: item.Version + 1));
+            item.Id, Details("Renamed", null, null, _space.High), expectedVersion: item.Version + 1));
 
         _db.ChangeTracker.Clear();
         Assert.That((await _db.WorkItems.SingleAsync()).Title, Is.EqualTo("Item"));
@@ -521,7 +521,7 @@ public class WorkItemServiceTests
     [Test]
     public async Task RescheduleAsync_WithStaleExpectedVersion_Throws()
     {
-        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Item", null, null, _space.ToDo, spaceId: _space.Id);
 
         Assert.ThrowsAsync<WorkItemVersionConflictException>(() => _service.RescheduleAsync(
             item.Id, new DateOnly(2026, 9, 25), null, expectedVersion: item.Version + 1));
@@ -530,7 +530,7 @@ public class WorkItemServiceTests
     [Test]
     public async Task SetTagsAsync_WithStaleExpectedVersion_Throws()
     {
-        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Item", null, null, _space.ToDo, spaceId: _space.Id);
 
         Assert.ThrowsAsync<WorkItemVersionConflictException>(() =>
             _service.SetTagsAsync(item.Id, Tags("urgent"), expectedVersion: item.Version + 1));
@@ -542,7 +542,7 @@ public class WorkItemServiceTests
         var user = User.CreateHuman("alice", "alice");
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
-        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Task", null, null, _space.ToDo, spaceId: _space.Id);
 
         var assigned = (await _service.AssignAsync(item.Id, user.Id)).Item;
 
@@ -555,7 +555,7 @@ public class WorkItemServiceTests
         var user = User.CreateHuman("alice", "alice");
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
-        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Task", null, null, _space.ToDo, spaceId: _space.Id);
         await _service.AssignAsync(item.Id, user.Id);
 
         var unassigned = (await _service.AssignAsync(item.Id, null)).Item;
@@ -577,7 +577,7 @@ public class WorkItemServiceTests
         user.Deactivate(DateTimeOffset.UtcNow);
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
-        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Task", null, null, _space.ToDo, spaceId: _space.Id);
 
         Assert.ThrowsAsync<DomainValidationException>(() => _service.AssignAsync(item.Id, user.Id));
     }
@@ -585,7 +585,7 @@ public class WorkItemServiceTests
     [Test]
     public async Task SetTagsAsync_SetsTheTagList()
     {
-        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Task", null, null, _space.ToDo, spaceId: _space.Id);
 
         var tagged = (await _service.SetTagsAsync(item.Id, Tags("urgent", "needs review"))).Item;
 
@@ -595,7 +595,7 @@ public class WorkItemServiceTests
     [Test]
     public async Task SetTagsAsync_WithEmptyList_ClearsTags()
     {
-        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Task", null, null, _space.ToDo, spaceId: _space.Id);
         await _service.SetTagsAsync(item.Id, Tags("urgent"));
 
         var cleared = (await _service.SetTagsAsync(item.Id, Tags())).Item;
@@ -606,7 +606,7 @@ public class WorkItemServiceTests
     [Test]
     public async Task SetTagsAsync_TrimsAndDeDuplicatesCaseInsensitively()
     {
-        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Task", null, null, _space.ToDo, spaceId: _space.Id);
 
         var tagged = (await _service.SetTagsAsync(item.Id, Tags(" Bug ", "bug", "Feature"))).Item;
 
@@ -616,7 +616,7 @@ public class WorkItemServiceTests
     [Test]
     public async Task SetTagsAsync_WithABlankTag_ThrowsInvalidWorkItemTagException()
     {
-        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Task", null, null, _space.ToDo, spaceId: _space.Id);
 
         Assert.ThrowsAsync<InvalidWorkItemTagException>(() =>
             _service.SetTagsAsync(item.Id, Tags("urgent", "   ")));
@@ -634,7 +634,7 @@ public class WorkItemServiceTests
     public void CreateAsync_WithBlankTitle_ThrowsDomainValidationException(string title)
     {
         Assert.ThrowsAsync<DomainValidationException>(() =>
-            _service.CreateAsync(title, null, null, StatusConfiguration.ToDoId, spaceId: _space.Id));
+            _service.CreateAsync(title, null, null, _space.ToDo, spaceId: _space.Id));
     }
 
     [Test]
@@ -643,13 +643,13 @@ public class WorkItemServiceTests
         var title = new string('a', WorkItem.TitleMaxLength + 1);
 
         Assert.ThrowsAsync<DomainValidationException>(() =>
-            _service.CreateAsync(title, null, null, StatusConfiguration.ToDoId, spaceId: _space.Id));
+            _service.CreateAsync(title, null, null, _space.ToDo, spaceId: _space.Id));
     }
 
     [Test]
     public async Task UpdateDetailsAsync_WithBlankTitle_ThrowsAndLeavesTitleUnchanged()
     {
-        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Item", null, null, _space.ToDo, spaceId: _space.Id);
 
         Assert.ThrowsAsync<DomainValidationException>(() =>
             _service.UpdateDetailsAsync(item.Id, Details(" ", null, null, null)));
@@ -661,7 +661,7 @@ public class WorkItemServiceTests
     [Test]
     public async Task SetTagsAsync_WithATagOverMaxLength_ThrowsDomainValidationException()
     {
-        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Item", null, null, _space.ToDo, spaceId: _space.Id);
 
         Assert.ThrowsAsync<DomainValidationException>(() =>
             _service.SetTagsAsync(item.Id, Tags(new string('t', WorkItem.TagMaxLength + 1))));
@@ -670,7 +670,7 @@ public class WorkItemServiceTests
     [Test]
     public async Task SetTagsAsync_WithMoreThanMaxTags_ThrowsDomainValidationException()
     {
-        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Item", null, null, _space.ToDo, spaceId: _space.Id);
         var tags = Enumerable.Range(0, WorkItem.MaxTags + 1).Select(i => $"tag{i}").ToList();
 
         Assert.ThrowsAsync<DomainValidationException>(() => _service.SetTagsAsync(item.Id, Tags([.. tags])));
@@ -679,7 +679,7 @@ public class WorkItemServiceTests
     [Test]
     public async Task SetTagsAsync_CountsTagsAfterDeDuplication()
     {
-        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Item", null, null, _space.ToDo, spaceId: _space.Id);
         var tags = Enumerable.Range(0, WorkItem.MaxTags).Select(i => $"tag{i}").Append("TAG0").ToList();
 
         var tagged = (await _service.SetTagsAsync(item.Id, Tags([.. tags]))).Item;
@@ -690,12 +690,12 @@ public class WorkItemServiceTests
     [Test]
     public async Task GetSwimlanesAsync_ReturnsEachLaneWithItsOwnCardsInRankOrder()
     {
-        var scope = await _service.CreateAsync("Scope", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var laneA = await _service.CreateAsync("Lane A", null, scope.Id, StatusConfiguration.ToDoId);
-        var laneB = await _service.CreateAsync("Lane B", null, scope.Id, StatusConfiguration.ToDoId, afterId: laneA.Id);
-        var a1 = await _service.CreateAsync("A1", null, laneA.Id, StatusConfiguration.ToDoId);
-        var a2 = await _service.CreateAsync("A2", null, laneA.Id, StatusConfiguration.ToDoId, afterId: a1.Id);
-        var grandchild = await _service.CreateAsync("Too deep", null, a1.Id, StatusConfiguration.ToDoId);
+        var scope = await _service.CreateAsync("Scope", null, null, _space.ToDo, spaceId: _space.Id);
+        var laneA = await _service.CreateAsync("Lane A", null, scope.Id, _space.ToDo);
+        var laneB = await _service.CreateAsync("Lane B", null, scope.Id, _space.ToDo, afterId: laneA.Id);
+        var a1 = await _service.CreateAsync("A1", null, laneA.Id, _space.ToDo);
+        var a2 = await _service.CreateAsync("A2", null, laneA.Id, _space.ToDo, afterId: a1.Id);
+        var grandchild = await _service.CreateAsync("Too deep", null, a1.Id, _space.ToDo);
 
         var swimlanes = await _service.GetSwimlanesAsync(scope.Id);
 
@@ -708,8 +708,8 @@ public class WorkItemServiceTests
     [Test]
     public async Task GetSwimlanesAsync_WithNoScope_UsesTopLevelItemsAsLanes()
     {
-        var top = await _service.CreateAsync("Top", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var card = await _service.CreateAsync("Card", null, top.Id, StatusConfiguration.ToDoId);
+        var top = await _service.CreateAsync("Top", null, null, _space.ToDo, spaceId: _space.Id);
+        var card = await _service.CreateAsync("Card", null, top.Id, _space.ToDo);
 
         var swimlanes = await _service.GetSwimlanesAsync(null, _space.Id);
 
@@ -721,8 +721,8 @@ public class WorkItemServiceTests
     public async Task UpdateDetailsAsync_WithOnlyATitle_KeepsTheOtherDetailsAndReportsTheTitleChanged()
     {
         var item = await _service.CreateAsync(
-            "Item", "Keep me", null, StatusConfiguration.ToDoId,
-            layerId: WorkItemLayerConfiguration.TaskId, priorityId: WorkItemPriorityConfiguration.HighId, spaceId: _space.Id);
+            "Item", "Keep me", null, _space.ToDo,
+            layerId: WorkItemLayerConfiguration.TaskId, priorityId: _space.High, spaceId: _space.Id);
 
         var result = await _service.UpdateDetailsAsync(item.Id, new WorkItemDetailsPatch { Title = "Renamed" });
 
@@ -731,7 +731,7 @@ public class WorkItemServiceTests
             Assert.That(result.Item.Title, Is.EqualTo("Renamed"));
             Assert.That(result.Item.Description, Is.EqualTo("Keep me"));
             Assert.That(result.Item.LayerId, Is.EqualTo(WorkItemLayerConfiguration.TaskId));
-            Assert.That(result.Item.PriorityId, Is.EqualTo(WorkItemPriorityConfiguration.HighId));
+            Assert.That(result.Item.PriorityId, Is.EqualTo(_space.High));
             Assert.That(result.ChangedFields, Is.EqualTo(new[] { WorkItemField.Title }));
         });
     }
@@ -739,7 +739,7 @@ public class WorkItemServiceTests
     [Test]
     public async Task SetTagsAsync_LeftOut_LeavesTheTagsAlone()
     {
-        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Item", null, null, _space.ToDo, spaceId: _space.Id);
         await _service.SetTagsAsync(item.Id, Tags("urgent"));
 
         var result = await _service.SetTagsAsync(item.Id, Optional<IReadOnlyList<string>>.Unset);
@@ -754,20 +754,20 @@ public class WorkItemServiceTests
     [Test]
     public async Task ChangeStatusAsync_WithStaleExpectedVersion_ThrowsAndLeavesItemUnchanged()
     {
-        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Item", null, null, _space.ToDo, spaceId: _space.Id);
 
         Assert.ThrowsAsync<WorkItemVersionConflictException>(() =>
-            _service.ChangeStatusAsync(item.Id, StatusConfiguration.DoingId, expectedVersion: item.Version + 1));
+            _service.ChangeStatusAsync(item.Id, _space.Doing, expectedVersion: item.Version + 1));
 
         _db.ChangeTracker.Clear();
-        Assert.That((await _db.WorkItems.SingleAsync()).StatusId, Is.EqualTo(StatusConfiguration.ToDoId));
+        Assert.That((await _db.WorkItems.SingleAsync()).StatusId, Is.EqualTo(_space.ToDo));
     }
 
     [Test]
     public async Task ReparentAsync_WithStaleExpectedVersion_ThrowsAndLeavesItemUnchanged()
     {
-        var parent = await _service.CreateAsync("Parent", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
-        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var parent = await _service.CreateAsync("Parent", null, null, _space.ToDo, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Item", null, null, _space.ToDo, spaceId: _space.Id);
 
         Assert.ThrowsAsync<WorkItemVersionConflictException>(() =>
             _service.ReparentAsync(item.Id, parent.Id, expectedVersion: item.Version + 1));
@@ -782,7 +782,7 @@ public class WorkItemServiceTests
         var user = User.CreateHuman("alice", "alice");
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
-        var item = await _service.CreateAsync("Task", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Task", null, null, _space.ToDo, spaceId: _space.Id);
 
         Assert.ThrowsAsync<WorkItemVersionConflictException>(() =>
             _service.AssignAsync(item.Id, user.Id, expectedVersion: item.Version + 1));
@@ -794,7 +794,7 @@ public class WorkItemServiceTests
     [Test]
     public async Task DeleteAsync_WithStaleExpectedVersion_ThrowsAndDeletesNothing()
     {
-        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Item", null, null, _space.ToDo, spaceId: _space.Id);
 
         Assert.ThrowsAsync<WorkItemVersionConflictException>(() =>
             _service.DeleteAsync(item.Id, expectedVersion: item.Version + 1));
@@ -805,9 +805,9 @@ public class WorkItemServiceTests
     [Test]
     public async Task ChangeStatusAsync_ReportsTheFieldsThatChanged()
     {
-        var item = await _service.CreateAsync("Item", null, null, StatusConfiguration.ToDoId, spaceId: _space.Id);
+        var item = await _service.CreateAsync("Item", null, null, _space.ToDo, spaceId: _space.Id);
 
-        var result = await _service.ChangeStatusAsync(item.Id, StatusConfiguration.DoingId, expectedVersion: item.Version);
+        var result = await _service.ChangeStatusAsync(item.Id, _space.Doing, expectedVersion: item.Version);
 
         Assert.That(result.ChangedFields, Does.Contain(WorkItemField.StatusId));
     }

@@ -41,6 +41,36 @@ public class SpaceServiceTests
     }
 
     [Test]
+    public async Task CreateAsync_StartsTheSpaceWithTheDefaultStatusesAndPriorities()
+    {
+        var space = await _spaces.CreateAsync("Home");
+
+        var statuses = _db.Statuses.Where(s => s.SpaceId == space.Id).OrderBy(s => s.Order).ToList();
+        var priorities = _db.WorkItemPriorities.Where(p => p.SpaceId == space.Id).OrderBy(p => p.Order).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(statuses.Select(s => (s.Name, s.Category)), Is.EqualTo(new[]
+            {
+                ("To Do", StatusCategory.ToDo),
+                ("Doing", StatusCategory.Doing),
+                ("Done", StatusCategory.Done),
+            }));
+            Assert.That(priorities.Select(p => p.Name), Is.EqualTo(new[] { "Low", "Medium", "High", "Urgent" }));
+        });
+    }
+
+    [Test]
+    public async Task CreateAsync_GivesEachSpaceItsOwnDefaults()
+    {
+        var home = await _spaces.CreateAsync("Home");
+        var village = await _spaces.CreateAsync("Village");
+
+        var homeIds = _db.Statuses.Where(s => s.SpaceId == home.Id).Select(s => s.Id).ToList();
+        var villageIds = _db.Statuses.Where(s => s.SpaceId == village.Id).Select(s => s.Id).ToList();
+        Assert.That(homeIds, Has.Count.EqualTo(3).And.No.AnyOf(villageIds.Cast<object>().ToArray()));
+    }
+
+    [Test]
     public async Task CreateAsync_RecordsWhoCreatedItAndItsName()
     {
         var space = await _spaces.CreateAsync("Home");

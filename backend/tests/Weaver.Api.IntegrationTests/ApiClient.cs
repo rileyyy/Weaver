@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -101,7 +102,7 @@ public static class ApiClient
 
     /// <summary>
     /// A top-level item goes in <paramref name="spaceId"/>, or the run's shared Space when
-    /// that's omitted; a child goes in its parent's.
+    /// that's omitted; a child goes in its parent's. Either way it starts in that Space's To Do.
     /// </summary>
     public static async Task<WorkItemDto> CreateWorkItemAsync(
         this HttpClient client,
@@ -110,9 +111,40 @@ public static class ApiClient
         Guid? spaceId = null)
     {
         var space = parentId is null ? spaceId ?? await SharedSpaceIdAsync() : (Guid?)null;
+        var toDo = await StatusIdAsync(space ?? await client.SpaceIdOfAsync(parentId!.Value), "To Do");
         return await (await client.PostJsonAsync(
             "/api/work-items",
-            new CreateWorkItemRequest(title, null, parentId, SeededStatuses.ToDo, null, SpaceId: space))).ReadAsync<WorkItemDto>();
+            new CreateWorkItemRequest(title, null, parentId, toDo, null, SpaceId: space))).ReadAsync<WorkItemDto>();
+    }
+
+    public static async Task<Guid> SpaceIdOfAsync(this HttpClient client, Guid workItemId) =>
+        (await (await client.GetAsync($"/api/work-items/{workItemId}")).ReadAsync<WorkItemDto>()).SpaceId;
+
+    /// <summary>
+    /// The id of <paramref name="spaceId"/>'s status called <paramref name="name"/>, such as one
+    /// of the defaults every new Space gets. Looked up once per Space, so it can't see a status
+    /// added later.
+    /// </summary>
+    public static async Task<Guid> StatusIdAsync(Guid spaceId, string name) =>
+        (await StatusIdsBySpace.GetOrAdd(spaceId, id => LookupIdsByNameAsync<StatusDto>(
+            $"/api/statuses?spaceId={id}", s => (s.Name, s.Id))))[name];
+
+    /// <summary>As <see cref="StatusIdAsync"/>, for priorities.</summary>
+    public static async Task<Guid> PriorityIdAsync(Guid spaceId, string name) =>
+        (await PriorityIdsBySpace.GetOrAdd(spaceId, id => LookupIdsByNameAsync<WorkItemPriorityDto>(
+            $"/api/work-item-priorities?spaceId={id}", p => (p.Name, p.Id))))[name];
+
+    private static readonly ConcurrentDictionary<Guid, Task<Dictionary<string, Guid>>> StatusIdsBySpace = new();
+
+    private static readonly ConcurrentDictionary<Guid, Task<Dictionary<string, Guid>>> PriorityIdsBySpace = new();
+
+    private static async Task<Dictionary<string, Guid>> LookupIdsByNameAsync<TDto>(
+        string path,
+        Func<TDto, (string Name, Guid Id)> nameAndId)
+    {
+        var admin = await FirstAdminAsync();
+        var values = await (await admin.GetAsync(path)).ReadAsync<List<TDto>>();
+        return values.Select(nameAndId).ToDictionary(v => v.Name, v => v.Id);
     }
 
     /// <summary>
