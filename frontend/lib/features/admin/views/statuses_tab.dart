@@ -36,7 +36,7 @@ class StatusesTab extends StatelessWidget {
             'Statuses are the board’s columns in this Space, shown in this '
             'order. Drag to reorder.',
         addLabel: 'Add status',
-        onAdd: viewModel.canAdd
+        onAdd: viewModel.hasList
             ? () =>
                   unawaited(showStatusDialog(context, onSave: viewModel.create))
             : null,

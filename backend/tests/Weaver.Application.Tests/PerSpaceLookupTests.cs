@@ -71,12 +71,19 @@ public class PerSpaceLookupTests
     }
 
     [Test]
-    public void UpdateAsync_ToANameAnotherSpaceUses_IsAllowed()
+    public void RenameAsync_ToANameAnotherSpaceUses_IsAllowed()
     {
         Assert.DoesNotThrowAsync(() =>
             _priorities.RenameAsync(_admin.Id, _home.Low, "Someday"));
         Assert.DoesNotThrowAsync(() =>
             _priorities.RenameAsync(_admin.Id, _software.Low, "Someday"));
+    }
+
+    [Test]
+    public void RenameAsync_ToANameItsOwnSpaceUses_IsAConflict()
+    {
+        Assert.ThrowsAsync<LookupNameTakenException>(() =>
+            _priorities.RenameAsync(_admin.Id, _home.Low, "urgent"));
     }
 
     [Test]

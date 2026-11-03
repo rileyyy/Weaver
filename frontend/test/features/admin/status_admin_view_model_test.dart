@@ -117,6 +117,22 @@ void main() {
     expect(viewModel.items.last.name, 'Review');
   });
 
+  test(
+    'a create that finishes after switching Space leaves the new list alone',
+    () async {
+      repository.createGate = Completer<void>();
+
+      final create = viewModel.create(_review);
+      await viewModel.showSpace('software');
+      repository.createGate!.complete();
+      final error = await create;
+
+      expect(error, isNull);
+      expect(viewModel.spaceId, 'software');
+      expect(viewModel.items.map((s) => s.name), isNot(contains('Review')));
+    },
+  );
+
   test('create reports a conflict from the server', () async {
     repository.error = const ApiException(
       'A status named Review already exists (409).',

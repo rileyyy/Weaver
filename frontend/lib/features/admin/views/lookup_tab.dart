@@ -52,7 +52,7 @@ class LookupTab extends StatelessWidget {
         onRetry: viewModel.load,
         description: _description,
         addLabel: 'Add $singular',
-        onAdd: viewModel.canAdd ? () => unawaited(_add(context)) : null,
+        onAdd: viewModel.hasList ? () => unawaited(_add(context)) : null,
         child: ReorderableLookupList<LookupValue>(
           items: viewModel.items,
           idOf: (value) => value.id,

@@ -26,6 +26,9 @@ class FakeStatusAdminRepository implements StatusAdminRepository {
   /// When set, [reorder] waits on it, so a test can see the optimistic order.
   Completer<void>? reorderGate;
 
+  /// When set, [create] waits on it, so a test can switch Space meanwhile.
+  Completer<void>? createGate;
+
   Future<void> _fail() async {
     final error = this.error;
     if (error != null) throw error;
@@ -41,6 +44,7 @@ class FakeStatusAdminRepository implements StatusAdminRepository {
   @override
   Future<AdminStatus> create(String spaceId, StatusDetails details) async {
     calls.add('create ${details.name} in $spaceId');
+    await createGate?.future;
     await _fail();
     return AdminStatus(
       id: 'new',

@@ -50,8 +50,8 @@ class ApiBoardRepository implements BoardRepository {
 
   @override
   Future<BoardData> loadBoard(String spaceId, String? scopeItemId) async {
-    // Three requests at most (statuses and layers are cached after the
-    // first load): /swimlanes returns every lane with its cards, instead of
+    // Three requests at most (a Space's statuses and the layers are cached
+    // after their first load): /swimlanes returns every lane with its cards, instead of
     // one request per lane.
     final statuses = await _statuses.loadStatuses(spaceId);
     final layers = await _layers.loadLayers();

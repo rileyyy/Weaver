@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -70,8 +70,10 @@ namespace Weaver.Infrastructure.Migrations
                 principalColumn: "Id",
                 onDelete: ReferentialAction.Restrict);
 
-            // Spaces created before this migration get the defaults a new Space gets
-            // (SpaceDefaults), so they stay usable.
+            // Spaces created before this migration get the defaults a new Space gets, so they
+            // stay usable. The values are frozen here as SpaceDefaults had them at the time; a
+            // later change to SpaceDefaults must not change what this migration did. Category
+            // is stored as the StatusCategory ordinal (ToDo 0, Doing 1, Done 2).
             migrationBuilder.Sql("""
                 INSERT INTO "Statuses" ("Id", "SpaceId", "Name", "Order", "Category", "Color")
                 SELECT gen_random_uuid(), s."Id", d."Name", d."Order", d."Category", d."Color"
@@ -93,6 +95,12 @@ namespace Weaver.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            // Not lossless: which Space a status or priority belonged to can't be kept, so the
+            // per-Space rows go and the global seeds come back. Like Up, this fails on a
+            // database whose work items use them.
+            migrationBuilder.Sql("""DELETE FROM "WorkItemPriorities";""");
+            migrationBuilder.Sql("""DELETE FROM "Statuses";""");
+
             migrationBuilder.DropForeignKey(
                 name: "FK_Statuses_Spaces_SpaceId",
                 table: "Statuses");

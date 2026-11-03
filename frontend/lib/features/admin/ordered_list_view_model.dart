@@ -25,9 +25,9 @@ abstract class OrderedListViewModel<T> extends ViewModel {
   @protected
   bool get ownedBySpace => false;
 
-  /// Whether there's a list to add to: a Space must be chosen first for a
-  /// lookup each Space owns.
-  bool get canAdd => !ownedBySpace || _spaceId != null;
+  /// Whether there's a list to show and add to: a Space must be chosen
+  /// first for a lookup each Space owns.
+  bool get hasList => !ownedBySpace || _spaceId != null;
 
   /// Only true for the first load; later refreshes keep showing the list.
   bool get isLoading => _isLoading && !_hasLoaded;
@@ -63,9 +63,8 @@ abstract class OrderedListViewModel<T> extends ViewModel {
     return showSpace(spaces.first.id);
   }
 
-  /// Without a chosen Space, a lookup each Space owns has nothing to list.
   Future<void> load() async {
-    if (!canAdd) return;
+    if (!hasList) return;
     final generation = ++_loadGeneration;
     _isLoading = true;
     _loadError = null;
@@ -120,15 +119,19 @@ abstract class OrderedListViewModel<T> extends ViewModel {
   }
 
   /// Runs a change and applies its result. Returns null on success, or why
-  /// it failed for the dialog or snackbar that asked for it.
+  /// it failed for the dialog or snackbar that asked for it. A result that
+  /// arrives after another Space was chosen belongs to the old Space's list,
+  /// which that Space's next load shows, so it isn't applied.
   @protected
   Future<String?> attempt<R>(
     Future<R> Function() change, {
     required void Function(R result) onSuccess,
     required String fallbackError,
   }) async {
+    final spaceId = _spaceId;
     try {
       final result = await change();
+      if (spaceId != _spaceId) return null;
       onSuccess(result);
       notifyIfActive();
       return null;
