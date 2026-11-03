@@ -125,18 +125,26 @@ class BoardViewModel extends ViewModel {
   /// (the label column, the drill-down targets), so that notifies the whole
   /// board too.
   void _setSwimlanes(List<Swimlane> lanes) {
+    // A save's rollback can land after the board was closed, when the lane
+    // notifiers are already disposed.
+    if (isDisposed) return;
     final reshaped = !_sameLaneHeaders(_swimlanes, lanes);
     _swimlanes = lanes;
-    final notifierById = {
+    final previousById = {
       for (final notifier in _laneNotifiers) notifier.value.parentId: notifier,
     };
     _laneNotifiers = [
       for (final lane in lanes)
-        if (notifierById[lane.parentId] case final notifier?)
-          notifier..value = lane
-        else
-          ValueNotifier(lane),
+        previousById.remove(lane.parentId) ?? ValueNotifier(lane),
     ];
+    for (final dropped in previousById.values) {
+      dropped.dispose();
+    }
+    // Set only once both lists are in place, so a lane listener reading the
+    // board sees the new state.
+    for (var i = 0; i < lanes.length; i++) {
+      _laneNotifiers[i].value = lanes[i];
+    }
     if (reshaped) notifyIfActive();
   }
 

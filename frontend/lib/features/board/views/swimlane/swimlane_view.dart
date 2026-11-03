@@ -24,7 +24,7 @@ class SwimlaneView extends StatelessWidget {
     super.key,
     required this.width,
     required this.statuses,
-    required this.swimlanes,
+    required this.swimlaneListenables,
     required this.onCardDropped,
     required this.onCardReparented,
     required this.onCardDetailsOpened,
@@ -42,7 +42,7 @@ class SwimlaneView extends StatelessWidget {
 
   final double width;
   final List<WorkItemStatus> statuses;
-  final List<ValueListenable<Swimlane>> swimlanes;
+  final List<ValueListenable<Swimlane>> swimlaneListenables;
   final CardDropCallback onCardDropped;
   final Future<void> Function(WorkItemCard card, String newParentId)
   onCardReparented;
@@ -89,8 +89,8 @@ class SwimlaneView extends StatelessWidget {
     // A lane's id never changes, so reading it here without listening is
     // safe; everything else about a lane is read inside its own builder.
     final allSwimlanesCollapsed =
-        swimlanes.isNotEmpty &&
-        swimlanes.every(
+        swimlaneListenables.isNotEmpty &&
+        swimlaneListenables.every(
           (lane) => collapsedSwimlaneIds.contains(lane.value.parentId),
         );
 
@@ -114,7 +114,7 @@ class SwimlaneView extends StatelessWidget {
             ),
           ),
         ),
-        for (final listenable in swimlanes)
+        for (final listenable in swimlaneListenables)
           ValueListenableBuilder(
             valueListenable: listenable,
             builder: (context, lane, _) => GridRowBox(
@@ -161,7 +161,7 @@ class SwimlaneView extends StatelessWidget {
     // The label and the row each measure the lane's height rather than
     // share it, so that neither has to rebuild for the other's lane.
     final laneRows = [
-      for (final listenable in swimlanes)
+      for (final listenable in swimlaneListenables)
         ValueListenableBuilder(
           valueListenable: listenable,
           builder: (context, lane, _) => GridRowBox(

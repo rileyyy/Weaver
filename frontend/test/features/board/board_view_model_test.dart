@@ -2378,6 +2378,19 @@ void main() {
         expect(viewModel.drillDownTargets.first.title, 'Lane A2');
       });
 
+      test('a lane leaving the board notifies the whole board', () {
+        var boardNotified = false;
+        viewModel.addListener(() => boardNotified = true);
+
+        items.remove('lane-a');
+
+        expect(boardNotified, isTrue);
+        expect(
+          viewModel.swimlaneListenables.map((lane) => lane.value.parentId),
+          ['lane-b'],
+        );
+      });
+
       test('a lane listenable carries its lane through a card move', () async {
         final laneA = viewModel.swimlaneListenables.first;
         var laneANotified = 0;

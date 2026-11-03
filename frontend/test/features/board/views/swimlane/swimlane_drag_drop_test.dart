@@ -61,7 +61,7 @@ void main() {
                 WorkItemStatus(id: 'todo', name: 'To Do', order: 0),
                 WorkItemStatus(id: 'done', name: 'Done', order: 1),
               ],
-              swimlanes: [
+              swimlaneListenables: [
                 ValueNotifier(
                   Swimlane(
                     parentId: 'lane-a',

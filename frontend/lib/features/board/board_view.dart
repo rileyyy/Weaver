@@ -440,7 +440,7 @@ class _BoardViewState extends State<BoardView>
           builder: (context, constraints) => SwimlaneView(
             width: constraints.maxWidth,
             statuses: _viewModel.visibleStatuses,
-            swimlanes: _viewModel.swimlaneListenables,
+            swimlaneListenables: _viewModel.swimlaneListenables,
             onCardDropped: _viewModel.moveCard,
             onCardReparented: _viewModel.reparentCard,
             onCardDetailsOpened: _openDetails,

@@ -7,6 +7,7 @@ import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/swimlane_items.dart';
 import 'package:weaver/features/board/views/swimlane/swimlane_view.dart';
 import 'package:weaver/features/board/views/swimlane/widgets/status_column.dart';
+import 'package:weaver/features/board/views/swimlane/widgets/swimlane_label.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
@@ -58,7 +59,7 @@ Widget _board(BoardViewModel viewModel) => MaterialApp(
         builder: (context, _) => SwimlaneView(
           width: 1280,
           statuses: viewModel.visibleStatuses,
-          swimlanes: viewModel.swimlaneListenables,
+          swimlaneListenables: viewModel.swimlaneListenables,
           onCardDropped: (_, _, {beforeCardId}) async {},
           onCardReparented: (_, _) async {},
           onCardDetailsOpened: (_) {},
@@ -95,10 +96,15 @@ void main() {
     await tester.pumpWidget(_board(viewModel));
 
     final columnBuildsByLane = <String, int>{};
+    final labelBuildsByLane = <String, int>{};
+    void count(Map<String, int> builds, String lane) =>
+        builds[lane] = (builds[lane] ?? 0) + 1;
     widgets.debugOnRebuildDirtyWidget = (element, _) {
-      if (element.widget case final StatusColumn column) {
-        final lane = column.swimlane.parentId;
-        columnBuildsByLane[lane] = (columnBuildsByLane[lane] ?? 0) + 1;
+      switch (element.widget) {
+        case final StatusColumn column:
+          count(columnBuildsByLane, column.swimlane.parentId);
+        case final SwimlaneLabel label:
+          count(labelBuildsByLane, label.swimlane.parentId);
       }
     };
     addTearDown(() => widgets.debugOnRebuildDirtyWidget = null);
@@ -116,5 +122,6 @@ void main() {
     expect(find.text('Renamed'), findsOneWidget);
     expect(columnBuildsByLane['lane-a'], greaterThan(0));
     expect(columnBuildsByLane['lane-b'], isNull);
+    expect(labelBuildsByLane['lane-b'], isNull);
   });
 }
