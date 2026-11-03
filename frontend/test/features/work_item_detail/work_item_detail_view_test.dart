@@ -77,7 +77,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   }
 
   @override
-  Future<List<WorkItemStatus>> loadStatuses() async => const [
+  Future<List<WorkItemStatus>> loadStatuses(String spaceId) async => const [
     WorkItemStatus(id: 'todo', name: 'To Do', order: 0),
   ];
 
@@ -85,7 +85,8 @@ class _FakeRepository implements WorkItemDetailRepository {
   Future<List<WorkItemLayer>> loadLayers() async => const [];
 
   @override
-  Future<List<WorkItemPriority>> loadPriorities() async => const [];
+  Future<List<WorkItemPriority>> loadPriorities(String spaceId) async =>
+      const [];
 
   @override
   Future<List<User>> loadUsers() async => const [

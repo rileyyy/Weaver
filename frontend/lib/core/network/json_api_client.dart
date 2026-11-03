@@ -45,10 +45,15 @@ class JsonApiClient {
     String path,
     Object? body,
     T Function(Object? json) decode, {
+    Map<String, String>? query,
     required String failureMessage,
   }) => _send(
     path,
-    () => _http.put(_uri(path), headers: _jsonHeaders, body: jsonEncode(body)),
+    () => _http.put(
+      _uri(path, query),
+      headers: _jsonHeaders,
+      body: jsonEncode(body),
+    ),
     failureMessage,
     decode,
   );

@@ -27,21 +27,23 @@ class ApiStatusAdminRepository implements StatusAdminRepository {
       JsonApiClient.listOf(json, AdminStatus.fromJson);
 
   @override
-  Future<List<AdminStatus>> list() => _api.get(
+  Future<List<AdminStatus>> list(String spaceId) => _api.get(
     '/statuses',
     _statuses,
+    query: {'spaceId': spaceId},
     failureMessage: 'Failed to load statuses',
   );
 
   @override
-  Future<AdminStatus> create(StatusDetails details) => _invalidatingCache(
-    _api.post(
-      '/statuses',
-      details.toJson(),
-      _status,
-      failureMessage: 'Failed to add the status',
-    ),
-  );
+  Future<AdminStatus> create(String spaceId, StatusDetails details) =>
+      _invalidatingCache(
+        _api.post(
+          '/statuses',
+          {'spaceId': spaceId, ...details.toJson()},
+          _status,
+          failureMessage: 'Failed to add the status',
+        ),
+      );
 
   @override
   Future<AdminStatus> update(String id, StatusDetails details) =>
@@ -55,12 +57,13 @@ class ApiStatusAdminRepository implements StatusAdminRepository {
       );
 
   @override
-  Future<List<AdminStatus>> reorder(List<String> orderedIds) =>
+  Future<List<AdminStatus>> reorder(String spaceId, List<String> orderedIds) =>
       _invalidatingCache(
         _api.put(
           '/statuses/order',
           {'orderedIds': orderedIds},
           _statuses,
+          query: {'spaceId': spaceId},
           failureMessage: 'Failed to reorder the statuses',
         ),
       );

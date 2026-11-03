@@ -83,6 +83,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   int loadCommentsCalls = 0;
   int getItemCalls = 0;
   int loadLinksCalls = 0;
+  final List<String> lookupSpaceIds = [];
 
   /// When set, [assign] waits on it, so a test can overlap two saves.
   Completer<void>? assignGate;
@@ -121,15 +122,18 @@ class _FakeRepository implements WorkItemDetailRepository {
   }
 
   @override
-  Future<List<WorkItemStatus>> loadStatuses() async => const [
-    WorkItemStatus(
-      id: 'todo',
-      name: 'To Do',
-      order: 0,
-      color: Color(0xFF00FF00),
-    ),
-    WorkItemStatus(id: 'done', name: 'Done', order: 1),
-  ];
+  Future<List<WorkItemStatus>> loadStatuses(String spaceId) async {
+    lookupSpaceIds.add(spaceId);
+    return const [
+      WorkItemStatus(
+        id: 'todo',
+        name: 'To Do',
+        order: 0,
+        color: Color(0xFF00FF00),
+      ),
+      WorkItemStatus(id: 'done', name: 'Done', order: 1),
+    ];
+  }
 
   @override
   Future<List<WorkItemLayer>> loadLayers() async => const [
@@ -137,9 +141,12 @@ class _FakeRepository implements WorkItemDetailRepository {
   ];
 
   @override
-  Future<List<WorkItemPriority>> loadPriorities() async => const [
-    WorkItemPriority(id: 'priority-high', name: 'High', order: 2),
-  ];
+  Future<List<WorkItemPriority>> loadPriorities(String spaceId) async {
+    lookupSpaceIds.add(spaceId);
+    return const [
+      WorkItemPriority(id: 'priority-high', name: 'High', order: 2),
+    ];
+  }
 
   @override
   Future<List<User>> loadUsers() async => const [
@@ -357,6 +364,22 @@ void main() {
     expect(viewModel.priorities.single.name, 'High');
     expect(viewModel.users, hasLength(1));
   });
+
+  test(
+    "load offers the statuses and priorities of the item's own Space",
+    () async {
+      final repository = _FakeRepository();
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
+
+      await viewModel.load('item-1');
+
+      expect(repository.lookupSpaceIds, ['home', 'home']);
+    },
+  );
 
   test('load sets loadError when the repository throws', () async {
     final repository = _FakeRepository(

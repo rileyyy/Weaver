@@ -67,15 +67,17 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   );
 
   @override
-  Future<List<WorkItemStatus>> loadStatuses() => _statuses.loadStatuses();
+  Future<List<WorkItemStatus>> loadStatuses(String spaceId) =>
+      _statuses.loadStatuses(spaceId);
 
   @override
   Future<List<WorkItemLayer>> loadLayers() => _layers.loadLayers();
 
   @override
-  Future<List<WorkItemPriority>> loadPriorities() => _api.get(
+  Future<List<WorkItemPriority>> loadPriorities(String spaceId) => _api.get(
     '/work-item-priorities',
     (json) => JsonApiClient.listOf(json, WorkItemPriority.fromJson),
+    query: {'spaceId': spaceId},
     failureMessage: 'Failed to load priorities',
   );
 

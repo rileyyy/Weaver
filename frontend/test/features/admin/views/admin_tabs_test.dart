@@ -33,6 +33,19 @@ class _SignedInAs implements CurrentUser {
 
 Widget _host(Widget child) => MaterialApp(home: Scaffold(body: child));
 
+const _home = Space(id: 'home', name: 'Home');
+const _software = Space(id: 'software', name: 'Software');
+
+/// The Spaces a Statuses or Priorities tab picks from, already loaded.
+Future<SpaceAdminViewModel> _loadedSpaces(WidgetTester tester) async {
+  final spaces = SpaceAdminViewModel(
+    FakeSpaceAdminRepository(const [_home, _software]),
+  );
+  addTearDown(spaces.dispose);
+  await spaces.load();
+  return spaces;
+}
+
 void main() {
   group('SpacesTab', () {
     late FakeSpaceAdminRepository repository;
@@ -106,8 +119,11 @@ void main() {
         LookupKind.priorities,
       );
       addTearDown(viewModel.dispose);
-      await viewModel.load();
-      await tester.pumpWidget(_host(LookupTab(viewModel: viewModel)));
+      await viewModel.showSpace('home');
+      final spaces = await _loadedSpaces(tester);
+      await tester.pumpWidget(
+        _host(LookupTab(viewModel: viewModel, spaces: spaces)),
+      );
 
       await tester.tap(find.byTooltip('Edit Low'));
       await tester.pumpAndSettle();
@@ -118,6 +134,49 @@ void main() {
   });
 
   group('StatusesTab', () {
+    testWidgets('picking another Space shows its statuses', (tester) async {
+      final repository = FakeStatusAdminRepository([
+        adminStatus('todo', name: 'To Do'),
+      ]);
+      final viewModel = StatusAdminViewModel(repository);
+      addTearDown(viewModel.dispose);
+      await viewModel.showSpace('home');
+      final spaces = await _loadedSpaces(tester);
+      await tester.pumpWidget(
+        _host(StatusesTab(viewModel: viewModel, spaces: spaces)),
+      );
+
+      await tester.tap(find.text('Home'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Software').last);
+      await tester.pumpAndSettle();
+
+      expect(repository.listedSpaceIds, ['home', 'software']);
+      expect(viewModel.spaceId, 'software');
+    });
+
+    testWidgets('with no Space yet, says to create one and offers no add', (
+      tester,
+    ) async {
+      final viewModel = StatusAdminViewModel(FakeStatusAdminRepository([]));
+      addTearDown(viewModel.dispose);
+      final spaces = SpaceAdminViewModel(FakeSpaceAdminRepository(const []));
+      addTearDown(spaces.dispose);
+      await spaces.load();
+      await tester.pumpWidget(
+        _host(StatusesTab(viewModel: viewModel, spaces: spaces)),
+      );
+
+      expect(
+        find.text('Create a Space on the Spaces tab first.'),
+        findsOneWidget,
+      );
+      final add = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Add status'),
+      );
+      expect(add.onPressed, isNull);
+    });
+
     testWidgets('lists the statuses with a drag handle each', (tester) async {
       final viewModel = StatusAdminViewModel(
         FakeStatusAdminRepository([
@@ -126,9 +185,12 @@ void main() {
         ]),
       );
       addTearDown(viewModel.dispose);
-      await viewModel.load();
+      await viewModel.showSpace('home');
+      final spaces = await _loadedSpaces(tester);
 
-      await tester.pumpWidget(_host(StatusesTab(viewModel: viewModel)));
+      await tester.pumpWidget(
+        _host(StatusesTab(viewModel: viewModel, spaces: spaces)),
+      );
 
       expect(find.text('To Do'), findsOneWidget);
       expect(find.text('Done'), findsOneWidget);
@@ -140,9 +202,12 @@ void main() {
         FakeStatusAdminRepository([adminStatus('todo', name: 'To Do')]),
       );
       addTearDown(viewModel.dispose);
-      await viewModel.load();
+      await viewModel.showSpace('home');
+      final spaces = await _loadedSpaces(tester);
 
-      await tester.pumpWidget(_host(StatusesTab(viewModel: viewModel)));
+      await tester.pumpWidget(
+        _host(StatusesTab(viewModel: viewModel, spaces: spaces)),
+      );
 
       final delete = tester.widget<IconButton>(
         find.widgetWithIcon(IconButton, Icons.delete_outline),
@@ -160,8 +225,11 @@ void main() {
       ]);
       final viewModel = StatusAdminViewModel(repository);
       addTearDown(viewModel.dispose);
-      await viewModel.load();
-      await tester.pumpWidget(_host(StatusesTab(viewModel: viewModel)));
+      await viewModel.showSpace('home');
+      final spaces = await _loadedSpaces(tester);
+      await tester.pumpWidget(
+        _host(StatusesTab(viewModel: viewModel, spaces: spaces)),
+      );
 
       await tester.tap(find.byTooltip('Delete Doing'));
       await tester.pumpAndSettle();

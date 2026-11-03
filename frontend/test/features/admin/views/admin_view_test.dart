@@ -87,7 +87,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('To Do'), findsOneWidget);
-    expect(lookups.calls, containsAll(['list priorities', 'list layers']));
+    expect(
+      lookups.calls,
+      containsAll(['list priorities in home', 'list layers']),
+    );
 
     await tester.tap(find.widgetWithText(Tab, 'Users'));
     await tester.pumpAndSettle();

@@ -2,33 +2,44 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:weaver/features/admin/models/admin_status.dart';
+import 'package:weaver/features/admin/space_admin_view_model.dart';
 import 'package:weaver/features/admin/status_admin_view_model.dart';
 import 'package:weaver/features/admin/widgets/admin_list_frame.dart';
 import 'package:weaver/features/admin/widgets/delete_lookup_dialog.dart';
 import 'package:weaver/features/admin/widgets/reorderable_lookup_list.dart';
 import 'package:weaver/features/admin/widgets/show_admin_error.dart';
+import 'package:weaver/features/admin/widgets/space_picker.dart';
 import 'package:weaver/features/admin/widgets/status_dialog.dart';
 import 'package:weaver/shared/models/hex_color.dart';
 
+/// One Space's statuses at a time, chosen from [spaces].
 class StatusesTab extends StatelessWidget {
-  const StatusesTab({super.key, required this.viewModel});
+  const StatusesTab({super.key, required this.viewModel, required this.spaces});
 
   final StatusAdminViewModel viewModel;
+  final SpaceAdminViewModel spaces;
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: viewModel,
+      listenable: Listenable.merge([viewModel, spaces]),
       builder: (context, _) => AdminListFrame(
         isLoading: viewModel.isLoading,
         loadError: viewModel.loadError,
         onRetry: viewModel.load,
+        header: SpacePicker(
+          spaces: spaces.spaces,
+          selectedId: viewModel.spaceId,
+          onSelected: (id) => unawaited(viewModel.showSpace(id)),
+        ),
         description:
-            'Statuses are the board’s columns, shown in this order. '
-            'Drag to reorder.',
+            'Statuses are the board’s columns in this Space, shown in this '
+            'order. Drag to reorder.',
         addLabel: 'Add status',
-        onAdd: () =>
-            unawaited(showStatusDialog(context, onSave: viewModel.create)),
+        onAdd: viewModel.canAdd
+            ? () =>
+                  unawaited(showStatusDialog(context, onSave: viewModel.create))
+            : null,
         child: ReorderableLookupList<AdminStatus>(
           items: viewModel.items,
           idOf: (status) => status.id,

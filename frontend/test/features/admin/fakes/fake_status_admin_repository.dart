@@ -21,6 +21,7 @@ class FakeStatusAdminRepository implements StatusAdminRepository {
   List<AdminStatus> statuses;
   ApiException? error;
   final List<String> calls = [];
+  final List<String> listedSpaceIds = [];
 
   /// When set, [reorder] waits on it, so a test can see the optimistic order.
   Completer<void>? reorderGate;
@@ -31,14 +32,15 @@ class FakeStatusAdminRepository implements StatusAdminRepository {
   }
 
   @override
-  Future<List<AdminStatus>> list() async {
+  Future<List<AdminStatus>> list(String spaceId) async {
+    listedSpaceIds.add(spaceId);
     await _fail();
     return statuses;
   }
 
   @override
-  Future<AdminStatus> create(StatusDetails details) async {
-    calls.add('create ${details.name}');
+  Future<AdminStatus> create(String spaceId, StatusDetails details) async {
+    calls.add('create ${details.name} in $spaceId');
     await _fail();
     return AdminStatus(
       id: 'new',
@@ -63,8 +65,11 @@ class FakeStatusAdminRepository implements StatusAdminRepository {
   }
 
   @override
-  Future<List<AdminStatus>> reorder(List<String> orderedIds) async {
-    calls.add('reorder ${orderedIds.join(',')}');
+  Future<List<AdminStatus>> reorder(
+    String spaceId,
+    List<String> orderedIds,
+  ) async {
+    calls.add('reorder ${orderedIds.join(',')} in $spaceId');
     await reorderGate?.future;
     await _fail();
     return [

@@ -4,25 +4,30 @@ import 'package:flutter/material.dart';
 import 'package:weaver/features/admin/lookup_admin_view_model.dart';
 import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/models/lookup_value.dart';
+import 'package:weaver/features/admin/space_admin_view_model.dart';
 import 'package:weaver/features/admin/widgets/admin_list_frame.dart';
 import 'package:weaver/features/admin/widgets/delete_lookup_dialog.dart';
 import 'package:weaver/features/admin/widgets/layer_dialog.dart';
 import 'package:weaver/features/admin/widgets/name_dialog.dart';
 import 'package:weaver/features/admin/widgets/reorderable_lookup_list.dart';
 import 'package:weaver/features/admin/widgets/show_admin_error.dart';
+import 'package:weaver/features/admin/widgets/space_picker.dart';
 import 'package:weaver/shared/models/hex_color.dart';
 
-/// The Priorities or Layers tab.
+/// The Priorities or Layers tab. Priorities are shown one Space at a time,
+/// chosen from [spaces], which priorities need and layers ignore; layers are
+/// shared by every Space.
 class LookupTab extends StatelessWidget {
-  const LookupTab({super.key, required this.viewModel});
+  const LookupTab({super.key, required this.viewModel, this.spaces});
 
   final LookupAdminViewModel viewModel;
+  final SpaceAdminViewModel? spaces;
 
   LookupKind get _kind => viewModel.kind;
 
   String get _description => switch (_kind) {
     LookupKind.priorities =>
-      'Priorities, from least to most urgent. Drag to reorder.',
+      'This Space’s priorities, from least to most urgent. Drag to reorder.',
     LookupKind.layers =>
       'Layers label what kind of thing a work item is, and colour its card '
           'on the board. Drag to reorder.',
@@ -31,15 +36,23 @@ class LookupTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final singular = _kind.singular;
+    final spaces = _kind.ownedBySpace ? this.spaces : null;
     return ListenableBuilder(
-      listenable: viewModel,
+      listenable: Listenable.merge([viewModel, ?spaces]),
       builder: (context, _) => AdminListFrame(
+        header: spaces == null
+            ? null
+            : SpacePicker(
+                spaces: spaces.spaces,
+                selectedId: viewModel.spaceId,
+                onSelected: (id) => unawaited(viewModel.showSpace(id)),
+              ),
         isLoading: viewModel.isLoading,
         loadError: viewModel.loadError,
         onRetry: viewModel.load,
         description: _description,
         addLabel: 'Add $singular',
-        onAdd: () => unawaited(_add(context)),
+        onAdd: viewModel.canAdd ? () => unawaited(_add(context)) : null,
         child: ReorderableLookupList<LookupValue>(
           items: viewModel.items,
           idOf: (value) => value.id,

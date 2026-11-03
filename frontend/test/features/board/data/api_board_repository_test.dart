@@ -175,7 +175,7 @@ void main() {
     expect(board.swimlanes.single.cards.single.id, 'card-1');
     expect(board.swimlanes.single.cards.single.number, 1);
     expect(requests, [
-      '$baseUrl/statuses',
+      '$baseUrl/statuses?spaceId=space-home',
       '$baseUrl/work-item-layers',
       '$baseUrl/work-items/swimlanes?spaceId=space-home&scopeItemId=epic-1',
     ]);

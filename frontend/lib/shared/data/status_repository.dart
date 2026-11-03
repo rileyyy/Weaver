@@ -1,10 +1,11 @@
 import 'package:weaver/shared/models/work_item_status.dart';
 
-/// The configured work-item statuses, shared by every feature.
+/// Each Space's work-item statuses, shared by every feature.
 abstract class StatusRepository {
-  Future<List<WorkItemStatus>> loadStatuses();
+  /// The statuses of the Space [spaceId], in board order.
+  Future<List<WorkItemStatus>> loadStatuses(String spaceId);
 
-  /// Drops the cached list, so the next [loadStatuses] fetches it again.
+  /// Drops every cached list, so the next [loadStatuses] fetches again.
   /// Called after an admin changes the statuses.
   void invalidate();
 }
