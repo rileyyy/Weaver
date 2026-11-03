@@ -325,6 +325,9 @@ class _BoardViewState extends State<BoardView>
                 children: [
                   HeaderBar(
                     isNarrow: isNarrow,
+                    spaces: _viewModel.spaces,
+                    currentSpace: _viewModel.currentSpace,
+                    onSwitchSpace: _viewModel.switchSpace,
                     breadcrumbs: _viewModel.breadcrumbs,
                     onSelectBreadcrumb: _viewModel.navigateToBreadcrumb,
                     drillDownTargets: _viewModel.drillDownTargets,
@@ -401,6 +404,21 @@ class _BoardViewState extends State<BoardView>
       return Container(
         color: swimlaneBackground,
         child: LoadErrorView(message: loadError, onRetry: _viewModel.retry),
+      );
+    }
+
+    if (_viewModel.hasNoSpaces) {
+      return Container(
+        color: swimlaneBackground,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          widget.openAdmin == null
+              ? 'There are no Spaces yet. Ask an admin to create one.'
+              : 'There are no Spaces yet. Create one on the Admin page.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
       );
     }
 
