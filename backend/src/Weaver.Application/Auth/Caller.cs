@@ -9,6 +9,9 @@ namespace Weaver.Application.Auth;
 /// </summary>
 public sealed record Caller(Guid AccountId, Guid? ApiKeyId, string? ActorLabel, ApiKeyScope? ApiKeyScope = null)
 {
+    /// <summary>Who history attributes this caller's changes to.</summary>
+    public HistoryActor HistoryActor => HistoryActor.Create(AccountId, ApiKeyId, ActorLabel);
+
     /// <summary>
     /// The one rule behind every write, over REST and MCP alike: a read-only key may not make
     /// one. Humans, and agents with a read-write key, may.

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Weaver.Application.Auth;
 using Weaver.Application.Persistence;
@@ -87,12 +86,7 @@ public class SpaceService : ISpaceService
         }
     }
 
-    private void Record(Guid spaceId, string field, object? oldValue, object? newValue)
-    {
-        var caller = _caller.Current;
-        var actor = HistoryActor.Create(caller.AccountId, caller.ApiKeyId, caller.ActorLabel);
-        _db.SpaceHistory.Add(SpaceHistoryEntry.Record(spaceId, actor, field, ToJson(oldValue), ToJson(newValue)));
-    }
-
-    private static string? ToJson(object? value) => value is null ? null : JsonSerializer.Serialize(value);
+    private void Record(Guid spaceId, string field, object? oldValue, object? newValue) =>
+        _db.SpaceHistory.Add(SpaceHistoryEntry.Record(
+            spaceId, _caller.Current.HistoryActor, field, HistoryJson.Serialize(oldValue), HistoryJson.Serialize(newValue)));
 }
