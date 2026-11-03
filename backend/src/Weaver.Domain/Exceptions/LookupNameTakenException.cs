@@ -1,9 +1,5 @@
 namespace Weaver.Domain.Exceptions;
 
-public class LookupNameTakenException : DomainException
+public class LookupNameTakenException(string kind, string name) : DomainException(DomainErrorKind.Conflict, $"A {kind.ToLowerInvariant()} named '{name}' already exists.")
 {
-    public LookupNameTakenException(string kind, string name)
-        : base(DomainErrorKind.Conflict, $"A {kind.ToLowerInvariant()} named '{name}' already exists.")
-    {
-    }
 }

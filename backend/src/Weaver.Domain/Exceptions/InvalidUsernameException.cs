@@ -1,9 +1,5 @@
 namespace Weaver.Domain.Exceptions;
 
-public class InvalidUsernameException : DomainException
+public class InvalidUsernameException(string reason) : DomainException(DomainErrorKind.Validation, reason)
 {
-    public InvalidUsernameException(string reason)
-        : base(DomainErrorKind.Validation, reason)
-    {
-    }
 }

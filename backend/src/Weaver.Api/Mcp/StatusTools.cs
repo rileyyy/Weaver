@@ -6,14 +6,9 @@ using Weaver.Application.Services;
 namespace Weaver.Api.Mcp;
 
 [McpServerToolType]
-public class StatusTools
+public class StatusTools(IStatusService statuses)
 {
-    private readonly IStatusService _statuses;
-
-    public StatusTools(IStatusService statuses)
-    {
-        _statuses = statuses;
-    }
+    private readonly IStatusService _statuses = statuses;
 
     [McpServerTool(Name = "list_statuses", ReadOnly = true)]
     [Description("Lists every status column, in board display order.")]

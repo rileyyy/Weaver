@@ -1,15 +1,9 @@
 namespace Weaver.Application.Services;
 
-public class ServerCalendar : IServerCalendar
+public class ServerCalendar(IServerSettingsService settings, TimeProvider clock) : IServerCalendar
 {
-    private readonly IServerSettingsService _settings;
-    private readonly TimeProvider _clock;
-
-    public ServerCalendar(IServerSettingsService settings, TimeProvider clock)
-    {
-        _settings = settings;
-        _clock = clock;
-    }
+    private readonly IServerSettingsService _settings = settings;
+    private readonly TimeProvider _clock = clock;
 
     public async Task<DateOnly> TodayAsync(CancellationToken ct = default)
     {

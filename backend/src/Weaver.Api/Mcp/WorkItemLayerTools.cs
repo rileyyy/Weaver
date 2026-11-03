@@ -6,14 +6,9 @@ using Weaver.Application.Services;
 namespace Weaver.Api.Mcp;
 
 [McpServerToolType]
-public class WorkItemLayerTools
+public class WorkItemLayerTools(IWorkItemLayerService layers)
 {
-    private readonly IWorkItemLayerService _layers;
-
-    public WorkItemLayerTools(IWorkItemLayerService layers)
-    {
-        _layers = layers;
-    }
+    private readonly IWorkItemLayerService _layers = layers;
 
     [McpServerTool(Name = "list_work_item_layers", ReadOnly = true)]
     [Description("Lists every work item layer (e.g. Project/Goal/Task), in display order.")]

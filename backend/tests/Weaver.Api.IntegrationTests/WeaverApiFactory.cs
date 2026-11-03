@@ -8,18 +8,13 @@ namespace Weaver.Api.IntegrationTests;
 /// provider-specific behaviour the EF InMemory tests can't see (FK restrictions, <c>xmin</c>,
 /// <c>text[]</c>, identity columns, unique indexes) is exercised too.
 /// </summary>
-public class WeaverApiFactory : WebApplicationFactory<Program>
+public class WeaverApiFactory(string connectionString) : WebApplicationFactory<Program>
 {
     public const string AllowedOrigin = "https://weaver.test";
     public const string FirstAdminUsername = "first-admin";
     public const string FirstAdminPassword = "first-admin-integration-password";
 
-    private readonly string _connectionString;
-
-    public WeaverApiFactory(string connectionString)
-    {
-        _connectionString = connectionString;
-    }
+    private readonly string _connectionString = connectionString;
 
     public string ConnectionString => _connectionString;
 

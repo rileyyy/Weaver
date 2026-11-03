@@ -6,14 +6,9 @@ using Weaver.Application.Services;
 namespace Weaver.Api.Mcp;
 
 [McpServerToolType]
-public class WorkItemChangesTools
+public class WorkItemChangesTools(IWorkItemChangesService changes)
 {
-    private readonly IWorkItemChangesService _changes;
-
-    public WorkItemChangesTools(IWorkItemChangesService changes)
-    {
-        _changes = changes;
-    }
+    private readonly IWorkItemChangesService _changes = changes;
 
     [McpServerTool(Name = "list_changes_since", ReadOnly = true)]
     [Description("Lists the work items changed at or after a moment (e.g. \"what changed since yesterday?\"), " +

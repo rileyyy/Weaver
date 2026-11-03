@@ -8,21 +8,14 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
-public class FirstAdminBootstrapper : IFirstAdminBootstrapper
+public class FirstAdminBootstrapper(
+    IWeaverDbContext db,
+    IPasswordHasher<User> passwordHasher,
+    IOptions<FirstAdminOptions> options) : IFirstAdminBootstrapper
 {
-    private readonly IWeaverDbContext _db;
-    private readonly IPasswordHasher<User> _passwordHasher;
-    private readonly FirstAdminOptions _options;
-
-    public FirstAdminBootstrapper(
-        IWeaverDbContext db,
-        IPasswordHasher<User> passwordHasher,
-        IOptions<FirstAdminOptions> options)
-    {
-        _db = db;
-        _passwordHasher = passwordHasher;
-        _options = options.Value;
-    }
+    private readonly IWeaverDbContext _db = db;
+    private readonly IPasswordHasher<User> _passwordHasher = passwordHasher;
+    private readonly FirstAdminOptions _options = options.Value;
 
     public async Task<FirstAdminBootstrapResult> EnsureFirstAdminAsync(CancellationToken ct = default)
     {

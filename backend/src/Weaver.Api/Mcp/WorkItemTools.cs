@@ -10,7 +10,7 @@ using Weaver.Domain;
 namespace Weaver.Api.Mcp;
 
 [McpServerToolType]
-public class WorkItemTools
+public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
 {
     private const string ExpectedVersionDescription =
         "The work item's version from your last read. If given and the item has changed since, the " +
@@ -20,14 +20,8 @@ public class WorkItemTools
         "Only the fields you send change: leave a field out to keep it, or send null to clear it. " +
         "Returns the item with its new version and the list of fields that changed.";
 
-    private readonly IWorkItemService _workItems;
-    private readonly HttpCallerContext _caller;
-
-    public WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
-    {
-        _workItems = workItems;
-        _caller = caller;
-    }
+    private readonly IWorkItemService _workItems = workItems;
+    private readonly HttpCallerContext _caller = caller;
 
     [McpServerTool(Name = "get_work_item", ReadOnly = true)]
     [Description("Gets a single work item by id.")]

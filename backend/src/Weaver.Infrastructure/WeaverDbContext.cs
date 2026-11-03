@@ -8,12 +8,8 @@ using Weaver.Infrastructure.Configurations;
 
 namespace Weaver.Infrastructure;
 
-public class WeaverDbContext : DbContext, IWeaverDbContext
+public class WeaverDbContext(DbContextOptions<WeaverDbContext> options) : DbContext(options), IWeaverDbContext
 {
-    public WeaverDbContext(DbContextOptions<WeaverDbContext> options) : base(options)
-    {
-    }
-
     public DbSet<Space> Spaces => Set<Space>();
 
     public DbSet<SpaceHistoryEntry> SpaceHistory => Set<SpaceHistoryEntry>();

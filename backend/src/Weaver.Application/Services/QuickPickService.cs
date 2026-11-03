@@ -2,14 +2,9 @@ using Weaver.Domain;
 
 namespace Weaver.Application.Services;
 
-public class QuickPickService : IQuickPickService
+public class QuickPickService(IServerCalendar calendar) : IQuickPickService
 {
-    private readonly IServerCalendar _calendar;
-
-    public QuickPickService(IServerCalendar calendar)
-    {
-        _calendar = calendar;
-    }
+    private readonly IServerCalendar _calendar = calendar;
 
     public async Task<IReadOnlyList<ResolvedQuickPick>> ListAsync(CancellationToken ct = default)
     {

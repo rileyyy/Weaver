@@ -1,9 +1,5 @@
 namespace Weaver.Domain.Exceptions;
 
-public class EntityNotFoundException : DomainException
+public class EntityNotFoundException(string entityName, Guid id) : DomainException(DomainErrorKind.NotFound, $"{entityName} {id} was not found.")
 {
-    public EntityNotFoundException(string entityName, Guid id)
-        : base(DomainErrorKind.NotFound, $"{entityName} {id} was not found.")
-    {
-    }
 }

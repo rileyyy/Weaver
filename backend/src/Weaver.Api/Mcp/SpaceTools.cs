@@ -10,14 +10,9 @@ namespace Weaver.Api.Mcp;
 /// so there is no tool to create or rename one.
 /// </summary>
 [McpServerToolType]
-public class SpaceTools
+public class SpaceTools(ISpaceService spaces)
 {
-    private readonly ISpaceService _spaces;
-
-    public SpaceTools(ISpaceService spaces)
-    {
-        _spaces = spaces;
-    }
+    private readonly ISpaceService _spaces = spaces;
 
     [McpServerTool(Name = "list_spaces", ReadOnly = true)]
     [Description("Lists every Space (e.g. Home, Village, Software), by name. Every work item belongs to " +

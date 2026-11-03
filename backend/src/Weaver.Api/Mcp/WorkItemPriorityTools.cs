@@ -6,14 +6,9 @@ using Weaver.Application.Services;
 namespace Weaver.Api.Mcp;
 
 [McpServerToolType]
-public class WorkItemPriorityTools
+public class WorkItemPriorityTools(IWorkItemPriorityService priorities)
 {
-    private readonly IWorkItemPriorityService _priorities;
-
-    public WorkItemPriorityTools(IWorkItemPriorityService priorities)
-    {
-        _priorities = priorities;
-    }
+    private readonly IWorkItemPriorityService _priorities = priorities;
 
     [McpServerTool(Name = "list_work_item_priorities", ReadOnly = true)]
     [Description("Lists every work item priority (e.g. Low/Medium/High/Urgent), from least to most urgent.")]

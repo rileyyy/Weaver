@@ -9,14 +9,9 @@ namespace Weaver.Api.Controllers;
 [ProducesResponseType(StatusCodes.Status401Unauthorized)]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
-public class WorkItemRecurrencesController : ControllerBase
+public class WorkItemRecurrencesController(IWorkItemRecurrenceService recurrences) : ControllerBase
 {
-    private readonly IWorkItemRecurrenceService _recurrences;
-
-    public WorkItemRecurrencesController(IWorkItemRecurrenceService recurrences)
-    {
-        _recurrences = recurrences;
-    }
+    private readonly IWorkItemRecurrenceService _recurrences = recurrences;
 
     [HttpGet("api/recurrences")]
     public async Task<ActionResult<IReadOnlyList<WorkItemRecurrenceDto>>> List()

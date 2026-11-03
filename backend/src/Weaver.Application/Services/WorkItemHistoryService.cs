@@ -5,14 +5,9 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
-public class WorkItemHistoryService : IWorkItemHistoryService
+public class WorkItemHistoryService(IWeaverDbContext db) : IWorkItemHistoryService
 {
-    private readonly IWeaverDbContext _db;
-
-    public WorkItemHistoryService(IWeaverDbContext db)
-    {
-        _db = db;
-    }
+    private readonly IWeaverDbContext _db = db;
 
     public async Task<IReadOnlyList<WorkItemHistoryView>> ListForWorkItemAsync(Guid workItemId, CancellationToken ct = default)
     {

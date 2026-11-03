@@ -7,14 +7,9 @@ namespace Weaver.Api.Mcp;
 
 /// <summary>Read-only: agents never change admin settings (ADR-0004).</summary>
 [McpServerToolType]
-public class ServerSettingsTools
+public class ServerSettingsTools(IServerSettingsService settings)
 {
-    private readonly IServerSettingsService _settings;
-
-    public ServerSettingsTools(IServerSettingsService settings)
-    {
-        _settings = settings;
-    }
+    private readonly IServerSettingsService _settings = settings;
 
     [McpServerTool(Name = "get_server_settings", ReadOnly = true)]
     [Description(

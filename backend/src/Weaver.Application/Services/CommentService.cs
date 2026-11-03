@@ -6,20 +6,12 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
-public class CommentService : ICommentService
+public class CommentService(IWeaverDbContext db, TimeProvider clock, ICallerContext caller) : ICommentService
 {
-    private readonly IWeaverDbContext _db;
-    private readonly TimeProvider _clock;
-    private readonly ICallerContext _caller;
-    private readonly WorkItemHistoryRecorder _history;
-
-    public CommentService(IWeaverDbContext db, TimeProvider clock, ICallerContext caller)
-    {
-        _db = db;
-        _clock = clock;
-        _caller = caller;
-        _history = new WorkItemHistoryRecorder(db, caller);
-    }
+    private readonly IWeaverDbContext _db = db;
+    private readonly TimeProvider _clock = clock;
+    private readonly ICallerContext _caller = caller;
+    private readonly WorkItemHistoryRecorder _history = new WorkItemHistoryRecorder(db, caller);
 
     public async Task<IReadOnlyList<CommentView>> ListForWorkItemAsync(Guid workItemId, CancellationToken ct = default) =>
         await Project(_db.Comments.Where(c => c.WorkItemId == workItemId).OrderBy(c => c.CreatedAtUtc))

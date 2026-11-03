@@ -6,14 +6,9 @@ using Weaver.Application.Services;
 namespace Weaver.Api.Mcp;
 
 [McpServerToolType]
-public class UserTools
+public class UserTools(IUserService users)
 {
-    private readonly IUserService _users;
-
-    public UserTools(IUserService users)
-    {
-        _users = users;
-    }
+    private readonly IUserService _users = users;
 
     [McpServerTool(Name = "list_users", ReadOnly = true)]
     [Description("Lists every user, e.g. to find an id for assigning a work item.")]

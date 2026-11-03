@@ -11,20 +11,13 @@ namespace Weaver.Application.Services;
 /// copied. Each copy records its creation in history, attributed to the actor the factory was
 /// made for.
 /// </summary>
-internal sealed class OccurrenceFactory
+internal sealed class OccurrenceFactory(IWeaverDbContext db, WorkItemHistoryRecorder history, HistoryActor actor)
 {
-    private readonly IWeaverDbContext _db;
-    private readonly WorkItemHistoryRecorder _history;
-    private readonly HistoryActor _actor;
+    private readonly IWeaverDbContext _db = db;
+    private readonly WorkItemHistoryRecorder _history = history;
+    private readonly HistoryActor _actor = actor;
     private readonly Dictionary<(Guid SpaceId, Guid? ParentId, Guid StatusId), double?> _lastRankByCell = new();
     private Guid? _firstStatusId;
-
-    public OccurrenceFactory(IWeaverDbContext db, WorkItemHistoryRecorder history, HistoryActor actor)
-    {
-        _db = db;
-        _history = history;
-        _actor = actor;
-    }
 
     public async Task<WorkItem> AddOccurrenceAsync(WorkItem template, DateOnly date, CancellationToken ct)
     {

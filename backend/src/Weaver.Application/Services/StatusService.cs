@@ -6,13 +6,8 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
-public class StatusService : LookupService<Status>, IStatusService
+public class StatusService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller) : LookupService<Status>(db, admins, caller), IStatusService
 {
-    public StatusService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller)
-        : base(db, admins, caller)
-    {
-    }
-
     protected override DbSet<Status> Values => Db.Statuses;
 
     protected override string Kind => nameof(Status);

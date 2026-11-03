@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:weaver/shared/models/work_item.dart';
 
 /// A card on the board: the subset of a work item's fields the board needs
 /// to render. [parentId] is the swimlane's work item id — never mutated by
 /// [copyWith], since a status change must never become a reparent (see
 /// project_design.md's Board rules).
+@immutable
 class WorkItemCard {
   const WorkItemCard({
     required this.id,
@@ -92,5 +94,35 @@ class WorkItemCard {
     assignedToUserId: assignedToUserId,
     layerId: layerId,
     tags: tags,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      other is WorkItemCard &&
+      other.id == id &&
+      other.number == number &&
+      other.title == title &&
+      other.parentId == parentId &&
+      other.statusId == statusId &&
+      other.description == description &&
+      other.startDate == startDate &&
+      other.endDate == endDate &&
+      other.assignedToUserId == assignedToUserId &&
+      other.layerId == layerId &&
+      listEquals(other.tags, tags);
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    number,
+    title,
+    parentId,
+    statusId,
+    description,
+    startDate,
+    endDate,
+    assignedToUserId,
+    layerId,
+    Object.hashAll(tags),
   );
 }

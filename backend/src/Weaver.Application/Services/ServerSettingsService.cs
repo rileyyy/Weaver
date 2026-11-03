@@ -4,16 +4,10 @@ using Weaver.Domain;
 
 namespace Weaver.Application.Services;
 
-public class ServerSettingsService : IServerSettingsService
+public class ServerSettingsService(IWeaverDbContext db, IAdminAuthorizer admins) : IServerSettingsService
 {
-    private readonly IWeaverDbContext _db;
-    private readonly IAdminAuthorizer _admins;
-
-    public ServerSettingsService(IWeaverDbContext db, IAdminAuthorizer admins)
-    {
-        _db = db;
-        _admins = admins;
-    }
+    private readonly IWeaverDbContext _db = db;
+    private readonly IAdminAuthorizer _admins = admins;
 
     public Task<ServerSettings> GetAsync(CancellationToken ct = default) =>
         _db.ServerSettings.AsNoTracking().SingleAsync(ct);

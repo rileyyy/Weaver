@@ -1,12 +1,6 @@
 namespace Weaver.Domain.Exceptions;
 
-public class InvalidWorkItemTagException : DomainException
+public class InvalidWorkItemTagException(Guid workItemId) : DomainException(DomainErrorKind.Validation, $"Work item {workItemId}'s tags must not be empty or blank.")
 {
-    public Guid WorkItemId { get; }
-
-    public InvalidWorkItemTagException(Guid workItemId)
-        : base(DomainErrorKind.Validation, $"Work item {workItemId}'s tags must not be empty or blank.")
-    {
-        WorkItemId = workItemId;
-    }
+  public Guid WorkItemId { get; } = workItemId;
 }

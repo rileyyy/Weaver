@@ -13,14 +13,9 @@ namespace Weaver.Api.Controllers;
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
-public class AdminAgentsController : ControllerBase
+public class AdminAgentsController(IAgentAccountService agents) : ControllerBase
 {
-    private readonly IAgentAccountService _agents;
-
-    public AdminAgentsController(IAgentAccountService agents)
-    {
-        _agents = agents;
-    }
+    private readonly IAgentAccountService _agents = agents;
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<AgentAccountDto>>> GetAll()

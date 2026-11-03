@@ -4,12 +4,8 @@ namespace Weaver.Domain.Exceptions;
 /// Comments keep their author, so a user who wrote any can't be deleted outright; they can
 /// be deactivated instead.
 /// </summary>
-public class UserHasCommentsException : DomainException
+public class UserHasCommentsException(string username, int commentCount) : DomainException(
+        DomainErrorKind.Conflict,
+        $"User '{username}' has written {commentCount} comment(s), so the account can't be deleted; deactivate it instead.")
 {
-    public UserHasCommentsException(string username, int commentCount)
-        : base(
-            DomainErrorKind.Conflict,
-            $"User '{username}' has written {commentCount} comment(s), so the account can't be deleted; deactivate it instead.")
-    {
-    }
 }

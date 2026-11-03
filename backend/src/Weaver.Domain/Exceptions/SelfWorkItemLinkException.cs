@@ -1,9 +1,5 @@
 namespace Weaver.Domain.Exceptions;
 
-public class SelfWorkItemLinkException : DomainException
+public class SelfWorkItemLinkException(Guid workItemId) : DomainException(DomainErrorKind.Validation, $"Work item {workItemId} cannot be linked to itself.")
 {
-    public SelfWorkItemLinkException(Guid workItemId)
-        : base(DomainErrorKind.Validation, $"Work item {workItemId} cannot be linked to itself.")
-    {
-    }
 }

@@ -12,16 +12,11 @@ namespace Weaver.Api.Controllers;
 [Route("api/quick-picks")]
 // The bearer challenge has no body.
 [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-public class QuickPicksController : ControllerBase
+public class QuickPicksController(IQuickPickService quickPicks) : ControllerBase
 {
-    private readonly IQuickPickService _quickPicks;
+  private readonly IQuickPickService _quickPicks = quickPicks;
 
-    public QuickPicksController(IQuickPickService quickPicks)
-    {
-        _quickPicks = quickPicks;
-    }
-
-    [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<QuickPickDto>>> List() =>
+  [HttpGet]
+  public async Task<ActionResult<IReadOnlyList<QuickPickDto>>> List() =>
         Ok((await _quickPicks.ListAsync()).Select(QuickPickDto.FromResolved).ToList());
 }

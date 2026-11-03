@@ -7,16 +7,10 @@ using Weaver.Application.Services;
 namespace Weaver.Api.Mcp;
 
 [McpServerToolType]
-public class WorkItemLinkTools
+public class WorkItemLinkTools(IWorkItemLinkService links, HttpCallerContext caller)
 {
-    private readonly IWorkItemLinkService _links;
-    private readonly HttpCallerContext _caller;
-
-    public WorkItemLinkTools(IWorkItemLinkService links, HttpCallerContext caller)
-    {
-        _links = links;
-        _caller = caller;
-    }
+    private readonly IWorkItemLinkService _links = links;
+    private readonly HttpCallerContext _caller = caller;
 
     [McpServerTool(Name = "list_work_item_links", ReadOnly = true)]
     [Description("Lists every work item linked to a given work item, regardless of which side created the link.")]

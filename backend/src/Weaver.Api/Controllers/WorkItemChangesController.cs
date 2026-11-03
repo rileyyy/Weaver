@@ -9,14 +9,9 @@ namespace Weaver.Api.Controllers;
 // The bearer challenge has no body.
 [ProducesResponseType(StatusCodes.Status401Unauthorized)]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
-public class WorkItemChangesController : ControllerBase
+public class WorkItemChangesController(IWorkItemChangesService changes) : ControllerBase
 {
-    private readonly IWorkItemChangesService _changes;
-
-    public WorkItemChangesController(IWorkItemChangesService changes)
-    {
-        _changes = changes;
-    }
+    private readonly IWorkItemChangesService _changes = changes;
 
     /// <summary>
     /// The work items changed at or after <paramref name="since"/>, each with its history entries

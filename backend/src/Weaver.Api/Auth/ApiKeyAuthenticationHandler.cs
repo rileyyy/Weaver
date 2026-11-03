@@ -12,21 +12,15 @@ namespace Weaver.Api.Auth;
 /// the same <c>sub</c> claim an access token would, so everything downstream of authentication
 /// treats both alike, plus the key's id and scope.
 /// </summary>
-public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
+public class ApiKeyAuthenticationHandler(
+    IOptionsMonitor<AuthenticationSchemeOptions> options,
+    ILoggerFactory logger,
+    UrlEncoder encoder,
+    IApiKeyAuthenticator authenticator) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     public const string SchemeName = "ApiKey";
 
-    private readonly IApiKeyAuthenticator _authenticator;
-
-    public ApiKeyAuthenticationHandler(
-        IOptionsMonitor<AuthenticationSchemeOptions> options,
-        ILoggerFactory logger,
-        UrlEncoder encoder,
-        IApiKeyAuthenticator authenticator)
-        : base(options, logger, encoder)
-    {
-        _authenticator = authenticator;
-    }
+    private readonly IApiKeyAuthenticator _authenticator = authenticator;
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {

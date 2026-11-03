@@ -9,7 +9,12 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
-public class AuthService : IAuthService
+public class AuthService(
+    IWeaverDbContext db,
+    IJwtTokenService tokenService,
+    IPasswordHasher<User> passwordHasher,
+    IOptions<JwtOptions> jwtOptions,
+    TimeProvider clock) : IAuthService
 {
     // Legitimate clients can still present a just-rotated token: two browser
     // tabs share the cached refresh token and both refresh on startup.
@@ -19,25 +24,11 @@ public class AuthService : IAuthService
     private static readonly User DummyUser = User.CreateHuman("dummy", "dummy");
     private static string? _dummyPasswordHash;
 
-    private readonly IWeaverDbContext _db;
-    private readonly IJwtTokenService _tokenService;
-    private readonly IPasswordHasher<User> _passwordHasher;
-    private readonly JwtOptions _jwtOptions;
-    private readonly TimeProvider _clock;
-
-    public AuthService(
-        IWeaverDbContext db,
-        IJwtTokenService tokenService,
-        IPasswordHasher<User> passwordHasher,
-        IOptions<JwtOptions> jwtOptions,
-        TimeProvider clock)
-    {
-        _db = db;
-        _tokenService = tokenService;
-        _passwordHasher = passwordHasher;
-        _jwtOptions = jwtOptions.Value;
-        _clock = clock;
-    }
+    private readonly IWeaverDbContext _db = db;
+    private readonly IJwtTokenService _tokenService = tokenService;
+    private readonly IPasswordHasher<User> _passwordHasher = passwordHasher;
+    private readonly JwtOptions _jwtOptions = jwtOptions.Value;
+    private readonly TimeProvider _clock = clock;
 
     public async Task<AuthResult> LoginAsync(string username, string password, CancellationToken ct = default)
     {

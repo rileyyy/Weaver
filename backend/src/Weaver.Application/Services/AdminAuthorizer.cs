@@ -5,14 +5,9 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
-public class AdminAuthorizer : IAdminAuthorizer
+public class AdminAuthorizer(IWeaverDbContext db) : IAdminAuthorizer
 {
-    private readonly IWeaverDbContext _db;
-
-    public AdminAuthorizer(IWeaverDbContext db)
-    {
-        _db = db;
-    }
+    private readonly IWeaverDbContext _db = db;
 
     public async Task EnsureAdminAsync(Guid userId, CancellationToken ct = default)
     {

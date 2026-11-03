@@ -7,18 +7,12 @@ namespace Weaver.Api.Background;
 /// than daily so a restart or a missed tick never delays an occurrence by more than an hour;
 /// generation is idempotent, so running often costs one cheap query when nothing is due.
 /// </summary>
-public class RecurrenceGenerationWorker : BackgroundService
+public class RecurrenceGenerationWorker(IServiceScopeFactory scopes, ILogger<RecurrenceGenerationWorker> logger) : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromHours(1);
 
-    private readonly IServiceScopeFactory _scopes;
-    private readonly ILogger<RecurrenceGenerationWorker> _logger;
-
-    public RecurrenceGenerationWorker(IServiceScopeFactory scopes, ILogger<RecurrenceGenerationWorker> logger)
-    {
-        _scopes = scopes;
-        _logger = logger;
-    }
+    private readonly IServiceScopeFactory _scopes = scopes;
+    private readonly ILogger<RecurrenceGenerationWorker> _logger = logger;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

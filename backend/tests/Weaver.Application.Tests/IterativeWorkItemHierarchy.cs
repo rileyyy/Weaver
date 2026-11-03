@@ -9,14 +9,9 @@ namespace Weaver.Application.Tests;
 /// recursive SQL the real implementation uses. Walks one level per query with the same
 /// contract; <c>Weaver.Api.IntegrationTests</c> covers the Postgres implementation.
 /// </summary>
-public class IterativeWorkItemHierarchy : IWorkItemHierarchy
+public class IterativeWorkItemHierarchy(WeaverDbContext db) : IWorkItemHierarchy
 {
-    private readonly WeaverDbContext _db;
-
-    public IterativeWorkItemHierarchy(WeaverDbContext db)
-    {
-        _db = db;
-    }
+    private readonly WeaverDbContext _db = db;
 
     public async Task<bool> IsSelfOrDescendantAsync(Guid itemId, Guid candidateId, CancellationToken ct = default)
     {

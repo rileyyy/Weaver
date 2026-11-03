@@ -14,14 +14,9 @@ namespace Weaver.Api.Controllers;
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
-public class StatusesController : ControllerBase
+public class StatusesController(IStatusService statuses) : ControllerBase
 {
-    private readonly IStatusService _statuses;
-
-    public StatusesController(IStatusService statuses)
-    {
-        _statuses = statuses;
-    }
+    private readonly IStatusService _statuses = statuses;
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<StatusDto>>> GetAll()
