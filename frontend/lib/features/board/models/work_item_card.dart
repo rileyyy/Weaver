@@ -17,26 +17,25 @@ class WorkItemCard {
     this.startDate,
     this.endDate,
     this.assignedToUserId,
-    this.layerId,
+    this.typeId,
     this.tags = const [],
   });
 
   /// [item] drawn as a card in the lane of [laneId], which owns it on the
   /// board whatever [WorkItem.parentId] says.
-  factory WorkItemCard.fromWorkItem(WorkItem item, {required String laneId}) =>
-      WorkItemCard(
-        id: item.id,
-        number: item.number,
-        title: item.title,
-        parentId: laneId,
-        statusId: item.statusId,
-        description: item.description,
-        startDate: item.startDate,
-        endDate: item.endDate,
-        assignedToUserId: item.assignedToUserId,
-        layerId: item.layerId,
-        tags: item.tags,
-      );
+  factory WorkItemCard.fromWorkItem(WorkItem item, {required String laneId}) => WorkItemCard(
+    id: item.id,
+    number: item.number,
+    title: item.title,
+    parentId: laneId,
+    statusId: item.statusId,
+    description: item.description,
+    startDate: item.startDate,
+    endDate: item.endDate,
+    assignedToUserId: item.assignedToUserId,
+    typeId: item.typeId,
+    tags: item.tags,
+  );
 
   final String id;
 
@@ -58,9 +57,9 @@ class WorkItemCard {
 
   final String? assignedToUserId;
 
-  /// Which layer (e.g. Project / Goal / Task) this item is labelled with,
+  /// Which type (e.g. Project / Goal / Task) this item is labelled with,
   /// if any; its colour marks the item on the board.
-  final String? layerId;
+  final String? typeId;
 
   /// Short free-text labels, zero or more.
   final List<String> tags;
@@ -75,7 +74,7 @@ class WorkItemCard {
     startDate: startDate,
     endDate: endDate,
     assignedToUserId: assignedToUserId,
-    layerId: layerId,
+    typeId: typeId,
     tags: tags,
   );
 
@@ -92,7 +91,7 @@ class WorkItemCard {
     startDate: startDate,
     endDate: endDate,
     assignedToUserId: assignedToUserId,
-    layerId: layerId,
+    typeId: typeId,
     tags: tags,
   );
 
@@ -108,7 +107,7 @@ class WorkItemCard {
       other.startDate == startDate &&
       other.endDate == endDate &&
       other.assignedToUserId == assignedToUserId &&
-      other.layerId == layerId &&
+      other.typeId == typeId &&
       listEquals(other.tags, tags);
 
   @override
@@ -122,7 +121,7 @@ class WorkItemCard {
     startDate,
     endDate,
     assignedToUserId,
-    layerId,
+    typeId,
     Object.hashAll(tags),
   );
 }

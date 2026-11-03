@@ -17,8 +17,8 @@ import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item.dart';
-import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
+import 'package:weaver/shared/models/work_item_type.dart';
 import 'package:weaver/shared/widgets/user_name_label.dart';
 
 import '../../shared/recurrence/fake_recurrence_repository.dart';
@@ -50,7 +50,7 @@ class _FakeRepository implements WorkItemDetailRepository {
     title: 'Original title',
     description: description,
     statusId: 'todo',
-    layerId: null,
+    typeId: null,
     priorityId: null,
     assignedToUserId: null,
     startDate: null,
@@ -82,7 +82,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   ];
 
   @override
-  Future<List<WorkItemLayer>> loadLayers() async => const [];
+  Future<List<WorkItemType>> loadTypes() async => const [];
 
   @override
   Future<List<WorkItemPriority>> loadPriorities(String spaceId) async =>

@@ -4,7 +4,7 @@ import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/models/lookup_value.dart';
 import 'package:weaver/features/admin/ordered_list_view_model.dart';
 
-/// The Admin page's Priorities or Layers tab, depending on [kind]. Each
+/// The Admin page's Priorities or Types tab, depending on [kind]. Each
 /// Space has its own priorities, so they're shown one Space at a time.
 @injectable
 class LookupAdminViewModel extends OrderedListViewModel<LookupValue> {

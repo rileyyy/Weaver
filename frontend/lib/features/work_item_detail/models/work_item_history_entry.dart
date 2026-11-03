@@ -95,7 +95,7 @@ class WorkItemHistoryEntry {
   static const _fieldLabels = {
     'title': 'Title',
     'description': 'Description',
-    'layerId': 'Layer',
+    'typeId': 'Type',
     'priorityId': 'Priority',
     'when': 'When',
     'statusId': 'Status',

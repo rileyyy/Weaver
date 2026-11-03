@@ -6,7 +6,7 @@ namespace Weaver.Api.Contracts;
 public record UpdateWorkItemDetailsRequest(
     Optional<string> Title,
     Optional<string?> Description,
-    Optional<Guid?> LayerId,
+    Optional<Guid?> TypeId,
     Optional<Guid?> PriorityId,
     Optional<string?> When,
     uint? ExpectedVersion = null);

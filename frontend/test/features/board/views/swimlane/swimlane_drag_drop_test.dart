@@ -88,7 +88,7 @@ void main() {
               cardVisible: (_) => true,
               cardComparator: cardComparator,
               assigneeInitialFor: (_) => null,
-              layerColorFor: (_) => null,
+              typeColorFor: (_) => null,
               collapsedSwimlaneIds: const {},
               onToggleSwimlaneCollapsed: (_) {},
               onToggleAllSwimlanesCollapsed: () {},

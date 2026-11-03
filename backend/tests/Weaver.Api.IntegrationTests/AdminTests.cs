@@ -151,19 +151,19 @@ public class AdminTests
     }
 
     [Test]
-    public async Task LayerColors_AreSeededAndSavedThroughEdits()
+    public async Task TypeColors_AreSeededAndSavedThroughEdits()
     {
         var (admin, _) = await ApiClient.SignedInAdminAsync();
 
-        var seeded = await (await admin.GetAsync("/api/work-item-layers")).ReadAsync<List<WorkItemLayerDto>>();
+        var seeded = await (await admin.GetAsync("/api/work-item-types")).ReadAsync<List<WorkItemTypeDto>>();
         var created = await (await admin.PostJsonAsync(
-                "/api/work-item-layers",
-                new LayerDetailsRequest($"L {Guid.NewGuid():N}"[..20], "#546e7a")))
-            .ReadAsync<WorkItemLayerDto>();
+                "/api/work-item-types",
+                new TypeDetailsRequest($"L {Guid.NewGuid():N}"[..20], "#546e7a")))
+            .ReadAsync<WorkItemTypeDto>();
         try
         {
-            await admin.PutJsonAsync($"/api/work-item-layers/{created.Id}", new LayerDetailsRequest(created.Name, "#FDD835"));
-            var stored = (await (await admin.GetAsync("/api/work-item-layers")).ReadAsync<List<WorkItemLayerDto>>())
+            await admin.PutJsonAsync($"/api/work-item-types/{created.Id}", new TypeDetailsRequest(created.Name, "#FDD835"));
+            var stored = (await (await admin.GetAsync("/api/work-item-types")).ReadAsync<List<WorkItemTypeDto>>())
                 .Single(l => l.Id == created.Id);
 
             Assert.Multiple(() =>
@@ -175,7 +175,7 @@ public class AdminTests
         }
         finally
         {
-            await admin.DeleteAsync($"/api/work-item-layers/{created.Id}");
+            await admin.DeleteAsync($"/api/work-item-types/{created.Id}");
         }
     }
 

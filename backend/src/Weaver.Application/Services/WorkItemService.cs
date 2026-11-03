@@ -83,7 +83,7 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
         Guid? parentId,
         Guid statusId,
         Guid? afterId = null,
-        Guid? layerId = null,
+        Guid? typeId = null,
         Guid? priorityId = null,
         Guid? spaceId = null,
         CancellationToken ct = default)
@@ -92,12 +92,12 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
         var itemSpaceId = await ResolveSpaceForNewItemAsync(parent, spaceId, ct);
 
         await EnsureInSpaceAsync(_db.Statuses, nameof(Status), statusId, itemSpaceId, ct);
-        await EnsureDetailLookupsExistAsync(itemSpaceId, layerId, priorityId, ct);
+        await EnsureDetailLookupsExistAsync(itemSpaceId, typeId, priorityId, ct);
 
         var rank = await ComputeRankAsync(itemSpaceId, parentId, statusId, afterId, excludeItemId: null, ct);
         var item = parent is null
-            ? WorkItem.Create(itemSpaceId, title, description, statusId, rank, layerId, priorityId)
-            : WorkItem.CreateChildOf(parent, title, description, statusId, rank, layerId, priorityId);
+            ? WorkItem.Create(itemSpaceId, title, description, statusId, rank, typeId, priorityId)
+            : WorkItem.CreateChildOf(parent, title, description, statusId, rank, typeId, priorityId);
 
         _db.WorkItems.Add(item);
         _history.RecordCreation(item);
@@ -218,7 +218,7 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
     {
         var item = await FindForWriteAsync(id, expectedVersion, ct);
         await EnsureDetailLookupsExistAsync(
-            item.SpaceId, patch.LayerId.GetValueOr(null), patch.PriorityId.GetValueOr(null), ct);
+            item.SpaceId, patch.TypeId.GetValueOr(null), patch.PriorityId.GetValueOr(null), ct);
         return await SaveWriteAsync(item, item.UpdateDetails(patch), ct);
     }
 
@@ -333,11 +333,11 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
         return new WorkItemWriteResult(item, changes.Select(c => c.Field).ToList());
     }
 
-    private async Task EnsureDetailLookupsExistAsync(Guid spaceId, Guid? layerId, Guid? priorityId, CancellationToken ct)
+    private async Task EnsureDetailLookupsExistAsync(Guid spaceId, Guid? typeId, Guid? priorityId, CancellationToken ct)
     {
-        if (layerId is not null && !await _db.WorkItemLayers.AnyAsync(l => l.Id == layerId, ct))
+        if (typeId is not null && !await _db.WorkItemTypes.AnyAsync(l => l.Id == typeId, ct))
         {
-            throw new EntityNotFoundException(nameof(WorkItemLayer), layerId.Value);
+            throw new EntityNotFoundException(nameof(WorkItemType), typeId.Value);
         }
 
         if (priorityId is { } priority)

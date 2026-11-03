@@ -16,8 +16,8 @@ import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item.dart';
-import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
+import 'package:weaver/shared/models/work_item_type.dart';
 
 import '../../shared/fakes/memory_last_space_store.dart';
 import '../../shared/fakes/work_items.dart';
@@ -29,8 +29,8 @@ const _home = Space(id: 'home', name: 'Home');
 const _taskColor = Color(0xFF43A047);
 
 final _rootBoard = BoardData(
-  layers: const [
-    WorkItemLayer(id: 'task', name: 'Task', order: 0, color: _taskColor),
+  types: const [
+    WorkItemType(id: 'task', name: 'Task', order: 0, color: _taskColor),
   ],
   statuses: const [
     WorkItemStatus(id: 'done', name: 'Done', order: 1),
@@ -206,7 +206,7 @@ class _TestBoardRepository implements BoardRepository {
 
   BoardData _fromServer(BoardData board) => BoardData(
     statuses: board.statuses,
-    layers: board.layers,
+    types: board.types,
     swimlanes: [
       for (final lane in board.swimlanes)
         SwimlaneItems(
@@ -430,10 +430,10 @@ void main() {
     expect(viewModel.statuses.map((s) => s.id), ['todo', 'done']);
   });
 
-  test('layerColorFor resolves a loaded layer and nothing else', () {
-    expect(viewModel.layerColorFor('task'), _taskColor);
-    expect(viewModel.layerColorFor('unknown'), isNull);
-    expect(viewModel.layerColorFor(null), isNull);
+  test('typeColorFor resolves a loaded type and nothing else', () {
+    expect(viewModel.typeColorFor('task'), _taskColor);
+    expect(viewModel.typeColorFor('unknown'), isNull);
+    expect(viewModel.typeColorFor(null), isNull);
   });
 
   test('load sets the root breadcrumb', () {

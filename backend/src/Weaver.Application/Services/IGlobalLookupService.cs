@@ -2,7 +2,7 @@ using Weaver.Domain;
 
 namespace Weaver.Application.Services;
 
-/// <summary>A lookup shared by every Space, such as layers.</summary>
+/// <summary>A lookup shared by every Space, such as types.</summary>
 public interface IGlobalLookupService<T> : ILookupService<T> where T : LookupValue
 {
     Task<IReadOnlyList<T>> GetAllAsync(CancellationToken ct = default);

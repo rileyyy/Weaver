@@ -7,15 +7,15 @@ import 'package:weaver/features/admin/models/lookup_value.dart';
 import 'package:weaver/features/admin/space_admin_view_model.dart';
 import 'package:weaver/features/admin/widgets/admin_list_frame.dart';
 import 'package:weaver/features/admin/widgets/delete_lookup_dialog.dart';
-import 'package:weaver/features/admin/widgets/layer_dialog.dart';
 import 'package:weaver/features/admin/widgets/name_dialog.dart';
 import 'package:weaver/features/admin/widgets/reorderable_lookup_list.dart';
 import 'package:weaver/features/admin/widgets/show_admin_error.dart';
 import 'package:weaver/features/admin/widgets/space_picker.dart';
+import 'package:weaver/features/admin/widgets/type_dialog.dart';
 import 'package:weaver/shared/models/hex_color.dart';
 
-/// The Priorities or Layers tab. Priorities are shown one Space at a time,
-/// chosen from [spaces], which priorities need and layers ignore; layers are
+/// The Priorities or Types tab. Priorities are shown one Space at a time,
+/// chosen from [spaces], which priorities need and types ignore; types are
 /// shared by every Space.
 class LookupTab extends StatelessWidget {
   const LookupTab({super.key, required this.viewModel, this.spaces});
@@ -28,8 +28,8 @@ class LookupTab extends StatelessWidget {
   String get _description => switch (_kind) {
     LookupKind.priorities =>
       'This Space’s priorities, from least to most urgent. Drag to reorder.',
-    LookupKind.layers =>
-      'Layers label what kind of thing a work item is, and colour its card '
+    LookupKind.types =>
+      'Types label what kind of thing a work item is, and colour its card '
           'on the board. Drag to reorder.',
   };
 
@@ -77,7 +77,7 @@ class LookupTab extends StatelessWidget {
 
   Future<bool> _add(BuildContext context) {
     if (_kind.hasColor) {
-      return showLayerDialog(
+      return showTypeDialog(
         context,
         onSave: (name, color) => viewModel.create(name, color: color),
       );
@@ -93,7 +93,7 @@ class LookupTab extends StatelessWidget {
 
   Future<bool> _edit(BuildContext context, LookupValue value) {
     if (_kind.hasColor) {
-      return showLayerDialog(
+      return showTypeDialog(
         context,
         initial: value,
         onSave: (name, color) => viewModel.update(value.id, name, color: color),

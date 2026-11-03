@@ -18,7 +18,7 @@ class Swimlane {
   final String title;
   final List<WorkItemCard> cards;
 
-  /// The swimlane's own work item (e.g. a Project-layer item) may itself
+  /// The swimlane's own work item (e.g. a Project-type item) may itself
   /// have an assignee, shown on its lane label the same way a card shows
   /// its own.
   final String? assignedToUserId;

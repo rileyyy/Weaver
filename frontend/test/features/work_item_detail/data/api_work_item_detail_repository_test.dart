@@ -6,9 +6,10 @@ import 'package:http/testing.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/work_item_detail/data/api_work_item_detail_repository.dart';
 import 'package:weaver/features/work_item_detail/models/quick_pick.dart';
-import 'package:weaver/shared/data/api_layer_repository.dart';
 import 'package:weaver/shared/data/api_status_repository.dart';
+import 'package:weaver/shared/data/api_type_repository.dart';
 import 'package:weaver/shared/data/api_user_directory_repository.dart';
+
 import '../../../core/network/fakes/fixed_api_endpoint.dart';
 
 http.Response _jsonResponse(Object body, {int statusCode = 200}) =>
@@ -19,7 +20,7 @@ http.Response _jsonResponse(Object body, {int statusCode = 200}) =>
     );
 
 Map<String, dynamic> _itemJson({
-  String? layerId,
+  String? typeId,
   String? priorityId,
   String? assignedToUserId,
   List<String> tags = const [],
@@ -32,7 +33,7 @@ Map<String, dynamic> _itemJson({
   'title': 'A task',
   'description': null,
   'statusId': 'status-todo',
-  'layerId': layerId,
+  'typeId': typeId,
   'priorityId': priorityId,
   'assignedToUserId': assignedToUserId,
   'tags': tags,
@@ -65,12 +66,12 @@ void main() {
   const endpoint = FixedApiEndpoint(baseUrl);
 
   test(
-    'getItem parses the work item, including layer/priority/assignee',
+    'getItem parses the work item, including type/priority/assignee',
     () async {
       final client = MockClient(
         (request) async => _jsonResponse(
           _itemJson(
-            layerId: 'layer-1',
+            typeId: 'type-1',
             priorityId: 'priority-urgent',
             assignedToUserId: 'user-1',
           ),
@@ -80,13 +81,13 @@ void main() {
         client,
         endpoint,
         ApiStatusRepository(client, endpoint),
-        ApiLayerRepository(client, endpoint),
+        ApiTypeRepository(client, endpoint),
         ApiUserDirectoryRepository(client, endpoint),
       );
 
       final item = await repository.getItem('item-1');
 
-      expect(item.layerId, 'layer-1');
+      expect(item.typeId, 'type-1');
       expect(item.priorityId, 'priority-urgent');
       expect(item.assignedToUserId, 'user-1');
     },
@@ -101,7 +102,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
+      ApiTypeRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -127,7 +128,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
+      ApiTypeRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -139,23 +140,23 @@ void main() {
     expect(children.single.number, 7);
   });
 
-  test('loadLayers parses the layer list', () async {
+  test('loadTypes parses the type list', () async {
     final client = MockClient(
       (request) async => _jsonResponse([
-        {'id': 'layer-1', 'name': 'Project', 'order': 0},
+        {'id': 'type-1', 'name': 'Project', 'order': 0},
       ]),
     );
     final repository = ApiWorkItemDetailRepository(
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
+      ApiTypeRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
-    final layers = await repository.loadLayers();
+    final types = await repository.loadTypes();
 
-    expect(layers.single.name, 'Project');
+    expect(types.single.name, 'Project');
   });
 
   test('loadPriorities parses the priority list', () async {
@@ -171,7 +172,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
+      ApiTypeRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -199,7 +200,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
+      ApiTypeRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -215,16 +216,14 @@ void main() {
       final client = MockClient((request) async {
         sentRequest = request;
         return _jsonResponse(
-          _writeJson(
-            _itemJson(layerId: 'layer-1', priorityId: 'priority-high'),
-          ),
+          _writeJson(_itemJson(typeId: 'type-1', priorityId: 'priority-high')),
         );
       });
       final repository = ApiWorkItemDetailRepository(
         client,
         endpoint,
         ApiStatusRepository(client, endpoint),
-        ApiLayerRepository(client, endpoint),
+        ApiTypeRepository(client, endpoint),
         ApiUserDirectoryRepository(client, endpoint),
       );
 
@@ -232,18 +231,18 @@ void main() {
         'item-1',
         title: 'New title',
         description: 'New description',
-        layerId: 'layer-1',
+        typeId: 'type-1',
         priorityId: 'priority-high',
         expectedVersion: 7,
       );
 
-      expect(item.layerId, 'layer-1');
+      expect(item.typeId, 'type-1');
       expect(sentRequest!.method, 'PATCH');
       expect(sentRequest!.url.path, '/api/work-items/item-1/details');
       expect(jsonDecode(sentRequest!.body), {
         'title': 'New title',
         'description': 'New description',
-        'layerId': 'layer-1',
+        'typeId': 'type-1',
         'priorityId': 'priority-high',
         'expectedVersion': 7,
       });
@@ -262,7 +261,7 @@ void main() {
         client,
         endpoint,
         ApiStatusRepository(client, endpoint),
-        ApiLayerRepository(client, endpoint),
+        ApiTypeRepository(client, endpoint),
         ApiUserDirectoryRepository(client, endpoint),
       );
 
@@ -290,7 +289,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
+      ApiTypeRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -298,7 +297,7 @@ void main() {
       'item-1',
       title: 'New title',
       description: null,
-      layerId: null,
+      typeId: null,
       priorityId: null,
       expectedVersion: 7,
     );
@@ -319,7 +318,7 @@ void main() {
         client,
         endpoint,
         ApiStatusRepository(client, endpoint),
-        ApiLayerRepository(client, endpoint),
+        ApiTypeRepository(client, endpoint),
         ApiUserDirectoryRepository(client, endpoint),
       );
 
@@ -354,7 +353,7 @@ void main() {
         client,
         endpoint,
         ApiStatusRepository(client, endpoint),
-        ApiLayerRepository(client, endpoint),
+        ApiTypeRepository(client, endpoint),
         ApiUserDirectoryRepository(client, endpoint),
       );
 
@@ -384,7 +383,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
+      ApiTypeRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -411,7 +410,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
+      ApiTypeRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
     final start = DateTime(2026, 2, 1);
@@ -443,7 +442,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
+      ApiTypeRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -479,7 +478,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
+      ApiTypeRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -499,7 +498,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
+      ApiTypeRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -519,7 +518,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
+      ApiTypeRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -540,7 +539,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
+      ApiTypeRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -561,7 +560,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
+      ApiTypeRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -583,7 +582,7 @@ void main() {
         client,
         endpoint,
         ApiStatusRepository(client, endpoint),
-        ApiLayerRepository(client, endpoint),
+        ApiTypeRepository(client, endpoint),
         ApiUserDirectoryRepository(client, endpoint),
       );
 
@@ -612,7 +611,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
+      ApiTypeRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -635,7 +634,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
+      ApiTypeRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 
@@ -655,7 +654,7 @@ void main() {
       client,
       endpoint,
       ApiStatusRepository(client, endpoint),
-      ApiLayerRepository(client, endpoint),
+      ApiTypeRepository(client, endpoint),
       ApiUserDirectoryRepository(client, endpoint),
     );
 

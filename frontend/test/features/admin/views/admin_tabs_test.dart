@@ -91,11 +91,11 @@ void main() {
   });
 
   group('LookupTab', () {
-    testWidgets('editing a layer saves its new colour', (tester) async {
+    testWidgets('editing a type saves its new colour', (tester) async {
       final repository = FakeLookupAdminRepository(const [
         LookupValue(id: 'task', name: 'Task', order: 0, color: '#43A047'),
       ]);
-      final viewModel = LookupAdminViewModel(repository, LookupKind.layers);
+      final viewModel = LookupAdminViewModel(repository, LookupKind.types);
       addTearDown(viewModel.dispose);
       await viewModel.load();
       await tester.pumpWidget(_host(LookupTab(viewModel: viewModel)));
@@ -107,7 +107,7 @@ void main() {
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
 
-      expect(repository.calls.last, 'update layers task Task #FDD835');
+      expect(repository.calls.last, 'update types task Task #FDD835');
       expect(find.byType(CircleAvatar), findsOneWidget);
     });
 

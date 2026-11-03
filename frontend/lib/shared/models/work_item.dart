@@ -14,7 +14,7 @@ class WorkItem {
     required this.title,
     required this.description,
     required this.statusId,
-    required this.layerId,
+    required this.typeId,
     required this.priorityId,
     required this.assignedToUserId,
     required this.startDate,
@@ -37,7 +37,7 @@ class WorkItem {
     title: json['title'] as String,
     description: json['description'] as String?,
     statusId: json['statusId'] as String,
-    layerId: json['layerId'] as String?,
+    typeId: json['typeId'] as String?,
     priorityId: json['priorityId'] as String?,
     assignedToUserId: json['assignedToUserId'] as String?,
     startDate: parseCalendarDate(json['startDate']),
@@ -64,7 +64,7 @@ class WorkItem {
   final String title;
   final String? description;
   final String statusId;
-  final String? layerId;
+  final String? typeId;
   final String? priorityId;
   final String? assignedToUserId;
   final DateTime? startDate;
@@ -125,7 +125,7 @@ class WorkItem {
     title: title,
     description: description,
     statusId: statusId ?? this.statusId,
-    layerId: layerId,
+    typeId: typeId,
     priorityId: priorityId,
     assignedToUserId: identical(assignedToUserId, _unchanged)
         ? this.assignedToUserId

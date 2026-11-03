@@ -74,7 +74,7 @@ public class WorkItemsController(IWorkItemService workItems) : ControllerBase
             request.ParentId,
             request.StatusId,
             request.AfterId,
-            request.LayerId,
+            request.TypeId,
             request.PriorityId,
             request.SpaceId);
 
@@ -114,7 +114,7 @@ public class WorkItemsController(IWorkItemService workItems) : ControllerBase
     }
 
     /// <summary>
-    /// Patches title/description/layer/priority/When. Independent of status,
+    /// Patches title/description/type/priority/When. Independent of status,
     /// parent, schedule, and assignee — see their own endpoints.
     /// </summary>
     [HttpPatch("{id:guid}/details")]
@@ -124,7 +124,7 @@ public class WorkItemsController(IWorkItemService workItems) : ControllerBase
         {
             Title = request.Title,
             Description = request.Description,
-            LayerId = request.LayerId,
+            TypeId = request.TypeId,
             PriorityId = request.PriorityId,
             When = request.When,
         };

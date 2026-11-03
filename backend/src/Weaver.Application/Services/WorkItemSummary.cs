@@ -12,7 +12,7 @@ public sealed record WorkItemSummary(
     Guid? SpaceId,
     string? SpaceName,
     string? StatusName,
-    string? LayerName,
+    string? TypeName,
     DateOnly? StartDate,
     DateOnly? EndDate,
     string? AssigneeName,

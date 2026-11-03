@@ -26,8 +26,8 @@ import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
-import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
+import 'package:weaver/shared/models/work_item_type.dart';
 
 Future<void> _noRetry() => Future.value();
 
@@ -62,7 +62,7 @@ class BoardViewModel extends ViewModel {
 
   List<WorkItemStatus> _statuses = const [];
   Map<String, WorkItemStatus> _statusById = const {};
-  Map<String, WorkItemLayer> _layerById = const {};
+  Map<String, WorkItemType> _typeById = const {};
   List<Swimlane> _swimlanes = const [];
   List<ValueNotifier<Swimlane>> _laneNotifiers = const [];
   final ValueNotifier<int> _itemRevision = ValueNotifier(0);
@@ -376,9 +376,9 @@ class BoardViewModel extends ViewModel {
 
   Color? statusColorFor(String statusId) => _statusById[statusId]?.color;
 
-  /// The colour of the layer [layerId] names, marking an item's kind on the
-  /// board — null when it has no layer or the layer is unknown.
-  Color? layerColorFor(String? layerId) => _layerById[layerId]?.color;
+  /// The colour of the type [typeId] names, marking an item's kind on the
+  /// board — null when it has no type or the type is unknown.
+  Color? typeColorFor(String? typeId) => _typeById[typeId]?.color;
 
   /// The uppercased first letter of the assigned user's username, for a
   /// small avatar — null if [userId] is null or unresolved (e.g. the user
@@ -884,7 +884,7 @@ class BoardViewModel extends ViewModel {
   void _applyScope(BoardData data, int asOf) {
     _statuses = [...data.statuses]..sort((a, b) => a.order.compareTo(b.order));
     _statusById = {for (final status in _statuses) status.id: status};
-    _layerById = {for (final layer in data.layers) layer.id: layer};
+    _typeById = {for (final type in data.types) type.id: type};
     _items.putAll([
       for (final lane in data.swimlanes) ...[lane.lane, ...lane.cards],
     ], asOf: asOf);

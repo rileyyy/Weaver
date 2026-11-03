@@ -123,12 +123,12 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
   /// fetch history nobody looks at.
   WorkItemHistoryViewModel? _history;
 
-  // The details form (title, description, layer, priority) is edited
+  // The details form (title, description, type, priority) is edited
   // locally and saved with "Save details"; every other field saves as soon
   // as it changes.
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
-  String? _selectedLayerId;
+  String? _selectedTypeId;
   String? _selectedPriorityId;
 
   String? _selectedAssigneeId;
@@ -189,7 +189,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
   void _seedFrom(WorkItem item) {
     _titleController.text = item.title;
     _descriptionController.text = item.description ?? '';
-    _selectedLayerId = item.layerId;
+    _selectedTypeId = item.typeId;
     _selectedPriorityId = item.priorityId;
     _selectedAssigneeId = item.assignedToUserId;
     _tags = [...item.tags];
@@ -201,7 +201,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
     if (item == null) return false;
     return _titleController.text != item.title ||
         _descriptionController.text != (item.description ?? '') ||
-        _selectedLayerId != item.layerId ||
+        _selectedTypeId != item.typeId ||
         _selectedPriorityId != item.priorityId;
   }
 
@@ -382,16 +382,16 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const FieldLabel('Layer'),
+        const FieldLabel('Type'),
         DropdownButtonFormField<String?>(
-          initialValue: _selectedLayerId,
+          initialValue: _selectedTypeId,
           decoration: const InputDecoration(),
           items: [
             const DropdownMenuItem(value: null, child: Text('None')),
-            for (final layer in _viewModel.layers)
-              DropdownMenuItem(value: layer.id, child: Text(layer.name)),
+            for (final type in _viewModel.types)
+              DropdownMenuItem(value: type.id, child: Text(type.name)),
           ],
-          onChanged: (value) => setState(() => _selectedLayerId = value),
+          onChanged: (value) => setState(() => _selectedTypeId = value),
         ),
         const SizedBox(height: 16),
         const FieldLabel('Priority'),
@@ -491,7 +491,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
     description: _descriptionController.text.isEmpty
         ? null
         : _descriptionController.text,
-    layerId: _selectedLayerId,
+    typeId: _selectedTypeId,
     priorityId: _selectedPriorityId,
   );
 

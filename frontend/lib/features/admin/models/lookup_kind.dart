@@ -7,9 +7,9 @@ enum LookupKind {
     hasColor: false,
     ownedBySpace: true,
   ),
-  layers(
-    path: '/work-item-layers',
-    singular: 'layer',
+  types(
+    path: '/work-item-types',
+    singular: 'type',
     hasColor: true,
     ownedBySpace: false,
   );

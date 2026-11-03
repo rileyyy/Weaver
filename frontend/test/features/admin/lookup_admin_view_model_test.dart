@@ -36,16 +36,16 @@ void main() {
     expect(vm.items, isEmpty);
   });
 
-  test('layers are shared by every Space, so no Space is needed', () async {
-    final layers = LookupAdminViewModel(repository, LookupKind.layers);
-    addTearDown(layers.dispose);
+  test('types are shared by every Space, so no Space is needed', () async {
+    final types = LookupAdminViewModel(repository, LookupKind.types);
+    addTearDown(types.dispose);
 
-    await layers.load();
-    await layers.create('Epic', color: '#546E7A');
+    await types.load();
+    await types.create('Epic', color: '#546E7A');
 
     expect(repository.calls.skip(1), [
-      'list layers',
-      'create layers Epic #546E7A',
+      'list types',
+      'create types Epic #546E7A',
     ]);
   });
 
@@ -60,20 +60,20 @@ void main() {
     expect(viewModel.items.map((v) => v.name), ['Minor', 'High', 'Urgent']);
   });
 
-  test('a layer is created and updated with its colour', () async {
-    final layers = LookupAdminViewModel(
+  test('a type is created and updated with its colour', () async {
+    final types = LookupAdminViewModel(
       FakeLookupAdminRepository(const [
         LookupValue(id: 'task', name: 'Task', order: 0, color: '#43A047'),
       ]),
-      LookupKind.layers,
+      LookupKind.types,
     );
-    addTearDown(layers.dispose);
-    await layers.load();
+    addTearDown(types.dispose);
+    await types.load();
 
-    await layers.create('Epic', color: '#546E7A');
-    await layers.update('task', 'Task', color: '#FDD835');
+    await types.create('Epic', color: '#546E7A');
+    await types.update('task', 'Task', color: '#FDD835');
 
-    expect(layers.items.map((v) => (v.name, v.color)), [
+    expect(types.items.map((v) => (v.name, v.color)), [
       ('Task', '#FDD835'),
       ('Epic', '#546E7A'),
     ]);

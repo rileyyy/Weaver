@@ -126,17 +126,17 @@ public class WorkItemToolsTests
         var parentId = Guid.NewGuid();
         var statusId = Guid.NewGuid();
         var afterId = Guid.NewGuid();
-        var layerId = Guid.NewGuid();
+        var typeId = Guid.NewGuid();
         var priorityId = Guid.NewGuid();
         var spaceId = Guid.NewGuid();
         var created = MakeWorkItem();
         _workItems
             .Setup(w => w.CreateAsync(
-                "Title", "Description", parentId, statusId, afterId, layerId, priorityId, spaceId, It.IsAny<CancellationToken>()))
+                "Title", "Description", parentId, statusId, afterId, typeId, priorityId, spaceId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(created);
 
         var result = await _tools.CreateWorkItem(
-            "Title", statusId, "Description", parentId, afterId, layerId, priorityId, spaceId, ct: CancellationToken.None);
+            "Title", statusId, "Description", parentId, afterId, typeId, priorityId, spaceId, ct: CancellationToken.None);
 
         Assert.That(result.Id, Is.EqualTo(created.Id));
     }
@@ -222,12 +222,12 @@ public class WorkItemToolsTests
     public async Task UpdateWorkItemDetails_WithANullSent_ClearsThatField()
     {
         var item = MakeWorkItem();
-        var expectedPatch = new WorkItemDetailsPatch { Description = null, LayerId = null };
+        var expectedPatch = new WorkItemDetailsPatch { Description = null, TypeId = null };
         _workItems.Setup(w => w.UpdateDetailsAsync(item.Id, expectedPatch, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new WorkItemWriteResult(item, [WorkItemField.Description]));
 
         await _tools.UpdateWorkItemDetails(
-            CallWith("id", "description", "layerId"), item.Id, description: null, layerId: null, ct: CancellationToken.None);
+            CallWith("id", "description", "typeId"), item.Id, description: null, typeId: null, ct: CancellationToken.None);
 
         _workItems.VerifyAll();
     }

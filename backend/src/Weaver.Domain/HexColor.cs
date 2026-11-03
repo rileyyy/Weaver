@@ -3,7 +3,7 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Domain;
 
-/// <summary>The <c>#RRGGBB</c> colors that statuses and layers render with.</summary>
+/// <summary>The <c>#RRGGBB</c> colors that statuses and types render with.</summary>
 public static partial class HexColor
 {
     public const int Length = 7;

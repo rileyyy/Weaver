@@ -16,7 +16,7 @@ class BoardCard extends StatelessWidget {
     required this.card,
     required this.height,
     required this.assigneeInitial,
-    required this.layerColor,
+    required this.typeColor,
     required this.onOpenDetails,
     required this.onAssignTapped,
     required this.onAddTagTapped,
@@ -34,12 +34,12 @@ class BoardCard extends StatelessWidget {
   /// directory hasn't loaded yet.
   final String? assigneeInitial;
 
-  /// The card's layer colour, for the bar along its left edge — null (no
-  /// layer, or layers not loaded) shows a neutral bar instead.
-  final Color? layerColor;
+  /// The card's type colour, for the bar along its left edge — null (no
+  /// type, or types not loaded) shows a neutral bar instead.
+  final Color? typeColor;
 
   /// Called when the card is tapped, to open a dialog showing every
-  /// attribute of this work item (title/description/layer/priority/
+  /// attribute of this work item (title/description/type/priority/
   /// assignee/comments/links/schedule). Drilling into the item's own
   /// children is reached from inside that dialog instead of from a separate
   /// tap target here.
@@ -92,7 +92,7 @@ class BoardCard extends StatelessWidget {
             // edge; the card's fixed height gives stretch a bound.
             Container(
               width: _handleWidth,
-              color: layerColor ?? Theme.of(context).colorScheme.outline,
+              color: typeColor ?? Theme.of(context).colorScheme.outline,
             ),
             Expanded(
               child: InkWell(

@@ -21,7 +21,7 @@ Future<void> showAdminPage(BuildContext context) => Navigator.of(
   context,
 ).push(MaterialPageRoute<void>(builder: (_) => const AdminView()));
 
-/// Spaces, statuses, priorities, layers, users, agents and server-wide
+/// Spaces, statuses, priorities, types, users, agents and server-wide
 /// settings, one tab each. Only offered to admins; the server refuses every change from
 /// anyone else.
 class AdminView extends StatefulWidget {
@@ -37,8 +37,8 @@ class _AdminViewState extends State<AdminView> {
   final LookupAdminViewModel _priorities = getIt<LookupAdminViewModel>(
     param1: LookupKind.priorities,
   );
-  final LookupAdminViewModel _layers = getIt<LookupAdminViewModel>(
-    param1: LookupKind.layers,
+  final LookupAdminViewModel _types = getIt<LookupAdminViewModel>(
+    param1: LookupKind.types,
   );
   final UserAdminViewModel _users = getIt<UserAdminViewModel>();
   final AgentAdminViewModel _agents = getIt<AgentAdminViewModel>();
@@ -52,7 +52,7 @@ class _AdminViewState extends State<AdminView> {
     // Spaces have, and follow them when one is added.
     _spaces.addListener(_followSpaces);
     unawaited(_spaces.load());
-    unawaited(_layers.load());
+    unawaited(_types.load());
     unawaited(_users.load());
     unawaited(_agents.load());
     unawaited(_server.load());
@@ -70,7 +70,7 @@ class _AdminViewState extends State<AdminView> {
       ..dispose();
     _statuses.dispose();
     _priorities.dispose();
-    _layers.dispose();
+    _types.dispose();
     _users.dispose();
     _agents.dispose();
     _server.dispose();
@@ -91,7 +91,7 @@ class _AdminViewState extends State<AdminView> {
               Tab(text: 'Spaces'),
               Tab(text: 'Statuses'),
               Tab(text: 'Priorities'),
-              Tab(text: 'Layers'),
+              Tab(text: 'Types'),
               Tab(text: 'Users'),
               Tab(text: 'Agents'),
               Tab(text: 'Server'),
@@ -103,7 +103,7 @@ class _AdminViewState extends State<AdminView> {
             SpacesTab(viewModel: _spaces),
             StatusesTab(viewModel: _statuses, spaces: _spaces),
             LookupTab(viewModel: _priorities, spaces: _spaces),
-            LookupTab(viewModel: _layers),
+            LookupTab(viewModel: _types),
             UsersTab(viewModel: _users),
             AgentsTab(viewModel: _agents),
             ServerTab(viewModel: _server),

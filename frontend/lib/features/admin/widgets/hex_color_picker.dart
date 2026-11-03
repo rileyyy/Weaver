@@ -4,7 +4,7 @@ import 'package:weaver/shared/models/hex_color.dart';
 final _hexColor = RegExp(r'^#[0-9a-fA-F]{6}$');
 
 /// A row of preset swatches plus a `#RRGGBB` field for any other colour,
-/// for statuses and layers. The seeded statuses' and layers' colours are
+/// for statuses and types. The seeded statuses' and types' colours are
 /// among the presets.
 class HexColorPicker extends StatelessWidget {
   const HexColorPicker({

@@ -1,5 +1,5 @@
 /// One of the configurable priorities (seeded Low / Medium / High / Urgent),
-/// loaded from the backend like [WorkItemLayer]s. [order] runs from least to
+/// loaded from the backend like [WorkItemType]s. [order] runs from least to
 /// most urgent.
 class WorkItemPriority {
   const WorkItemPriority({

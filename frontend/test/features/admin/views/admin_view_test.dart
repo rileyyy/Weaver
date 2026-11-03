@@ -74,7 +74,7 @@ void main() {
       'Spaces',
       'Statuses',
       'Priorities',
-      'Layers',
+      'Types',
       'Users',
       'Agents',
       'Server',
@@ -89,7 +89,7 @@ void main() {
     expect(find.text('To Do'), findsOneWidget);
     expect(
       lookups.calls,
-      containsAll(['list priorities in home', 'list layers']),
+      containsAll(['list priorities in home', 'list types']),
     );
 
     await tester.tap(find.widgetWithText(Tab, 'Users'));

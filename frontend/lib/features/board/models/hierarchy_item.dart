@@ -16,7 +16,7 @@ class HierarchyItem {
     this.startDate,
     this.endDate,
     this.assignedToUserId,
-    this.layerId,
+    this.typeId,
     this.tags = const [],
   });
 
@@ -30,7 +30,7 @@ class HierarchyItem {
     startDate: item.startDate,
     endDate: item.endDate,
     assignedToUserId: item.assignedToUserId,
-    layerId: item.layerId,
+    typeId: item.typeId,
     tags: item.tags,
   );
 
@@ -48,9 +48,9 @@ class HierarchyItem {
   final DateTime? endDate;
   final String? assignedToUserId;
 
-  /// Which layer (e.g. Project / Goal / Task) this item is labelled with,
+  /// Which type (e.g. Project / Goal / Task) this item is labelled with,
   /// if any; its colour marks the item on the board.
-  final String? layerId;
+  final String? typeId;
 
   /// Short free-text labels, zero or more.
   final List<String> tags;

@@ -34,7 +34,7 @@ class StatusColumn extends StatelessWidget {
     required this.cardVisible,
     required this.cardComparator,
     required this.assigneeInitialFor,
-    required this.layerColorFor,
+    required this.typeColorFor,
   });
 
   final Swimlane swimlane;
@@ -57,7 +57,7 @@ class StatusColumn extends StatelessWidget {
   final bool Function(WorkItemCard card) cardVisible;
   final Comparator<WorkItemCard>? cardComparator;
   final String? Function(String? userId) assigneeInitialFor;
-  final Color? Function(String? layerId) layerColorFor;
+  final Color? Function(String? typeId) typeColorFor;
 
   @override
   Widget build(BuildContext context) {
@@ -147,7 +147,7 @@ class StatusColumn extends StatelessWidget {
         card: card,
         height: cardHeight,
         assigneeInitial: assigneeInitialFor(card.assignedToUserId),
-        layerColor: layerColorFor(card.layerId),
+        typeColor: typeColorFor(card.typeId),
         onOpenDetails: () => onCardDetailsOpened(card),
         onAssignTapped: () => onAssignRequested(card.id, card.assignedToUserId),
         onAddTagTapped: () => onAddTagsRequested(card.id, card.tags),

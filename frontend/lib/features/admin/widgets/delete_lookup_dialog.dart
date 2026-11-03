@@ -8,7 +8,7 @@ import 'package:weaver/features/admin/widgets/dialog_submission.dart';
 typedef ReplacementOption = ({String id, String name});
 
 /// Confirms deleting [name] and asks where its work items should go.
-/// [noneLabel] offers "no value" as well (priorities and layers); without
+/// [noneLabel] offers "no value" as well (priorities and types); without
 /// it a replacement must be picked (statuses). [onDelete] gets the chosen
 /// id, or null for none, and returns null on success or an error to show.
 /// Completes with whether the delete succeeded.

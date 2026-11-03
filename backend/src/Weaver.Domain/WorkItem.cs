@@ -50,15 +50,15 @@ public class WorkItem : IHasUpdatedAt
 
     /// <summary>
     /// What kind of item this is (e.g. Project/Goal/Task) — a label from the
-    /// configurable <see cref="WorkItemLayer"/> table, not a constraint on
+    /// configurable <see cref="WorkItemType"/> table, not a constraint on
     /// the parent/child tree. Nullable: existing/ad-hoc items don't require
     /// categorization.
     /// </summary>
-    public Guid? LayerId { get; private set; }
+    public Guid? TypeId { get; private set; }
 
     /// <summary>
     /// How urgent this item is — a label from the configurable <see cref="WorkItemPriority"/>
-    /// table. Nullable like <see cref="LayerId"/>: an item doesn't have to be prioritised.
+    /// table. Nullable like <see cref="TypeId"/>: an item doesn't have to be prioritised.
     /// </summary>
     public Guid? PriorityId { get; private set; }
 
@@ -121,7 +121,7 @@ public class WorkItem : IHasUpdatedAt
 
     public Status? Status { get; private set; }
 
-    public WorkItemLayer? Layer { get; private set; }
+    public WorkItemType? Type { get; private set; }
 
     public WorkItemPriority? Priority { get; private set; }
 
@@ -136,9 +136,9 @@ public class WorkItem : IHasUpdatedAt
         string? description,
         Guid statusId,
         double rank,
-        Guid? layerId = null,
+        Guid? typeId = null,
         Guid? priorityId = null) =>
-        New(spaceId, null, title, description, statusId, rank, layerId, priorityId);
+        New(spaceId, null, title, description, statusId, rank, typeId, priorityId);
 
     /// <summary>A child of <paramref name="parent"/>, in the parent's Space.</summary>
     public static WorkItem CreateChildOf(
@@ -147,9 +147,9 @@ public class WorkItem : IHasUpdatedAt
         string? description,
         Guid statusId,
         double rank,
-        Guid? layerId = null,
+        Guid? typeId = null,
         Guid? priorityId = null) =>
-        New(parent.SpaceId, parent.Id, title, description, statusId, rank, layerId, priorityId);
+        New(parent.SpaceId, parent.Id, title, description, statusId, rank, typeId, priorityId);
 
     private static WorkItem New(
         Guid spaceId,
@@ -158,7 +158,7 @@ public class WorkItem : IHasUpdatedAt
         string? description,
         Guid statusId,
         double rank,
-        Guid? layerId,
+        Guid? typeId,
         Guid? priorityId)
     {
         TextValidation.RequireText(title, "Title", TitleMaxLength);
@@ -172,7 +172,7 @@ public class WorkItem : IHasUpdatedAt
             Rank = rank,
             Title = title,
             Description = description,
-            LayerId = layerId,
+            TypeId = typeId,
             PriorityId = priorityId,
         };
     }
@@ -191,7 +191,7 @@ public class WorkItem : IHasUpdatedAt
         var changed = new ChangedFields();
         Title = changed.Apply(WorkItemField.Title, Title, patch.Title);
         Description = changed.Apply(WorkItemField.Description, Description, patch.Description);
-        LayerId = changed.Apply(WorkItemField.LayerId, LayerId, patch.LayerId);
+        TypeId = changed.Apply(WorkItemField.TypeId, TypeId, patch.TypeId);
         PriorityId = changed.Apply(WorkItemField.PriorityId, PriorityId, patch.PriorityId);
         When = changed.Apply(WorkItemField.When, When, NormalizeWhen(patch.When));
         return changed.Changes;
@@ -214,11 +214,11 @@ public class WorkItem : IHasUpdatedAt
         return trimmed;
     }
 
-    /// <summary>Used when an admin deletes the item's layer and picks a replacement (or none).</summary>
-    public IReadOnlyList<FieldChange> ChangeLayer(Guid? layerId)
+    /// <summary>Used when an admin deletes the item's type and picks a replacement (or none).</summary>
+    public IReadOnlyList<FieldChange> ChangeType(Guid? typeId)
     {
         var changed = new ChangedFields();
-        LayerId = changed.Set(WorkItemField.LayerId, LayerId, layerId);
+        TypeId = changed.Set(WorkItemField.TypeId, TypeId, typeId);
         return changed.Changes;
     }
 
@@ -317,7 +317,7 @@ public class WorkItem : IHasUpdatedAt
     /// </summary>
     public WorkItem CopyForOccurrence(Guid? parentId, Guid statusId, double rank, DateOnly date)
     {
-        var copy = New(SpaceId, parentId, Title, Description, statusId, rank, LayerId, PriorityId);
+        var copy = New(SpaceId, parentId, Title, Description, statusId, rank, TypeId, PriorityId);
         copy.AssignedToUserId = AssignedToUserId;
         copy._tags = [.. _tags];
         copy.When = When;

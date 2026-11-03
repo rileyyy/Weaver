@@ -1,7 +1,7 @@
 import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/models/lookup_value.dart';
 
-/// Priority and layer management. Every write needs an admin; the server
+/// Priority and type management. Every write needs an admin; the server
 /// answers 403 otherwise.
 ///
 /// [spaceId] is required for kinds each Space owns its own values of

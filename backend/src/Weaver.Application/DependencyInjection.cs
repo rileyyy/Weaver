@@ -26,7 +26,7 @@ public static class DependencyInjection
             .AddScoped<IWorkItemChangesService, WorkItemChangesService>()
             .AddScoped<ISpaceService, SpaceService>()
             .AddScoped<IStatusService, StatusService>()
-            .AddScoped<IWorkItemLayerService, WorkItemLayerService>()
+            .AddScoped<IWorkItemTypeService, WorkItemTypeService>()
             .AddScoped<IWorkItemPriorityService, WorkItemPriorityService>()
             .AddScoped<IWorkItemRecurrenceService, WorkItemRecurrenceService>()
             .AddScoped<IServerSettingsService, ServerSettingsService>()

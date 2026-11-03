@@ -67,18 +67,18 @@ class ColumnValue extends StatelessWidget {
     };
   }
 
-  /// Underlined in the item's layer colour, matching the bar on its board
-  /// card; an item without a layer isn't underlined.
+  /// Underlined in the item's type colour, matching the bar on its board
+  /// card; an item without a type isn't underlined.
   Widget _title() {
-    final layerColor = viewModel.layerColorFor(item.layerId);
+    final typeColor = viewModel.typeColorFor(item.typeId);
     return Text(
       item.title,
       overflow: TextOverflow.ellipsis,
-      style: layerColor == null
+      style: typeColor == null
           ? null
           : TextStyle(
               decoration: TextDecoration.underline,
-              decorationColor: layerColor,
+              decorationColor: typeColor,
               decorationThickness: 2,
             ),
     );

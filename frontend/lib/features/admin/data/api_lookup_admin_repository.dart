@@ -5,18 +5,18 @@ import 'package:weaver/core/network/json_api_client.dart';
 import 'package:weaver/features/admin/data/lookup_admin_repository.dart';
 import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/models/lookup_value.dart';
-import 'package:weaver/shared/data/layer_repository.dart';
+import 'package:weaver/shared/data/type_repository.dart';
 
 @LazySingleton(as: LookupAdminRepository)
 class ApiLookupAdminRepository implements LookupAdminRepository {
   ApiLookupAdminRepository(
     http.Client client,
     ApiEndpoint endpoint,
-    this._layerCache,
+    this._typeCache,
   ) : _api = JsonApiClient(client, endpoint);
 
   final JsonApiClient _api;
-  final LayerRepository _layerCache;
+  final TypeRepository _typeCache;
 
   static LookupValue _value(Object? json) =>
       LookupValue.fromJson(json as Map<String, dynamic>);
@@ -113,10 +113,10 @@ class ApiLookupAdminRepository implements LookupAdminRepository {
     String? color,
   ) => {'name': name, if (kind.hasColor) 'color': color};
 
-  /// Only layers are cached app-wide (for the board's card colours).
+  /// Only types are cached app-wide (for the board's card colours).
   Future<T> _invalidatingCache<T>(LookupKind kind, Future<T> write) async {
     final result = await write;
-    if (kind == LookupKind.layers) _layerCache.invalidate();
+    if (kind == LookupKind.types) _typeCache.invalidate();
     return result;
   }
 }
