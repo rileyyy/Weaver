@@ -8,12 +8,12 @@ import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/shared/data/current_user.dart';
 import 'package:weaver/shared/markdown/task_list.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
@@ -24,7 +24,7 @@ class WorkItemDetailViewModel extends ViewModel {
   final WorkItemDetailRepository _repository;
   final CurrentUser _currentUser;
 
-  WorkItemDetail? _item;
+  WorkItem? _item;
   List<WorkItemStatus> _statuses = const [];
   List<WorkItemLayer> _layers = const [];
   List<WorkItemPriority> _priorities = const [];
@@ -41,7 +41,7 @@ class WorkItemDetailViewModel extends ViewModel {
   int _reloadGeneration = 0;
   bool _hasChanges = false;
 
-  WorkItemDetail? get item => _item;
+  WorkItem? get item => _item;
   List<WorkItemStatus> get statuses => _statuses;
   List<WorkItemLayer> get layers => _layers;
   List<WorkItemPriority> get priorities => _priorities;
@@ -294,7 +294,7 @@ class WorkItemDetailViewModel extends ViewModel {
     notifyIfActive();
   }
 
-  Future<bool> _save(Future<WorkItemDetail> Function() action) => _mutate(
+  Future<bool> _save(Future<WorkItem> Function() action) => _mutate(
     () async {
       _item = await action();
       _hasChanges = true;

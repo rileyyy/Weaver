@@ -1,11 +1,13 @@
 import 'package:weaver/core/network/api_dates.dart';
 import 'package:weaver/core/network/json_fields.dart';
 
-/// The full record for one work item — a superset of `WorkItemCard`'s
-/// board-display fields, used by the detail screen rather than the board.
-class WorkItemDetail {
-  const WorkItemDetail({
+/// One work item as the server sends it (`WorkItemDto`): what
+/// `WorkItemStore` holds, and what every layout and the detail dialog read.
+/// A new work-item field only needs adding here and in [WorkItem.fromJson].
+class WorkItem {
+  const WorkItem({
     required this.id,
+    required this.number,
     required this.parentId,
     required this.title,
     required this.description,
@@ -23,8 +25,9 @@ class WorkItemDetail {
     this.recurrenceDate,
   });
 
-  factory WorkItemDetail.fromJson(Map<String, dynamic> json) => WorkItemDetail(
+  factory WorkItem.fromJson(Map<String, dynamic> json) => WorkItem(
     id: json['id'] as String,
+    number: json['number'] as int,
     parentId: json['parentId'] as String?,
     title: json['title'] as String,
     description: json['description'] as String?,
@@ -43,6 +46,9 @@ class WorkItemDetail {
   );
 
   final String id;
+
+  /// The human-facing `#N`; see the glossary's **Number**.
+  final int number;
   final String? parentId;
   final String title;
   final String? description;

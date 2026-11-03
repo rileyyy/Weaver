@@ -6,17 +6,17 @@ import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
 import 'package:weaver/shared/data/current_user.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
+import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
-WorkItemDetail _item({
+WorkItem _item({
   String id = 'item-1',
   String statusId = 'todo',
   String? layerId,
@@ -26,7 +26,8 @@ WorkItemDetail _item({
   String title = 'A task',
   String? description,
   int version = 1,
-}) => WorkItemDetail(
+}) => WorkItem(
+  number: 1,
   id: id,
   parentId: null,
   title: title,
@@ -57,7 +58,7 @@ class _FakeRepository implements WorkItemDetailRepository {
 
   final Object? getItemError;
   final Exception? saveError;
-  WorkItemDetail item = _item();
+  WorkItem item = _item();
   bool deleted = false;
   final List<String> updateDetailsCalls = [];
   final List<String> updateDescriptionCalls = [];
@@ -76,7 +77,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   Completer<void>? assignGate;
 
   @override
-  Future<WorkItemDetail> getItem(String id) async {
+  Future<WorkItem> getItem(String id) async {
     getItemCalls++;
     final error = getItemError;
     // An Object so tests can simulate either an API failure or a bug.
@@ -127,7 +128,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   ];
 
   @override
-  Future<WorkItemDetail> updateDetails(
+  Future<WorkItem> updateDetails(
     String id, {
     required String title,
     required String? description,
@@ -149,7 +150,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   }
 
   @override
-  Future<WorkItemDetail> updateDescription(
+  Future<WorkItem> updateDescription(
     String id,
     String description, {
     required int expectedVersion,
@@ -168,7 +169,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   }
 
   @override
-  Future<WorkItemDetail> assign(
+  Future<WorkItem> assign(
     String id,
     String? userId, {
     required int expectedVersion,
@@ -186,7 +187,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   }
 
   @override
-  Future<WorkItemDetail> reschedule(
+  Future<WorkItem> reschedule(
     String id,
     DateTime? startDate,
     DateTime? endDate, {
@@ -200,7 +201,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   }
 
   @override
-  Future<WorkItemDetail> updateTags(
+  Future<WorkItem> updateTags(
     String id,
     List<String> tags, {
     required int expectedVersion,

@@ -5,7 +5,6 @@ import 'package:weaver/features/work_item_detail/data/work_item_detail_repositor
 import 'package:weaver/features/work_item_detail/data/work_item_history_repository.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_history_entry.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
@@ -16,6 +15,7 @@ import 'package:weaver/features/work_item_detail/work_item_history_view_model.da
 import 'package:weaver/shared/data/current_user.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
+import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 import 'package:weaver/shared/widgets/user_name_label.dart';
@@ -41,7 +41,8 @@ class _FakeRepository implements WorkItemDetailRepository {
   final List<(String, int)> descriptionSaves = [];
 
   @override
-  Future<WorkItemDetail> getItem(String id) async => WorkItemDetail(
+  Future<WorkItem> getItem(String id) async => WorkItem(
+    number: 1,
     id: id,
     parentId: null,
     title: 'Original title',
@@ -58,7 +59,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   );
 
   @override
-  Future<WorkItemDetail> updateDescription(
+  Future<WorkItem> updateDescription(
     String id,
     String description, {
     required int expectedVersion,

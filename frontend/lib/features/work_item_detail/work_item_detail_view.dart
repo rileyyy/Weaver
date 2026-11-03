@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:weaver/core/dates/date_format.dart';
 import 'package:weaver/core/di/injection.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/repeat_settings_view_model.dart';
 import 'package:weaver/features/work_item_detail/widgets/comments_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/confirm_dialogs.dart';
@@ -17,6 +16,7 @@ import 'package:weaver/features/work_item_detail/widgets/sub_items_section.dart'
 import 'package:weaver/features/work_item_detail/widgets/tags_editor.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
 import 'package:weaver/features/work_item_detail/work_item_history_view_model.dart';
+import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/recurrence/widgets/confirm_stop_repeating.dart';
 import 'package:weaver/shared/widgets/field_label.dart';
 import 'package:weaver/shared/widgets/user_name_label.dart';
@@ -184,7 +184,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
     setState(() {});
   }
 
-  void _seedFrom(WorkItemDetail item) {
+  void _seedFrom(WorkItem item) {
     _titleController.text = item.title;
     _descriptionController.text = item.description ?? '';
     _selectedLayerId = item.layerId;
@@ -337,7 +337,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
   }
 
   /// Column 1 (65% width on wide layouts): the item's main content.
-  Widget _primaryColumn(WorkItemDetail item) {
+  Widget _primaryColumn(WorkItem item) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -374,7 +374,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
   }
 
   /// Column 2 (35% width on wide layouts): metadata fields and links.
-  Widget _metadataColumn(BuildContext context, WorkItemDetail item) {
+  Widget _metadataColumn(BuildContext context, WorkItem item) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

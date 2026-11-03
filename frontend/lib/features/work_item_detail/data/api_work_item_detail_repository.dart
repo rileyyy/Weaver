@@ -6,13 +6,13 @@ import 'package:weaver/core/network/json_api_client.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/shared/data/layer_repository.dart';
 import 'package:weaver/shared/data/status_repository.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
@@ -31,16 +31,16 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   final LayerRepository _layers;
   final UserDirectoryRepository _users;
 
-  static WorkItemDetail _detail(Object? json) =>
-      WorkItemDetail.fromJson(json as Map<String, dynamic>);
+  static WorkItem _detail(Object? json) =>
+      WorkItem.fromJson(json as Map<String, dynamic>);
 
   /// Every write answers with the item and the fields it changed; the
   /// dialog only needs the item, which carries the new version.
-  static WorkItemDetail _writtenItem(Object? json) =>
+  static WorkItem _writtenItem(Object? json) =>
       _detail((json as Map<String, dynamic>)['item']);
 
   @override
-  Future<WorkItemDetail> getItem(String id) => _api.get(
+  Future<WorkItem> getItem(String id) => _api.get(
     '/work-items/$id',
     _detail,
     failureMessage: 'Failed to load work item',
@@ -82,7 +82,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   Future<List<User>> loadUsers() => _users.loadUsers();
 
   @override
-  Future<WorkItemDetail> updateDetails(
+  Future<WorkItem> updateDetails(
     String id, {
     required String title,
     required String? description,
@@ -103,7 +103,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   );
 
   @override
-  Future<WorkItemDetail> updateDescription(
+  Future<WorkItem> updateDescription(
     String id,
     String description, {
     required int expectedVersion,
@@ -115,7 +115,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   );
 
   @override
-  Future<WorkItemDetail> assign(
+  Future<WorkItem> assign(
     String id,
     String? userId, {
     required int expectedVersion,
@@ -127,7 +127,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   );
 
   @override
-  Future<WorkItemDetail> reschedule(
+  Future<WorkItem> reschedule(
     String id,
     DateTime? startDate,
     DateTime? endDate, {
@@ -144,7 +144,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   );
 
   @override
-  Future<WorkItemDetail> updateTags(
+  Future<WorkItem> updateTags(
     String id,
     List<String> tags, {
     required int expectedVersion,
