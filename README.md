@@ -19,7 +19,7 @@ the API.
   dropped; a card can be dropped on another lane's label to reparent it. Tapping the current breadcrumb (the Space's name at the top) picks a lane to
   drill into, as does "View sub-items" in a card's detail dialog, so its
   children become the lanes. Earlier breadcrumbs lead back up. Each card's
-  left bar shows its layer's colour.
+  left bar shows its Type's colour.
 - **Hierarchy and Roadmap views.** Hierarchy shows every work item in the
   Space as a collapsible tree with resizable Number / Title / Status /
   Assigned To
@@ -31,7 +31,7 @@ the API.
 - **Search, filter and sort.** Search matches title, description and tags.
   Status columns can be hidden, tags filtered, and cards sorted by title,
   start date or due date without touching the manual order.
-- **Work-item details.** Title, description, layer (Project / Goal / Task,
+- **Work-item details.** Title, description, Type (Project / Goal / Task by default,
   each with an admin-set colour),
   priority, assignee, status, schedule, sub-items, and a sequential `#N`
   number.
@@ -357,7 +357,7 @@ disk.
   copy button; Weaver keeps just a hash of it. The scope is **read-only**
   (reads only; every write is refused) or **read-write** (what a non-admin
   person can do). No agent can change admin data (server settings,
-  statuses, priorities, layers, accounts or admin rights), whatever its
+  statuses, priorities, Types, accounts or admin rights), whatever its
   scope, and an agent account can't be made an admin. Send the key as
   `Authorization: Bearer <key>` on every MCP request. It doesn't expire, so
   there's nothing to refresh; revoke it on the same page, or deactivate the
@@ -390,7 +390,7 @@ disk.
   root certificate, see above.
 
 The tools cover work items, Spaces (`list_spaces`; agents can't change
-them), statuses, layers, priorities, users, comments, links and repeating
+them), statuses, Types, priorities, users, comments, links and repeating
 items. A top-level item is created with a `spaceId`; a child joins its
 parent's Space. Updates to details, schedule and tags
 change only the arguments you send: leave one out to keep it, or send
