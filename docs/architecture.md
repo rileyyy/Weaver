@@ -281,13 +281,41 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   shows its current name and a deleted one falls back to the raw id.
 - **Entries outlive their item**: `WorkItemId` has no foreign key, so a
   deleted item's history (ending in `deleted`) still reads, and "changes
-  since T" (ticket 31) will see deletes. `AccountId` and `ApiKeyId` are
+  since T" sees deletes. `AccountId` and `ApiKeyId` are
   Restrict foreign keys, so an account that has changed any work item
   can't be hard-deleted (409 `UserHasHistoryException`; deactivate it
   instead, as for comment authors). That also keeps an agent's keys, which
   are cascaded away only with an agent that has no history.
 - **Ordering** is by the identity `Id`, not the timestamp, since several
   entries saved together share one `CreatedAtUtc`.
+- **"Changes since T"** (`GET /api/work-items/changes`, MCP
+  `list_changes_since`, `WorkItemChangesService`) lists the work items
+  with entries at or after `since`, each with those entries oldest first,
+  as a `WorkItemSummary` (number, title, Space, status, layer, dates,
+  assignee and child count, by name):
+  - **Pages by each item's first entry since T**, and the opaque cursor
+    (`WorkItemChangesCursor`) is that entry's `Id`. An item's first entry
+    never changes, so changes landing between pages don't reorder or
+    repeat items: an item already returned isn't shown again, and a newly
+    changed one comes at the end. Caveat: identity values are handed out
+    at insert, not commit, so a transaction that commits after a page past
+    its `Id` was read can be skipped. That's acceptable for a handful of
+    writers; ask again from an earlier T if it matters.
+  - **Deletes are marked** (`deleted: true`). A deleted item has no row,
+    so its summary (title, last Space) is rebuilt from its history
+    (`DeletedItemTrace`); the number and the other fields are null.
+  - **The Space filter** uses an item's current Space, or for a deleted
+    item the Space its history last gave it. An item created before
+    history recorded the Space (between tickets 10 and 11) and then
+    deleted matches no Space.
+  - **Excluding the caller's own changes** filters by account, and keeps
+    Weaver's own entries (null `AccountId`) explicitly.
+  - `since` is normalised to UTC: Npgsql refuses any other offset.
+  - **Restore isn't in it yet**: Trash (ticket 19) adds a `restored`
+    marker, and `deleted` then comes from the trash state rather than
+    from the row being gone.
+  - Nulls are still sent; omitting them from MCP JSON is ticket 29, which
+    should reuse `WorkItemSummary` for its list tools.
 - **Anything new that changes a work item must record history**: a new
   field, a new operation, Spaces and Types, custom fields, When, Trash
   restore, attachments. Return `FieldChange`s from the domain method and
@@ -702,6 +730,8 @@ Types with custom fields in Milestone 16 ([ADR-0001](adr/0001-spaces.md),
   /work-items/all` (same `offset`/`limit`, default 500, at most 1000, from
   `WorkItemService`), so an agent can rebuild the whole tree;
   `list_work_item_children` with `parentId` omitted returns top-level items.
+  `list_changes_since` pages with a cursor instead (see
+  [Change history](#change-history)).
   There is no search, filter or `#Number` lookup yet; the server-side query
   replaces this paging in Milestone 16
   ([ADR-0006](adr/0006-server-side-query-and-views.md)).

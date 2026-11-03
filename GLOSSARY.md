@@ -88,6 +88,16 @@ and never reschedules anything automatically.
 which field, and the old and new value. It outlives a deleted item. Every
 new field or operation on work items must record history too.
 
+**Changes since T**
+: The work items whose history has entries at or after a moment T, each
+with those entries. Deleted items are included and marked. It's how an
+agent asks "what changed since yesterday?".
+
+**Summary**
+: A work item in brief, with names instead of ids (number, title, Space,
+status, dates, assignee, child count), as lists return it. Full detail comes
+from the item itself.
+
 **Trash** *(planned)*
 : Where deleted work items wait until the retention period ends. Humans and
 read-write agents can restore from it; only humans can purge it.
