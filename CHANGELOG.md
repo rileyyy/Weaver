@@ -33,6 +33,28 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-03 — Board writes send `expectedVersion` through a shared item store
+
+`feature/shared-item-store-with-expected-version` (ticket 36 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md); closes
+the gap left by code-review findings B-H3 and F-H6).
+
+- **A board edit can't silently overwrite someone else's change.**
+  Moving, reordering, reparenting, assigning and tagging from the Board,
+  Hierarchy and Roadmap send the item's version. If someone else changed
+  the item first, it snaps back to the latest version and the board says
+  so; other cards being saved at the same time are left alone.
+- **One copy of each item.** The Board, Hierarchy, Roadmap and detail
+  dialog read the same shared store, so an edit in the dialog shows on
+  every layout as soon as it's saved, without reloading the board when the
+  dialog closes. Deleting an item removes it everywhere.
+- **Quick successive edits no longer conflict with each other.** A second
+  edit to the same item (e.g. a tag change while a drag is saving, or a
+  delete right after a save) waits for the first and sends the version it
+  returned.
+- The board still reloads after repeat settings change, since those can
+  create items.
+
 ## 2026-11-02 — Admin UI for agent accounts and keys
 
 `feature/admin-ui-for-agent-accounts` (ticket 08 of
