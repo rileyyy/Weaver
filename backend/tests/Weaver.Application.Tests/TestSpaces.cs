@@ -11,10 +11,12 @@ public static class TestSpaces
         var space = Space.Create(name);
         var statuses = SpaceDefaults.StatusesFor(space.Id);
         var priorities = SpaceDefaults.PrioritiesFor(space.Id);
+        var types = SpaceDefaults.TypesFor(space.Id);
         db.Spaces.Add(space);
         db.Statuses.AddRange(statuses);
         db.WorkItemPriorities.AddRange(priorities);
+        db.WorkItemTypes.AddRange(types);
         db.SaveChanges();
-        return new TestSpace(space, statuses, priorities);
+        return new TestSpace(space, statuses, priorities, types);
     }
 }

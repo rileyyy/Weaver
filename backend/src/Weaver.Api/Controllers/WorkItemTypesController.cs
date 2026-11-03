@@ -1,11 +1,15 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Weaver.Api.Auth;
 using Weaver.Api.Contracts;
 using Weaver.Application.Services;
 
 namespace Weaver.Api.Controllers;
 
-/// <summary>Anyone signed in can list types; changing them needs an admin (403 otherwise).</summary>
+/// <summary>
+/// Each Space has its own Types (ADR-0002). Anyone signed in can list a Space's; changing them
+/// needs an admin (403 otherwise).
+/// </summary>
 [ApiController]
 [Route("api/work-item-types")]
 // The bearer challenge has no body.
@@ -19,19 +23,19 @@ public class WorkItemTypesController(IWorkItemTypeService types) : ControllerBas
     private readonly IWorkItemTypeService _types = types;
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<WorkItemTypeDto>>> GetAll()
+    public async Task<ActionResult<IReadOnlyList<WorkItemTypeDto>>> GetAll([FromQuery, BindRequired] Guid spaceId)
     {
-        var types = await _types.GetAllAsync();
+        var types = await _types.GetAllAsync(spaceId);
         return Ok(types.Select(WorkItemTypeDto.FromEntity));
     }
 
     /// <summary>A type has no view of its own, so the Location header points at the list.</summary>
     [HttpPost]
     [ProducesResponseType<WorkItemTypeDto>(StatusCodes.Status201Created)]
-    public async Task<ActionResult<WorkItemTypeDto>> Create(TypeDetailsRequest request)
+    public async Task<ActionResult<WorkItemTypeDto>> Create(CreateTypeRequest request)
     {
-        var created = await _types.CreateAsync(User.GetUserId(), request.Name, request.Color);
-        return CreatedAtAction(nameof(GetAll), WorkItemTypeDto.FromEntity(created));
+        var created = await _types.CreateAsync(User.GetUserId(), request.SpaceId, request.Name, request.Color);
+        return CreatedAtAction(nameof(GetAll), new { spaceId = created.SpaceId }, WorkItemTypeDto.FromEntity(created));
     }
 
     [HttpPut("{id:guid}")]
@@ -41,14 +45,20 @@ public class WorkItemTypesController(IWorkItemTypeService types) : ControllerBas
         return Ok(WorkItemTypeDto.FromEntity(updated));
     }
 
+    /// <summary><c>orderedIds</c> must list every Type of <paramref name="spaceId"/> exactly once.</summary>
     [HttpPut("order")]
-    public async Task<ActionResult<IReadOnlyList<WorkItemTypeDto>>> Reorder(ReorderLookupRequest request)
+    public async Task<ActionResult<IReadOnlyList<WorkItemTypeDto>>> Reorder(
+        [FromQuery, BindRequired] Guid spaceId,
+        ReorderLookupRequest request)
     {
-        var types = await _types.ReorderAsync(User.GetUserId(), request.OrderedIds);
+        var types = await _types.ReorderAsync(User.GetUserId(), spaceId, request.OrderedIds);
         return Ok(types.Select(WorkItemTypeDto.FromEntity));
     }
 
-    /// <summary>Items using the deleted type move to <paramref name="replacementId"/>, or to none when it's omitted.</summary>
+    /// <summary>
+    /// Items using the deleted Type move to <paramref name="replacementId"/>, a Type of the same
+    /// Space, or to none when it's omitted.
+    /// </summary>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(Guid id, [FromQuery] Guid? replacementId)

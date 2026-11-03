@@ -2,9 +2,15 @@ using Weaver.Domain;
 
 namespace Weaver.Application.Services;
 
-public interface IWorkItemTypeService : IGlobalLookupService<WorkItemType>
+public interface IWorkItemTypeService : ISpaceLookupService<WorkItemType>
 {
-    Task<WorkItemType> CreateAsync(Guid actorUserId, string name, string color, CancellationToken ct = default);
+    /// <summary>Appends a Type after the last of <paramref name="spaceId"/>'s.</summary>
+    Task<WorkItemType> CreateAsync(
+        Guid actorUserId,
+        Guid spaceId,
+        string name,
+        string color,
+        CancellationToken ct = default);
 
     Task<WorkItemType> UpdateAsync(Guid actorUserId, Guid id, string name, string color, CancellationToken ct = default);
 }

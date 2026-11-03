@@ -559,35 +559,15 @@ namespace Weaver.Infrastructure.Migrations
                     b.Property<int>("Order")
                         .HasColumnType("integer");
 
+                    b.Property<Guid>("SpaceId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Order")
+                    b.HasIndex("SpaceId", "Order")
                         .IsUnique();
 
                     b.ToTable("WorkItemTypes");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("00000000-0000-0000-0000-000000000101"),
-                            Color = "#D81B60",
-                            Name = "Project",
-                            Order = 0
-                        },
-                        new
-                        {
-                            Id = new Guid("00000000-0000-0000-0000-000000000102"),
-                            Color = "#00897B",
-                            Name = "Goal",
-                            Order = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("00000000-0000-0000-0000-000000000103"),
-                            Color = "#43A047",
-                            Name = "Task",
-                            Order = 2
-                        });
                 });
 
             modelBuilder.Entity("Weaver.Domain.ApiKey", b =>
@@ -767,6 +747,15 @@ namespace Weaver.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("WorkItem");
+                });
+
+            modelBuilder.Entity("Weaver.Domain.WorkItemType", b =>
+                {
+                    b.HasOne("Weaver.Domain.Space", null)
+                        .WithMany()
+                        .HasForeignKey("SpaceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Weaver.Domain.WorkItem", b =>

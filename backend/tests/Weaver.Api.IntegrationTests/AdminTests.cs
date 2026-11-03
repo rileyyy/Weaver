@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Weaver.Api.Contracts;
 using Weaver.Domain;
@@ -154,21 +154,26 @@ public class AdminTests
     public async Task TypeColors_AreSeededAndSavedThroughEdits()
     {
         var (admin, _) = await ApiClient.SignedInAdminAsync();
+        var spaceId = await ApiClient.CreateSpaceAsync("Types");
 
-        var seeded = await (await admin.GetAsync("/api/work-item-types")).ReadAsync<List<WorkItemTypeDto>>();
+        var seeded = await (await admin.GetAsync($"/api/work-item-types?spaceId={spaceId}"))
+            .ReadAsync<List<WorkItemTypeDto>>();
         var created = await (await admin.PostJsonAsync(
                 "/api/work-item-types",
-                new TypeDetailsRequest($"L {Guid.NewGuid():N}"[..20], "#546e7a")))
+                new CreateTypeRequest(spaceId, $"L {Guid.NewGuid():N}"[..20], "#546e7a")))
             .ReadAsync<WorkItemTypeDto>();
         try
         {
             await admin.PutJsonAsync($"/api/work-item-types/{created.Id}", new TypeDetailsRequest(created.Name, "#FDD835"));
-            var stored = (await (await admin.GetAsync("/api/work-item-types")).ReadAsync<List<WorkItemTypeDto>>())
+            var stored = (await (await admin.GetAsync($"/api/work-item-types?spaceId={spaceId}"))
+                    .ReadAsync<List<WorkItemTypeDto>>())
                 .Single(l => l.Id == created.Id);
 
             Assert.Multiple(() =>
             {
+                Assert.That(seeded.Select(l => l.Name), Is.EqualTo(new[] { "Project", "Goal", "Task" }));
                 Assert.That(seeded.Select(l => l.Color), Has.None.Empty);
+                Assert.That(created.SpaceId, Is.EqualTo(spaceId));
                 Assert.That(created.Color, Is.EqualTo("#546E7A"));
                 Assert.That(stored.Color, Is.EqualTo("#FDD835"));
             });

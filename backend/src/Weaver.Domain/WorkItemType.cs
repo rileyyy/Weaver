@@ -1,14 +1,11 @@
 namespace Weaver.Domain;
 
 /// <summary>
-/// A configurable label for "what kind of thing is this" (e.g. Project /
-/// Goal / Task, mirroring the classic epic/feature/task idea) — a plain
-/// lookup table, not a hierarchy constraint. <see cref="WorkItem.TypeId"/>
-/// is nullable and never validated against a parent/child's own type:
-/// parent/child stays fluid regardless of what types exist or how items
-/// are labeled.
+/// What kind of thing a work item is (e.g. Room, Chore, Bug), defined per Space (ADR-0002).
+/// A label, not a hierarchy constraint: <see cref="WorkItem.TypeId"/> is nullable and never
+/// validated against a parent's or child's own Type, so any Type can be nested under any other.
 /// </summary>
-public class WorkItemType : LookupValue
+public class WorkItemType : SpaceLookupValue
 {
     /// <summary>For EF Core.</summary>
     private WorkItemType()
@@ -16,7 +13,7 @@ public class WorkItemType : LookupValue
         Color = string.Empty;
     }
 
-    private WorkItemType(string name, int order, string color) : base(name, order)
+    private WorkItemType(Guid spaceId, string name, int order, string color) : base(spaceId, name, order)
     {
         Color = string.Empty;
         Recolor(color);
@@ -28,7 +25,8 @@ public class WorkItemType : LookupValue
     /// </summary>
     public string Color { get; private set; }
 
-    public static WorkItemType Create(string name, int order, string color) => new(name, order, color);
+    public static WorkItemType Create(Guid spaceId, string name, int order, string color) =>
+        new(spaceId, name, order, color);
 
     public void Recolor(string color)
     {

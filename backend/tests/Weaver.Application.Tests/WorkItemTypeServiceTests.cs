@@ -3,7 +3,6 @@ using Weaver.Application.Services;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
 using Weaver.Infrastructure;
-using Weaver.Infrastructure.Configurations;
 
 namespace Weaver.Application.Tests;
 
@@ -31,7 +30,7 @@ public class WorkItemTypeServiceTests
     [Test]
     public async Task GetAllAsync_ReturnsSeededTypesOrderedByOrder()
     {
-        var types = await _types.GetAllAsync();
+        var types = await _types.GetAllAsync(_space.Id);
 
         Assert.That(types.Select(l => l.Name), Is.EqualTo(new[] { "Project", "Goal", "Task" }));
     }
@@ -39,7 +38,7 @@ public class WorkItemTypeServiceTests
     [Test]
     public async Task GetAllAsync_GivesEverySeededTypeAColor()
     {
-        var types = await _types.GetAllAsync();
+        var types = await _types.GetAllAsync(_space.Id);
 
         Assert.That(types.Select(l => l.Color), Is.EqualTo(new[] { "#D81B60", "#00897B", "#43A047" }));
     }
@@ -47,10 +46,10 @@ public class WorkItemTypeServiceTests
     [Test]
     public async Task CreateAndUpdate_SetTheNameAndColor()
     {
-        var created = await _types.CreateAsync(_admin.Id, "Epic", "#546E7A");
+        var created = await _types.CreateAsync(_admin.Id, _space.Id, "Epic", "#546E7A");
         await _types.UpdateAsync(_admin.Id, created.Id, "Initiative", "#fdd835");
 
-        var type = (await _types.GetAllAsync()).Last();
+        var type = (await _types.GetAllAsync(_space.Id)).Last();
         Assert.Multiple(() =>
         {
             Assert.That(type.Name, Is.EqualTo("Initiative"));
@@ -63,25 +62,25 @@ public class WorkItemTypeServiceTests
     {
         var member = TestUsers.Add(_db, "member");
 
-        Assert.ThrowsAsync<AdminRequiredException>(() => _types.CreateAsync(member.Id, "Epic", "#546E7A"));
+        Assert.ThrowsAsync<AdminRequiredException>(() => _types.CreateAsync(member.Id, _space.Id, "Epic", "#546E7A"));
     }
 
     [Test]
     public async Task DeleteAsync_WithAReplacement_MovesItsItemsToIt()
     {
-        var item = AddItem(WorkItemTypeConfiguration.GoalId);
+        var item = AddItem(_space.Goal);
 
-        await _types.DeleteAsync(_admin.Id, WorkItemTypeConfiguration.GoalId, WorkItemTypeConfiguration.TaskId);
+        await _types.DeleteAsync(_admin.Id, _space.Goal, _space.Task);
 
-        Assert.That((await Reload(item)).TypeId, Is.EqualTo(WorkItemTypeConfiguration.TaskId));
+        Assert.That((await Reload(item)).TypeId, Is.EqualTo(_space.Task));
     }
 
     [Test]
     public async Task DeleteAsync_WithoutAReplacement_LeavesItsItemsWithNoType()
     {
-        var item = AddItem(WorkItemTypeConfiguration.GoalId);
+        var item = AddItem(_space.Goal);
 
-        await _types.DeleteAsync(_admin.Id, WorkItemTypeConfiguration.GoalId, replacementId: null);
+        await _types.DeleteAsync(_admin.Id, _space.Goal, replacementId: null);
 
         Assert.That((await Reload(item)).TypeId, Is.Null);
     }

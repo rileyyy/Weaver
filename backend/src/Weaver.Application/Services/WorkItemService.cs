@@ -335,9 +335,9 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
 
     private async Task EnsureDetailLookupsExistAsync(Guid spaceId, Guid? typeId, Guid? priorityId, CancellationToken ct)
     {
-        if (typeId is not null && !await _db.WorkItemTypes.AnyAsync(l => l.Id == typeId, ct))
+        if (typeId is { } type)
         {
-            throw new EntityNotFoundException(nameof(WorkItemType), typeId.Value);
+            await EnsureInSpaceAsync(_db.WorkItemTypes, "Type", type, spaceId, ct);
         }
 
         if (priorityId is { } priority)
@@ -346,7 +346,7 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
         }
     }
 
-    /// <summary>A work item can only take its own Space's statuses and priorities (ADR-0001).</summary>
+    /// <summary>A work item can only take its own Space's statuses, priorities and Types (ADR-0001).</summary>
     private static async Task EnsureInSpaceAsync<T>(
         IQueryable<T> values,
         string kind,

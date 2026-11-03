@@ -41,7 +41,7 @@ public class SpaceServiceTests
     }
 
     [Test]
-    public async Task CreateAsync_StartsTheSpaceWithTheDefaultStatusesAndPriorities()
+    public async Task CreateAsync_StartsTheSpaceWithTheDefaultStatusesPrioritiesAndTypes()
     {
         var space = await _spaces.CreateAsync("Home");
 
@@ -56,6 +56,9 @@ public class SpaceServiceTests
                 ("Done", StatusCategory.Done),
             }));
             Assert.That(priorities.Select(p => p.Name), Is.EqualTo(new[] { "Low", "Medium", "High", "Urgent" }));
+            Assert.That(
+                _db.WorkItemTypes.Where(t => t.SpaceId == space.Id).OrderBy(t => t.Order).Select(t => t.Name),
+                Is.EqualTo(new[] { "Project", "Goal", "Task" }));
         });
     }
 

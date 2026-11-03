@@ -1,4 +1,4 @@
 namespace Weaver.Api.Contracts;
 
-/// <summary>The body for creating a type and for editing one.</summary>
+/// <summary>The body for editing a Type; its Space never changes.</summary>
 public record TypeDetailsRequest(string Name, string Color);

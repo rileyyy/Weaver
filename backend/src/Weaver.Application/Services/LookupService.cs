@@ -8,9 +8,9 @@ namespace Weaver.Application.Services;
 
 /// <summary>
 /// The admin operations every lookup shares: listing, adding at the end, editing, reordering
-/// and deleting with a replacement. Each works within a value's siblings: every value of a
-/// global lookup, or the values of one Space. Subclasses say which table they use and how work
-/// items are moved off a deleted value.
+/// and deleting with a replacement. Each works within a value's siblings, the other values of
+/// its Space (see <see cref="SpaceLookupService{T}"/>). Subclasses say which table they use and
+/// how work items are moved off a deleted value.
 /// </summary>
 public abstract class LookupService<T>(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller) : ILookupService<T> where T : LookupValue
 {
