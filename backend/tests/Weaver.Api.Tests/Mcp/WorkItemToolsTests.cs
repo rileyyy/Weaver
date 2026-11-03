@@ -208,6 +208,20 @@ public class WorkItemToolsTests
     }
 
     [Test]
+    public async Task UpdateWorkItemDetails_WithAWhenSent_PatchesOnlyTheWhen()
+    {
+        var item = MakeWorkItem();
+        var expectedPatch = new WorkItemDetailsPatch { When = "before the Christmas market" };
+        _workItems.Setup(w => w.UpdateDetailsAsync(item.Id, expectedPatch, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemWriteResult(item, [WorkItemField.When]));
+
+        await _tools.UpdateWorkItemDetails(
+            CallWith("id", "when"), item.Id, when: "before the Christmas market", ct: CancellationToken.None);
+
+        _workItems.VerifyAll();
+    }
+
+    [Test]
     public async Task RescheduleWorkItem_WithOnlyAnEndDateSent_KeepsTheStartDate()
     {
         var item = MakeWorkItem();

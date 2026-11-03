@@ -112,7 +112,7 @@ public class WorkItemsController : ControllerBase
     }
 
     /// <summary>
-    /// Patches title/description/layer/priority. Independent of status,
+    /// Patches title/description/layer/priority/When. Independent of status,
     /// parent, schedule, and assignee — see their own endpoints.
     /// </summary>
     [HttpPatch("{id:guid}/details")]
@@ -124,6 +124,7 @@ public class WorkItemsController : ControllerBase
             Description = request.Description,
             LayerId = request.LayerId,
             PriorityId = request.PriorityId,
+            When = request.When,
         };
         var result = await _workItems.UpdateDetailsAsync(id, patch, request.ExpectedVersion);
         return Ok(WorkItemWriteResponse.FromResult(result));

@@ -8,4 +8,5 @@ public record UpdateWorkItemDetailsRequest(
     Optional<string?> Description,
     Optional<Guid?> LayerId,
     Optional<Guid?> PriorityId,
+    Optional<string?> When,
     uint? ExpectedVersion = null);
