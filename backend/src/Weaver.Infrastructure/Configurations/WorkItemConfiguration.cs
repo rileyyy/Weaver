@@ -10,6 +10,7 @@ public class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
     {
         builder.Property(w => w.Title).IsRequired().HasMaxLength(WorkItem.TitleMaxLength);
         builder.Property(w => w.When).HasMaxLength(WorkItem.WhenMaxLength);
+
         // Database-generated (Postgres identity column), never set by
         // application code — see WorkItem.Number's own doc comment. The EF
         // InMemory provider used by the service tests does not generate it

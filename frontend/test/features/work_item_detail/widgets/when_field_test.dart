@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/features/work_item_detail/models/quick_pick.dart';
@@ -76,6 +78,42 @@ void main() {
 
     expect(picked, [QuickPick.nextMonth]);
   });
+
+  testWidgets(
+    'a quick pick tapped mid-edit waits for the phrase to save first',
+    (tester) async {
+      final saveGate = Completer<bool>();
+      final events = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: WhenField(
+              when: null,
+              resolved: false,
+              onSave: (text) {
+                events.add('save $text');
+                return saveGate.future;
+              },
+              onQuickPick: (pick) async {
+                events.add('pick ${pick.name}');
+                return true;
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), 'next week');
+      await tester.tap(find.widgetWithText(ActionChip, 'Next week'));
+      await tester.pump();
+      expect(events, ['save next week']);
+
+      saveGate.complete(true);
+      await tester.pump();
+
+      expect(events, ['save next week', 'pick nextWeek']);
+    },
+  );
 
   testWidgets('follows a phrase saved elsewhere', (tester) async {
     await pump(tester, when: 'next spring');

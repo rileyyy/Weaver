@@ -63,19 +63,32 @@ class _WhenFieldState extends State<WhenField> {
     if (!_focus.hasFocus) unawaited(_save());
   }
 
-  // Submitting also takes the focus away, so without this the same text
-  // would be sent twice with the same version and the second would 409.
-  String? _inFlight;
+  // Every write carries the item's version, so two writes in flight at once
+  // would 409 on the second. Submitting also blurs the field, and a quick
+  // pick can be tapped mid-edit; both reuse this save rather than racing it.
+  (String, Future<void>)? _inFlight;
 
-  Future<void> _save() async {
+  Future<void> _save() {
     final text = _controller.text.trim();
-    if (text == (widget.when ?? '') || text == _inFlight) return;
-    _inFlight = text;
-    try {
-      await widget.onSave(text);
-    } finally {
-      _inFlight = null;
+    if (_inFlight case (
+      final pendingText,
+      final pending,
+    ) when pendingText == text) {
+      return pending;
     }
+    if (text == (widget.when ?? '')) return Future.value();
+
+    final save = widget.onSave(text).then((_) {});
+    final entry = (text, save);
+    _inFlight = entry;
+    return save.whenComplete(() {
+      if (identical(_inFlight, entry)) _inFlight = null;
+    });
+  }
+
+  Future<void> _applyQuickPick(QuickPick pick) async {
+    await _save();
+    await widget.onQuickPick(pick);
   }
 
   @override
@@ -110,7 +123,7 @@ class _WhenFieldState extends State<WhenField> {
               ActionChip(
                 label: Text(pick.label),
                 visualDensity: VisualDensity.compact,
-                onPressed: () => unawaited(widget.onQuickPick(pick)),
+                onPressed: () => unawaited(_applyQuickPick(pick)),
               ),
           ],
         ),
