@@ -97,6 +97,20 @@ public class WorkItemChangesTests
         });
     }
 
+    // Npgsql refuses a DateTimeOffset parameter with a non-zero offset, and agents send local times.
+    [Test]
+    public async Task ASinceWithAnOffset_MeansTheSameInstant()
+    {
+        var (client, _) = await ApiClient.SignedInAsync();
+        var space = await ApiClient.CreateSpaceAsync("Offset");
+        var since = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(10));
+        var item = await client.CreateWorkItemAsync("Down under", spaceId: space);
+
+        var page = await ChangesAsync(client, since, space);
+
+        Assert.That(page.Items.Select(i => i.Item.Id), Is.EqualTo(new[] { item.Id }));
+    }
+
     [Test]
     public async Task BadArguments_Return400()
     {

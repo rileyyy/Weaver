@@ -10,7 +10,7 @@ namespace Weaver.Api.Tests;
 public class WorkItemChangesControllerTests
 {
     [Test]
-    public async Task ListSince_PassesTheQueryThrough_AndReturnsThePage()
+    public async Task ListChangesSince_PassesTheQueryThrough_AndReturnsThePage()
     {
         var since = new DateTimeOffset(2026, 11, 2, 9, 0, 0, TimeSpan.Zero);
         var spaceId = Guid.NewGuid();
@@ -20,7 +20,7 @@ public class WorkItemChangesControllerTests
             .Setup(s => s.ListSinceAsync(new WorkItemChangesQuery(since, spaceId, true, "abc", 5), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new WorkItemChangesPage([new ChangedWorkItem(summary, Deleted: false, [])], null));
 
-        var result = await new WorkItemChangesController(service.Object).ListSince(since, spaceId, true, "abc", 5);
+        var result = await new WorkItemChangesController(service.Object).ListChangesSince(since, spaceId, true, "abc", 5);
 
         var page = (WorkItemChangesPageDto)((OkObjectResult)result.Result!).Value!;
         Assert.Multiple(() =>

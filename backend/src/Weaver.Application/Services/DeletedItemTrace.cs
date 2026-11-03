@@ -16,6 +16,23 @@ internal sealed record DeletedItemTrace(Guid WorkItemId, string Title, Guid? Spa
         WorkItemHistoryField.Created, WorkItemField.Title, WorkItemHistoryField.Deleted, WorkItemField.SpaceId,
     ];
 
+    /// <summary>An item whose history holds none of the entries a trace is built from.</summary>
+    public static DeletedItemTrace Unknown(Guid workItemId) => new(workItemId, string.Empty, null);
+
+    /// <summary>Everything else a summary holds died with the row.</summary>
+    public WorkItemSummary ToSummary(string? spaceName) => new(
+        WorkItemId,
+        Number: null,
+        Title,
+        SpaceId,
+        spaceName,
+        StatusName: null,
+        LayerName: null,
+        StartDate: null,
+        EndDate: null,
+        AssigneeName: null,
+        ChildCount: null);
+
     /// <summary>
     /// Reads all of each item's history, not just since T: the Space is often only in the
     /// entry that created it. An item created before history recorded its Space has none.
@@ -37,7 +54,7 @@ internal sealed record DeletedItemTrace(Guid WorkItemId, string Title, Guid? Spa
             .ToDictionary(
                 g => g.Key,
                 g => g.Aggregate(
-                    new DeletedItemTrace(g.Key, string.Empty, null),
+                    Unknown(g.Key),
                     (trace, e) => e.Field switch
                     {
                         WorkItemField.SpaceId => trace with { SpaceId = Read<Guid?>(e.NewValue) },

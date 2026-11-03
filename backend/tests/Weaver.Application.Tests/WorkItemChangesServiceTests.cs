@@ -274,6 +274,18 @@ public class WorkItemChangesServiceTests
         Assert.That(page.Items.Select(i => i.Item.Id), Is.EqualTo(new[] { item.Id }));
     }
 
+    [Test]
+    public async Task Since_IsAnInstant_WhateverOffsetItIsWrittenIn()
+    {
+        var before = await CreateAsync("Before");
+        _clock.Advance(TimeSpan.FromDays(1));
+        var after = await CreateAsync("After");
+
+        var page = await _changes.ListSinceAsync(new WorkItemChangesQuery(Today.ToOffset(TimeSpan.FromHours(-5))));
+
+        Assert.That(page.Items.Select(i => i.Item.Id), Is.EqualTo(new[] { after.Id }).And.Not.Contains(before.Id));
+    }
+
     [TestCase(0)]
     [TestCase(WorkItemChangesQuery.MaxLimit + 1)]
     public void ALimitOutOfRange_IsRejected(int limit)

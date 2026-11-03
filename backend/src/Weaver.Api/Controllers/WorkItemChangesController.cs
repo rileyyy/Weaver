@@ -24,7 +24,7 @@ public class WorkItemChangesController : ControllerBase
     /// returned <c>nextCursor</c>, with the same query, for the next page.
     /// </summary>
     [HttpGet("api/work-items/changes")]
-    public async Task<ActionResult<WorkItemChangesPageDto>> ListSince(
+    public async Task<ActionResult<WorkItemChangesPageDto>> ListChangesSince(
         [FromQuery, BindRequired] DateTimeOffset since,
         [FromQuery] Guid? spaceId = null,
         [FromQuery] bool excludeOwnChanges = false,

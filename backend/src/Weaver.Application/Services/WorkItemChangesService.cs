@@ -27,8 +27,7 @@ public class WorkItemChangesService : IWorkItemChangesService
         var afterEntryId = WorkItemChangesCursor.Parse(query.Cursor).AfterEntryId;
         var entries = await EntriesSinceAsync(query, ct);
 
-        // Items are ordered, and the cursor placed, by each item's first entry since T: entry ids
-        // only grow and that first entry never changes, so later changes can't reorder pages.
+        // By first entry since T, not by time: see WorkItemChangesCursor.
         var positions = await entries
             .GroupBy(e => e.WorkItemId)
             .Select(g => new { WorkItemId = g.Key, FirstEntryId = g.Min(e => e.Id) })
@@ -65,11 +64,13 @@ public class WorkItemChangesService : IWorkItemChangesService
 
     private async Task<IQueryable<WorkItemHistoryEntry>> EntriesSinceAsync(WorkItemChangesQuery query, CancellationToken ct)
     {
-        var entries = _db.WorkItemHistory.Where(e => e.CreatedAtUtc >= query.Since);
+        // Npgsql only accepts a UTC DateTimeOffset, and agents send times in their own offset.
+        var since = query.Since.ToUniversalTime();
+        var entries = _db.WorkItemHistory.Where(e => e.CreatedAtUtc >= since);
         if (query.ExcludeOwnChanges)
         {
-            // Weaver's own entries have no account and must stay. Spelled out, since in SQL a bare
-            // "AccountId <> me" is false for a null account.
+            // Weaver's own entries have no account and must stay: the null check says so rather
+            // than leaving it to EF's translation of "<>" on a nullable column.
             var me = _caller.Current.AccountId;
             entries = entries.Where(e => e.AccountId == null || e.AccountId != me);
         }
@@ -136,20 +137,9 @@ public class WorkItemChangesService : IWorkItemChangesService
             .ToDictionaryAsync(s => s.Id, s => s.Name, ct);
 
         return itemIds
-            .Select(id => traces.GetValueOrDefault(id) ?? new DeletedItemTrace(id, string.Empty, null))
+            .Select(id => traces.GetValueOrDefault(id) ?? DeletedItemTrace.Unknown(id))
             .ToDictionary(
                 t => t.WorkItemId,
-                t => new WorkItemSummary(
-                    t.WorkItemId,
-                    Number: null,
-                    t.Title,
-                    t.SpaceId,
-                    t.SpaceId is { } spaceId ? spaceNames.GetValueOrDefault(spaceId) : null,
-                    StatusName: null,
-                    LayerName: null,
-                    StartDate: null,
-                    EndDate: null,
-                    AssigneeName: null,
-                    ChildCount: null));
+                t => t.ToSummary(t.SpaceId is { } spaceId ? spaceNames.GetValueOrDefault(spaceId) : null));
     }
 }
