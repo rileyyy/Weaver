@@ -6,27 +6,18 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
-public class AgentAccountService : IAgentAccountService
+public class AgentAccountService(
+    IWeaverDbContext db,
+    IAdminAuthorizer admins,
+    ICallerContext caller,
+    IUserAdministrationService users,
+    TimeProvider clock) : IAgentAccountService
 {
-    private readonly IWeaverDbContext _db;
-    private readonly IAdminAuthorizer _admins;
-    private readonly ICallerContext _caller;
-    private readonly IUserAdministrationService _users;
-    private readonly TimeProvider _clock;
-
-    public AgentAccountService(
-        IWeaverDbContext db,
-        IAdminAuthorizer admins,
-        ICallerContext caller,
-        IUserAdministrationService users,
-        TimeProvider clock)
-    {
-        _db = db;
-        _admins = admins;
-        _caller = caller;
-        _users = users;
-        _clock = clock;
-    }
+    private readonly IWeaverDbContext _db = db;
+    private readonly IAdminAuthorizer _admins = admins;
+    private readonly ICallerContext _caller = caller;
+    private readonly IUserAdministrationService _users = users;
+    private readonly TimeProvider _clock = clock;
 
     public async Task<IReadOnlyList<User>> ListAsync(CancellationToken ct = default)
     {

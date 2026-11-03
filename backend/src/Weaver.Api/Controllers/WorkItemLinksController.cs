@@ -10,14 +10,9 @@ namespace Weaver.Api.Controllers;
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
-public class WorkItemLinksController : ControllerBase
+public class WorkItemLinksController(IWorkItemLinkService links) : ControllerBase
 {
-    private readonly IWorkItemLinkService _links;
-
-    public WorkItemLinksController(IWorkItemLinkService links)
-    {
-        _links = links;
-    }
+    private readonly IWorkItemLinkService _links = links;
 
     [HttpGet("api/work-items/{workItemId:guid}/links")]
     public async Task<ActionResult<IReadOnlyList<WorkItemLinkDto>>> ListForWorkItem(Guid workItemId)

@@ -6,21 +6,14 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
-public class WorkItemService : IWorkItemService
+public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, ICallerContext caller) : IWorkItemService
 {
     public const int DefaultPageSize = 500;
     public const int MaxPageSize = 1000;
 
-    private readonly IWeaverDbContext _db;
-    private readonly IWorkItemHierarchy _hierarchy;
-    private readonly WorkItemHistoryRecorder _history;
-
-    public WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, ICallerContext caller)
-    {
-        _db = db;
-        _hierarchy = hierarchy;
-        _history = new WorkItemHistoryRecorder(db, caller);
-    }
+    private readonly IWeaverDbContext _db = db;
+    private readonly IWorkItemHierarchy _hierarchy = hierarchy;
+    private readonly WorkItemHistoryRecorder _history = new WorkItemHistoryRecorder(db, caller);
 
     public Task<WorkItem?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
         _db.WorkItems.AsNoTracking().FirstOrDefaultAsync(w => w.Id == id, ct);

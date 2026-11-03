@@ -13,14 +13,9 @@ namespace Weaver.Api.Controllers;
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests, "application/problem+json")]
-public class AuthController : ControllerBase
+public class AuthController(IAuthService auth) : ControllerBase
 {
-    private readonly IAuthService _auth;
-
-    public AuthController(IAuthService auth)
-    {
-        _auth = auth;
-    }
+    private readonly IAuthService _auth = auth;
 
     [HttpPost("login")]
     [AllowAnonymous]

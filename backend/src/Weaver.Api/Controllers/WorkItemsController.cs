@@ -12,14 +12,9 @@ namespace Weaver.Api.Controllers;
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
-public class WorkItemsController : ControllerBase
+public class WorkItemsController(IWorkItemService workItems) : ControllerBase
 {
-    private readonly IWorkItemService _workItems;
-
-    public WorkItemsController(IWorkItemService workItems)
-    {
-        _workItems = workItems;
-    }
+    private readonly IWorkItemService _workItems = workItems;
 
     /// <summary>
     /// Direct children of <paramref name="parentId"/>, or the top-level items of
@@ -27,8 +22,8 @@ public class WorkItemsController : ControllerBase
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<WorkItemDto>>> GetChildren(
-        [FromQuery] Guid? parentId,
-        [FromQuery] Guid? spaceId)
+          [FromQuery] Guid? parentId,
+          [FromQuery] Guid? spaceId)
     {
         var items = await _workItems.GetChildrenAsync(parentId, spaceId);
         return Ok(items.Select(WorkItemDto.FromEntity));

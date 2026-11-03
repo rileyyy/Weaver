@@ -1,12 +1,6 @@
 namespace Weaver.Domain.Exceptions;
 
-public class InvalidWorkItemScheduleException : DomainException
+public class InvalidWorkItemScheduleException(Guid workItemId) : DomainException(DomainErrorKind.Validation, $"Work item {workItemId}'s start date must not be after its end date.")
 {
-    public Guid WorkItemId { get; }
-
-    public InvalidWorkItemScheduleException(Guid workItemId)
-        : base(DomainErrorKind.Validation, $"Work item {workItemId}'s start date must not be after its end date.")
-    {
-        WorkItemId = workItemId;
-    }
+  public Guid WorkItemId { get; } = workItemId;
 }

@@ -14,7 +14,7 @@ namespace Weaver.Api.Middleware;
 /// middleware logs every exception as an unhandled error before a handler runs, which would
 /// turn each 404 and 409 into error-level log noise.
 /// </remarks>
-public class ApiExceptionMiddleware
+public class ApiExceptionMiddleware(RequestDelegate next)
 {
     /// <summary>
     /// Services translate concurrency failures they expect; one that still escapes means the
@@ -23,12 +23,7 @@ public class ApiExceptionMiddleware
     public const string ConcurrencyConflictMessage =
         "The data was changed by someone else while saving. Refresh and try again.";
 
-    private readonly RequestDelegate _next;
-
-    public ApiExceptionMiddleware(RequestDelegate next)
-    {
-        _next = next;
-    }
+    private readonly RequestDelegate _next = next;
 
     public async Task InvokeAsync(HttpContext context, IProblemDetailsService problemDetails)
     {

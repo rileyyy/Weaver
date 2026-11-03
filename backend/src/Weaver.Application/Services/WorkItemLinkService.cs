@@ -6,16 +6,10 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
-public class WorkItemLinkService : IWorkItemLinkService
+public class WorkItemLinkService(IWeaverDbContext db, ICallerContext caller) : IWorkItemLinkService
 {
-    private readonly IWeaverDbContext _db;
-    private readonly WorkItemHistoryRecorder _history;
-
-    public WorkItemLinkService(IWeaverDbContext db, ICallerContext caller)
-    {
-        _db = db;
-        _history = new WorkItemHistoryRecorder(db, caller);
-    }
+    private readonly IWeaverDbContext _db = db;
+    private readonly WorkItemHistoryRecorder _history = new WorkItemHistoryRecorder(db, caller);
 
     public Task<IReadOnlyList<WorkItemLinkView>> ListForWorkItemAsync(Guid workItemId, CancellationToken ct = default) =>
         ProjectAsync(

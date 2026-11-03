@@ -12,17 +12,12 @@ namespace Weaver.Api.Auth;
 /// tools take it as an argument instead, because a client sets its headers once per
 /// connection, not per call, and pass it on with <see cref="UseActorLabel"/>.
 /// </remarks>
-public sealed class HttpCallerContext : ICallerContext
+public sealed class HttpCallerContext(IHttpContextAccessor httpContextAccessor) : ICallerContext
 {
     public const string ActorLabelHeader = "X-Actor-Label";
 
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
     private string? _actorLabel;
-
-    public HttpCallerContext(IHttpContextAccessor httpContextAccessor)
-    {
-        _httpContextAccessor = httpContextAccessor;
-    }
 
     public Caller Current
     {

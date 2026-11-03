@@ -8,14 +8,9 @@ namespace Weaver.Infrastructure;
 /// Sets <see cref="IHasCreatedAt.CreatedAtUtc"/> on insert and <see cref="IHasUpdatedAt.UpdatedAtUtc"/>
 /// on insert and update, from one clock, just before each save.
 /// </summary>
-public class TimestampInterceptor : SaveChangesInterceptor
+public class TimestampInterceptor(TimeProvider clock) : SaveChangesInterceptor
 {
-    private readonly TimeProvider _clock;
-
-    public TimestampInterceptor(TimeProvider clock)
-    {
-        _clock = clock;
-    }
+    private readonly TimeProvider _clock = clock;
 
     public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)
     {

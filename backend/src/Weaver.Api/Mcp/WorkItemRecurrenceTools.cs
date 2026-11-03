@@ -8,16 +8,10 @@ using Weaver.Domain;
 namespace Weaver.Api.Mcp;
 
 [McpServerToolType]
-public class WorkItemRecurrenceTools
+public class WorkItemRecurrenceTools(IWorkItemRecurrenceService recurrences, HttpCallerContext caller)
 {
-    private readonly IWorkItemRecurrenceService _recurrences;
-    private readonly HttpCallerContext _caller;
-
-    public WorkItemRecurrenceTools(IWorkItemRecurrenceService recurrences, HttpCallerContext caller)
-    {
-        _recurrences = recurrences;
-        _caller = caller;
-    }
+    private readonly IWorkItemRecurrenceService _recurrences = recurrences;
+    private readonly HttpCallerContext _caller = caller;
 
     [McpServerTool(Name = "list_repeating_work_items", ReadOnly = true)]
     [Description("Lists every repeating work item with its schedule and next occurrence date.")]

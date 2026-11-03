@@ -1,15 +1,9 @@
 namespace Weaver.Domain.Exceptions;
 
-public class CyclicParentException : DomainException
+public class CyclicParentException(Guid workItemId, Guid proposedParentId)
+  : DomainException(DomainErrorKind.Conflict, $"Cannot set parent of work item {workItemId} to {proposedParentId}: it would create a cycle.")
 {
-    public Guid WorkItemId { get; }
+  public Guid WorkItemId { get; } = workItemId;
 
-    public Guid ProposedParentId { get; }
-
-    public CyclicParentException(Guid workItemId, Guid proposedParentId)
-        : base(DomainErrorKind.Conflict, $"Cannot set parent of work item {workItemId} to {proposedParentId}: it would create a cycle.")
-    {
-        WorkItemId = workItemId;
-        ProposedParentId = proposedParentId;
-    }
+  public Guid ProposedParentId { get; } = proposedParentId;
 }

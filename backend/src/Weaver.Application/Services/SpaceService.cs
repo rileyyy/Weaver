@@ -6,18 +6,11 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
-public class SpaceService : ISpaceService
+public class SpaceService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller) : ISpaceService
 {
-    private readonly IWeaverDbContext _db;
-    private readonly IAdminAuthorizer _admins;
-    private readonly ICallerContext _caller;
-
-    public SpaceService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller)
-    {
-        _db = db;
-        _admins = admins;
-        _caller = caller;
-    }
+    private readonly IWeaverDbContext _db = db;
+    private readonly IAdminAuthorizer _admins = admins;
+    private readonly ICallerContext _caller = caller;
 
     public async Task<IReadOnlyList<Space>> GetAllAsync(CancellationToken ct = default) =>
         await _db.Spaces.AsNoTracking().OrderBy(s => s.Name).ThenBy(s => s.Id).ToListAsync(ct);

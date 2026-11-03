@@ -12,14 +12,9 @@ namespace Weaver.Api.Controllers;
 [ProducesResponseType(StatusCodes.Status401Unauthorized)]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
-public class ServerSettingsController : ControllerBase
+public class ServerSettingsController(IServerSettingsService settings) : ControllerBase
 {
-    private readonly IServerSettingsService _settings;
-
-    public ServerSettingsController(IServerSettingsService settings)
-    {
-        _settings = settings;
-    }
+    private readonly IServerSettingsService _settings = settings;
 
     [HttpGet]
     public async Task<ActionResult<ServerSettingsDto>> Get() =>

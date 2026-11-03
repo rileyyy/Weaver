@@ -14,14 +14,9 @@ namespace Weaver.Api.Controllers;
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
-public class WorkItemPrioritiesController : ControllerBase
+public class WorkItemPrioritiesController(IWorkItemPriorityService priorities) : ControllerBase
 {
-    private readonly IWorkItemPriorityService _priorities;
-
-    public WorkItemPrioritiesController(IWorkItemPriorityService priorities)
-    {
-        _priorities = priorities;
-    }
+    private readonly IWorkItemPriorityService _priorities = priorities;
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<WorkItemPriorityDto>>> GetAll()

@@ -7,16 +7,10 @@ using Weaver.Application.Services;
 namespace Weaver.Api.Mcp;
 
 [McpServerToolType]
-public class CommentTools
+public class CommentTools(ICommentService comments, HttpCallerContext caller)
 {
-    private readonly ICommentService _comments;
-    private readonly HttpCallerContext _caller;
-
-    public CommentTools(ICommentService comments, HttpCallerContext caller)
-    {
-        _comments = comments;
-        _caller = caller;
-    }
+    private readonly ICommentService _comments = comments;
+    private readonly HttpCallerContext _caller = caller;
 
     [McpServerTool(Name = "list_comments", ReadOnly = true)]
     [Description("Lists every comment on a work item.")]

@@ -6,16 +6,10 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
-public class WorkItemChangesService : IWorkItemChangesService
+public class WorkItemChangesService(IWeaverDbContext db, ICallerContext caller) : IWorkItemChangesService
 {
-    private readonly IWeaverDbContext _db;
-    private readonly ICallerContext _caller;
-
-    public WorkItemChangesService(IWeaverDbContext db, ICallerContext caller)
-    {
-        _db = db;
-        _caller = caller;
-    }
+    private readonly IWeaverDbContext _db = db;
+    private readonly ICallerContext _caller = caller;
 
     public async Task<WorkItemChangesPage> ListSinceAsync(WorkItemChangesQuery query, CancellationToken ct = default)
     {

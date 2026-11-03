@@ -6,14 +6,9 @@ namespace Weaver.Infrastructure;
 /// <summary>
 /// One recursive query per walk, instead of one round trip per tree level.
 /// </summary>
-public class PostgresWorkItemHierarchy : IWorkItemHierarchy
+public class PostgresWorkItemHierarchy(WeaverDbContext db) : IWorkItemHierarchy
 {
-    private readonly WeaverDbContext _db;
-
-    public PostgresWorkItemHierarchy(WeaverDbContext db)
-    {
-        _db = db;
-    }
+    private readonly WeaverDbContext _db = db;
 
     public async Task<bool> IsSelfOrDescendantAsync(Guid itemId, Guid candidateId, CancellationToken ct = default)
     {

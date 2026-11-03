@@ -13,14 +13,9 @@ namespace Weaver.Api.Controllers;
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
-public class SpacesController : ControllerBase
+public class SpacesController(ISpaceService spaces) : ControllerBase
 {
-    private readonly ISpaceService _spaces;
-
-    public SpacesController(ISpaceService spaces)
-    {
-        _spaces = spaces;
-    }
+    private readonly ISpaceService _spaces = spaces;
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<SpaceDto>>> GetAll()

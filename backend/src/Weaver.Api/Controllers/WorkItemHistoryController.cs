@@ -12,14 +12,9 @@ namespace Weaver.Api.Controllers;
 // The bearer challenge has no body.
 [ProducesResponseType(StatusCodes.Status401Unauthorized)]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
-public class WorkItemHistoryController : ControllerBase
+public class WorkItemHistoryController(IWorkItemHistoryService history) : ControllerBase
 {
-    private readonly IWorkItemHistoryService _history;
-
-    public WorkItemHistoryController(IWorkItemHistoryService history)
-    {
-        _history = history;
-    }
+    private readonly IWorkItemHistoryService _history = history;
 
     /// <summary>Every change to the work item, newest first. Still answers after the item is deleted.</summary>
     [HttpGet("api/work-items/{workItemId:guid}/history")]

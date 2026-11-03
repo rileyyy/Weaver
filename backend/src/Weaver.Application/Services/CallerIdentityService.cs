@@ -5,16 +5,10 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
-public class CallerIdentityService : ICallerIdentityService
+public class CallerIdentityService(IWeaverDbContext db, ICallerContext caller) : ICallerIdentityService
 {
-    private readonly IWeaverDbContext _db;
-    private readonly ICallerContext _caller;
-
-    public CallerIdentityService(IWeaverDbContext db, ICallerContext caller)
-    {
-        _db = db;
-        _caller = caller;
-    }
+    private readonly IWeaverDbContext _db = db;
+    private readonly ICallerContext _caller = caller;
 
     public async Task<CallerIdentity> DescribeAsync(CancellationToken ct = default)
     {

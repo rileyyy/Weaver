@@ -17,16 +17,10 @@ namespace Weaver.Api.Controllers;
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
-public class AdminUsersController : ControllerBase
+public class AdminUsersController(IUserAdministrationService users, TimeProvider clock) : ControllerBase
 {
-    private readonly IUserAdministrationService _users;
-    private readonly TimeProvider _clock;
-
-    public AdminUsersController(IUserAdministrationService users, TimeProvider clock)
-    {
-        _users = users;
-        _clock = clock;
-    }
+    private readonly IUserAdministrationService _users = users;
+    private readonly TimeProvider _clock = clock;
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<AdminUserDto>>> GetAll()

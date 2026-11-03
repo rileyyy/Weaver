@@ -11,21 +11,14 @@ namespace Weaver.Application.Services;
 /// and deleting with a replacement. Subclasses say which table they use and how work items
 /// are moved off a deleted value.
 /// </summary>
-public abstract class LookupService<T> : ILookupService<T> where T : LookupValue
+public abstract class LookupService<T>(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller) : ILookupService<T> where T : LookupValue
 {
-    private readonly IAdminAuthorizer _admins;
+    private readonly IAdminAuthorizer _admins = admins;
 
-    protected LookupService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller)
-    {
-        Db = db;
-        _admins = admins;
-        History = new WorkItemHistoryRecorder(db, caller);
-    }
-
-    protected IWeaverDbContext Db { get; }
+    protected IWeaverDbContext Db { get; } = db;
 
     /// <summary>Moving work items off a deleted value changes them, so each move is recorded.</summary>
-    private protected WorkItemHistoryRecorder History { get; }
+    private protected WorkItemHistoryRecorder History { get; } = new WorkItemHistoryRecorder(db, caller);
 
     protected abstract DbSet<T> Values { get; }
 

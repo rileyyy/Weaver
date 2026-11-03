@@ -6,14 +6,9 @@ using Weaver.Application.Services;
 namespace Weaver.Api.Mcp;
 
 [McpServerToolType]
-public class WhoAmITools
+public class WhoAmITools(ICallerIdentityService identity)
 {
-    private readonly ICallerIdentityService _identity;
-
-    public WhoAmITools(ICallerIdentityService identity)
-    {
-        _identity = identity;
-    }
+    private readonly ICallerIdentityService _identity = identity;
 
     [McpServerTool(Name = "whoami", ReadOnly = true)]
     [Description(

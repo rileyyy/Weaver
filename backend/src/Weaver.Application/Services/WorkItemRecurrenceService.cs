@@ -7,24 +7,16 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
-public class WorkItemRecurrenceService : IWorkItemRecurrenceService
+public class WorkItemRecurrenceService(
+    IWeaverDbContext db,
+    IServerCalendar calendar,
+    ILogger<WorkItemRecurrenceService> logger,
+    ICallerContext caller) : IWorkItemRecurrenceService
 {
-    private readonly IWeaverDbContext _db;
-    private readonly IServerCalendar _calendar;
-    private readonly ILogger<WorkItemRecurrenceService> _logger;
-    private readonly WorkItemHistoryRecorder _history;
-
-    public WorkItemRecurrenceService(
-        IWeaverDbContext db,
-        IServerCalendar calendar,
-        ILogger<WorkItemRecurrenceService> logger,
-        ICallerContext caller)
-    {
-        _db = db;
-        _calendar = calendar;
-        _logger = logger;
-        _history = new WorkItemHistoryRecorder(db, caller);
-    }
+    private readonly IWeaverDbContext _db = db;
+    private readonly IServerCalendar _calendar = calendar;
+    private readonly ILogger<WorkItemRecurrenceService> _logger = logger;
+    private readonly WorkItemHistoryRecorder _history = new WorkItemHistoryRecorder(db, caller);
 
     public async Task<RecurringWorkItem?> GetAsync(Guid workItemId, CancellationToken ct = default)
     {

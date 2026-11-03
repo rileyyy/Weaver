@@ -10,14 +10,9 @@ namespace Weaver.Api.Controllers;
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
-public class CommentsController : ControllerBase
+public class CommentsController(ICommentService comments) : ControllerBase
 {
-    private readonly ICommentService _comments;
-
-    public CommentsController(ICommentService comments)
-    {
-        _comments = comments;
-    }
+    private readonly ICommentService _comments = comments;
 
     [HttpGet("api/work-items/{workItemId:guid}/comments")]
     public async Task<ActionResult<IReadOnlyList<CommentDto>>> ListForWorkItem(Guid workItemId)

@@ -9,16 +9,10 @@ namespace Weaver.Application.Services;
 /// transaction as the change they describe: a write that fails records nothing. Every service
 /// that changes a work item records through this (ADR-0005).
 /// </summary>
-internal sealed class WorkItemHistoryRecorder
+internal sealed class WorkItemHistoryRecorder(IWeaverDbContext db, ICallerContext caller)
 {
-    private readonly IWeaverDbContext _db;
-    private readonly ICallerContext _caller;
-
-    public WorkItemHistoryRecorder(IWeaverDbContext db, ICallerContext caller)
-    {
-        _db = db;
-        _caller = caller;
-    }
+    private readonly IWeaverDbContext _db = db;
+    private readonly ICallerContext _caller = caller;
 
     /// <summary>The current caller, read when an entry is recorded rather than up front.</summary>
     public HistoryActor CurrentActor => _caller.Current.HistoryActor;

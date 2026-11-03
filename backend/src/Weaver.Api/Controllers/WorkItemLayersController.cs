@@ -14,14 +14,9 @@ namespace Weaver.Api.Controllers;
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
-public class WorkItemLayersController : ControllerBase
+public class WorkItemLayersController(IWorkItemLayerService layers) : ControllerBase
 {
-    private readonly IWorkItemLayerService _layers;
-
-    public WorkItemLayersController(IWorkItemLayerService layers)
-    {
-        _layers = layers;
-    }
+    private readonly IWorkItemLayerService _layers = layers;
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<WorkItemLayerDto>>> GetAll()

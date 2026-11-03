@@ -4,16 +4,10 @@ using Weaver.Domain;
 
 namespace Weaver.Application.Auth;
 
-public class ApiKeyAuthenticator : IApiKeyAuthenticator
+public class ApiKeyAuthenticator(IWeaverDbContext db, TimeProvider clock) : IApiKeyAuthenticator
 {
-    private readonly IWeaverDbContext _db;
-    private readonly TimeProvider _clock;
-
-    public ApiKeyAuthenticator(IWeaverDbContext db, TimeProvider clock)
-    {
-        _db = db;
-        _clock = clock;
-    }
+    private readonly IWeaverDbContext _db = db;
+    private readonly TimeProvider _clock = clock;
 
     public async Task<ApiKeySignIn?> AuthenticateAsync(string key, CancellationToken ct = default)
     {

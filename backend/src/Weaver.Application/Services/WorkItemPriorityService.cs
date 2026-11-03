@@ -5,13 +5,8 @@ using Weaver.Domain;
 
 namespace Weaver.Application.Services;
 
-public class WorkItemPriorityService : LookupService<WorkItemPriority>, IWorkItemPriorityService
+public class WorkItemPriorityService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller) : LookupService<WorkItemPriority>(db, admins, caller), IWorkItemPriorityService
 {
-    public WorkItemPriorityService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller)
-        : base(db, admins, caller)
-    {
-    }
-
     protected override DbSet<WorkItemPriority> Values => Db.WorkItemPriorities;
 
     protected override string Kind => "Priority";

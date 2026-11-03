@@ -13,14 +13,9 @@ namespace Weaver.Api.Controllers;
 [Route("api/users")]
 // The bearer challenge has no body.
 [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-public class UsersController : ControllerBase
+public class UsersController(IUserService users) : ControllerBase
 {
-    private readonly IUserService _users;
-
-    public UsersController(IUserService users)
-    {
-        _users = users;
-    }
+    private readonly IUserService _users = users;
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<UserDto>>> GetAll()

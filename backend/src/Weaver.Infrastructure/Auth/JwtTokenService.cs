@@ -8,18 +8,12 @@ using Weaver.Domain;
 
 namespace Weaver.Infrastructure.Auth;
 
-public class JwtTokenService : IJwtTokenService
+public class JwtTokenService(IOptions<JwtOptions> options, TimeProvider clock) : IJwtTokenService
 {
     public const string KindClaimType = "kind";
 
-    private readonly JwtOptions _options;
-    private readonly TimeProvider _clock;
-
-    public JwtTokenService(IOptions<JwtOptions> options, TimeProvider clock)
-    {
-        _options = options.Value;
-        _clock = clock;
-    }
+    private readonly JwtOptions _options = options.Value;
+    private readonly TimeProvider _clock = clock;
 
     public AccessToken CreateAccessToken(User user)
     {

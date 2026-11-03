@@ -1,12 +1,6 @@
 namespace Weaver.Domain.Exceptions;
 
-public class UsernameTakenException : DomainException
+public class UsernameTakenException(string username, Exception? innerException = null) : DomainException(DomainErrorKind.Conflict, $"Username '{username}' is already taken.", innerException)
 {
-    public string Username { get; }
-
-    public UsernameTakenException(string username, Exception? innerException = null)
-        : base(DomainErrorKind.Conflict, $"Username '{username}' is already taken.", innerException)
-    {
-        Username = username;
-    }
+  public string Username { get; } = username;
 }
