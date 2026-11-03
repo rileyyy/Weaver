@@ -33,6 +33,28 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-03 — Changes since T
+
+`feature/changes-since` (ticket 31 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0005](docs/adr/0005-change-history.md)).
+
+- **Agents can ask what changed since a moment.** `GET
+  /api/work-items/changes?since=…` and the read-only MCP tool
+  `list_changes_since` list the work items with history at or after
+  `since`, each as a brief summary with names (number, title, Space,
+  status, layer, dates, assignee, child count) and its entries since then.
+- **Deletes are included and marked** `deleted: true`, with the title and
+  Space the item had.
+- **Filter by Space**, and **leave out your own changes**
+  (`excludeOwnChanges`) to see what others did. Changes Weaver makes
+  itself, such as generating repeat copies, are always kept.
+- **Pages with a stable cursor** (`limit` up to 200, default 50; pass
+  `nextCursor` back). Changes made between pages don't shuffle or repeat
+  items.
+- Restored items aren't marked yet: there is no restore until the Trash
+  (ticket 19).
+
 ## 2026-11-03 — Spaces replace Boards
 
 `feature/spaces-replace-boards` (ticket 11 of

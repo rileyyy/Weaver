@@ -4,13 +4,15 @@
 
 **Blocked by:** 10
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Takes a timestamp and optional Space; returns changed items as lean summaries, each with its history entries since T
+- [x] Takes a timestamp and optional Space; returns changed items as lean summaries, each with its history entries since T
 - [ ] Deleted and restored items are included, and marked
-- [ ] Pages with a stable cursor
-- [ ] Optionally excludes the caller's own changes, so an agent can see what others did
-- [ ] Tests cover field changes, deletes, and paging
+  - Deletes are done (`deleted: true`, title and Space from history). Restore doesn't exist until the Trash, so there's nothing to mark yet; ticket 19 has a comment on adding `restored` here.
+- [x] Pages with a stable cursor
+- [x] Optionally excludes the caller's own changes, so an agent can see what others did
+- [x] Tests cover field changes, deletes, and paging
+  - The Application tests (InMemory) pass. The Postgres integration tests (`WorkItemChangesTests`: paging, cursor, exclude-own with a system entry, non-UTC `since`, MCP with a read-only key) compile but weren't run on the machine that built this, which has no Docker. Run them before merging.
 
 ## Comments
 

@@ -20,3 +20,11 @@
 
 - Delete records a `deleted` entry (old value: the title) for the item and every descendant, plus a `link` removal on items outside the subtree that lose a link. History has no foreign key to `WorkItems`, so it already outlives a hard delete. Add a `restored` name to `WorkItemHistoryField` (and the Flutter `change` text) for restore.
 - An account with history can't be hard-deleted (`UserHasHistoryException`), so "who deleted it" on the Trash page can join `WorkItemHistory` to `Users` safely.
+
+**2026-11-03, from ticket 31 (changes since T):**
+
+- `WorkItemChangesService` (`GET /api/work-items/changes`, MCP `list_changes_since`) marks an item `Deleted` when it has no `WorkItems` row, and rebuilds a deleted item's summary and Space from history (`DeletedItemTrace`). Once delete trashes instead, a trashed item keeps its row, so:
+  - Derive `Deleted` from the trash state (the row's deleted marker), not from the row being missing, and build a trashed item's summary from its row (number and all) instead of from `DeletedItemTrace`. Purged items (ticket 20) still go through `DeletedItemTrace`.
+  - The live-summary query must include trashed rows here, even after the global "exclude trashed" read rule lands, or trashed items lose their summary.
+  - Add `Restored` to `ChangedWorkItem` (and `ChangedWorkItemDto`): true when the item has a `restored` entry among its changes since T. That's the ticket 31 criterion "Deleted and restored items are included, and marked" left unticked. If both flags together read badly (deleted, then restored, then deleted again), consider one state derived from the latest `deleted`/`restored` entry instead.
+  - The Space filter treats a trashed item like a live one (its row's Space); test it alongside the restore tests.
