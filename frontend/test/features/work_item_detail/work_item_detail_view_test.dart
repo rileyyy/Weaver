@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_history_repository.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
@@ -26,14 +27,25 @@ class _NoUser implements CurrentUser {
   String? get currentUserId => null;
 }
 
-/// Serves just what the detail view loads; anything else is unexpected.
-class _LoadOnlyRepository implements WorkItemDetailRepository {
+/// Serves what the detail view loads and saves descriptions; anything else
+/// is unexpected.
+class _FakeRepository implements WorkItemDetailRepository {
+  _FakeRepository({this.description});
+
+  String? description;
+  int version = 1;
+
+  /// When set, the next description save loses to this description, saved
+  /// by someone else, and fails with a 409.
+  String? theirDescription;
+  final List<(String, int)> descriptionSaves = [];
+
   @override
   Future<WorkItemDetail> getItem(String id) async => WorkItemDetail(
     id: id,
     parentId: null,
     title: 'Original title',
-    description: null,
+    description: description,
     statusId: 'todo',
     layerId: null,
     priorityId: null,
@@ -42,8 +54,24 @@ class _LoadOnlyRepository implements WorkItemDetailRepository {
     endDate: null,
     createdAt: DateTime(2026, 9, 1),
     updatedAt: DateTime(2026, 9, 1),
-    version: 1,
+    version: version,
   );
+
+  @override
+  Future<WorkItemDetail> updateDescription(
+    String id,
+    String description, {
+    required int expectedVersion,
+  }) {
+    descriptionSaves.add((description, expectedVersion));
+    version++;
+    if (theirDescription case final theirs?) {
+      this.description = theirs;
+      return Future.error(const ApiException('changed', statusCode: 409));
+    }
+    this.description = description;
+    return getItem(id);
+  }
 
   @override
   Future<List<WorkItemStatus>> loadStatuses() async => const [
@@ -117,6 +145,7 @@ Future<void> _openDetails(
   WidgetTester tester, {
   FakeRecurrenceRepository? recurrences,
   WorkItemHistoryRepository? history,
+  _FakeRepository? repository,
 }) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
@@ -130,7 +159,7 @@ Future<void> _openDetails(
               builder: (_) => WorkItemDetailView(
                 workItemId: 'item-1',
                 viewModel: WorkItemDetailViewModel(
-                  _LoadOnlyRepository(),
+                  repository ?? _FakeRepository(),
                   _NoUser(),
                 ),
                 repeatViewModel: RepeatSettingsViewModel(
@@ -197,6 +226,93 @@ void main() {
       find.widgetWithText(FilledButton, 'Save details'),
     );
     expect(save.onPressed, isNull);
+  });
+
+  group('description', () {
+    Finder descriptionField(String text) =>
+        find.widgetWithText(TextField, text);
+
+    testWidgets('shows rendered Markdown, and the raw text when editing', (
+      tester,
+    ) async {
+      await _openDetails(
+        tester,
+        repository: _FakeRepository(description: 'Buy **fresh** bread'),
+      );
+
+      expect(find.textContaining('**', findRichText: true), findsNothing);
+      expect(
+        find.textContaining('fresh bread', findRichText: true),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byTooltip('Edit description'));
+      await tester.pump();
+      expect(descriptionField('Buy **fresh** bread'), findsOneWidget);
+
+      await tester.enterText(descriptionField('Buy **fresh** bread'), '# Oat');
+      await tester.tap(find.byTooltip('Preview description'));
+      await tester.pump();
+      expect(descriptionField('# Oat'), findsNothing);
+      expect(find.text('Oat', findRichText: true), findsOneWidget);
+      expect(find.text('Unsaved changes'), findsOneWidget);
+    });
+
+    testWidgets('ticking a box saves that line with the item version', (
+      tester,
+    ) async {
+      final repository = _FakeRepository(description: '- [ ] milk\n- [ ] eggs');
+      await _openDetails(tester, repository: repository);
+
+      await tester.tap(find.byType(Checkbox).at(1));
+      await tester.pumpAndSettle();
+
+      expect(repository.descriptionSaves, [('- [ ] milk\n- [x] eggs', 1)]);
+      final boxes = tester.widgetList<Checkbox>(find.byType(Checkbox));
+      expect(boxes.map((box) => box.value), [false, true]);
+      expect(find.text('Unsaved changes'), findsNothing);
+
+      await tester.tap(find.byType(Checkbox).at(0));
+      await tester.pumpAndSettle();
+      expect(repository.descriptionSaves.last, ('- [x] milk\n- [x] eggs', 2));
+    });
+
+    testWidgets('a tick that conflicts reloads the item and says so', (
+      tester,
+    ) async {
+      final repository = _FakeRepository(description: '- [ ] milk')
+        ..theirDescription = '- [ ] milk\n- [ ] eggs';
+      await _openDetails(tester, repository: repository);
+
+      await tester.tap(find.byType(Checkbox));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Someone else changed this work item'),
+        findsOneWidget,
+      );
+      final boxes = tester.widgetList<Checkbox>(find.byType(Checkbox));
+      expect(boxes.map((box) => box.value), [false, false]);
+      expect(find.textContaining('eggs', findRichText: true), findsOneWidget);
+    });
+
+    testWidgets('boxes are read-only while the description has unsaved edits', (
+      tester,
+    ) async {
+      await _openDetails(
+        tester,
+        repository: _FakeRepository(description: '- [ ] milk'),
+      );
+
+      await tester.tap(find.byTooltip('Edit description'));
+      await tester.pump();
+      await tester.enterText(descriptionField('- [ ] milk'), '- [ ] oat milk');
+      await tester.tap(find.byTooltip('Preview description'));
+      await tester.pump();
+
+      final box = tester.widget<Checkbox>(find.byType(Checkbox));
+      expect(box.onChanged, isNull);
+    });
   });
 
   testWidgets('setting up a repeat is saved with Save repeat', (tester) async {

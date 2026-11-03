@@ -103,6 +103,18 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   );
 
   @override
+  Future<WorkItemDetail> updateDescription(
+    String id,
+    String description, {
+    required int expectedVersion,
+  }) => _api.patch(
+    '/work-items/$id/details',
+    {'description': description, 'expectedVersion': expectedVersion},
+    _writtenItem,
+    failureMessage: 'Failed to update work item',
+  );
+
+  @override
   Future<WorkItemDetail> assign(
     String id,
     String? userId, {

@@ -12,6 +12,7 @@ import 'package:weaver/features/work_item_detail/models/work_item_detail.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/shared/data/current_user.dart';
+import 'package:weaver/shared/markdown/task_list.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
@@ -169,6 +170,20 @@ class WorkItemDetailViewModel extends ViewModel {
         description: description,
         layerId: layerId,
         priorityId: priorityId,
+        expectedVersion: _item!.version,
+      ),
+    );
+  }
+
+  /// Ticks or unticks the [taskIndex]th task line of the saved
+  /// description (counted as in [toggleTask]) and saves only the
+  /// description, so a tick never carries unsaved form edits with it.
+  Future<bool> toggleDescriptionTask(int taskIndex) {
+    final description = toggleTask(_item!.description ?? '', taskIndex);
+    return _save(
+      () => _repository.updateDescription(
+        _item!.id,
+        description,
         expectedVersion: _item!.version,
       ),
     );

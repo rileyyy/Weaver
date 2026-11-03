@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:weaver/core/dates/date_format.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
+import 'package:weaver/shared/markdown/markdown_text.dart';
 
 class CommentTile extends StatefulWidget {
   const CommentTile({
@@ -94,7 +95,7 @@ class _CommentTileState extends State<CommentTile> {
               ],
             ),
           ] else
-            Text(comment.body),
+            MarkdownText(comment.body),
         ],
       ),
     );
