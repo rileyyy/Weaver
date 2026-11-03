@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
@@ -24,6 +26,9 @@ class _SpacesRepository implements BoardRepository {
   final List<String> allItemLoads = [];
   final List<String> creates = [];
 
+  /// Item loads for these Space ids wait on their completer.
+  final Map<String, Completer<void>> allItemGates = {};
+
   @override
   Future<List<Space>> loadSpaces() async => spaces;
 
@@ -44,6 +49,7 @@ class _SpacesRepository implements BoardRepository {
   @override
   Future<List<WorkItem>> loadAllItems(String spaceId) async {
     allItemLoads.add(spaceId);
+    await allItemGates[spaceId]?.future;
     return [workItem('$spaceId-item', spaceId: spaceId)];
   }
 
@@ -200,6 +206,37 @@ void main() {
 
       expect(repository.allItemLoads, ['home', 'village']);
       expect(viewModel.hierarchyRoots.single.item.id, 'village-item');
+    });
+  });
+
+  group('switching Space never shows the old Space in the hierarchy', () {
+    test('while the new Space is loading', () async {
+      final viewModel = viewModelWith();
+      await viewModel.load();
+      await viewModel.loadHierarchy();
+      final villageItems = repository.allItemGates['village'] = Completer();
+
+      final switching = viewModel.switchSpace(_village);
+      await pumpEventQueue();
+
+      expect(viewModel.hierarchyRoots, isEmpty);
+      villageItems.complete();
+      await switching;
+      expect(viewModel.hierarchyRoots.single.item.id, 'village-item');
+    });
+
+    test('when the old Space was still loading', () async {
+      final viewModel = viewModelWith();
+      await viewModel.load();
+      final homeItems = repository.allItemGates['home'] = Completer();
+      final firstLoad = viewModel.loadHierarchy();
+
+      await viewModel.switchSpace(_village);
+      homeItems.complete();
+      await firstLoad;
+
+      expect(viewModel.hierarchyRoots.single.item.id, 'village-item');
+      expect(viewModel.isHierarchyLoading, isFalse);
     });
   });
 

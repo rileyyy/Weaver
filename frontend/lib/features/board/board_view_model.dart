@@ -373,6 +373,7 @@ class BoardViewModel extends ViewModel {
   Future<void> switchSpace(Space space) async {
     if (space.id == _currentSpace?.id) return;
 
+    var hierarchyWanted = false;
     await _changeScope(() async {
       final asOf = _items.revision;
       final data = await _repository.loadBoard(space.id, null);
@@ -380,12 +381,24 @@ class BoardViewModel extends ViewModel {
         _currentSpace = space;
         _applyScope(data, asOf);
         _breadcrumbs = [_rootCrumb(space)];
+        hierarchyWanted = _clearHierarchy();
       };
     }, errorMessage: 'Could not open "${space.name}". Try again.');
     if (isDisposed || _currentSpace?.id != space.id) return;
 
     await _lastSpace.writeSpaceId(space.id);
-    await refreshHierarchyIfLoaded();
+    if (hierarchyWanted) await loadHierarchy();
+  }
+
+  /// Drops the old Space's Hierarchy/Roadmap items so they never show under
+  /// the new Space, and discards a load of them still in flight. Returns
+  /// whether the hierarchy had been asked for, so it can be reloaded.
+  bool _clearHierarchy() {
+    final wanted = _hierarchyLoaded || _isHierarchyLoading;
+    _hierarchyGeneration++;
+    _hierarchyItemIds = const [];
+    _isHierarchyLoading = false;
+    return wanted;
   }
 
   /// Re-attempts the scope load that last failed. A no-op once a load has
