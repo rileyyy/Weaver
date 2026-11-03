@@ -191,6 +191,13 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i60.RepeatSettingsViewModel>(
       () => _i60.RepeatSettingsViewModel(gh<_i65.RecurrenceRepository>()),
     );
+    gh.factory<_i194.WorkItemDetailViewModel>(
+      () => _i194.WorkItemDetailViewModel(
+        gh<_i982.WorkItemDetailRepository>(),
+        gh<_i875.CurrentUser>(),
+        gh<_i723.WorkItemStore>(),
+      ),
+    );
     gh.lazySingleton<_i377.LookupAdminRepository>(
       () => _i427.ApiLookupAdminRepository(
         gh<_i519.Client>(),
@@ -235,12 +242,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i338.ServerSettingsAdminViewModel>(
       () => _i338.ServerSettingsAdminViewModel(
         gh<_i300.ServerSettingsAdminRepository>(),
-      ),
-    );
-    gh.factory<_i194.WorkItemDetailViewModel>(
-      () => _i194.WorkItemDetailViewModel(
-        gh<_i982.WorkItemDetailRepository>(),
-        gh<_i875.CurrentUser>(),
       ),
     );
     gh.factory<_i486.UserAdminViewModel>(

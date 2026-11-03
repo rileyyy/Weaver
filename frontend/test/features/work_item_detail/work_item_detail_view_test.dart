@@ -13,6 +13,7 @@ import 'package:weaver/features/work_item_detail/work_item_detail_view.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
 import 'package:weaver/features/work_item_detail/work_item_history_view_model.dart';
 import 'package:weaver/shared/data/current_user.dart';
+import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item.dart';
@@ -162,6 +163,7 @@ Future<void> _openDetails(
                 viewModel: WorkItemDetailViewModel(
                   repository ?? _FakeRepository(),
                   _NoUser(),
+                  WorkItemStore(),
                 ),
                 repeatViewModel: RepeatSettingsViewModel(
                   recurrences ?? FakeRecurrenceRepository(),

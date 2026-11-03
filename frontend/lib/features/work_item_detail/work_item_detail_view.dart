@@ -38,9 +38,10 @@ const int _metadataColumnFlex = 35;
 /// action lets the user close the dialog and re-scope the board to this
 /// item's children instead.
 ///
-/// Completes with true if anything other views show was changed from the
-/// dialog (or from a sub-item dialog opened inside it), including deleting
-/// the item, so the caller can refresh whatever it was showing.
+/// Edits and deletes reach other views through the shared `WorkItemStore`.
+/// Completes with true only if the dialog (or a sub-item dialog opened
+/// inside it) changed something the store can't show, such as repeat
+/// settings creating items, so the caller can refresh what it was showing.
 Future<bool> showWorkItemDetailDialog(
   BuildContext context, {
   required String workItemId,
@@ -86,8 +87,8 @@ class WorkItemDetailView extends StatefulWidget {
   /// reachable from the detail dialog instead of a tap on the card itself.
   final VoidCallback? onDrillInto;
 
-  /// Called (possibly more than once) after a change other views show has
-  /// been saved — see [WorkItemDetailViewModel.hasChanges].
+  /// Called (possibly more than once) after a change the shared store can't
+  /// show by itself — see [WorkItemDetailViewModel.hasChanges].
   final VoidCallback? onChanged;
 
   /// Normally resolved from DI; tests pass one in.
@@ -285,7 +286,9 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
       );
     }
 
-    final item = _viewModel.item!;
+    // Null once the item is deleted, while the dialog animates closed.
+    final item = _viewModel.item;
+    if (item == null) return const SizedBox.shrink();
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -542,6 +545,6 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
       context,
       workItemId: workItemId,
     );
-    if (changed) await _viewModel.onSubItemChanged();
+    await _viewModel.onNestedDialogClosed(changed: changed);
   }
 }

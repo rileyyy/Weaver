@@ -10,11 +10,14 @@ import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
 import 'package:weaver/shared/data/current_user.dart';
+import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_layer.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
+
+import '../../shared/fakes/work_items.dart';
 
 WorkItem _item({
   String id = 'item-1',
@@ -75,6 +78,13 @@ class _FakeRepository implements WorkItemDetailRepository {
 
   /// When set, [assign] waits on it, so a test can overlap two saves.
   Completer<void>? assignGate;
+
+  /// Rejects a write based on a stale version, as the server does.
+  void _checkVersion(int expectedVersion) {
+    if (expectedVersion != item.version) {
+      throw const ApiException('Changed by someone else', statusCode: 409);
+    }
+  }
 
   @override
   Future<WorkItem> getItem(String id) async {
@@ -140,6 +150,7 @@ class _FakeRepository implements WorkItemDetailRepository {
     expectedVersions.add(expectedVersion);
     final error = saveError;
     if (error != null) throw error;
+    _checkVersion(expectedVersion);
     return item = _item(
       id: id,
       statusId: item.statusId,
@@ -159,6 +170,7 @@ class _FakeRepository implements WorkItemDetailRepository {
     expectedVersions.add(expectedVersion);
     final error = saveError;
     if (error != null) throw error;
+    _checkVersion(expectedVersion);
     return item = _item(
       id: id,
       statusId: item.statusId,
@@ -179,10 +191,13 @@ class _FakeRepository implements WorkItemDetailRepository {
     await assignGate?.future;
     final error = saveError;
     if (error != null) throw error;
+    _checkVersion(expectedVersion);
     return item = _item(
       id: id,
       statusId: item.statusId,
       assignedToUserId: userId,
+      tags: item.tags,
+      version: item.version + 1,
     );
   }
 
@@ -197,7 +212,8 @@ class _FakeRepository implements WorkItemDetailRepository {
     expectedVersions.add(expectedVersion);
     final error = saveError;
     if (error != null) throw error;
-    return item;
+    _checkVersion(expectedVersion);
+    return item = withVersion(item, item.version + 1);
   }
 
   @override
@@ -210,7 +226,14 @@ class _FakeRepository implements WorkItemDetailRepository {
     expectedVersions.add(expectedVersion);
     final error = saveError;
     if (error != null) throw error;
-    return item = _item(id: id, statusId: item.statusId, tags: tags);
+    _checkVersion(expectedVersion);
+    return item = _item(
+      id: id,
+      statusId: item.statusId,
+      assignedToUserId: item.assignedToUserId,
+      tags: tags,
+      version: item.version + 1,
+    );
   }
 
   @override
@@ -292,7 +315,11 @@ class _FakeRepository implements WorkItemDetailRepository {
 void main() {
   test('load populates item, statuses, layers, priorities and users', () async {
     final repository = _FakeRepository();
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
 
     await viewModel.load('item-1');
 
@@ -309,7 +336,11 @@ void main() {
     final repository = _FakeRepository(
       getItemError: const ApiException('network down'),
     );
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
 
     await viewModel.load('item-1');
 
@@ -319,7 +350,11 @@ void main() {
 
   test('statusName resolves the current status from the loaded list', () async {
     final repository = _FakeRepository();
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
 
     expect(viewModel.statusName, 'To Do');
@@ -335,7 +370,11 @@ void main() {
           statusId: 'todo',
         ),
       ];
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
 
     await viewModel.load('item-1');
 
@@ -347,7 +386,11 @@ void main() {
     'statusColorFor resolves a status by id, or null when unknown',
     () async {
       final repository = _FakeRepository();
-      final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
       await viewModel.load('item-1');
 
       expect(viewModel.statusColorFor('todo'), const Color(0xFF00FF00));
@@ -357,7 +400,11 @@ void main() {
 
   test('saveDetails updates the item and returns true on success', () async {
     final repository = _FakeRepository();
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
 
     final ok = await viewModel.saveDetails(
@@ -377,7 +424,11 @@ void main() {
     final repository = _FakeRepository(
       saveError: const ApiException('conflict'),
     );
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
 
     final ok = await viewModel.saveDetails(
@@ -395,7 +446,11 @@ void main() {
     'saveDetails sends the loaded version, then the version each save returns',
     () async {
       final repository = _FakeRepository()..item = _item(version: 5);
-      final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
       await viewModel.load('item-1');
 
       await viewModel.saveDetails(
@@ -410,20 +465,72 @@ void main() {
     },
   );
 
-  test('a save conflict after the dialog closed skips the reload', () async {
-    final repository = _FakeRepository(
-      saveError: const ApiException('changed', statusCode: 409),
-    )..assignGate = Completer<void>();
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+  test(
+    'a save conflict after the dialog closed still refreshes the shared copy, '
+    'which the board shows',
+    () async {
+      final repository = _FakeRepository(
+        saveError: const ApiException('changed', statusCode: 409),
+      )..assignGate = Completer<void>();
+      final items = WorkItemStore();
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        items,
+      );
+      await viewModel.load('item-1');
+      repository.item = _item(title: "Someone else's title", version: 9);
+
+      final save = viewModel.saveAssignee('user-1');
+      viewModel.dispose();
+      repository.assignGate!.complete();
+
+      expect(await save, isFalse);
+      expect(items['item-1']?.title, "Someone else's title");
+    },
+  );
+
+  test('overlapping saves are sent one at a time, each with the version the '
+      'previous one returned', () async {
+    final gate = Completer<void>();
+    final repository = _FakeRepository()
+      ..item = _item(version: 3)
+      ..assignGate = gate;
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
-    final getItemCallsBefore = repository.getItemCalls;
 
-    final save = viewModel.saveAssignee('user-1');
-    viewModel.dispose();
-    repository.assignGate!.complete();
+    final assign = viewModel.saveAssignee('user-1');
+    final tags = viewModel.saveTags(['urgent']);
+    await pumpEventQueue();
+    expect(repository.updateTagsCalls, isEmpty, reason: 'waits its turn');
 
-    expect(await save, isFalse);
-    expect(repository.getItemCalls, getItemCallsBefore);
+    gate.complete();
+
+    expect(await assign, isTrue);
+    expect(await tags, isTrue);
+    expect(repository.expectedVersions, [3, 4]);
+    expect(viewModel.item!.assignedToUserId, 'user-1');
+    expect(viewModel.item!.tags, ['urgent']);
+    expect(viewModel.saveError, isNull);
+  });
+
+  test('a save puts the saved item in the shared store', () async {
+    final items = WorkItemStore();
+    final viewModel = WorkItemDetailViewModel(
+      _FakeRepository(),
+      _currentUser,
+      items,
+    );
+    await viewModel.load('item-1');
+
+    await viewModel.saveTags(['urgent']);
+
+    expect(items['item-1']?.tags, ['urgent']);
+    expect(items['item-1']?.version, 2);
   });
 
   test(
@@ -432,7 +539,11 @@ void main() {
       final repository = _FakeRepository(
         saveError: const ApiException('changed', statusCode: 409),
       );
-      final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
       await viewModel.load('item-1');
       final generationBefore = viewModel.reloadGeneration;
       repository.item = _item(title: "Someone else's title", version: 9);
@@ -460,7 +571,11 @@ void main() {
     test('saves the description with only that task toggled', () async {
       final repository = _FakeRepository()
         ..item = _item(description: '- [ ] milk\n- [ ] eggs', version: 4);
-      final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
       await viewModel.load('item-1');
 
       final ok = await viewModel.toggleDescriptionTask(1);
@@ -469,14 +584,17 @@ void main() {
       expect(repository.updateDescriptionCalls, ['- [ ] milk\n- [x] eggs']);
       expect(repository.expectedVersions, [4]);
       expect(viewModel.item!.description, '- [ ] milk\n- [x] eggs');
-      expect(viewModel.hasChanges, isTrue);
     });
 
     test('on a conflict, reloads the item and says so', () async {
       final repository = _FakeRepository(
         saveError: const ApiException('changed', statusCode: 409),
       )..item = _item(description: '- [ ] milk');
-      final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
       await viewModel.load('item-1');
       final generationBefore = viewModel.reloadGeneration;
       repository.item = _item(description: '- [x] milk', version: 9);
@@ -497,7 +615,11 @@ void main() {
     final repository = _FakeRepository(
       saveError: const ApiException('bad tag', statusCode: 400),
     );
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
     final generationBefore = viewModel.reloadGeneration;
 
@@ -511,7 +633,11 @@ void main() {
 
   test('saveAssignee updates the assignee on success', () async {
     final repository = _FakeRepository();
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
 
     final ok = await viewModel.saveAssignee('user-1');
@@ -523,7 +649,11 @@ void main() {
 
   test('saveAssignee and deleteItem send the loaded version', () async {
     final repository = _FakeRepository()..item = _item(version: 5);
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
 
     await viewModel.saveAssignee('user-1');
@@ -538,7 +668,11 @@ void main() {
     final repository = _FakeRepository(
       saveError: const ApiException('changed', statusCode: 409),
     );
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
     repository.item = _item(title: "Someone else's title", version: 9);
 
@@ -554,7 +688,11 @@ void main() {
 
   test('saveTags updates the tag list on success', () async {
     final repository = _FakeRepository();
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
 
     final ok = await viewModel.saveTags(['urgent', 'needs review']);
@@ -570,7 +708,11 @@ void main() {
     final repository = _FakeRepository(
       saveError: const ApiException('invalid tag'),
     );
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
 
     final ok = await viewModel.saveTags(['urgent']);
@@ -583,7 +725,11 @@ void main() {
     'saveSchedule delegates to the repository and returns success',
     () async {
       final repository = _FakeRepository();
-      final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
       await viewModel.load('item-1');
 
       final ok = await viewModel.saveSchedule(DateTime(2026, 2, 1), null);
@@ -595,7 +741,11 @@ void main() {
 
   test('addComment appends the new comment to the list', () async {
     final repository = _FakeRepository();
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
 
     final ok = await viewModel.addComment('Looks good');
@@ -607,7 +757,11 @@ void main() {
 
   test('addComment returns false and sets saveError on failure', () async {
     final repository = _FakeRepository(saveError: const ApiException('down'));
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
 
     final ok = await viewModel.addComment('Looks good');
@@ -618,7 +772,11 @@ void main() {
 
   test('updateComment changes the body of the existing comment', () async {
     final repository = _FakeRepository();
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
     await viewModel.addComment('Original');
     final commentId = viewModel.comments.single.id;
@@ -632,7 +790,11 @@ void main() {
 
   test('deleteComment removes the comment from the list', () async {
     final repository = _FakeRepository();
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
     await viewModel.addComment('Original');
     final commentId = viewModel.comments.single.id;
@@ -645,7 +807,11 @@ void main() {
 
   test('addLink appends the new link to the list', () async {
     final repository = _FakeRepository();
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
 
     final ok = await viewModel.addLink('item-2');
@@ -659,7 +825,11 @@ void main() {
     final repository = _FakeRepository(
       saveError: const ApiException('duplicate'),
     );
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
 
     final ok = await viewModel.addLink('item-2');
@@ -670,7 +840,11 @@ void main() {
 
   test('deleteItem calls the repository and returns true on success', () async {
     final repository = _FakeRepository();
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
 
     final ok = await viewModel.deleteItem();
@@ -683,7 +857,11 @@ void main() {
     final repository = _FakeRepository(
       saveError: const ApiException('has children'),
     );
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
 
     final ok = await viewModel.deleteItem();
@@ -694,7 +872,11 @@ void main() {
 
   test('deleteLink removes the link from the list', () async {
     final repository = _FakeRepository();
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
     await viewModel.addLink('item-2');
     final linkId = viewModel.links.single.id;
@@ -710,28 +892,32 @@ void main() {
       final viewModel = WorkItemDetailViewModel(
         _FakeRepository(),
         _currentUser,
+        WorkItemStore(),
       );
       await viewModel.load('item-1');
 
       expect(viewModel.hasChanges, isFalse);
     });
 
-    test('becomes true after a successful save', () async {
+    test('stays false after a save, which the store carries to other '
+        'views', () async {
       final viewModel = WorkItemDetailViewModel(
         _FakeRepository(),
         _currentUser,
+        WorkItemStore(),
       );
       await viewModel.load('item-1');
 
       await viewModel.saveAssignee('user-1');
 
-      expect(viewModel.hasChanges, isTrue);
+      expect(viewModel.hasChanges, isFalse);
     });
 
     test('stays false after a failed save', () async {
       final viewModel = WorkItemDetailViewModel(
         _FakeRepository(saveError: const ApiException('boom')),
         _currentUser,
+        WorkItemStore(),
       );
       await viewModel.load('item-1');
 
@@ -740,39 +926,72 @@ void main() {
       expect(viewModel.hasChanges, isFalse);
     });
 
-    test('becomes true after deleting the item', () async {
+    test(
+      'stays false after deleting the item, which leaves the shared store',
+      () async {
+        final items = WorkItemStore();
+        final viewModel = WorkItemDetailViewModel(
+          _FakeRepository(),
+          _currentUser,
+          items,
+        );
+        await viewModel.load('item-1');
+
+        await viewModel.deleteItem();
+
+        expect(viewModel.hasChanges, isFalse);
+        expect(items['item-1'], isNull);
+        expect(viewModel.item, isNull);
+      },
+    );
+
+    test('a nested dialog that changed something reloads the Sub-Items list '
+        'and marks this dialog changed', () async {
+      final repository = _FakeRepository();
       final viewModel = WorkItemDetailViewModel(
-        _FakeRepository(),
+        repository,
         _currentUser,
+        WorkItemStore(),
       );
       await viewModel.load('item-1');
+      repository.childrenList = [
+        const WorkItemChildSummary(
+          id: 'child-2',
+          number: 7,
+          title: 'Remaining',
+          statusId: 'todo',
+        ),
+      ];
 
-      await viewModel.deleteItem();
+      await viewModel.onNestedDialogClosed(changed: true);
 
+      expect(viewModel.children.single.id, 'child-2');
       expect(viewModel.hasChanges, isTrue);
     });
 
-    test(
-      'onSubItemChanged reloads the Sub-Items list and marks the dialog changed',
-      () async {
-        final repository = _FakeRepository();
-        final viewModel = WorkItemDetailViewModel(repository, _currentUser);
-        await viewModel.load('item-1');
-        repository.childrenList = [
-          const WorkItemChildSummary(
-            id: 'child-2',
-            number: 7,
-            title: 'Remaining',
-            statusId: 'todo',
-          ),
-        ];
+    test('a nested dialog that only edited its item still reloads the '
+        'Sub-Items list, without marking this dialog changed', () async {
+      final repository = _FakeRepository();
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
+      await viewModel.load('item-1');
+      repository.childrenList = [
+        const WorkItemChildSummary(
+          id: 'child-1',
+          number: 7,
+          title: 'Renamed in its own dialog',
+          statusId: 'todo',
+        ),
+      ];
 
-        await viewModel.onSubItemChanged();
+      await viewModel.onNestedDialogClosed(changed: false);
 
-        expect(viewModel.children.single.id, 'child-2');
-        expect(viewModel.hasChanges, isTrue);
-      },
-    );
+      expect(viewModel.children.single.title, 'Renamed in its own dialog');
+      expect(viewModel.hasChanges, isFalse);
+    });
   });
 
   test(
@@ -780,15 +999,21 @@ void main() {
     () async {
       final gate = Completer<void>();
       final repository = _FakeRepository()..assignGate = gate;
-      final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
       await viewModel.load('item-1');
 
       final slowSave = viewModel.saveAssignee('user-1');
-      await viewModel.saveTags(['urgent']);
+      final queuedSave = viewModel.saveTags(['urgent']);
+      await pumpEventQueue();
       expect(viewModel.isSaving, isTrue);
 
       gate.complete();
       await slowSave;
+      await queuedSave;
       expect(viewModel.isSaving, isFalse);
     },
   );
@@ -797,7 +1022,11 @@ void main() {
     'comment mutations apply the server response instead of reloading',
     () async {
       final repository = _FakeRepository();
-      final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
       await viewModel.load('item-1');
       final loadsAfterOpen = repository.loadCommentsCalls;
 
@@ -818,6 +1047,7 @@ void main() {
       final viewModel = WorkItemDetailViewModel(
         _FakeRepository(getItemError: StateError('bug')),
         _currentUser,
+        WorkItemStore(),
       );
 
       await expectLater(viewModel.load('item-1'), throwsStateError);
@@ -827,7 +1057,11 @@ void main() {
 
   test("isOwnComment is true only for the signed-in user's comments", () async {
     final repository = _FakeRepository();
-    final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
     await viewModel.load('item-1');
     await viewModel.addComment('Mine');
     final mine = viewModel.comments.single;
@@ -848,7 +1082,11 @@ void main() {
   group('validation before saving', () {
     test('a blank title is rejected without calling the server', () async {
       final repository = _FakeRepository();
-      final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
       await viewModel.load('item-1');
 
       final ok = await viewModel.saveDetails(
@@ -867,6 +1105,7 @@ void main() {
       final viewModel = WorkItemDetailViewModel(
         _FakeRepository(),
         _currentUser,
+        WorkItemStore(),
       );
 
       expect(viewModel.titleError('A task'), isNull);
@@ -883,7 +1122,11 @@ void main() {
       'an inverted schedule is rejected without calling the server',
       () async {
         final repository = _FakeRepository();
-        final viewModel = WorkItemDetailViewModel(repository, _currentUser);
+        final viewModel = WorkItemDetailViewModel(
+          repository,
+          _currentUser,
+          WorkItemStore(),
+        );
         await viewModel.load('item-1');
 
         final ok = await viewModel.saveSchedule(

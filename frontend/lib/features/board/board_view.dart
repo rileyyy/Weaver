@@ -143,8 +143,9 @@ class _BoardViewState extends State<BoardView>
     }
   }
 
-  /// Detail-dialog edits never go through [BoardViewModel], so reload what
-  /// the board shows once the dialog reports a change.
+  /// Detail-dialog edits reach the board through the shared item store. The
+  /// dialog only reports a change the store can't carry, such as repeat
+  /// settings creating items, and that needs a reload.
   void _refreshAfterDetailEdits({bool reloadScope = true}) {
     if (reloadScope) unawaited(_viewModel.refreshCurrentScope());
     unawaited(_viewModel.refreshHierarchyIfLoaded());
