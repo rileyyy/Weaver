@@ -3,7 +3,8 @@ import 'package:weaver/core/network/json_fields.dart';
 
 /// One work item as the server sends it (`WorkItemDto`): what
 /// `WorkItemStore` holds, and what every layout and the detail dialog read.
-/// A new work-item field only needs adding here and in [WorkItem.fromJson].
+/// A new work-item field only needs adding here, in [WorkItem.fromJson] and
+/// in `_copy`.
 class WorkItem {
   const WorkItem({
     required this.id,
@@ -70,4 +71,59 @@ class WorkItem {
   /// it was created for; null for items created by hand.
   final String? recurrenceSourceId;
   final DateTime? recurrenceDate;
+
+  // The edits a layout can make before the server confirms them, each the
+  // model-level mirror of one backend operation. A status change never
+  // touches the parent and a reparent never touches the status, as on the
+  // server.
+
+  WorkItem withStatus(String statusId) => _copy(statusId: statusId);
+
+  WorkItem movedToParent(String? parentId) => _copy(parentId: parentId);
+
+  WorkItem rescheduled(DateTime? startDate, DateTime? endDate) =>
+      _copy(startDate: startDate, endDate: endDate);
+
+  WorkItem assigned(String? userId) => _copy(assignedToUserId: userId);
+
+  WorkItem tagged(List<String> tags) => _copy(tags: tags);
+
+  static const Object _unchanged = Object();
+
+  // Nullable fields default to [_unchanged] so that passing null clears
+  // them.
+  WorkItem _copy({
+    Object? parentId = _unchanged,
+    String? statusId,
+    Object? assignedToUserId = _unchanged,
+    Object? startDate = _unchanged,
+    Object? endDate = _unchanged,
+    List<String>? tags,
+  }) => WorkItem(
+    id: id,
+    number: number,
+    parentId: identical(parentId, _unchanged)
+        ? this.parentId
+        : parentId as String?,
+    title: title,
+    description: description,
+    statusId: statusId ?? this.statusId,
+    layerId: layerId,
+    priorityId: priorityId,
+    assignedToUserId: identical(assignedToUserId, _unchanged)
+        ? this.assignedToUserId
+        : assignedToUserId as String?,
+    startDate: identical(startDate, _unchanged)
+        ? this.startDate
+        : startDate as DateTime?,
+    endDate: identical(endDate, _unchanged)
+        ? this.endDate
+        : endDate as DateTime?,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+    version: version,
+    tags: tags ?? this.tags,
+    recurrenceSourceId: recurrenceSourceId,
+    recurrenceDate: recurrenceDate,
+  );
 }
