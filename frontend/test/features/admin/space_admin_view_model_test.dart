@@ -44,6 +44,12 @@ void main() {
     expect(names(), ['Home', 'Software', 'Village']);
   });
 
+  test('name order ignores case, as the server lists them', () async {
+    await viewModel.create('allotment');
+
+    expect(names(), ['allotment', 'Home', 'Village']);
+  });
+
   test('create with a blank name asks for one without a request', () async {
     final error = await viewModel.create('   ');
 

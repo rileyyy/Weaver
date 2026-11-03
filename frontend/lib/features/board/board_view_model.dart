@@ -31,8 +31,8 @@ Future<void> _noRetry() => Future.value();
 
 /// Orchestrates the board: which Space and scope are shown (loading,
 /// switching Space, drill-down, breadcrumbs, retry) and optimistic
-/// mutations. Filtering, sorting, tree
-/// building, lane edits and user lookups live in `state/` as pure units.
+/// mutations. Filtering, sorting, tree building, lane edits and user
+/// lookups live in `state/` as pure units.
 ///
 /// The items themselves live in the shared [WorkItemStore]; this keeps only
 /// the layout (which lanes, which cards in which order, which items the
@@ -126,7 +126,6 @@ class BoardViewModel extends ViewModel {
   List<WorkItemStatus> get statuses => _statuses;
   List<Swimlane> get swimlanes => _swimlanes;
 
-  /// Every Space, by name, for the switcher.
   List<Space> get spaces => _spaces;
 
   /// The Space the board, Hierarchy and Roadmap show. Null until [load]
@@ -280,7 +279,7 @@ class BoardViewModel extends ViewModel {
       final spaces = await _repository.loadSpaces();
       if (isDisposed) return;
       _spaces = spaces;
-      final current = _spaceById(_currentSpace?.id) ?? _currentSpace;
+      final current = _spaceById(spaces, _currentSpace?.id) ?? _currentSpace;
       _currentSpace = current;
       if (current != null && _breadcrumbs.isNotEmpty) {
         _breadcrumbs = [_rootCrumb(current), ..._breadcrumbs.skip(1)];
@@ -291,8 +290,8 @@ class BoardViewModel extends ViewModel {
     }
   }
 
-  Space? _spaceById(String? id) {
-    for (final space in _spaces) {
+  static Space? _spaceById(List<Space> spaces, String? id) {
+    for (final space in spaces) {
       if (space.id == id) return space;
     }
     return null;
@@ -361,12 +360,8 @@ class BoardViewModel extends ViewModel {
         'Could not load the board. Check your connection and try again.',
   );
 
-  static Space? _chooseSpace(List<Space> spaces, String? lastUsedId) {
-    for (final space in spaces) {
-      if (space.id == lastUsedId) return space;
-    }
-    return spaces.isEmpty ? null : spaces.first;
-  }
+  static Space? _chooseSpace(List<Space> spaces, String? lastUsedId) =>
+      _spaceById(spaces, lastUsedId) ?? (spaces.isEmpty ? null : spaces.first);
 
   /// Shows [space]'s top level on the board (and in the Hierarchy and
   /// Roadmap, if they were loaded), and remembers it for the next launch.
