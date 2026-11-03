@@ -7,13 +7,16 @@ import 'package:weaver/features/admin/lookup_admin_view_model.dart';
 import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/models/lookup_value.dart';
 import 'package:weaver/features/admin/server_settings_admin_view_model.dart';
+import 'package:weaver/features/admin/space_admin_view_model.dart';
 import 'package:weaver/features/admin/status_admin_view_model.dart';
 import 'package:weaver/features/admin/user_admin_view_model.dart';
 import 'package:weaver/shared/data/current_user.dart';
+import 'package:weaver/shared/models/space.dart';
 
 import '../fakes/fake_agent_admin_repository.dart';
 import '../fakes/fake_lookup_admin_repository.dart';
 import '../fakes/fake_server_settings_admin_repository.dart';
+import '../fakes/fake_space_admin_repository.dart';
 import '../fakes/fake_status_admin_repository.dart';
 import '../fakes/fake_user_admin_repository.dart';
 
@@ -39,7 +42,11 @@ void main() {
     final agents = FakeAgentAdminRepository([
       agentAccount('a1', name: 'Claude Code (desktop)'),
     ]);
+    final spaces = FakeSpaceAdminRepository(const [
+      Space(id: 'home', name: 'Home'),
+    ]);
     getIt
+      ..registerFactory(() => SpaceAdminViewModel(spaces))
       ..registerFactory(() => StatusAdminViewModel(statuses))
       ..registerFactoryParam<LookupAdminViewModel, LookupKind, void>(
         (kind, _) => LookupAdminViewModel(lookups, kind),
@@ -64,6 +71,7 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final tab in [
+      'Spaces',
       'Statuses',
       'Priorities',
       'Layers',
@@ -73,6 +81,11 @@ void main() {
     ]) {
       expect(find.widgetWithText(Tab, tab), findsOneWidget);
     }
+    expect(find.text('Home'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(Tab, 'Statuses'));
+    await tester.pumpAndSettle();
+
     expect(find.text('To Do'), findsOneWidget);
     expect(lookups.calls, containsAll(['list priorities', 'list layers']));
 

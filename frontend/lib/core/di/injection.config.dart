@@ -27,6 +27,8 @@ import 'package:weaver/features/admin/data/api_lookup_admin_repository.dart'
     as _i427;
 import 'package:weaver/features/admin/data/api_server_settings_admin_repository.dart'
     as _i365;
+import 'package:weaver/features/admin/data/api_space_admin_repository.dart'
+    as _i775;
 import 'package:weaver/features/admin/data/api_status_admin_repository.dart'
     as _i550;
 import 'package:weaver/features/admin/data/api_user_admin_repository.dart'
@@ -35,6 +37,8 @@ import 'package:weaver/features/admin/data/lookup_admin_repository.dart'
     as _i377;
 import 'package:weaver/features/admin/data/server_settings_admin_repository.dart'
     as _i300;
+import 'package:weaver/features/admin/data/space_admin_repository.dart'
+    as _i447;
 import 'package:weaver/features/admin/data/status_admin_repository.dart'
     as _i224;
 import 'package:weaver/features/admin/data/user_admin_repository.dart' as _i290;
@@ -42,6 +46,7 @@ import 'package:weaver/features/admin/lookup_admin_view_model.dart' as _i281;
 import 'package:weaver/features/admin/models/lookup_kind.dart' as _i54;
 import 'package:weaver/features/admin/server_settings_admin_view_model.dart'
     as _i338;
+import 'package:weaver/features/admin/space_admin_view_model.dart' as _i742;
 import 'package:weaver/features/admin/status_admin_view_model.dart' as _i609;
 import 'package:weaver/features/admin/user_admin_view_model.dart' as _i486;
 import 'package:weaver/features/auth/auth_view_model.dart' as _i6;
@@ -145,6 +150,12 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i770.StatusRepository>(
       () => _i209.ApiStatusRepository(
+        gh<_i519.Client>(),
+        gh<_i202.ApiEndpoint>(),
+      ),
+    );
+    gh.lazySingleton<_i447.SpaceAdminRepository>(
+      () => _i775.ApiSpaceAdminRepository(
         gh<_i519.Client>(),
         gh<_i202.ApiEndpoint>(),
       ),
@@ -256,6 +267,9 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i562.UserDirectoryRepository>(),
         gh<_i600.SpaceRepository>(),
       ),
+    );
+    gh.factory<_i742.SpaceAdminViewModel>(
+      () => _i742.SpaceAdminViewModel(gh<_i447.SpaceAdminRepository>()),
     );
     gh.factory<_i486.UserAdminViewModel>(
       () => _i486.UserAdminViewModel(

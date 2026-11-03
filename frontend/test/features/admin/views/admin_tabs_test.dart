@@ -7,16 +7,20 @@ import 'package:weaver/features/admin/agent_keys_view_model.dart';
 import 'package:weaver/features/admin/lookup_admin_view_model.dart';
 import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/models/lookup_value.dart';
+import 'package:weaver/features/admin/space_admin_view_model.dart';
 import 'package:weaver/features/admin/status_admin_view_model.dart';
 import 'package:weaver/features/admin/user_admin_view_model.dart';
 import 'package:weaver/features/admin/views/agents_tab.dart';
 import 'package:weaver/features/admin/views/lookup_tab.dart';
+import 'package:weaver/features/admin/views/spaces_tab.dart';
 import 'package:weaver/features/admin/views/statuses_tab.dart';
 import 'package:weaver/features/admin/views/users_tab.dart';
 import 'package:weaver/shared/data/current_user.dart';
+import 'package:weaver/shared/models/space.dart';
 
 import '../fakes/fake_agent_admin_repository.dart';
 import '../fakes/fake_lookup_admin_repository.dart';
+import '../fakes/fake_space_admin_repository.dart';
 import '../fakes/fake_status_admin_repository.dart';
 import '../fakes/fake_user_admin_repository.dart';
 
@@ -30,6 +34,49 @@ class _SignedInAs implements CurrentUser {
 Widget _host(Widget child) => MaterialApp(home: Scaffold(body: child));
 
 void main() {
+  group('SpacesTab', () {
+    late FakeSpaceAdminRepository repository;
+    late SpaceAdminViewModel viewModel;
+
+    setUp(() async {
+      repository = FakeSpaceAdminRepository(const [
+        Space(id: 'home', name: 'Home'),
+      ]);
+      viewModel = SpaceAdminViewModel(repository);
+      await viewModel.load();
+    });
+
+    tearDown(() => viewModel.dispose());
+
+    testWidgets('adding a Space lists it', (tester) async {
+      await tester.pumpWidget(_host(SpacesTab(viewModel: viewModel)));
+
+      await tester.tap(find.text('Add Space'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Village');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+      await tester.pumpAndSettle();
+
+      expect(repository.calls.last, 'create Village');
+      expect(find.text('Village'), findsOneWidget);
+    });
+
+    testWidgets('renaming a Space shows its new name', (tester) async {
+      await tester.pumpWidget(_host(SpacesTab(viewModel: viewModel)));
+
+      await tester.tap(find.byTooltip('Rename Home'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'House');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Rename'));
+      await tester.pumpAndSettle();
+
+      expect(repository.calls.last, 'rename home House');
+      expect(find.text('House'), findsOneWidget);
+    });
+  });
+
   group('LookupTab', () {
     testWidgets('editing a layer saves its new colour', (tester) async {
       final repository = FakeLookupAdminRepository(const [
