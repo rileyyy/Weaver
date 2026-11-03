@@ -4,7 +4,6 @@ using Weaver.Application.Services;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
 using Weaver.Infrastructure;
-using Weaver.Infrastructure.Configurations;
 
 namespace Weaver.Application.Tests;
 
@@ -15,8 +14,8 @@ public class WorkItemSpaceTests
     private FixedTimeProvider _clock = null!;
     private WeaverDbContext _db = null!;
     private WorkItemService _service = null!;
-    private Space _home = null!;
-    private Space _village = null!;
+    private TestSpace _home = null!;
+    private TestSpace _village = null!;
 
     [SetUp]
     public void SetUp()
@@ -43,14 +42,14 @@ public class WorkItemSpaceTests
     public void CreateAsync_ATopLevelItemWithoutASpace_IsRejected()
     {
         Assert.ThrowsAsync<DomainValidationException>(() =>
-            _service.CreateAsync("Nowhere", null, null, StatusConfiguration.ToDoId));
+            _service.CreateAsync("Nowhere", null, null, _home.ToDo));
     }
 
     [Test]
     public void CreateAsync_InAnUnknownSpace_ThrowsNotFound()
     {
         Assert.ThrowsAsync<EntityNotFoundException>(() =>
-            _service.CreateAsync("Lost", null, null, StatusConfiguration.ToDoId, spaceId: Guid.NewGuid()));
+            _service.CreateAsync("Lost", null, null, _home.ToDo, spaceId: Guid.NewGuid()));
     }
 
     [Test]
@@ -58,7 +57,7 @@ public class WorkItemSpaceTests
     {
         var parent = await CreateAsync("Fence", space: _village);
 
-        var child = await _service.CreateAsync("Paint it", null, parent.Id, StatusConfiguration.ToDoId);
+        var child = await _service.CreateAsync("Paint it", null, parent.Id, _village.ToDo);
 
         Assert.That(child.SpaceId, Is.EqualTo(_village.Id));
     }
@@ -69,7 +68,7 @@ public class WorkItemSpaceTests
         var parent = await CreateAsync("Fence", space: _village);
 
         Assert.ThrowsAsync<DomainValidationException>(() =>
-            _service.CreateAsync("Paint it", null, parent.Id, StatusConfiguration.ToDoId, spaceId: _home.Id));
+            _service.CreateAsync("Paint it", null, parent.Id, _village.ToDo, spaceId: _home.Id));
     }
 
     [Test]
@@ -133,7 +132,7 @@ public class WorkItemSpaceTests
     public async Task GetAllAsync_WithASpace_ListsEveryItemInItAndNoOthers()
     {
         var kitchen = await CreateAsync("Kitchen", space: _home);
-        var sink = await _service.CreateAsync("Sink", null, kitchen.Id, StatusConfiguration.ToDoId);
+        var sink = await _service.CreateAsync("Sink", null, kitchen.Id, _home.ToDo);
         await CreateAsync("Fence", space: _village);
 
         var all = await _service.GetAllAsync(0, 100, spaceId: _home.Id);
@@ -147,7 +146,7 @@ public class WorkItemSpaceTests
         var fence = await CreateAsync("Fence", space: _village);
 
         Assert.ThrowsAsync<EntityNotFoundException>(() =>
-            _service.CreateAsync("Kitchen", null, null, StatusConfiguration.ToDoId, afterId: fence.Id, spaceId: _home.Id));
+            _service.CreateAsync("Kitchen", null, null, _home.ToDo, afterId: fence.Id, spaceId: _home.Id));
     }
 
     [Test]
@@ -157,8 +156,8 @@ public class WorkItemSpaceTests
         var recurrences = new WorkItemRecurrenceService(
             _db, calendar, NullLogger<WorkItemRecurrenceService>.Instance, FakeCallerContext.Anyone());
         var market = await CreateAsync("Market stall", space: _village);
-        var template = await _service.CreateAsync("Set up", null, market.Id, StatusConfiguration.ToDoId);
-        await _service.CreateAsync("Bring the float", null, template.Id, StatusConfiguration.ToDoId);
+        var template = await _service.CreateAsync("Set up", null, market.Id, _village.ToDo);
+        await _service.CreateAsync("Bring the float", null, template.Id, _village.ToDo);
 
         await recurrences.SetAsync(template.Id, RecurrenceFrequency.Weekly, [DayOfWeek.Saturday], new DateOnly(2026, 9, 26), null);
 
@@ -171,6 +170,6 @@ public class WorkItemSpaceTests
         });
     }
 
-    private Task<WorkItem> CreateAsync(string title, Space space) =>
-        _service.CreateAsync(title, null, null, StatusConfiguration.ToDoId, spaceId: space.Id);
+    private Task<WorkItem> CreateAsync(string title, TestSpace space) =>
+        _service.CreateAsync(title, null, null, space.ToDo, spaceId: space.Id);
 }

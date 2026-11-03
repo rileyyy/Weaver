@@ -30,7 +30,7 @@ class _CountingStatusCache implements StatusRepository {
   int invalidations = 0;
 
   @override
-  Future<List<WorkItemStatus>> loadStatuses() async => const [];
+  Future<List<WorkItemStatus>> loadStatuses(String spaceId) async => const [];
 
   @override
   void invalidate() => invalidations++;
@@ -106,7 +106,8 @@ void main() {
         requests.add(request);
         if (responseStatus != 200) return http.Response('', responseStatus);
         if (request.method == 'DELETE') return http.Response('', 204);
-        final isList = request.url.path.endsWith('/order');
+        final isList =
+            request.method == 'GET' || request.url.path.endsWith('/order');
         return http.Response(
           jsonEncode(isList ? [_statusJson('s1')] : _statusJson('s1')),
           200,
@@ -115,30 +116,44 @@ void main() {
       repository = ApiStatusAdminRepository(client, _endpoint, cache);
     });
 
-    test('create posts the details and drops the status cache', () async {
-      await repository.create(
-        const StatusDetails(
-          name: 'Review',
-          category: StatusCategory.doing,
-          color: '#00897B',
-        ),
-      );
+    test("list asks for one Space's statuses", () async {
+      await repository.list('home');
 
-      expect(requests.single.method, 'POST');
-      expect(requests.single.url.path, '/api/statuses');
-      expect(jsonDecode(requests.single.body), {
-        'name': 'Review',
-        'category': 'Doing',
-        'color': '#00897B',
-      });
-      expect(cache.invalidations, 1);
+      expect(requests.single.url.toString(), '$_baseUrl/statuses?spaceId=home');
     });
 
-    test('reorder puts every id in order', () async {
-      await repository.reorder(['s2', 's1']);
+    test(
+      'create posts the details to a Space and drops the status cache',
+      () async {
+        await repository.create(
+          'home',
+          const StatusDetails(
+            name: 'Review',
+            category: StatusCategory.doing,
+            color: '#00897B',
+          ),
+        );
+
+        expect(requests.single.method, 'POST');
+        expect(requests.single.url.path, '/api/statuses');
+        expect(jsonDecode(requests.single.body), {
+          'spaceId': 'home',
+          'name': 'Review',
+          'category': 'Doing',
+          'color': '#00897B',
+        });
+        expect(cache.invalidations, 1);
+      },
+    );
+
+    test('reorder puts every id of the Space in order', () async {
+      await repository.reorder('home', ['s2', 's1']);
 
       expect(requests.single.method, 'PUT');
-      expect(requests.single.url.path, '/api/statuses/order');
+      expect(
+        requests.single.url.toString(),
+        '$_baseUrl/statuses/order?spaceId=home',
+      );
       expect(jsonDecode(requests.single.body), {
         'orderedIds': ['s2', 's1'],
       });
@@ -175,7 +190,7 @@ void main() {
       final client = MockClient((request) async {
         requests.add(request);
         if (request.method == 'DELETE') return http.Response('', 204);
-        if (request.url.path.endsWith('/order')) {
+        if (request.method == 'GET' || request.url.path.endsWith('/order')) {
           return http.Response(jsonEncode([]), 200);
         }
         return http.Response(
@@ -185,6 +200,37 @@ void main() {
       });
       layerCache = _CountingLayerCache();
       repository = ApiLookupAdminRepository(client, _endpoint, layerCache);
+    });
+
+    test('priorities are listed, added and reordered within a Space', () async {
+      await repository.list(LookupKind.priorities, spaceId: 'home');
+      await repository.create(
+        LookupKind.priorities,
+        'Critical',
+        spaceId: 'home',
+      );
+      await repository.reorder(LookupKind.priorities, ['p1'], spaceId: 'home');
+
+      expect(
+        requests[0].url.toString(),
+        '$_baseUrl/work-item-priorities?spaceId=home',
+      );
+      expect(jsonDecode(requests[1].body), {
+        'name': 'Critical',
+        'spaceId': 'home',
+      });
+      expect(
+        requests[2].url.toString(),
+        '$_baseUrl/work-item-priorities/order?spaceId=home',
+      );
+    });
+
+    test('a Space is required for priorities and refused for layers', () {
+      expect(() => repository.list(LookupKind.priorities), throwsArgumentError);
+      expect(
+        () => repository.list(LookupKind.layers, spaceId: 'home'),
+        throwsArgumentError,
+      );
     });
 
     test('uses the path of the kind', () async {
@@ -217,7 +263,11 @@ void main() {
     });
 
     test('drops the shared layer list after a layer change only', () async {
-      await repository.create(LookupKind.priorities, 'Critical');
+      await repository.create(
+        LookupKind.priorities,
+        'Critical',
+        spaceId: 'home',
+      );
       await repository.delete(LookupKind.priorities, 'p1');
       expect(layerCache.invalidations, 0);
 

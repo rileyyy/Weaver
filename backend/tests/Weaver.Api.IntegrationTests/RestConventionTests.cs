@@ -42,13 +42,14 @@ public class RestConventionTests
     {
         var (client, _) = await ApiClient.SignedInAsync();
         var item = await client.CreateWorkItemAsync("Moved");
+        var doing = await ApiClient.StatusIdAsync(item.SpaceId, "Doing");
 
         var put = await client.PutJsonAsync(
             $"/api/work-items/{item.Id}/status",
-            new ChangeWorkItemStatusRequest(SeededStatuses.Doing, null));
+            new ChangeWorkItemStatusRequest(doing, null));
         var post = await client.PostJsonAsync(
             $"/api/work-items/{item.Id}/status",
-            new ChangeWorkItemStatusRequest(SeededStatuses.Doing, null));
+            new ChangeWorkItemStatusRequest(doing, null));
 
         Assert.Multiple(() =>
         {

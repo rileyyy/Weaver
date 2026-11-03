@@ -26,11 +26,14 @@ abstract class WorkItemDetailRepository {
     required int expectedVersion,
   });
 
-  Future<List<WorkItemStatus>> loadStatuses();
+  /// The statuses of the Space [spaceId]; an item can only take its own
+  /// Space's.
+  Future<List<WorkItemStatus>> loadStatuses(String spaceId);
 
   Future<List<WorkItemLayer>> loadLayers();
 
-  Future<List<WorkItemPriority>> loadPriorities();
+  /// The priorities of the Space [spaceId], as for [loadStatuses].
+  Future<List<WorkItemPriority>> loadPriorities(String spaceId);
 
   Future<List<User>> loadUsers();
 

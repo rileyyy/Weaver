@@ -17,8 +17,9 @@ item's id.
 : A top-level container such as Home, Village or Software. It holds a forest
 of work-item trees. An item belongs to exactly one Space: a top-level item
 is created in one, and children share their parent's. Reparenting never
-crosses a Space. From ticket 12 a Space owns its statuses, priorities and
-Types.
+crosses a Space. A Space owns its statuses and priorities (a new one starts
+with To Do / Doing / Done and Low / Medium / High / Urgent), and from ticket
+13 its Types; an item only takes its own Space's.
 _Avoid:_ project, workspace, board.
 
 **Type** *(planned; replaces Layer)*

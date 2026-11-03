@@ -8,8 +8,9 @@ namespace Weaver.Application.Services;
 
 /// <summary>
 /// The admin operations every lookup shares: listing, adding at the end, editing, reordering
-/// and deleting with a replacement. Subclasses say which table they use and how work items
-/// are moved off a deleted value.
+/// and deleting with a replacement. Each works within a value's siblings: every value of a
+/// global lookup, or the values of one Space. Subclasses say which table they use and how work
+/// items are moved off a deleted value.
 /// </summary>
 public abstract class LookupService<T>(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller) : ILookupService<T> where T : LookupValue
 {
@@ -25,20 +26,52 @@ public abstract class LookupService<T>(IWeaverDbContext db, IAdminAuthorizer adm
     /// <summary>The kind's display name, for error messages ("Status", "Priority").</summary>
     protected abstract string Kind { get; }
 
-    /// <summary>How many values must remain; deleting below it is refused.</summary>
+    /// <summary>How many values must remain among siblings; deleting below it is refused.</summary>
     protected virtual int MinimumCount => 0;
 
-    public async Task<IReadOnlyList<T>> GetAllAsync(CancellationToken ct = default) =>
-        await Values.AsNoTracking().OrderBy(v => v.Order).ToListAsync(ct);
+    /// <summary>The values <paramref name="value"/> shares names, order and replacements with.</summary>
+    protected abstract IQueryable<T> SiblingsOf(T value);
 
-    public async Task<IReadOnlyList<T>> ReorderAsync(
-        Guid actorUserId,
-        IReadOnlyList<Guid> orderedIds,
-        CancellationToken ct = default)
+    public async Task DeleteAsync(Guid actorUserId, Guid id, Guid? replacementId, CancellationToken ct = default)
     {
         await _admins.EnsureAdminAsync(actorUserId, ct);
 
-        var values = await Values.ToDictionaryAsync(v => v.Id, ct);
+        var value = await Values.FindAsync([id], ct)
+            ?? throw new EntityNotFoundException(Kind, id);
+
+        if (replacementId == id)
+        {
+            throw new DomainValidationException($"A {Kind.ToLowerInvariant()} can't be replaced by itself.");
+        }
+
+        var siblings = SiblingsOf(value);
+        if (replacementId is { } replacement && !await siblings.AnyAsync(v => v.Id == replacement, ct))
+        {
+            throw new EntityNotFoundException(Kind, replacement);
+        }
+
+        if (await siblings.CountAsync(ct) <= MinimumCount)
+        {
+            throw new LastLookupValueException(Kind);
+        }
+
+        await MoveWorkItemsAsync(value, replacementId, ct);
+        Values.Remove(value);
+        await Db.SaveChangesAsync(ct);
+    }
+
+    protected static async Task<IReadOnlyList<T>> ListAsync(IQueryable<T> siblings, CancellationToken ct) =>
+        await siblings.AsNoTracking().OrderBy(v => v.Order).ToListAsync(ct);
+
+    protected async Task<IReadOnlyList<T>> ReorderWithinAsync(
+        Guid actorUserId,
+        IQueryable<T> siblings,
+        IReadOnlyList<Guid> orderedIds,
+        CancellationToken ct)
+    {
+        await _admins.EnsureAdminAsync(actorUserId, ct);
+
+        var values = await siblings.ToDictionaryAsync(v => v.Id, ct);
         if (orderedIds.Count != values.Count || orderedIds.Distinct().Count() != values.Count
             || !orderedIds.All(values.ContainsKey))
         {
@@ -65,39 +98,16 @@ public abstract class LookupService<T>(IWeaverDbContext db, IAdminAuthorizer adm
         return orderedIds.Select(id => values[id]).ToList();
     }
 
-    public async Task DeleteAsync(Guid actorUserId, Guid id, Guid? replacementId, CancellationToken ct = default)
+    /// <summary>Appends a new value after the current last of <paramref name="siblings"/>.</summary>
+    protected async Task<T> AddWithinAsync(
+        Guid actorUserId,
+        IQueryable<T> siblings,
+        Func<int, T> create,
+        CancellationToken ct)
     {
         await _admins.EnsureAdminAsync(actorUserId, ct);
 
-        var value = await Values.FindAsync([id], ct)
-            ?? throw new EntityNotFoundException(Kind, id);
-
-        if (replacementId == id)
-        {
-            throw new DomainValidationException($"A {Kind.ToLowerInvariant()} can't be replaced by itself.");
-        }
-
-        if (replacementId is { } replacement && !await Values.AnyAsync(v => v.Id == replacement, ct))
-        {
-            throw new EntityNotFoundException(Kind, replacement);
-        }
-
-        if (await Values.CountAsync(ct) <= MinimumCount)
-        {
-            throw new LastLookupValueException(Kind);
-        }
-
-        await MoveWorkItemsAsync(value, replacementId, ct);
-        Values.Remove(value);
-        await Db.SaveChangesAsync(ct);
-    }
-
-    /// <summary>Appends a new value after the current last one.</summary>
-    protected async Task<T> AddAsync(Guid actorUserId, Func<int, T> create, CancellationToken ct)
-    {
-        await _admins.EnsureAdminAsync(actorUserId, ct);
-
-        var lastOrder = await Values.MaxAsync(v => (int?)v.Order, ct);
+        var lastOrder = await siblings.MaxAsync(v => (int?)v.Order, ct);
         var value = create(lastOrder is null ? 0 : lastOrder.Value + 1);
         await EnsureNameFreeAsync(value, ct);
 
@@ -126,11 +136,11 @@ public abstract class LookupService<T>(IWeaverDbContext db, IAdminAuthorizer adm
     /// </summary>
     protected abstract Task MoveWorkItemsAsync(T deleted, Guid? replacementId, CancellationToken ct);
 
-    /// <summary>Two values with the same name would be indistinguishable in every picker.</summary>
+    /// <summary>Two sibling values with the same name would be indistinguishable in every picker.</summary>
     private async Task EnsureNameFreeAsync(T value, CancellationToken ct)
     {
         var name = value.Name.ToLower();
-        if (await Values.AnyAsync(v => v.Id != value.Id && v.Name.ToLower() == name, ct))
+        if (await SiblingsOf(value).AnyAsync(v => v.Id != value.Id && v.Name.ToLower() == name, ct))
         {
             throw new LookupNameTakenException(Kind, value.Name);
         }

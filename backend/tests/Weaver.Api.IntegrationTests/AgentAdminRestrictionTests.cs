@@ -14,12 +14,13 @@ public class AgentAdminRestrictionTests
     public async Task AReadWriteAgent_CantChangeAdminData()
     {
         var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadWrite);
+        var space = await ApiClient.SharedSpaceIdAsync();
 
         var responses = new Dictionary<string, HttpResponseMessage>
         {
             ["time zone"] = await agent.PutJsonAsync("/api/server-settings/time-zone", new SetTimeZoneRequest("Europe/Berlin")),
-            ["status"] = await agent.PostJsonAsync("/api/statuses", new StatusDetailsRequest("Agent's", StatusCategory.ToDo, "#336699")),
-            ["priority"] = await agent.PostJsonAsync("/api/work-item-priorities", new LookupNameRequest("Agent's")),
+            ["status"] = await agent.PostJsonAsync("/api/statuses", new CreateStatusRequest(space, "Agent's", StatusCategory.ToDo, "#336699")),
+            ["priority"] = await agent.PostJsonAsync("/api/work-item-priorities", new CreatePriorityRequest(space, "Agent's")),
             ["account"] = await agent.PostJsonAsync(
                 "/api/admin/users",
                 new CreateUserRequest(ApiClient.UniqueUsername(), ApiClient.Password, IsAdmin: true)),
@@ -43,7 +44,9 @@ public class AgentAdminRestrictionTests
         var admin = await ApiClient.FirstAdminAsync();
 
         var grant = await admin.PutJsonAsync($"/api/admin/users/{account.Id}/admin", new SetUserAdminRequest(true));
-        var adminWrite = await agent.PostJsonAsync("/api/work-item-priorities", new LookupNameRequest("Agent's"));
+        var adminWrite = await agent.PostJsonAsync(
+            "/api/work-item-priorities",
+            new CreatePriorityRequest(await ApiClient.SharedSpaceIdAsync(), "Agent's"));
         var listed = await (await admin.GetAsync("/api/admin/users")).ReadAsync<List<AdminUserDto>>();
 
         Assert.Multiple(() =>

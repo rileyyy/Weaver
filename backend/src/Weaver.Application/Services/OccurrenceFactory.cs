@@ -6,8 +6,8 @@ namespace Weaver.Application.Services;
 
 /// <summary>
 /// Adds one occurrence of a repeating work item to the context (without saving): a copy of
-/// the template and its sub-item tree, each starting in the first status and scheduled on
-/// the occurrence date, in the template's Space. Comments, links and repetitions are not
+/// the template and its sub-item tree, each starting in the first status of the template's
+/// Space and scheduled on the occurrence date, in that Space. Comments, links and repetitions are not
 /// copied. Each copy records its creation in history, attributed to the actor the factory was
 /// made for.
 /// </summary>
@@ -17,17 +17,32 @@ internal sealed class OccurrenceFactory(IWeaverDbContext db, WorkItemHistoryReco
     private readonly WorkItemHistoryRecorder _history = history;
     private readonly HistoryActor _actor = actor;
     private readonly Dictionary<(Guid SpaceId, Guid? ParentId, Guid StatusId), double?> _lastRankByCell = new();
-    private Guid? _firstStatusId;
+    private readonly Dictionary<Guid, Guid> _firstStatusIdBySpace = new();
 
     public async Task<WorkItem> AddOccurrenceAsync(WorkItem template, DateOnly date, CancellationToken ct)
     {
-        var statusId = _firstStatusId ??= await _db.Statuses.OrderBy(s => s.Order).Select(s => s.Id).FirstAsync(ct);
+        var statusId = await FirstStatusIdAsync(template.SpaceId, ct);
 
         var root = await AddCopyAsync(template, template.ParentId, statusId, date, ct);
         root.MarkAsOccurrenceOf(template.Id, date);
 
         await AddChildCopiesAsync(template.Id, root.Id, statusId, date, ct);
         return root;
+    }
+
+    private async Task<Guid> FirstStatusIdAsync(Guid spaceId, CancellationToken ct)
+    {
+        if (!_firstStatusIdBySpace.TryGetValue(spaceId, out var statusId))
+        {
+            statusId = await _db.Statuses
+                .Where(s => s.SpaceId == spaceId)
+                .OrderBy(s => s.Order)
+                .Select(s => s.Id)
+                .FirstAsync(ct);
+            _firstStatusIdBySpace[spaceId] = statusId;
+        }
+
+        return statusId;
     }
 
     private async Task AddChildCopiesAsync(

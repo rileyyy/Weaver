@@ -18,7 +18,9 @@ public class AdminTests
     {
         var (client, _) = await ApiClient.SignedInAsync();
 
-        var response = await client.PostJsonAsync("/api/work-item-priorities", new LookupNameRequest("Nope"));
+        var response = await client.PostJsonAsync(
+            "/api/work-item-priorities",
+            new CreatePriorityRequest(await ApiClient.SharedSpaceIdAsync(), "Nope"));
 
         Assert.Multiple(() =>
         {
@@ -41,17 +43,22 @@ public class AdminTests
     public async Task ReorderingPriorities_CanSwapTwoNeighbours()
     {
         var (admin, _) = await ApiClient.SignedInAdminAsync();
-        var first = await CreatePriorityAsync(admin);
-        var second = await CreatePriorityAsync(admin);
+        var space = await ApiClient.SharedSpaceIdAsync();
+        var first = await CreatePriorityAsync(admin, space);
+        var second = await CreatePriorityAsync(admin, space);
         try
         {
-            var current = await (await admin.GetAsync("/api/work-item-priorities")).ReadAsync<List<WorkItemPriorityDto>>();
+            var current = await (await admin.GetAsync($"/api/work-item-priorities?spaceId={space}"))
+                .ReadAsync<List<WorkItemPriorityDto>>();
             var swapped = current.Select(p => p.Id).ToList();
             (swapped[^1], swapped[^2]) = (swapped[^2], swapped[^1]);
 
-            var reordered = await (await admin.PutJsonAsync("/api/work-item-priorities/order", new ReorderLookupRequest(swapped)))
+            var reordered = await (await admin.PutJsonAsync(
+                    $"/api/work-item-priorities/order?spaceId={space}",
+                    new ReorderLookupRequest(swapped)))
                 .ReadAsync<List<WorkItemPriorityDto>>();
-            var stored = await (await admin.GetAsync("/api/work-item-priorities")).ReadAsync<List<WorkItemPriorityDto>>();
+            var stored = await (await admin.GetAsync($"/api/work-item-priorities?spaceId={space}"))
+                .ReadAsync<List<WorkItemPriorityDto>>();
 
             Assert.Multiple(() =>
             {
@@ -72,9 +79,11 @@ public class AdminTests
     public async Task DeletingAStatusInUse_NeedsAReplacement_AndMovesItsItemsToIt()
     {
         var (admin, _) = await ApiClient.SignedInAdminAsync();
+        var space = await ApiClient.SharedSpaceIdAsync();
+        var toDo = await ApiClient.StatusIdAsync(space, "To Do");
         var status = await (await admin.PostJsonAsync(
                 "/api/statuses",
-                new StatusDetailsRequest($"Temp {Guid.NewGuid():N}"[..20], StatusCategory.Doing, "#00897B")))
+                new CreateStatusRequest(space, $"Temp {Guid.NewGuid():N}"[..20], StatusCategory.Doing, "#00897B")))
             .ReadAsync<StatusDto>();
         var lane = await admin.CreateWorkItemAsync("Lane");
         var item = await admin.CreateWorkItemAsync("Card", lane.Id);
@@ -83,14 +92,14 @@ public class AdminTests
             new ChangeWorkItemStatusRequest(status.Id, null))).ReadAsync<WorkItemWriteResponse>();
 
         var withoutReplacement = await admin.DeleteAsync($"/api/statuses/{status.Id}");
-        var withReplacement = await admin.DeleteAsync($"/api/statuses/{status.Id}?replacementId={SeededStatuses.ToDo}");
+        var withReplacement = await admin.DeleteAsync($"/api/statuses/{status.Id}?replacementId={toDo}");
         var moved = await (await admin.GetAsync($"/api/work-items/{item.Id}")).ReadAsync<WorkItemDto>();
 
         Assert.Multiple(() =>
         {
             Assert.That(withoutReplacement.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
             Assert.That(withReplacement.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
-            Assert.That(moved.StatusId, Is.EqualTo(SeededStatuses.ToDo));
+            Assert.That(moved.StatusId, Is.EqualTo(toDo));
             Assert.That(moved.ParentId, Is.EqualTo(lane.Id));
         });
     }
@@ -170,9 +179,9 @@ public class AdminTests
         }
     }
 
-    private static async Task<WorkItemPriorityDto> CreatePriorityAsync(HttpClient admin) =>
+    private static async Task<WorkItemPriorityDto> CreatePriorityAsync(HttpClient admin, Guid spaceId) =>
         await (await admin.PostJsonAsync(
                 "/api/work-item-priorities",
-                new LookupNameRequest($"P {Guid.NewGuid():N}"[..20])))
+                new CreatePriorityRequest(spaceId, $"P {Guid.NewGuid():N}"[..20])))
             .ReadAsync<WorkItemPriorityDto>();
 }

@@ -3,7 +3,6 @@ using Weaver.Application.Services;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
 using Weaver.Infrastructure;
-using Weaver.Infrastructure.Configurations;
 
 namespace Weaver.Application.Tests;
 
@@ -17,6 +16,7 @@ public class UserAdministrationServiceTests
     private WeaverDbContext _db = null!;
     private UserAdministrationService _service = null!;
     private User _admin = null!;
+    private TestSpace _space = null!;
     private User _member = null!;
 
     [SetUp]
@@ -28,6 +28,7 @@ public class UserAdministrationServiceTests
         _service = new UserAdministrationService(_db, new AdminAuthorizer(_db), _hasher, _clock, FakeCallerContext.Anyone());
         _admin = TestUsers.Add(_db, "admin", isAdmin: true);
         _member = TestUsers.Add(_db, "member");
+        _space = TestSpaces.Add(_db);
     }
 
     [TearDown]
@@ -231,7 +232,7 @@ public class UserAdministrationServiceTests
     [Test]
     public async Task SetActiveAsync_Deactivating_UnassignsWorkAndRevokesSessions()
     {
-        var item = WorkItem.Create(Guid.NewGuid(), "Assigned", null, StatusConfiguration.ToDoId, 1);
+        var item = WorkItem.Create(_space.Id, "Assigned", null, _space.ToDo, 1);
         item.AssignTo(_member.Id);
         _db.WorkItems.Add(item);
         var token = AddRefreshToken(_member);
@@ -267,7 +268,7 @@ public class UserAdministrationServiceTests
     [Test]
     public async Task DeleteAsync_RemovesTheUserTheirTokensAndAssignments()
     {
-        var item = WorkItem.Create(Guid.NewGuid(), "Assigned", null, StatusConfiguration.ToDoId, 1);
+        var item = WorkItem.Create(_space.Id, "Assigned", null, _space.ToDo, 1);
         item.AssignTo(_member.Id);
         _db.WorkItems.Add(item);
         AddRefreshToken(_member);
@@ -300,7 +301,7 @@ public class UserAdministrationServiceTests
     [Test]
     public async Task DeleteAsync_AUserWithComments_IsAConflictAndDeletesNothing()
     {
-        var item = WorkItem.Create(Guid.NewGuid(), "Commented", null, StatusConfiguration.ToDoId, 1);
+        var item = WorkItem.Create(_space.Id, "Commented", null, _space.ToDo, 1);
         _db.WorkItems.Add(item);
         _db.Comments.Add(Comment.Create(item.Id, _member.Id, "Hello"));
         await _db.SaveChangesAsync();

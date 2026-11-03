@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:weaver/shared/widgets/load_error_view.dart';
 
-/// Every Admin tab's layout: the loading and error states, then a short
-/// explanation and an add button above the list. Kept to a readable width
+/// Every Admin tab's layout: the loading and error states, then an optional
+/// [header] (such as a Space picker), a short explanation and an add button
+/// above the list. A null [onAdd] disables the button. Kept to a readable width
 /// on wide screens.
 class AdminListFrame extends StatelessWidget {
   const AdminListFrame({
@@ -14,6 +15,7 @@ class AdminListFrame extends StatelessWidget {
     required this.addLabel,
     required this.onAdd,
     required this.child,
+    this.header,
   });
 
   final bool isLoading;
@@ -21,8 +23,9 @@ class AdminListFrame extends StatelessWidget {
   final Future<void> Function() onRetry;
   final String description;
   final String addLabel;
-  final VoidCallback onAdd;
+  final VoidCallback? onAdd;
   final Widget child;
+  final Widget? header;
 
   static const double maxWidth = 760;
 
@@ -39,6 +42,11 @@ class AdminListFrame extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (header case final header?)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: header,
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Wrap(

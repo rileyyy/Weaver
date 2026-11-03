@@ -5,7 +5,7 @@ using Weaver.Domain;
 
 namespace Weaver.Application.Services;
 
-public class WorkItemLayerService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller) : LookupService<WorkItemLayer>(db, admins, caller), IWorkItemLayerService
+public class WorkItemLayerService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller) : GlobalLookupService<WorkItemLayer>(db, admins, caller), IWorkItemLayerService
 {
     protected override DbSet<WorkItemLayer> Values => Db.WorkItemLayers;
 

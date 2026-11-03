@@ -14,6 +14,7 @@ public class WorkItemLayerServiceTests
     private WeaverDbContext _db = null!;
     private WorkItemLayerService _layers = null!;
     private User _admin = null!;
+    private TestSpace _space = null!;
 
     [SetUp]
     public void SetUp()
@@ -21,6 +22,7 @@ public class WorkItemLayerServiceTests
         _db = TestDatabase.Create(new FixedTimeProvider(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero)));
         _layers = new WorkItemLayerService(_db, new AdminAuthorizer(_db), FakeCallerContext.Anyone());
         _admin = TestUsers.Add(_db, "admin", isAdmin: true);
+        _space = TestSpaces.Add(_db);
     }
 
     [TearDown]
@@ -86,7 +88,7 @@ public class WorkItemLayerServiceTests
 
     private WorkItem AddItem(Guid layerId)
     {
-        var item = WorkItem.Create(Guid.NewGuid(), "Item", null, StatusConfiguration.ToDoId, 1, layerId: layerId);
+        var item = WorkItem.Create(_space.Id, "Item", null, _space.ToDo, 1, layerId: layerId);
         _db.WorkItems.Add(item);
         _db.SaveChanges();
         return item;

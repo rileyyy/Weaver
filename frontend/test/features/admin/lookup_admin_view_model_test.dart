@@ -15,14 +15,38 @@ void main() {
       LookupValue(id: 'high', name: 'High', order: 1),
     ]);
     viewModel = LookupAdminViewModel(repository, LookupKind.priorities);
-    await viewModel.load();
+    await viewModel.showSpace('home');
   });
 
   tearDown(() => viewModel.dispose());
 
-  test('loads the values of its kind', () {
-    expect(repository.calls.single, 'list priorities');
+  test("lists the chosen Space's priorities", () {
+    expect(repository.calls.single, 'list priorities in home');
     expect(viewModel.items.map((v) => v.name), ['Low', 'High']);
+  });
+
+  test('priorities are listed only once a Space is chosen', () async {
+    final vm = LookupAdminViewModel(repository, LookupKind.priorities);
+    addTearDown(vm.dispose);
+    repository.calls.clear();
+
+    await vm.load();
+
+    expect(repository.calls, isEmpty);
+    expect(vm.items, isEmpty);
+  });
+
+  test('layers are shared by every Space, so no Space is needed', () async {
+    final layers = LookupAdminViewModel(repository, LookupKind.layers);
+    addTearDown(layers.dispose);
+
+    await layers.load();
+    await layers.create('Epic', color: '#546E7A');
+
+    expect(repository.calls.skip(1), [
+      'list layers',
+      'create layers Epic #546E7A',
+    ]);
   });
 
   test('create and update go to its kind', () async {
@@ -30,7 +54,7 @@ void main() {
     await viewModel.update('low', 'Minor');
 
     expect(repository.calls.skip(1), [
-      'create priorities Urgent null',
+      'create priorities Urgent null in home',
       'update priorities low Minor null',
     ]);
     expect(viewModel.items.map((v) => v.name), ['Minor', 'High', 'Urgent']);
@@ -62,9 +86,10 @@ void main() {
     expect(viewModel.items.map((v) => v.id), ['low']);
   });
 
-  test('move saves the new order', () async {
+  test('move saves the new order in the chosen Space', () async {
     await viewModel.move(1, 0);
 
+    expect(repository.calls.last, 'reorder priorities high,low in home');
     expect(viewModel.items.map((v) => v.id), ['high', 'low']);
   });
 }

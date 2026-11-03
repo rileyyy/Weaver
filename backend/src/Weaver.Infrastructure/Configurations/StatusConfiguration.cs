@@ -6,24 +6,17 @@ namespace Weaver.Infrastructure.Configurations;
 
 public class StatusConfiguration : IEntityTypeConfiguration<Status>
 {
-    public static readonly Guid ToDoId = Guid.Parse("00000000-0000-0000-0000-000000000001");
-    public static readonly Guid DoingId = Guid.Parse("00000000-0000-0000-0000-000000000002");
-    public static readonly Guid DoneId = Guid.Parse("00000000-0000-0000-0000-000000000003");
-
     public void Configure(EntityTypeBuilder<Status> builder)
     {
         builder.Property(s => s.Name).IsRequired().HasMaxLength(LookupValue.NameMaxLength);
         builder.Property(s => s.Color).IsRequired().HasMaxLength(HexColor.Length);
-        builder.HasIndex(s => s.Order).IsUnique();
 
-        // Every WorkItem requires a StatusId, so a fresh database needs at least
-        // these to be usable out of the box; admins can rename/reorder/add more.
-        // Colors are just sensible defaults — stored per-row (not derived from
-        // Category) so each status can have its own. Anonymous objects because
-        // the entity only changes through its methods.
-        builder.HasData(
-            new { Id = ToDoId, Name = "To Do", Order = 0, Category = StatusCategory.ToDo, Color = "#1E88E5" },
-            new { Id = DoingId, Name = "Doing", Order = 1, Category = StatusCategory.Doing, Color = "#FB8C00" },
-            new { Id = DoneId, Name = "Done", Order = 2, Category = StatusCategory.Done, Color = "#7B1FA2" });
+        // Restrict: a Space can't vanish from under its own columns. Nothing seeds statuses here:
+        // each Space gets its defaults when it's created (SpaceDefaults).
+        builder.HasOne<Space>()
+            .WithMany()
+            .HasForeignKey(s => s.SpaceId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(s => new { s.SpaceId, s.Order }).IsUnique();
     }
 }

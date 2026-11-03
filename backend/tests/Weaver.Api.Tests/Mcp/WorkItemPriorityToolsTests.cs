@@ -12,12 +12,13 @@ public class WorkItemPriorityToolsTests
     public async Task ListWorkItemPriorities_DelegatesToServiceAndMapsResults()
     {
         var priorities = new Mock<IWorkItemPriorityService>(MockBehavior.Strict);
-        var priority = WorkItemPriority.Create("High", 2);
-        priorities.Setup(p => p.GetAllAsync(It.IsAny<CancellationToken>())).ReturnsAsync([priority]);
+        var spaceId = Guid.NewGuid();
+        var priority = WorkItemPriority.Create(spaceId, "High", 2);
+        priorities.Setup(p => p.GetAllAsync(spaceId, It.IsAny<CancellationToken>())).ReturnsAsync([priority]);
         var tools = new WorkItemPriorityTools(priorities.Object);
 
-        var result = await tools.ListWorkItemPriorities(CancellationToken.None);
+        var result = await tools.ListWorkItemPriorities(spaceId, CancellationToken.None);
 
-        Assert.That(result.Single(), Is.EqualTo(new Contracts.WorkItemPriorityDto(priority.Id, "High", 2)));
+        Assert.That(result.Single(), Is.EqualTo(new Contracts.WorkItemPriorityDto(priority.Id, spaceId, "High", 2)));
     }
 }

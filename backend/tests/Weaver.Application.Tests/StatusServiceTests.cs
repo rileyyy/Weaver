@@ -3,7 +3,6 @@ using Weaver.Application.Services;
 using Weaver.Domain;
 using Weaver.Domain.Exceptions;
 using Weaver.Infrastructure;
-using Weaver.Infrastructure.Configurations;
 
 namespace Weaver.Application.Tests;
 
@@ -14,6 +13,7 @@ public class StatusServiceTests
     private WeaverDbContext _db = null!;
     private StatusService _statuses = null!;
     private User _admin = null!;
+    private TestSpace _space = null!;
 
     [SetUp]
     public void SetUp()
@@ -21,6 +21,7 @@ public class StatusServiceTests
         _db = TestDatabase.Create(new FixedTimeProvider(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero)));
         _statuses = new StatusService(_db, new AdminAuthorizer(_db), FakeCallerContext.Anyone());
         _admin = TestUsers.Add(_db, "admin", isAdmin: true);
+        _space = TestSpaces.Add(_db);
     }
 
     [TearDown]
@@ -29,7 +30,7 @@ public class StatusServiceTests
     [Test]
     public async Task GetAllAsync_ReturnsSeededStatusesOrderedByOrder()
     {
-        var statuses = await _statuses.GetAllAsync();
+        var statuses = await _statuses.GetAllAsync(_space.Id);
 
         Assert.That(statuses.Select(s => s.Name), Is.EqualTo(new[] { "To Do", "Doing", "Done" }));
     }
@@ -37,9 +38,9 @@ public class StatusServiceTests
     [Test]
     public async Task CreateAsync_StoresCategoryAndColorAndAppendsIt()
     {
-        var created = await _statuses.CreateAsync(_admin.Id, "Review", StatusCategory.Doing, "#00897b");
+        var created = await _statuses.CreateAsync(_admin.Id, _space.Id, "Review", StatusCategory.Doing, "#00897b");
 
-        var last = (await _statuses.GetAllAsync()).Last();
+        var last = (await _statuses.GetAllAsync(_space.Id)).Last();
         Assert.Multiple(() =>
         {
             Assert.That(last.Id, Is.EqualTo(created.Id));
@@ -52,7 +53,7 @@ public class StatusServiceTests
     public void CreateAsync_WithAnInvalidColor_IsAValidationError()
     {
         Assert.ThrowsAsync<DomainValidationException>(() =>
-            _statuses.CreateAsync(_admin.Id, "Review", StatusCategory.Doing, "teal"));
+            _statuses.CreateAsync(_admin.Id, _space.Id, "Review", StatusCategory.Doing, "teal"));
     }
 
     [Test]
@@ -61,15 +62,15 @@ public class StatusServiceTests
         var member = TestUsers.Add(_db, "member");
 
         Assert.ThrowsAsync<AdminRequiredException>(() =>
-            _statuses.CreateAsync(member.Id, "Review", StatusCategory.Doing, "#00897B"));
+            _statuses.CreateAsync(member.Id, _space.Id, "Review", StatusCategory.Doing, "#00897B"));
     }
 
     [Test]
     public async Task UpdateAsync_ChangesNameCategoryAndColor()
     {
-        await _statuses.UpdateAsync(_admin.Id, StatusConfiguration.DoingId, "In progress", StatusCategory.ToDo, "#123456");
+        await _statuses.UpdateAsync(_admin.Id, _space.Doing, "In progress", StatusCategory.ToDo, "#123456");
 
-        var doing = await _db.Statuses.AsNoTracking().SingleAsync(s => s.Id == StatusConfiguration.DoingId);
+        var doing = await _db.Statuses.AsNoTracking().SingleAsync(s => s.Id == _space.Doing);
         Assert.Multiple(() =>
         {
             Assert.That(doing.Name, Is.EqualTo("In progress"));
@@ -81,58 +82,44 @@ public class StatusServiceTests
     [Test]
     public async Task DeleteAsync_InUseWithoutAReplacement_IsAConflictAndChangesNothing()
     {
-        var item = AddItem(null, StatusConfiguration.DoingId, 1);
+        var item = AddItem(null, _space.Doing, 1);
 
         Assert.ThrowsAsync<LookupValueInUseException>(() =>
-            _statuses.DeleteAsync(_admin.Id, StatusConfiguration.DoingId, replacementId: null));
+            _statuses.DeleteAsync(_admin.Id, _space.Doing, replacementId: null));
 
         await Assert.MultipleAsync(async () =>
         {
             Assert.That(await _db.Statuses.CountAsync(), Is.EqualTo(3));
-            Assert.That((await Reload(item)).StatusId, Is.EqualTo(StatusConfiguration.DoingId));
+            Assert.That((await Reload(item)).StatusId, Is.EqualTo(_space.Doing));
         });
     }
 
     [Test]
     public async Task DeleteAsync_UnusedWithoutAReplacement_Deletes()
     {
-        await _statuses.DeleteAsync(_admin.Id, StatusConfiguration.DoingId, replacementId: null);
+        await _statuses.DeleteAsync(_admin.Id, _space.Doing, replacementId: null);
 
-        Assert.That(await _db.Statuses.AnyAsync(s => s.Id == StatusConfiguration.DoingId), Is.False);
-    }
-
-    [Test]
-    public async Task DeleteAsync_MovingTopLevelItems_AppendsThemWithinTheirOwnSpace()
-    {
-        var home = Guid.NewGuid();
-        var village = Guid.NewGuid();
-        AddItem(null, StatusConfiguration.DoneId, 100, home);
-        var villageDoing = AddItem(null, StatusConfiguration.DoingId, 1, village);
-
-        await _statuses.DeleteAsync(_admin.Id, StatusConfiguration.DoingId, StatusConfiguration.DoneId);
-
-        Assert.That((await Reload(villageDoing)).Rank, Is.EqualTo(1).Within(double.Epsilon),
-            "Village's top-level Done cell was empty; Home's ranks belong to another cell");
+        Assert.That(await _db.Statuses.AnyAsync(s => s.Id == _space.Doing), Is.False);
     }
 
     [Test]
     public async Task DeleteAsync_WithAReplacement_AppendsMovedItemsToEachLanesColumnInOrder()
     {
-        var lane = AddItem(null, StatusConfiguration.ToDoId, 1);
-        var existingDone = AddItem(lane, StatusConfiguration.DoneId, 5);
-        var firstDoing = AddItem(lane, StatusConfiguration.DoingId, 1);
-        var secondDoing = AddItem(lane, StatusConfiguration.DoingId, 2);
-        var otherLane = AddItem(null, StatusConfiguration.ToDoId, 2);
-        var otherLaneDoing = AddItem(otherLane, StatusConfiguration.DoingId, 1);
+        var lane = AddItem(null, _space.ToDo, 1);
+        var existingDone = AddItem(lane, _space.Done, 5);
+        var firstDoing = AddItem(lane, _space.Doing, 1);
+        var secondDoing = AddItem(lane, _space.Doing, 2);
+        var otherLane = AddItem(null, _space.ToDo, 2);
+        var otherLaneDoing = AddItem(otherLane, _space.Doing, 1);
 
-        await _statuses.DeleteAsync(_admin.Id, StatusConfiguration.DoingId, StatusConfiguration.DoneId);
+        await _statuses.DeleteAsync(_admin.Id, _space.Doing, _space.Done);
 
         var first = await Reload(firstDoing);
         var second = await Reload(secondDoing);
         var other = await Reload(otherLaneDoing);
         await Assert.MultipleAsync(async () =>
         {
-            Assert.That(new[] { first.StatusId, second.StatusId, other.StatusId }, Is.All.EqualTo(StatusConfiguration.DoneId));
+            Assert.That(new[] { first.StatusId, second.StatusId, other.StatusId }, Is.All.EqualTo(_space.Done));
             Assert.That(first.ParentId, Is.EqualTo(lane.Id));
             Assert.That(other.ParentId, Is.EqualTo(otherLane.Id));
             Assert.That(first.Rank, Is.GreaterThan((await Reload(existingDone)).Rank));
@@ -144,16 +131,16 @@ public class StatusServiceTests
     [Test]
     public async Task DeleteAsync_TheLastStatus_IsAConflict()
     {
-        await _statuses.DeleteAsync(_admin.Id, StatusConfiguration.DoingId, null);
-        await _statuses.DeleteAsync(_admin.Id, StatusConfiguration.DoneId, null);
+        await _statuses.DeleteAsync(_admin.Id, _space.Doing, null);
+        await _statuses.DeleteAsync(_admin.Id, _space.Done, null);
 
-        Assert.ThrowsAsync<LastLookupValueException>(() => _statuses.DeleteAsync(_admin.Id, StatusConfiguration.ToDoId, null));
+        Assert.ThrowsAsync<LastLookupValueException>(() => _statuses.DeleteAsync(_admin.Id, _space.ToDo, null));
     }
 
-    private WorkItem AddItem(WorkItem? parent, Guid statusId, double rank, Guid? spaceId = null)
+    private WorkItem AddItem(WorkItem? parent, Guid statusId, double rank)
     {
         var item = parent is null
-            ? WorkItem.Create(spaceId ?? Guid.NewGuid(), "Item", null, statusId, rank)
+            ? WorkItem.Create(_space.Id, "Item", null, statusId, rank)
             : WorkItem.CreateChildOf(parent, "Item", null, statusId, rank);
         _db.WorkItems.Add(item);
         _db.SaveChanges();

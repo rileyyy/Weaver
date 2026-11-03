@@ -25,23 +25,29 @@ class ApiLookupAdminRepository implements LookupAdminRepository {
       JsonApiClient.listOf(json, LookupValue.fromJson);
 
   @override
-  Future<List<LookupValue>> list(LookupKind kind) => _api.get(
-    kind.path,
-    _values,
-    failureMessage: 'Failed to load ${kind.name}',
-  );
+  Future<List<LookupValue>> list(LookupKind kind, {String? spaceId}) =>
+      _api.get(
+        kind.path,
+        _values,
+        query: _spaceQuery(kind, spaceId),
+        failureMessage: 'Failed to load ${kind.name}',
+      );
 
   @override
-  Future<LookupValue> create(LookupKind kind, String name, {String? color}) =>
-      _invalidatingCache(
-        kind,
-        _api.post(
-          kind.path,
-          _details(kind, name, color),
-          _value,
-          failureMessage: 'Failed to add the ${kind.singular}',
-        ),
-      );
+  Future<LookupValue> create(
+    LookupKind kind,
+    String name, {
+    String? color,
+    String? spaceId,
+  }) => _invalidatingCache(
+    kind,
+    _api.post(
+      kind.path,
+      {..._details(kind, name, color), ...?_spaceQuery(kind, spaceId)},
+      _value,
+      failureMessage: 'Failed to add the ${kind.singular}',
+    ),
+  );
 
   @override
   Future<LookupValue> update(
@@ -60,16 +66,20 @@ class ApiLookupAdminRepository implements LookupAdminRepository {
   );
 
   @override
-  Future<List<LookupValue>> reorder(LookupKind kind, List<String> orderedIds) =>
-      _invalidatingCache(
-        kind,
-        _api.put(
-          '${kind.path}/order',
-          {'orderedIds': orderedIds},
-          _values,
-          failureMessage: 'Failed to reorder the ${kind.name}',
-        ),
-      );
+  Future<List<LookupValue>> reorder(
+    LookupKind kind,
+    List<String> orderedIds, {
+    String? spaceId,
+  }) => _invalidatingCache(
+    kind,
+    _api.put(
+      '${kind.path}/order',
+      {'orderedIds': orderedIds},
+      _values,
+      query: _spaceQuery(kind, spaceId),
+      failureMessage: 'Failed to reorder the ${kind.name}',
+    ),
+  );
 
   @override
   Future<void> delete(LookupKind kind, String id, {String? replacementId}) =>
@@ -83,6 +93,19 @@ class ApiLookupAdminRepository implements LookupAdminRepository {
           failureMessage: 'Failed to delete the ${kind.singular}',
         ),
       );
+
+  static Map<String, String>? _spaceQuery(LookupKind kind, String? spaceId) {
+    if (kind.ownedBySpace != (spaceId != null)) {
+      throw ArgumentError.value(
+        spaceId,
+        'spaceId',
+        kind.ownedBySpace
+            ? 'Each Space has its own ${kind.name}; say which.'
+            : '${kind.name} are shared by every Space.',
+      );
+    }
+    return spaceId == null ? null : {'spaceId': spaceId};
+  }
 
   static Map<String, Object?> _details(
     LookupKind kind,

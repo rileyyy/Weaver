@@ -252,38 +252,15 @@ namespace Weaver.Infrastructure.Migrations
                     b.Property<int>("Order")
                         .HasColumnType("integer");
 
+                    b.Property<Guid>("SpaceId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Order")
+                    b.HasIndex("SpaceId", "Order")
                         .IsUnique();
 
                     b.ToTable("Statuses");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("00000000-0000-0000-0000-000000000001"),
-                            Category = 0,
-                            Color = "#1E88E5",
-                            Name = "To Do",
-                            Order = 0
-                        },
-                        new
-                        {
-                            Id = new Guid("00000000-0000-0000-0000-000000000002"),
-                            Category = 1,
-                            Color = "#FB8C00",
-                            Name = "Doing",
-                            Order = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("00000000-0000-0000-0000-000000000003"),
-                            Category = 2,
-                            Color = "#7B1FA2",
-                            Name = "Done",
-                            Order = 2
-                        });
                 });
 
             modelBuilder.Entity("Weaver.Domain.User", b =>
@@ -571,38 +548,15 @@ namespace Weaver.Infrastructure.Migrations
                     b.Property<int>("Order")
                         .HasColumnType("integer");
 
+                    b.Property<Guid>("SpaceId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Order")
+                    b.HasIndex("SpaceId", "Order")
                         .IsUnique();
 
                     b.ToTable("WorkItemPriorities");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("00000000-0000-0000-0000-000000000201"),
-                            Name = "Low",
-                            Order = 0
-                        },
-                        new
-                        {
-                            Id = new Guid("00000000-0000-0000-0000-000000000202"),
-                            Name = "Medium",
-                            Order = 1
-                        },
-                        new
-                        {
-                            Id = new Guid("00000000-0000-0000-0000-000000000203"),
-                            Name = "High",
-                            Order = 2
-                        },
-                        new
-                        {
-                            Id = new Guid("00000000-0000-0000-0000-000000000204"),
-                            Name = "Urgent",
-                            Order = 3
-                        });
                 });
 
             modelBuilder.Entity("Weaver.Domain.WorkItemRecurrence", b =>
@@ -689,6 +643,15 @@ namespace Weaver.Infrastructure.Migrations
                         .HasForeignKey("ApiKeyId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Weaver.Domain.Space", null)
+                        .WithMany()
+                        .HasForeignKey("SpaceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Weaver.Domain.Status", b =>
+                {
                     b.HasOne("Weaver.Domain.Space", null)
                         .WithMany()
                         .HasForeignKey("SpaceId")
@@ -784,6 +747,15 @@ namespace Weaver.Infrastructure.Migrations
                     b.Navigation("LinkedWorkItem");
 
                     b.Navigation("WorkItem");
+                });
+
+            modelBuilder.Entity("Weaver.Domain.WorkItemPriority", b =>
+                {
+                    b.HasOne("Weaver.Domain.Space", null)
+                        .WithMany()
+                        .HasForeignKey("SpaceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Weaver.Domain.WorkItemRecurrence", b =>

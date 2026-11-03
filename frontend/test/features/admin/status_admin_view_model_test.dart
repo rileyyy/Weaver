@@ -5,6 +5,7 @@ import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/admin/models/status_category.dart';
 import 'package:weaver/features/admin/models/status_details.dart';
 import 'package:weaver/features/admin/status_admin_view_model.dart';
+import 'package:weaver/shared/models/space.dart';
 
 import 'fakes/fake_status_admin_repository.dart';
 
@@ -25,14 +26,49 @@ void main() {
       adminStatus('done'),
     ]);
     viewModel = StatusAdminViewModel(repository);
-    await viewModel.load();
+    await viewModel.showSpace('home');
   });
 
   tearDown(() => viewModel.dispose());
 
-  test('load lists the statuses', () {
+  test("showSpace lists that Space's statuses", () {
+    expect(repository.listedSpaceIds, ['home']);
+    expect(viewModel.spaceId, 'home');
     expect(viewModel.items.map((s) => s.id), ['todo', 'doing', 'done']);
     expect(viewModel.isLoading, isFalse);
+  });
+
+  test('nothing is listed until a Space is chosen', () async {
+    final vm = StatusAdminViewModel(
+      FakeStatusAdminRepository([adminStatus('x')]),
+    );
+    addTearDown(vm.dispose);
+
+    await vm.load();
+
+    expect(vm.spaceId, isNull);
+    expect(vm.items, isEmpty);
+  });
+
+  group('followSpaces', () {
+    const home = Space(id: 'home', name: 'Home');
+    const software = Space(id: 'software', name: 'Software');
+
+    test('shows the first Space when none is chosen', () async {
+      final vm = StatusAdminViewModel(repository);
+      addTearDown(vm.dispose);
+
+      await vm.followSpaces(const [software, home]);
+
+      expect(vm.spaceId, 'software');
+    });
+
+    test('keeps the chosen Space while it is still there', () async {
+      await viewModel.followSpaces(const [software, home]);
+
+      expect(viewModel.spaceId, 'home');
+      expect(repository.listedSpaceIds, ['home']);
+    });
   });
 
   test('a failed load reports an error', () async {
@@ -40,7 +76,7 @@ void main() {
 
     final vm = StatusAdminViewModel(repository);
     addTearDown(vm.dispose);
-    await vm.load();
+    await vm.showSpace('home');
 
     expect(vm.loadError, contains('statuses'));
   });
@@ -56,7 +92,7 @@ void main() {
       final error = await move;
 
       expect(error, isNull);
-      expect(repository.calls.single, 'reorder done,todo,doing');
+      expect(repository.calls.single, 'reorder done,todo,doing in home');
       expect(viewModel.items.map((s) => s.id), ['done', 'todo', 'doing']);
     },
   );
@@ -73,12 +109,29 @@ void main() {
     expect(viewModel.items.map((s) => s.id), ['todo', 'doing', 'done']);
   });
 
-  test('create appends the new status', () async {
+  test('create appends the new status to the chosen Space', () async {
     final error = await viewModel.create(_review);
 
     expect(error, isNull);
+    expect(repository.calls.single, 'create Review in home');
     expect(viewModel.items.last.name, 'Review');
   });
+
+  test(
+    'a create that finishes after switching Space leaves the new list alone',
+    () async {
+      repository.createGate = Completer<void>();
+
+      final create = viewModel.create(_review);
+      await viewModel.showSpace('software');
+      repository.createGate!.complete();
+      final error = await create;
+
+      expect(error, isNull);
+      expect(viewModel.spaceId, 'software');
+      expect(viewModel.items.map((s) => s.name), isNot(contains('Review')));
+    },
+  );
 
   test('create reports a conflict from the server', () async {
     repository.error = const ApiException(

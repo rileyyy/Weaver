@@ -74,6 +74,29 @@ void main() {
   });
 
   group('ApiStatusRepository', () {
+    test("fetches each Space's statuses separately, once each", () async {
+      final requested = <String?>[];
+      final client = MockClient((request) async {
+        final spaceId = request.url.queryParameters['spaceId'];
+        requested.add(spaceId);
+        return http.Response(
+          jsonEncode([
+            {'id': 's-$spaceId', 'name': 'In $spaceId', 'order': 0},
+          ]),
+          200,
+        );
+      });
+      final repository = ApiStatusRepository(client, _endpoint);
+
+      final home = await repository.loadStatuses('home');
+      final software = await repository.loadStatuses('software');
+      await repository.loadStatuses('home');
+
+      expect(requested, ['home', 'software']);
+      expect(home.single.name, 'In home');
+      expect(software.single.name, 'In software');
+    });
+
     test('fetches statuses once and shares the result', () async {
       var calls = 0;
       final client = MockClient((_) async {
@@ -88,10 +111,10 @@ void main() {
       final repository = ApiStatusRepository(client, _endpoint);
 
       final results = await Future.wait([
-        repository.loadStatuses(),
-        repository.loadStatuses(),
+        repository.loadStatuses('home'),
+        repository.loadStatuses('home'),
       ]);
-      await repository.loadStatuses();
+      await repository.loadStatuses('home');
 
       expect(calls, 1);
       expect(results.first.single.name, 'To Do');
@@ -105,9 +128,9 @@ void main() {
       });
       final repository = ApiStatusRepository(client, _endpoint);
 
-      await repository.loadStatuses();
+      await repository.loadStatuses('home');
       repository.invalidate();
-      await repository.loadStatuses();
+      await repository.loadStatuses('home');
 
       expect(calls, 2);
     });
@@ -121,9 +144,9 @@ void main() {
       final server = _switchableServer();
       final repository = ApiStatusRepository(client, server);
 
-      await repository.loadStatuses();
+      await repository.loadStatuses('home');
       server.use('https://second.example');
-      await repository.loadStatuses();
+      await repository.loadStatuses('home');
 
       expect(hosts, ['first.example', 'second.example']);
     });
@@ -137,12 +160,12 @@ void main() {
       final repository = ApiStatusRepository(client, _endpoint);
 
       await expectLater(
-        repository.loadStatuses(),
+        repository.loadStatuses('home'),
         throwsA(isA<ApiException>()),
       );
       fail = false;
 
-      expect(await repository.loadStatuses(), isEmpty);
+      expect(await repository.loadStatuses('home'), isEmpty);
     });
   });
 

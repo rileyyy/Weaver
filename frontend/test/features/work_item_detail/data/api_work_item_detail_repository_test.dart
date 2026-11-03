@@ -175,9 +175,10 @@ void main() {
       ApiUserDirectoryRepository(client, endpoint),
     );
 
-    final priorities = await repository.loadPriorities();
+    final priorities = await repository.loadPriorities('home');
 
     expect(sentRequest!.url.path, '/api/work-item-priorities');
+    expect(sentRequest!.url.queryParameters['spaceId'], 'home');
     expect(priorities.map((p) => p.name), ['Low', 'High']);
     expect(priorities.last.id, 'priority-high');
     expect(priorities.last.order, 2);

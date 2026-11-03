@@ -15,10 +15,11 @@ public class ApiKeyScopeTests
     public async Task AReadOnlyKey_CantCreateAWorkItem()
     {
         var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadOnly);
+        var space = await ApiClient.SharedSpaceIdAsync();
 
         var response = await agent.PostJsonAsync(
             "/api/work-items",
-            new CreateWorkItemRequest("Not allowed", null, null, SeededStatuses.ToDo, null, SpaceId: await ApiClient.SharedSpaceIdAsync()));
+            new CreateWorkItemRequest("Not allowed", null, null, await ApiClient.StatusIdAsync(space, "To Do"), null, SpaceId: space));
 
         Assert.Multiple(async () =>
         {
@@ -37,7 +38,7 @@ public class ApiKeyScopeTests
 
         var move = await agent.PutJsonAsync(
             $"/api/work-items/{item.Id}/status",
-            new ChangeWorkItemStatusRequest(SeededStatuses.Doing, null));
+            new ChangeWorkItemStatusRequest(await ApiClient.StatusIdAsync(item.SpaceId, "Doing"), null));
         var delete = await agent.DeleteAsync($"/api/work-items/{item.Id}");
         var after = await (await human.GetAsync($"/api/work-items/{item.Id}")).ReadAsync<WorkItemDto>();
 
@@ -45,7 +46,7 @@ public class ApiKeyScopeTests
         {
             Assert.That(move.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
             Assert.That(delete.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
-            Assert.That(after.StatusId, Is.EqualTo(SeededStatuses.ToDo));
+            Assert.That(after.StatusId, Is.EqualTo(item.StatusId));
         });
     }
 
@@ -72,16 +73,17 @@ public class ApiKeyScopeTests
         var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadWrite);
 
         var item = await agent.CreateWorkItemAsync("Written by an agent");
+        var doing = await ApiClient.StatusIdAsync(item.SpaceId, "Doing");
         var moved = await (await agent.PutJsonAsync(
                 $"/api/work-items/{item.Id}/status",
-                new ChangeWorkItemStatusRequest(SeededStatuses.Doing, null)))
+                new ChangeWorkItemStatusRequest(doing, null)))
             .ReadAsync<WorkItemWriteResponse>();
         var comment = await agent.PostJsonAsync($"/api/work-items/{item.Id}/comments", new CreateCommentRequest("Started"));
         var delete = await agent.DeleteAsync($"/api/work-items/{item.Id}");
 
         Assert.Multiple(() =>
         {
-            Assert.That(moved.Item.StatusId, Is.EqualTo(SeededStatuses.Doing));
+            Assert.That(moved.Item.StatusId, Is.EqualTo(doing));
             Assert.That(comment.StatusCode, Is.EqualTo(HttpStatusCode.Created));
             Assert.That(delete.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
         });

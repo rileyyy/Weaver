@@ -2,7 +2,7 @@ using Weaver.Domain;
 
 namespace Weaver.Application.Services;
 
-public interface IWorkItemLayerService : ILookupService<WorkItemLayer>
+public interface IWorkItemLayerService : IGlobalLookupService<WorkItemLayer>
 {
     Task<WorkItemLayer> CreateAsync(Guid actorUserId, string name, string color, CancellationToken ct = default);
 

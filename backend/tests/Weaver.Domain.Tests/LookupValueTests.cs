@@ -8,7 +8,7 @@ public class LookupValueTests
     [Test]
     public void Create_TrimsTheName()
     {
-        var priority = WorkItemPriority.Create("  High ", 2);
+        var priority = WorkItemPriority.Create(Guid.NewGuid(), "  High ", 2);
 
         Assert.That(priority.Name, Is.EqualTo("High"));
     }
@@ -32,7 +32,7 @@ public class LookupValueTests
     [Test]
     public void Status_Create_NormalisesTheColorToUpperCase()
     {
-        var status = Status.Create("Review", 3, StatusCategory.Doing, " #00897b ");
+        var status = Status.Create(Guid.NewGuid(), "Review", 3, StatusCategory.Doing, " #00897b ");
 
         Assert.That(status.Color, Is.EqualTo("#00897B"));
     }
@@ -43,19 +43,19 @@ public class LookupValueTests
     [TestCase("")]
     public void Status_WithAColorThatIsNotRRGGBB_IsAValidationError(string color)
     {
-        Assert.Throws<DomainValidationException>(() => Status.Create("Review", 3, StatusCategory.Doing, color));
+        Assert.Throws<DomainValidationException>(() => Status.Create(Guid.NewGuid(), "Review", 3, StatusCategory.Doing, color));
     }
 
     [Test]
     public void Status_WithAnUndefinedCategory_IsAValidationError()
     {
-        Assert.Throws<DomainValidationException>(() => Status.Create("Review", 3, (StatusCategory)42, "#00897B"));
+        Assert.Throws<DomainValidationException>(() => Status.Create(Guid.NewGuid(), "Review", 3, (StatusCategory)42, "#00897B"));
     }
 
     [Test]
     public void Status_Recategorize_ChangesCategoryAndColor()
     {
-        var status = Status.Create("Review", 3, StatusCategory.Doing, "#00897B");
+        var status = Status.Create(Guid.NewGuid(), "Review", 3, StatusCategory.Doing, "#00897B");
 
         status.Recategorize(StatusCategory.Done, "#123456");
 

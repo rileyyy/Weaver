@@ -101,6 +101,20 @@ class WorkItemDetailViewModel extends ViewModel {
     return null;
   }
 
+  static List<AsyncError?> _asyncErrors(Object? errors) => switch (errors) {
+    (final AsyncError? a, final AsyncError? b) => [a, b],
+    (
+      final AsyncError? a,
+      final AsyncError? b,
+      final AsyncError? c,
+      final AsyncError? d,
+      final AsyncError? e,
+      final AsyncError? f,
+    ) =>
+      [a, b, c, d, e, f],
+    _ => throw StateError('Unexpected parallel wait errors: $errors'),
+  };
+
   Future<void> load(String id) async {
     _isLoading = true;
     _loadError = null;
@@ -108,24 +122,18 @@ class WorkItemDetailViewModel extends ViewModel {
 
     try {
       final asOf = _items.revision;
-      final (
-        item,
-        statuses,
-        layers,
-        priorities,
-        users,
-        comments,
-        links,
-        children,
-      ) = await (
+      final (item, layers, users, comments, links, children) = await (
         _repository.getItem(id),
-        _repository.loadStatuses(),
         _repository.loadLayers(),
-        _repository.loadPriorities(),
         _repository.loadUsers(),
         _repository.loadComments(id),
         _repository.loadLinks(id),
         _repository.loadChildren(id),
+      ).wait;
+      // Only the item says which Space's statuses and priorities it can take.
+      final (statuses, priorities) = await (
+        _repository.loadStatuses(item.spaceId),
+        _repository.loadPriorities(item.spaceId),
       ).wait;
       _items.putAll([item], asOf: asOf);
       _itemId = id;
@@ -137,19 +145,7 @@ class WorkItemDetailViewModel extends ViewModel {
       _links = links;
       _children = children;
     } on ParallelWaitError<Object?, Object?> catch (e) {
-      final (a, b, c, d, f, g, h, i) =
-          e.errors
-              as (
-                AsyncError?,
-                AsyncError?,
-                AsyncError?,
-                AsyncError?,
-                AsyncError?,
-                AsyncError?,
-                AsyncError?,
-                AsyncError?,
-              );
-      rethrowNonApiErrors([a, b, c, d, f, g, h, i]);
+      rethrowNonApiErrors(_asyncErrors(e.errors));
       _loadError =
           'Could not load this work item. Check your connection and try again.';
     } finally {

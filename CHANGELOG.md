@@ -33,6 +33,28 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-03 — Per-Space statuses and priorities
+
+`feature/per-space-statuses-and-priorities` (ticket 12 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0001](docs/adr/0001-spaces.md)).
+
+- **Each Space has its own statuses and priorities**, so Home can use
+  Quoted / Booked / Done while Software uses New / Active / Resolved. A new
+  Space starts with To Do / Doing / Done and Low / Medium / High / Urgent.
+- **A work item only takes its own Space's** status and priority; another
+  Space's is refused (400), over REST and MCP alike.
+- **Admins manage them per Space** on the Admin page: the Statuses and
+  Priorities tabs have a Space picker. Names, order and the "at least one
+  status" rule apply within each Space.
+- **The board and the detail dialog** show only the item's Space's
+  statuses and priorities.
+- **API:** `GET /api/statuses` and `/work-item-priorities` need a
+  `spaceId`, and so do creating and reordering; results carry `spaceId`.
+  MCP `list_statuses` and `list_work_item_priorities` take a `spaceId`.
+- **Reset needed:** the migration drops the global statuses and priorities
+  and gives existing Spaces the defaults, so a database that already has
+  work items must be reset.
 ## 2026-11-03 — Narrow board rebuilds
 
 `feature/narrow-board-rebuilds` (ticket 37 of

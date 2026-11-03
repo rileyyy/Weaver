@@ -22,7 +22,7 @@ public class WorkItemHistoryTests
     private WorkItemService _workItems = null!;
     private WorkItemHistoryService _history = null!;
     private User _alice = null!;
-    private Space _home = null!;
+    private TestSpace _home = null!;
 
     [SetUp]
     public void SetUp()
@@ -153,16 +153,16 @@ public class WorkItemHistoryTests
         var item = await CreateAsync("Task");
         var sibling = await CreateAsync("Sibling");
 
-        await _workItems.ChangeStatusAsync(item.Id, StatusConfiguration.DoingId);
-        await _workItems.ChangeStatusAsync(item.Id, StatusConfiguration.DoingId, afterId: null);
-        await _workItems.ChangeStatusAsync(sibling.Id, StatusConfiguration.ToDoId, afterId: null);
+        await _workItems.ChangeStatusAsync(item.Id, _home.Doing);
+        await _workItems.ChangeStatusAsync(item.Id, _home.Doing, afterId: null);
+        await _workItems.ChangeStatusAsync(sibling.Id, _home.ToDo, afterId: null);
 
         var entry = (await _history.ListForWorkItemAsync(item.Id)).First();
         Assert.Multiple(async () =>
         {
             Assert.That(entry.Field, Is.EqualTo(WorkItemField.StatusId));
-            Assert.That(entry.OldValue?.GetGuid(), Is.EqualTo(StatusConfiguration.ToDoId));
-            Assert.That(entry.NewValue?.GetGuid(), Is.EqualTo(StatusConfiguration.DoingId));
+            Assert.That(entry.OldValue?.GetGuid(), Is.EqualTo(_home.ToDo));
+            Assert.That(entry.NewValue?.GetGuid(), Is.EqualTo(_home.Doing));
             Assert.That(entry.OldName, Is.EqualTo("To Do"));
             Assert.That(entry.NewName, Is.EqualTo("Doing"));
             Assert.That(await ChangesAsync(item.Id), Has.Count.EqualTo(1));
@@ -370,16 +370,16 @@ public class WorkItemHistoryTests
     {
         var admin = SignInAdmin();
         var item = await CreateAsync("Task");
-        await _workItems.ChangeStatusAsync(item.Id, StatusConfiguration.DoingId);
+        await _workItems.ChangeStatusAsync(item.Id, _home.Doing);
         await _workItems.UpdateDetailsAsync(item.Id, new WorkItemDetailsPatch
         {
             LayerId = WorkItemLayerConfiguration.TaskId,
-            PriorityId = WorkItemPriorityConfiguration.LowId,
+            PriorityId = _home.Low,
         });
 
-        await new StatusService(_db, new AdminAuthorizer(_db), _caller).DeleteAsync(admin.Id, StatusConfiguration.DoingId, StatusConfiguration.DoneId);
+        await new StatusService(_db, new AdminAuthorizer(_db), _caller).DeleteAsync(admin.Id, _home.Doing, _home.Done);
         await new WorkItemLayerService(_db, new AdminAuthorizer(_db), _caller).DeleteAsync(admin.Id, WorkItemLayerConfiguration.TaskId, null);
-        await new WorkItemPriorityService(_db, new AdminAuthorizer(_db), _caller).DeleteAsync(admin.Id, WorkItemPriorityConfiguration.LowId, WorkItemPriorityConfiguration.HighId);
+        await new WorkItemPriorityService(_db, new AdminAuthorizer(_db), _caller).DeleteAsync(admin.Id, _home.Low, _home.High);
 
         var entries = (await _history.ListForWorkItemAsync(item.Id)).Take(3).ToList();
         Assert.Multiple(() =>
@@ -455,7 +455,7 @@ public class WorkItemHistoryTests
         _caller);
 
     private Task<WorkItem> CreateAsync(string title, Guid? parentId = null) =>
-        _workItems.CreateAsync(title, null, parentId, StatusConfiguration.ToDoId, spaceId: parentId is null ? _home.Id : null);
+        _workItems.CreateAsync(title, null, parentId, _home.ToDo, spaceId: parentId is null ? _home.Id : null);
 
     private async Task<WorkItemHistoryView> CreatedEntryAsync(Guid workItemId) =>
         (await _history.ListForWorkItemAsync(workItemId)).Single(e => e.Field == WorkItemHistoryField.Created);

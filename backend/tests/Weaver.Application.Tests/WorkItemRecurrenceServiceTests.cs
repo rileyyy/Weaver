@@ -20,7 +20,7 @@ public class WorkItemRecurrenceServiceTests
     private FixedTimeProvider _time = null!;
     private WorkItemRecurrenceService _recurrences = null!;
     private WorkItemService _workItems = null!;
-    private Space _space = null!;
+    private TestSpace _space = null!;
 
     [SetUp]
     public void SetUp()
@@ -37,7 +37,7 @@ public class WorkItemRecurrenceServiceTests
     public void TearDown() => _db.Dispose();
 
     private Task<WorkItem> CreateItem(string title, Guid? parentId = null, Guid? statusId = null) =>
-        _workItems.CreateAsync(title, null, parentId, statusId ?? StatusConfiguration.ToDoId, spaceId: parentId is null ? _space.Id : null);
+        _workItems.CreateAsync(title, null, parentId, statusId ?? _space.ToDo, spaceId: parentId is null ? _space.Id : null);
 
     private Task<RecurringWorkItem> RepeatWeekly(Guid id, params DayOfWeek[] days) =>
         _recurrences.SetAsync(id, RecurrenceFrequency.Weekly, days, Today, null);
@@ -114,11 +114,11 @@ public class WorkItemRecurrenceServiceTests
     public async Task SetAsync_CopiesTheTemplateIntoTheSameParentInTheFirstStatus()
     {
         var lane = await CreateItem("Lane");
-        var item = await CreateItem("Report", lane.Id, StatusConfiguration.DoingId);
+        var item = await CreateItem("Report", lane.Id, _space.Doing);
         var user = User.CreateHuman("sam", "sam");
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
-        await _workItems.UpdateDetailsAsync(item.Id, Details("Report", "Fill it in", WorkItemLayerConfiguration.TaskId, WorkItemPriorityConfiguration.HighId));
+        await _workItems.UpdateDetailsAsync(item.Id, Details("Report", "Fill it in", WorkItemLayerConfiguration.TaskId, _space.High));
         await _workItems.AssignAsync(item.Id, user.Id);
         await _workItems.SetTagsAsync(item.Id, Tags("finance"));
         await _workItems.RescheduleAsync(item.Id, new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 5));
@@ -132,25 +132,40 @@ public class WorkItemRecurrenceServiceTests
             Assert.That(copy.Title, Is.EqualTo("Report"));
             Assert.That(copy.Description, Is.EqualTo("Fill it in"));
             Assert.That(copy.LayerId, Is.EqualTo(WorkItemLayerConfiguration.TaskId));
-            Assert.That(copy.PriorityId, Is.EqualTo(WorkItemPriorityConfiguration.HighId));
+            Assert.That(copy.PriorityId, Is.EqualTo(_space.High));
             Assert.That(copy.AssignedToUserId, Is.EqualTo(user.Id));
             Assert.That(copy.Tags, Is.EqualTo(new[] { "finance" }));
             Assert.That(copy.ParentId, Is.EqualTo(lane.Id));
-            Assert.That(copy.StatusId, Is.EqualTo(StatusConfiguration.ToDoId));
+            Assert.That(copy.StatusId, Is.EqualTo(_space.ToDo));
             Assert.That(copy.StartDate, Is.EqualTo(Monday));
             Assert.That(copy.EndDate, Is.EqualTo(Monday));
         });
     }
 
     [Test]
+    public async Task SetAsync_StartsOccurrencesInTheFirstStatusOfTheTemplatesOwnSpace()
+    {
+        // Ordered before every status of the template's Space, so only a Space-blind query picks it.
+        var other = TestSpaces.Add(_db, "Village");
+        _db.Statuses.Add(Status.Create(other.Id, "Backlog", -1, StatusCategory.ToDo, "#9E9E9E"));
+        await _db.SaveChangesAsync();
+        var item = await CreateItem("Report", statusId: _space.Doing);
+
+        await RepeatWeekly(item.Id, DayOfWeek.Monday);
+
+        var copy = (await Occurrences(item.Id)).Single();
+        Assert.That(copy.StatusId, Is.EqualTo(_space.ToDo));
+    }
+
+    [Test]
     public async Task SetAsync_DoesNotLeaveTheTemplateChanged()
     {
-        var item = await CreateItem("Report", statusId: StatusConfiguration.DoneId);
+        var item = await CreateItem("Report", statusId: _space.Done);
 
         await RepeatWeekly(item.Id, DayOfWeek.Monday);
 
         var reloaded = await _db.WorkItems.AsNoTracking().SingleAsync(w => w.Id == item.Id);
-        Assert.That(reloaded.StatusId, Is.EqualTo(StatusConfiguration.DoneId));
+        Assert.That(reloaded.StatusId, Is.EqualTo(_space.Done));
         Assert.That(reloaded.RecurrenceSourceId, Is.Null);
     }
 
@@ -171,8 +186,8 @@ public class WorkItemRecurrenceServiceTests
     {
         var item = await CreateItem("Checklist");
         var first = await CreateItem("First", item.Id);
-        var second = await _workItems.CreateAsync("Second", null, item.Id, StatusConfiguration.ToDoId, afterId: first.Id);
-        await CreateItem("Nested", second.Id, StatusConfiguration.DoneId);
+        var second = await _workItems.CreateAsync("Second", null, item.Id, _space.ToDo, afterId: first.Id);
+        await CreateItem("Nested", second.Id, _space.Done);
 
         await RepeatWeekly(item.Id, DayOfWeek.Monday);
 
@@ -182,7 +197,7 @@ public class WorkItemRecurrenceServiceTests
         Assert.That(children.All(c => c.RecurrenceSourceId is null && c.StartDate == Monday), Is.True);
         var nested = await _db.WorkItems.SingleAsync(w => w.ParentId == children[1].Id);
         Assert.That(nested.Title, Is.EqualTo("Nested"));
-        Assert.That(nested.StatusId, Is.EqualTo(StatusConfiguration.ToDoId));
+        Assert.That(nested.StatusId, Is.EqualTo(_space.ToDo));
     }
 
     [Test]
@@ -204,12 +219,12 @@ public class WorkItemRecurrenceServiceTests
     {
         var lane = await CreateItem("Lane");
         var existing = await CreateItem("Existing", lane.Id);
-        var item = await CreateItem("Report", lane.Id, StatusConfiguration.DoneId);
+        var item = await CreateItem("Report", lane.Id, _space.Done);
 
         await RepeatWeekly(item.Id, DayOfWeek.Monday, DayOfWeek.Friday);
 
         var column = await _db.WorkItems
-            .Where(w => w.ParentId == lane.Id && w.StatusId == StatusConfiguration.ToDoId)
+            .Where(w => w.ParentId == lane.Id && w.StatusId == _space.ToDo)
             .OrderBy(w => w.Rank)
             .Select(w => w.Id)
             .ToListAsync();

@@ -25,7 +25,9 @@ public class McpTests
         await using var mcp = await ConnectAsync(client);
 
         var tools = await mcp.ListToolsAsync();
-        var result = await mcp.CallToolAsync("list_statuses", new Dictionary<string, object?>());
+        var result = await mcp.CallToolAsync(
+            "list_statuses",
+            new Dictionary<string, object?> { ["spaceId"] = await ApiClient.SharedSpaceIdAsync() });
         var allItems = await mcp.CallToolAsync("list_all_work_items", new Dictionary<string, object?>());
 
         Assert.Multiple(() =>
@@ -113,7 +115,7 @@ public class McpTests
         var create = await mcp.CallToolAsync("create_work_item", new Dictionary<string, object?>
         {
             ["title"] = "Not allowed",
-            ["statusId"] = SeededStatuses.ToDo,
+            ["statusId"] = await ApiClient.StatusIdAsync(await ApiClient.SharedSpaceIdAsync(), "To Do"),
             ["spaceId"] = await ApiClient.SharedSpaceIdAsync(),
         });
         var delete = await mcp.CallToolAsync("delete_work_item", new Dictionary<string, object?> { ["id"] = item.Id });
@@ -154,7 +156,7 @@ public class McpTests
         var create = await mcp.CallToolAsync("create_work_item", new Dictionary<string, object?>
         {
             ["title"] = "Written over MCP",
-            ["statusId"] = SeededStatuses.ToDo,
+            ["statusId"] = await ApiClient.StatusIdAsync(await ApiClient.SharedSpaceIdAsync(), "To Do"),
             ["spaceId"] = await ApiClient.SharedSpaceIdAsync(),
         });
         var created = JsonSerializer.Deserialize<WorkItemDto>(TextOf(create), ApiClient.Json)!;

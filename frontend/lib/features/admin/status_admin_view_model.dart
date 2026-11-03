@@ -4,31 +4,34 @@ import 'package:weaver/features/admin/models/admin_status.dart';
 import 'package:weaver/features/admin/models/status_details.dart';
 import 'package:weaver/features/admin/ordered_list_view_model.dart';
 
-/// The Admin page's Statuses tab.
+/// The Admin page's Statuses tab, for one Space at a time.
 @injectable
 class StatusAdminViewModel extends OrderedListViewModel<AdminStatus> {
   StatusAdminViewModel(this._repository);
 
   final StatusAdminRepository _repository;
 
-  /// Every work item needs a status, so the last one can't go.
+  @override
+  bool get ownedBySpace => true;
+
+  /// Every work item needs a status, so a Space's last one can't go.
   bool get canDelete => items.length > 1;
 
   @override
   String idOf(AdminStatus item) => item.id;
 
   @override
-  Future<List<AdminStatus>> fetch() => _repository.list();
+  Future<List<AdminStatus>> fetch() => _repository.list(spaceId!);
 
   @override
   Future<List<AdminStatus>> saveOrder(List<String> orderedIds) =>
-      _repository.reorder(orderedIds);
+      _repository.reorder(spaceId!, orderedIds);
 
   @override
   String get pluralName => 'statuses';
 
   Future<String?> create(StatusDetails details) => attempt(
-    () => _repository.create(details),
+    () => _repository.create(spaceId!, details),
     onSuccess: (created) => setItems([...items, created]),
     fallbackError: 'Could not add the status. Try again.',
   );

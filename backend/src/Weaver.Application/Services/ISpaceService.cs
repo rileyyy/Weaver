@@ -13,7 +13,10 @@ public interface ISpaceService
 
     Task<Space?> GetByIdAsync(Guid id, CancellationToken ct = default);
 
-    /// <summary>Rejects a name another Space has, ignoring case.</summary>
+    /// <summary>
+    /// Rejects a name another Space has, ignoring case. The new Space starts with the default
+    /// statuses and priorities (<see cref="SpaceDefaults"/>).
+    /// </summary>
     Task<Space> CreateAsync(string name, CancellationToken ct = default);
 
     /// <summary>Rejects a name another Space has, ignoring case.</summary>

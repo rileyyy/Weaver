@@ -26,6 +26,8 @@ public class SpaceService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerC
         await EnsureNameFreeAsync(space.Name, exceptId: null, ct);
 
         _db.Spaces.Add(space);
+        _db.Statuses.AddRange(SpaceDefaults.StatusesFor(space.Id));
+        _db.WorkItemPriorities.AddRange(SpaceDefaults.PrioritiesFor(space.Id));
         Record(space.Id, SpaceHistoryField.Created, null, space.Name);
         await SaveAsync(space.Name, ct);
         return space;

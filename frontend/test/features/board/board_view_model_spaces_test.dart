@@ -36,7 +36,7 @@ class _SpacesRepository implements BoardRepository {
   Future<BoardData> loadBoard(String spaceId, String? scopeItemId) async {
     boardLoads.add('$spaceId/$scopeItemId');
     return BoardData(
-      statuses: const [WorkItemStatus(id: 'todo', name: 'To Do', order: 0)],
+      statuses: [WorkItemStatus(id: '$spaceId-todo', name: 'To Do', order: 0)],
       swimlanes: [
         SwimlaneItems(
           lane: workItem('$spaceId-lane', spaceId: spaceId),
@@ -188,6 +188,16 @@ void main() {
       },
     );
 
+    test("shows the other Space's own status columns", () async {
+      final viewModel = viewModelWith();
+      await viewModel.load();
+
+      await viewModel.switchSpace(_village);
+
+      expect(viewModel.statuses.map((s) => s.id), ['village-todo']);
+      expect(viewModel.visibleStatuses.map((s) => s.id), ['village-todo']);
+    });
+
     test('to the current Space does nothing', () async {
       final viewModel = viewModelWith();
       await viewModel.load();
@@ -197,16 +207,19 @@ void main() {
       expect(repository.boardLoads, ['home/null']);
     });
 
-    test('reloads the hierarchy for the new Space once it was loaded', () async {
-      final viewModel = viewModelWith();
-      await viewModel.load();
-      await viewModel.loadHierarchy();
+    test(
+      'reloads the hierarchy for the new Space once it was loaded',
+      () async {
+        final viewModel = viewModelWith();
+        await viewModel.load();
+        await viewModel.loadHierarchy();
 
-      await viewModel.switchSpace(_village);
+        await viewModel.switchSpace(_village);
 
-      expect(repository.allItemLoads, ['home', 'village']);
-      expect(viewModel.hierarchyRoots.single.item.id, 'village-item');
-    });
+        expect(repository.allItemLoads, ['home', 'village']);
+        expect(viewModel.hierarchyRoots.single.item.id, 'village-item');
+      },
+    );
   });
 
   group('switching Space never shows the old Space in the hierarchy', () {

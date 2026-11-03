@@ -5,14 +5,14 @@ using Weaver.Domain;
 
 namespace Weaver.Application.Services;
 
-public class WorkItemPriorityService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller) : LookupService<WorkItemPriority>(db, admins, caller), IWorkItemPriorityService
+public class WorkItemPriorityService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller) : SpaceLookupService<WorkItemPriority>(db, admins, caller), IWorkItemPriorityService
 {
     protected override DbSet<WorkItemPriority> Values => Db.WorkItemPriorities;
 
     protected override string Kind => "Priority";
 
-    public Task<WorkItemPriority> CreateAsync(Guid actorUserId, string name, CancellationToken ct = default) =>
-        AddAsync(actorUserId, order => WorkItemPriority.Create(name, order), ct);
+    public Task<WorkItemPriority> CreateAsync(Guid actorUserId, Guid spaceId, string name, CancellationToken ct = default) =>
+        AddAsync(actorUserId, spaceId, order => WorkItemPriority.Create(spaceId, name, order), ct);
 
     public Task<WorkItemPriority> RenameAsync(Guid actorUserId, Guid id, string name, CancellationToken ct = default) =>
         EditAsync(actorUserId, id, priority => priority.Rename(name), ct);

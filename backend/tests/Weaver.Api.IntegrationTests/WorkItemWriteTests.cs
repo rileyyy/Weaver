@@ -29,12 +29,13 @@ public class WorkItemWriteTests
 
         var response = await PatchAsync($"details", item, new { title = "Renamed" });
         var reloaded = await GetAsync(item);
+        var high = await ApiClient.PriorityIdAsync(item.SpaceId, "High");
 
         Assert.Multiple(() =>
         {
             Assert.That(reloaded.Title, Is.EqualTo("Renamed"));
             Assert.That(reloaded.Description, Is.EqualTo("Keep me"));
-            Assert.That(reloaded.PriorityId, Is.EqualTo(SeededPriorities.High));
+            Assert.That(reloaded.PriorityId, Is.EqualTo(high));
             Assert.That(response.ChangedFields, Is.EqualTo(new[] { "title" }));
             Assert.That(response.Item.Version, Is.Not.EqualTo(item.Version));
             Assert.That(response.Item.Version, Is.EqualTo(reloaded.Version));
@@ -127,7 +128,9 @@ public class WorkItemWriteTests
         yield return Stale("details", (c, item, v) => c.PatchJsonAsync(Path(item, "details"), new { title = "Stale", expectedVersion = v }));
         yield return Stale("schedule", (c, item, v) => c.PatchJsonAsync(Path(item, "schedule"), new { endDate = "2026-10-01", expectedVersion = v }));
         yield return Stale("tags", (c, item, v) => c.PatchJsonAsync(Path(item, "tags"), new { tags = new[] { "stale" }, expectedVersion = v }));
-        yield return Stale("status", (c, item, v) => c.PutJsonAsync(Path(item, "status"), new ChangeWorkItemStatusRequest(SeededStatuses.Doing, null, v)));
+        yield return Stale("status", async (c, item, v) => await c.PutJsonAsync(
+            Path(item, "status"),
+            new ChangeWorkItemStatusRequest(await ApiClient.StatusIdAsync(item.SpaceId, "Doing"), null, v)));
         yield return Stale("parent", (c, item, v) => c.PutJsonAsync(Path(item, "parent"), new ReparentWorkItemRequest(null, null, v)));
         yield return Stale("assignee", (c, item, v) => c.PutJsonAsync(Path(item, "assignee"), new AssignWorkItemRequest(null, v)));
         yield return Stale("delete", (c, item, v) => c.DeleteAsync($"/api/work-items/{item.Id}?expectedVersion={v}"));
@@ -174,13 +177,14 @@ public class WorkItemWriteTests
             ["expectedVersion"] = item.Version,
         });
         var reloaded = await GetAsync(item);
+        var high = await ApiClient.PriorityIdAsync(item.SpaceId, "High");
 
         Assert.Multiple(() =>
         {
             Assert.That(result.IsError, Is.Not.True, Text(result));
             Assert.That(reloaded.Title, Is.EqualTo("Renamed by an agent"));
             Assert.That(reloaded.Description, Is.EqualTo("Keep me"));
-            Assert.That(reloaded.PriorityId, Is.EqualTo(SeededPriorities.High));
+            Assert.That(reloaded.PriorityId, Is.EqualTo(high));
             Assert.That(Structured(result).ChangedFields, Is.EqualTo(new[] { "title" }));
             Assert.That(Structured(result).Item.Version, Is.EqualTo(reloaded.Version));
         });
@@ -198,13 +202,14 @@ public class WorkItemWriteTests
             ["description"] = null,
         });
         var reloaded = await GetAsync(item);
+        var high = await ApiClient.PriorityIdAsync(item.SpaceId, "High");
 
         Assert.Multiple(() =>
         {
             Assert.That(result.IsError, Is.Not.True, Text(result));
             Assert.That(reloaded.Title, Is.EqualTo(item.Title));
             Assert.That(reloaded.Description, Is.Null);
-            Assert.That(reloaded.PriorityId, Is.EqualTo(SeededPriorities.High));
+            Assert.That(reloaded.PriorityId, Is.EqualTo(high));
         });
     }
 
@@ -218,7 +223,7 @@ public class WorkItemWriteTests
         var result = await mcp.CallToolAsync("change_work_item_status", new Dictionary<string, object?>
         {
             ["id"] = item.Id,
-            ["statusId"] = SeededStatuses.Doing,
+            ["statusId"] = await ApiClient.StatusIdAsync(item.SpaceId, "Doing"),
             ["expectedVersion"] = item.Version,
         });
         var reloaded = await GetAsync(item);
@@ -227,7 +232,7 @@ public class WorkItemWriteTests
         {
             Assert.That(result.IsError, Is.True);
             Assert.That(Text(result), Does.Contain("changed by someone else"));
-            Assert.That(reloaded.StatusId, Is.EqualTo(SeededStatuses.ToDo));
+            Assert.That(reloaded.StatusId, Is.EqualTo(item.StatusId));
         });
     }
 
@@ -239,7 +244,8 @@ public class WorkItemWriteTests
     private async Task<WorkItemDto> CreateDetailedItemAsync()
     {
         var item = await _client.CreateWorkItemAsync("Detailed");
-        return (await PatchAsync("details", item, new { description = "Keep me", priorityId = SeededPriorities.High })).Item;
+        var high = await ApiClient.PriorityIdAsync(item.SpaceId, "High");
+        return (await PatchAsync("details", item, new { description = "Keep me", priorityId = high })).Item;
     }
 
     private async Task<WorkItemWriteResponse> PatchAsync<T>(string operation, WorkItemDto item, T body) =>

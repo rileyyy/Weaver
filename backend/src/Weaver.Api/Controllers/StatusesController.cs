@@ -1,11 +1,15 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Weaver.Api.Auth;
 using Weaver.Api.Contracts;
 using Weaver.Application.Services;
 
 namespace Weaver.Api.Controllers;
 
-/// <summary>Anyone signed in can list statuses; changing them needs an admin (403 otherwise).</summary>
+/// <summary>
+/// Each Space has its own statuses (ADR-0001). Anyone signed in can list a Space's; changing
+/// them needs an admin (403 otherwise).
+/// </summary>
 [ApiController]
 [Route("api/statuses")]
 // The bearer challenge has no body.
@@ -19,19 +23,20 @@ public class StatusesController(IStatusService statuses) : ControllerBase
     private readonly IStatusService _statuses = statuses;
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<StatusDto>>> GetAll()
+    public async Task<ActionResult<IReadOnlyList<StatusDto>>> GetAll([FromQuery, BindRequired] Guid spaceId)
     {
-        var statuses = await _statuses.GetAllAsync();
+        var statuses = await _statuses.GetAllAsync(spaceId);
         return Ok(statuses.Select(StatusDto.FromEntity));
     }
 
     /// <summary>A status has no view of its own, so the Location header points at the list.</summary>
     [HttpPost]
     [ProducesResponseType<StatusDto>(StatusCodes.Status201Created)]
-    public async Task<ActionResult<StatusDto>> Create(StatusDetailsRequest request)
+    public async Task<ActionResult<StatusDto>> Create(CreateStatusRequest request)
     {
-        var status = await _statuses.CreateAsync(User.GetUserId(), request.Name, request.Category, request.Color);
-        return CreatedAtAction(nameof(GetAll), StatusDto.FromEntity(status));
+        var status = await _statuses.CreateAsync(
+            User.GetUserId(), request.SpaceId, request.Name, request.Category, request.Color);
+        return CreatedAtAction(nameof(GetAll), new { spaceId = status.SpaceId }, StatusDto.FromEntity(status));
     }
 
     [HttpPut("{id:guid}")]
@@ -41,14 +46,20 @@ public class StatusesController(IStatusService statuses) : ControllerBase
         return Ok(StatusDto.FromEntity(status));
     }
 
+    /// <summary><c>orderedIds</c> must list every status of <paramref name="spaceId"/> exactly once.</summary>
     [HttpPut("order")]
-    public async Task<ActionResult<IReadOnlyList<StatusDto>>> Reorder(ReorderLookupRequest request)
+    public async Task<ActionResult<IReadOnlyList<StatusDto>>> Reorder(
+        [FromQuery, BindRequired] Guid spaceId,
+        ReorderLookupRequest request)
     {
-        var statuses = await _statuses.ReorderAsync(User.GetUserId(), request.OrderedIds);
+        var statuses = await _statuses.ReorderAsync(User.GetUserId(), spaceId, request.OrderedIds);
         return Ok(statuses.Select(StatusDto.FromEntity));
     }
 
-    /// <summary>Items in the deleted status move to <paramref name="replacementId"/>, which is required while any exist.</summary>
+    /// <summary>
+    /// Items in the deleted status move to <paramref name="replacementId"/>, a status of the same
+    /// Space, which is required while any exist.
+    /// </summary>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(Guid id, [FromQuery] Guid? replacementId)
