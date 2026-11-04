@@ -60,11 +60,21 @@ public class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         // Postgres treats NULLs as distinct, so hand-created items (both columns null) never collide.
         builder.HasIndex(w => new { w.RecurrenceSourceId, w.RecurrenceDate }).IsUnique();
 
-        // Native Postgres array column (Npgsql maps List<string> to text[]
-        // directly) — no join table, since nothing queries by tag
-        // server-side today (tag search/filter is client-side, matching
-        // every other board filter).
+        // Native Postgres array column (Npgsql maps List<string> to text[] directly), with no
+        // join table: the work-item query matches tags case-insensitively, which an index on
+        // the raw array couldn't serve anyway, and the item count is household-sized.
         builder.Property(w => w.Tags).HasColumnType("text[]").IsRequired();
+
+        // Serves PostgresWorkItemSearch.MatchingText, whose to_tsvector expression must stay
+        // identical to this one or Postgres can't use the index. 'simple' rather than a language:
+        // items mix languages, and prefix matching does the work stemming would.
+        builder.HasIndex(w => new { w.Title, w.Description, w.When })
+            .HasDatabaseName(PostgresWorkItemSearch.IndexName)
+            .HasMethod("GIN")
+            .IsTsVectorExpressionIndex(PostgresWorkItemSearch.TextSearchConfig);
+
+        // Serves the date-window rule, which compares both dates of every candidate item.
+        builder.HasIndex(w => new { w.StartDate, w.EndDate });
 
         // A board cell is (SpaceId, ParentId, StatusId); rank only needs to sort within that
         // cell. SpaceId leads so a Space's top-level items (null parent) are one cell of their own.

@@ -17,4 +17,10 @@ public interface IWorkItemHierarchy
 
     /// <summary>Every descendant of <paramref name="rootId"/>, at any depth.</summary>
     Task<IReadOnlyList<Guid>> GetDescendantIdsAsync(Guid rootId, CancellationToken ct = default);
+
+    /// <summary>
+    /// <paramref name="itemIds"/> that exist, and every ancestor of each, at any depth, each id
+    /// once. Ends even on a corrupt tree with a cycle.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> GetSelfAndAncestorIdsAsync(IReadOnlyCollection<Guid> itemIds, CancellationToken ct = default);
 }

@@ -57,4 +57,26 @@ public class IterativeWorkItemHierarchy(WeaverDbContext db) : IWorkItemHierarchy
 
         return descendants.ToList();
     }
+
+    public async Task<IReadOnlyList<Guid>> GetSelfAndAncestorIdsAsync(IReadOnlyCollection<Guid> itemIds, CancellationToken ct = default)
+    {
+        var found = new HashSet<Guid>();
+        var frontier = itemIds.ToList();
+
+        while (frontier.Count > 0)
+        {
+            var rows = await _db.WorkItems
+                .Where(w => frontier.Contains(w.Id))
+                .Select(w => new { w.Id, w.ParentId })
+                .ToListAsync(ct);
+
+            frontier = rows
+                .Where(r => found.Add(r.Id) && r.ParentId is not null)
+                .Select(r => r.ParentId!.Value)
+                .Where(id => !found.Contains(id))
+                .ToList();
+        }
+
+        return found.ToList();
+    }
 }
