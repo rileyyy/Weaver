@@ -54,7 +54,8 @@ public class WorkItemQueryService(IWeaverDbContext db, IWorkItemHierarchy hierar
     {
         IQueryable<WorkItem> items = _db.WorkItems;
         items = InSpaces(items, query.SpaceIds);
-        items = MatchingTextOrNumber(items, query.Text, query.Number);
+        items = MatchingText(items, query.Text);
+        items = Numbered(items, query.Number);
         items = InStatusCategories(items, query.StatusCategories);
         items = AssignedTo(items, query.AssigneeId);
         items = Tagged(items, query.Tags, query.TagMatch);
@@ -66,9 +67,11 @@ public class WorkItemQueryService(IWeaverDbContext db, IWorkItemHierarchy hierar
 
     /// <summary>
     /// ADR-0003's rule: an item with dates matches when they overlap the window; an item with
-    /// none matches only through a matching descendant, so a Board or Roadmap can still draw the
-    /// undated parent the match sits under. A dated parent is judged by its own dates alone.
+    /// none matches only through a descendant that matches the whole query, so a Board or Roadmap
+    /// can still draw the undated parent a listed item sits under, and never one with nothing
+    /// listed beneath it. A dated parent is judged by its own dates alone.
     /// </summary>
+    /// <param name="items">Already narrowed by every other input.</param>
     private async Task<IQueryable<WorkItem>> InDateWindowAsync(IQueryable<WorkItem> items, WorkItemQuery query, CancellationToken ct)
     {
         if (query is { From: { } from, To: { } to } && from > to)
@@ -76,8 +79,8 @@ public class WorkItemQueryService(IWeaverDbContext db, IWorkItemHierarchy hierar
             throw new DomainValidationException("The date window can't end before it starts.");
         }
 
-        var datedInWindow = DatedInWindow(_db.WorkItems, query.From, query.To);
-        var parentsOfMatches = await InSpaces(datedInWindow, query.SpaceIds)
+        var datedInWindow = DatedInWindow(items, query.From, query.To);
+        var parentsOfMatches = await datedInWindow
             .Where(w => w.ParentId != null)
             .Select(w => w.ParentId!.Value)
             .Distinct()
@@ -104,19 +107,18 @@ public class WorkItemQueryService(IWeaverDbContext db, IWorkItemHierarchy hierar
     private static IQueryable<WorkItem> InSpaces(IQueryable<WorkItem> items, IReadOnlyList<Guid>? spaceIds) =>
         spaceIds is { Count: > 0 } ? items.Where(w => spaceIds.Contains(w.SpaceId)) : items;
 
-    private IQueryable<WorkItem> MatchingTextOrNumber(IQueryable<WorkItem> items, string? text, int? number)
+    private IQueryable<WorkItem> MatchingText(IQueryable<WorkItem> items, string? text)
     {
         if (WorkItemNumberText.TryParse(text, out var typedNumber))
         {
-            items = items.Where(w => w.Number == typedNumber);
-        }
-        else if (!string.IsNullOrWhiteSpace(text))
-        {
-            items = _search.MatchingText(items, text);
+            return Numbered(items, typedNumber);
         }
 
-        return number is { } n ? items.Where(w => w.Number == n) : items;
+        return string.IsNullOrWhiteSpace(text) ? items : _search.MatchingText(items, text);
     }
+
+    private static IQueryable<WorkItem> Numbered(IQueryable<WorkItem> items, int? number) =>
+        number is { } n ? items.Where(w => w.Number == n) : items;
 
     private static IQueryable<WorkItem> InStatusCategories(IQueryable<WorkItem> items, IReadOnlyList<StatusCategory>? categories) =>
         categories is { Count: > 0 } ? items.Where(w => categories.Contains(w.Status!.Category)) : items;

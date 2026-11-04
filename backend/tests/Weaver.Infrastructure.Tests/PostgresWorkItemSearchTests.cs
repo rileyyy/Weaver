@@ -50,6 +50,7 @@ public class PostgresWorkItemSearchTests
         Assert.Multiple(() =>
         {
             Assert.That(() => search.Tagged(_db.WorkItems, ["a", "b"], TagMatch.Any).ToQueryString(), Throws.Nothing);
-            Assert.That(() => search.Tagged(_db.WorkItems, ["a", "b"], TagMatch.All).ToQueryString(), Throws.Nothing);        });
+            Assert.That(() => search.Tagged(_db.WorkItems, ["a", "b"], TagMatch.All).ToQueryString(), Throws.Nothing);
+        });
     }
 }

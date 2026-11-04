@@ -1,5 +1,4 @@
 using Weaver.Domain;
-using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
@@ -17,11 +16,6 @@ public readonly record struct WorkItemQueryCursor(int AfterNumber)
     public string Encode() => OpaqueCursor.Encode(Prefix, AfterNumber);
 
     /// <summary>No token is the first page.</summary>
-    public static WorkItemQueryCursor Parse(string? token)
-    {
-        var position = OpaqueCursor.Parse(Prefix, token, Start.AfterNumber);
-        return position <= int.MaxValue
-            ? new WorkItemQueryCursor((int)position)
-            : throw new DomainValidationException("The cursor isn't one this server issued.");
-    }
+    public static WorkItemQueryCursor Parse(string? token) =>
+        new((int)OpaqueCursor.Parse(Prefix, token, Start.AfterNumber, int.MaxValue));
 }

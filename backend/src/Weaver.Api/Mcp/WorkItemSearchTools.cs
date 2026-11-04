@@ -26,7 +26,7 @@ public class WorkItemSearchTools(IWorkItemQueryService query)
         [Description("Only items with these tags, ignoring case. Tags are shared across Spaces.")] IReadOnlyList<string>? tags = null,
         [Description("Any (the default) for items with at least one of the tags, All for items with every one.")] TagMatch tagMatch = TagMatch.Any,
         [Description("Only items of one of these Types. Use list_work_item_types to find valid ids.")] IReadOnlyList<Guid>? typeIds = null,
-        [Description("Start of a date window, inclusive (yyyy-MM-dd). With a window, only items whose dates overlap it are listed, plus any undated item with a descendant that does; undated items are otherwise left out.")] DateOnly? from = null,
+        [Description("Start of a date window, inclusive (yyyy-MM-dd). With a window, only items whose dates overlap it are listed, plus any undated item with a descendant that matches every argument; undated items are otherwise left out.")] DateOnly? from = null,
         [Description("End of the date window, inclusive (yyyy-MM-dd).")] DateOnly? to = null,
         [Description("True for only the Backlog: items that aren't Done and have no dates.")] bool backlogOnly = false,
         [Description("Only items last updated at or after this moment, as an ISO 8601 timestamp with offset. See list_changes_since for what changed.")] DateTimeOffset? updatedSince = null,
@@ -37,20 +37,20 @@ public class WorkItemSearchTools(IWorkItemQueryService query)
         {
             var page = await _query.QuerySummariesAsync(
                 new WorkItemQuery(
-                    spaceIds,
-                    text,
-                    number,
-                    statusCategories,
-                    assigneeId,
-                    tags,
-                    tagMatch,
-                    typeIds,
-                    from,
-                    to,
-                    backlogOnly,
-                    updatedSince,
-                    cursor,
-                    limit),
+                    SpaceIds: spaceIds,
+                    Text: text,
+                    Number: number,
+                    StatusCategories: statusCategories,
+                    AssigneeId: assigneeId,
+                    Tags: tags,
+                    TagMatch: tagMatch,
+                    TypeIds: typeIds,
+                    From: from,
+                    To: to,
+                    BacklogOnly: backlogOnly,
+                    UpdatedSince: updatedSince,
+                    Cursor: cursor,
+                    Limit: limit),
                 ct);
             return WorkItemSummaryPageDto.FromPage(page);
         });

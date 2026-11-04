@@ -73,7 +73,8 @@ public class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             .HasMethod("GIN")
             .IsTsVectorExpressionIndex(PostgresWorkItemSearch.TextSearchConfig);
 
-        // Serves the date-window rule, which compares both dates of every candidate item.
+        // Lets the date window range-scan on StartDate. The open-ended (null) cases still need a
+        // filter pass, which is cheap at household scale.
         builder.HasIndex(w => new { w.StartDate, w.EndDate });
 
         // A board cell is (SpaceId, ParentId, StatusId); rank only needs to sort within that

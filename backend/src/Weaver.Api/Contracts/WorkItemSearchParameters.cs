@@ -43,18 +43,18 @@ public sealed class WorkItemSearchParameters
     public int Limit { get; init; } = WorkItemQuery.DefaultLimit;
 
     public WorkItemQuery ToQuery() => new(
-        SpaceIds,
-        Text,
-        Number,
-        StatusCategories,
-        AssigneeId,
-        Tags,
-        TagMatch,
-        TypeIds,
-        From,
-        To,
-        BacklogOnly,
-        UpdatedSince,
-        Cursor,
-        Limit);
+        SpaceIds: SpaceIds,
+        Text: Text,
+        Number: Number,
+        StatusCategories: StatusCategories,
+        AssigneeId: AssigneeId,
+        Tags: Tags,
+        TagMatch: TagMatch,
+        TypeIds: TypeIds,
+        From: From,
+        To: To,
+        BacklogOnly: BacklogOnly,
+        UpdatedSince: UpdatedSince,
+        Cursor: Cursor,
+        Limit: Limit);
 }

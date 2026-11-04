@@ -14,7 +14,7 @@ namespace Weaver.Application.Services;
 /// <para>
 /// The date window follows ADR-0003: an item matches when it has a date and its dates overlap
 /// the window, a missing start or end being open on that side. An item with no dates matches
-/// only when one of its descendants does.
+/// only when one of its descendants matches the whole query.
 /// </para>
 /// </remarks>
 public interface IWorkItemQueryService

@@ -502,8 +502,9 @@ store its inputs.
 - **The date window follows [ADR-0003](adr/0003-when-and-backlog.md)**:
   an item with a date matches when its dates overlap the window (a
   missing start or end, on the item or the window, is open on that side),
-  and an undated item matches only when one of its descendants does, so
-  a layout can still draw the parent that match sits under. A dated
+  and an undated item matches only when one of its descendants matches
+  the whole query, so a layout can still draw the parent a listed item
+  sits under, and never one with nothing listed beneath it. A dated
   parent is judged by its own dates. The undated ancestors come from
   `IWorkItemHierarchy.GetSelfAndAncestorIdsAsync`, one recursive query
   over the parents of the dated matches. A window ending before it

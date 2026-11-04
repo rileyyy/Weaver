@@ -351,6 +351,22 @@ public class WorkItemQueryServiceTests
     }
 
     [Test]
+    public async Task DateWindow_IncludesAnUndatedAncestor_OnlyThroughADescendantMatchingTheWholeQuery()
+    {
+        var tag = "outside";
+        var garden = await CreateWithTagsAsync("Garden", tag);
+        var hedge = await CreateAsync("Hedge", garden.Id);
+        await _workItems.RescheduleAsync(hedge.Id, Nov(10), Nov(11));
+        var yard = await CreateWithTagsAsync("Yard", tag);
+        var fence = await CreateDatedAsync("Fence", Nov(10), Nov(11), yard.Id);
+        await _workItems.SetTagsAsync(fence.Id, new[] { tag });
+
+        var page = await _query.QueryAsync(new WorkItemQuery(Tags: [tag], From: Nov(9), To: Nov(14)));
+
+        Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { yard.Id, fence.Id }));
+    }
+
+    [Test]
     public void DateWindow_EndingBeforeItStarts_IsRejected()
     {
         Assert.That(
