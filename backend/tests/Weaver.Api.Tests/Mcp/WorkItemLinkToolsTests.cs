@@ -1,3 +1,4 @@
+using DescriptionAttribute = System.ComponentModel.DescriptionAttribute;
 using System.Reflection;
 using Microsoft.AspNetCore.Http;
 using ModelContextProtocol;
@@ -113,6 +114,29 @@ public class WorkItemLinkToolsTests
             Assert.That(ToolOf(nameof(WorkItemLinkTools.ListWorkItemLinks)).ReadOnly, Is.True);
             Assert.That(ToolOf(nameof(WorkItemLinkTools.CreateWorkItemLink)).Destructive, Is.False);
             Assert.That(ToolOf(nameof(WorkItemLinkTools.DeleteWorkItemLink)).Destructive, Is.True);
+        });
+    }
+
+    /// <summary>
+    /// The descriptions name the relations by hand because attribute arguments must be constants,
+    /// so this catches a relation added to the enum but not to them.
+    /// </summary>
+    [Test]
+    public void TheDescriptions_NameEveryRelation()
+    {
+        var listDescription = typeof(WorkItemLinkTools).GetMethod(nameof(WorkItemLinkTools.ListWorkItemLinks))!
+            .GetCustomAttribute<DescriptionAttribute>()!.Description;
+        var typeDescription = typeof(WorkItemLinkTools).GetMethod(nameof(WorkItemLinkTools.CreateWorkItemLink))!
+            .GetParameters().Single(p => p.Name == "type")
+            .GetCustomAttribute<DescriptionAttribute>()!.Description;
+
+        Assert.Multiple(() =>
+        {
+            foreach (var name in Enum.GetNames<WorkItemLinkRelation>())
+            {
+                Assert.That(listDescription, Does.Contain(name));
+                Assert.That(typeDescription, Does.Contain(name));
+            }
         });
     }
 

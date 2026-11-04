@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_link_type.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_link_relation.dart';
 import 'package:weaver/shared/widgets/field_label.dart';
 
 /// This item's links to other work items, grouped by type as read from
@@ -18,7 +18,7 @@ class LinksSection extends StatefulWidget {
   final List<WorkItemLink> links;
 
   /// Called with the chosen type when the user asks to add a link.
-  final ValueChanged<WorkItemLinkType> onAdd;
+  final ValueChanged<WorkItemLinkRelation> onAdd;
 
   /// Called with the link's id.
   final ValueChanged<String> onRemove;
@@ -32,15 +32,15 @@ class LinksSection extends StatefulWidget {
 
 class _LinksSectionState extends State<LinksSection> {
   // Blocking links come first: they're the ones that change what to do next.
-  static const List<WorkItemLinkType> _groupOrder = [
-    WorkItemLinkType.blocks,
-    WorkItemLinkType.blockedBy,
-    WorkItemLinkType.related,
-    WorkItemLinkType.duplicates,
-    WorkItemLinkType.duplicatedBy,
+  static const List<WorkItemLinkRelation> _groupOrder = [
+    WorkItemLinkRelation.blocks,
+    WorkItemLinkRelation.blockedBy,
+    WorkItemLinkRelation.related,
+    WorkItemLinkRelation.duplicates,
+    WorkItemLinkRelation.duplicatedBy,
   ];
 
-  WorkItemLinkType _newLinkType = WorkItemLinkType.related;
+  WorkItemLinkRelation _newLinkType = WorkItemLinkRelation.related;
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +57,7 @@ class _LinksSectionState extends State<LinksSection> {
     );
   }
 
-  List<Widget> _group(WorkItemLinkType type, TextTheme textTheme) {
+  List<Widget> _group(WorkItemLinkRelation type, TextTheme textTheme) {
     final links = [
       for (final link in widget.links)
         if (link.type == type) link,
@@ -90,12 +90,12 @@ class _LinksSectionState extends State<LinksSection> {
   Widget _addRow() => Row(
     children: [
       Expanded(
-        child: DropdownButton<WorkItemLinkType>(
+        child: DropdownButton<WorkItemLinkRelation>(
           key: const Key('link-type-picker'),
           value: _newLinkType,
           isExpanded: true,
           items: [
-            for (final type in WorkItemLinkType.values)
+            for (final type in WorkItemLinkRelation.values)
               DropdownMenuItem(value: type, child: Text(type.label)),
           ],
           onChanged: (type) {

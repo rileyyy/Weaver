@@ -60,7 +60,7 @@ because Milestone 9's "assigned to" field needs Milestone 10's users.
   `create_work_item_url_link` and `delete_work_item_url_link` are new.
 - **Detail dialog:** links are grouped by type and added by picking a type
   and searching every Space by title or `#Number`, instead of typing an
-  id. A Web Links section lists, opens, adds and removes URL links.
+  id. A URL Links section lists, opens, adds and removes URL links.
 
 ## 2026-11-04 — Trash: delete and restore
 

@@ -21,7 +21,7 @@ class UrlLinksSection extends StatefulWidget {
   /// blank); returns whether the link was added, which clears the fields.
   final Future<bool> Function(String url, String label) onAdd;
 
-  /// Called with the web link's id.
+  /// Called with the URL link's id.
   final ValueChanged<String> onRemove;
 
   /// Defaults to opening the link outside the app. Tests pass one in.
@@ -62,7 +62,7 @@ class _UrlLinksSectionState extends State<UrlLinksSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const FieldLabel('Web Links'),
+        const FieldLabel('URL Links'),
         for (final link in widget.links) _linkTile(link),
         TextField(
           controller: _url,
@@ -82,7 +82,7 @@ class _UrlLinksSectionState extends State<UrlLinksSection> {
             const SizedBox(width: 8),
             TextButton(
               onPressed: () => unawaited(_submit()),
-              child: const Text('Add web link'),
+              child: const Text('Add URL link'),
             ),
           ],
         ),
@@ -101,7 +101,7 @@ class _UrlLinksSectionState extends State<UrlLinksSection> {
     onTap: () => _open(link),
     trailing: IconButton(
       icon: const Icon(Icons.link_off, size: 18),
-      tooltip: 'Remove web link',
+      tooltip: 'Remove URL link',
       onPressed: () => widget.onRemove(link.id),
     ),
   );

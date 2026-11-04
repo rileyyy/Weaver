@@ -27,8 +27,8 @@ public class WorkItemLinkService(IWeaverDbContext db, ICallerContext caller) : I
     {
         var link = WorkItemLink.Create(workItemId, targetWorkItemId, type);
 
-        await EnsureExistsAsync(workItemId, ct);
-        await EnsureExistsAsync(targetWorkItemId, ct);
+        await _db.EnsureWorkItemExistsAsync(workItemId, ct);
+        await _db.EnsureWorkItemExistsAsync(targetWorkItemId, ct);
         await EnsureNotLinkedAsync(link, ct);
 
         _db.WorkItemLinks.Add(link);
@@ -45,14 +45,6 @@ public class WorkItemLinkService(IWeaverDbContext db, ICallerContext caller) : I
         _db.WorkItemLinks.Remove(link);
         RecordLinkChange(link, added: false);
         await _db.SaveChangesAsync(ct);
-    }
-
-    private async Task EnsureExistsAsync(Guid workItemId, CancellationToken ct)
-    {
-        if (!await _db.WorkItems.AnyAsync(w => w.Id == workItemId, ct))
-        {
-            throw new EntityNotFoundException(nameof(WorkItem), workItemId);
-        }
     }
 
     /// <summary>

@@ -1,7 +1,8 @@
-/// Mirrors the backend's `WorkItemLinkType`, always seen from the item it
-/// is listed on: a "blocks" link is stored once and reads as [blockedBy]
-/// from the other item.
-enum WorkItemLinkType {
+/// Mirrors the backend's `WorkItemLinkRelation`: a link's type as seen from
+/// the item it is listed on. The backend stores only three directed
+/// `WorkItemLinkType`s, so a "blocks" link is stored once and reads as
+/// [blockedBy] from the other item.
+enum WorkItemLinkRelation {
   related(wire: 'Related', label: 'Related', phrase: 'related to'),
   blocks(wire: 'Blocks', label: 'Blocks', phrase: 'blocks'),
   blockedBy(wire: 'BlockedBy', label: 'Blocked by', phrase: 'blocked by'),
@@ -12,7 +13,7 @@ enum WorkItemLinkType {
     phrase: 'duplicated by',
   );
 
-  const WorkItemLinkType({
+  const WorkItemLinkRelation({
     required this.wire,
     required this.label,
     required this.phrase,
@@ -26,13 +27,11 @@ enum WorkItemLinkType {
 
   /// Throws a [FormatException] for an unknown value, which the API client
   /// reports as an unexpected response.
-  static WorkItemLinkType fromWire(String value) => values.firstWhere(
-    (type) => type.wire == value,
-    orElse: () => throw FormatException('Unknown link type', value),
-  );
+  static WorkItemLinkRelation fromWire(String value) =>
+      tryFromWire(value) ?? (throw FormatException('Unknown link type', value));
 
   /// Null for an unknown value, for history rows that must still render.
-  static WorkItemLinkType? tryFromWire(String value) {
+  static WorkItemLinkRelation? tryFromWire(String value) {
     for (final type in values) {
       if (type.wire == value) return type;
     }

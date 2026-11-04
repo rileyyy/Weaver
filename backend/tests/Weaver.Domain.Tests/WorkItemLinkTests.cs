@@ -15,9 +15,11 @@ public class WorkItemLinkTests
     }
 
     [Test]
-    public void Create_WithAnUndefinedRelation_IsRejected()
+    public void Create_WithAnUndefinedRelation_IsRejected_NamingEveryRelation()
     {
-        Assert.Throws<DomainValidationException>(() => WorkItemLink.Create(_a, _b, (WorkItemLinkRelation)99));
+        var error = Assert.Throws<DomainValidationException>(() => WorkItemLink.Create(_a, _b, (WorkItemLinkRelation)99));
+
+        Assert.That(error!.Message, Does.Contain("Related, Blocks, BlockedBy, Duplicates, DuplicatedBy"));
     }
 
     [Test]

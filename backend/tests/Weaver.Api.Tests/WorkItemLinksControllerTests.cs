@@ -72,10 +72,12 @@ public class WorkItemLinksControllerTests
     }
 
     [Test]
-    public void Create_WithoutAType_IsRejectedAsInvalid()
+    public void Create_WithoutAType_IsRejectedAsInvalid_NamingEveryType()
     {
-        Assert.ThrowsAsync<DomainValidationException>(() =>
+        var error = Assert.ThrowsAsync<DomainValidationException>(() =>
             _controller.Create(Guid.NewGuid(), new CreateWorkItemLinkRequest(Guid.NewGuid(), null)));
+
+        Assert.That(error!.Message, Does.Contain(WorkItemLinkRelationNames.All));
     }
 
     [Test]

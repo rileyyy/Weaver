@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_link_type.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_link_relation.dart';
 
 Map<String, dynamic> _json({String type = 'Related'}) => {
   'id': 'link-1',
@@ -16,7 +16,7 @@ void main() {
     final link = WorkItemLink.fromJson(_json(type: 'BlockedBy'));
 
     expect(link.id, 'link-1');
-    expect(link.type, WorkItemLinkType.blockedBy);
+    expect(link.type, WorkItemLinkRelation.blockedBy);
     expect(link.linkedWorkItemId, 'item-2');
     expect(link.linkedWorkItemNumber, 12);
     expect(link.linkedWorkItemTitle, 'Hang drywall');
@@ -36,11 +36,11 @@ void main() {
           WorkItemLink.fromJson(_json(type: wire)).type,
       ],
       [
-        WorkItemLinkType.related,
-        WorkItemLinkType.blocks,
-        WorkItemLinkType.blockedBy,
-        WorkItemLinkType.duplicates,
-        WorkItemLinkType.duplicatedBy,
+        WorkItemLinkRelation.related,
+        WorkItemLinkRelation.blocks,
+        WorkItemLinkRelation.blockedBy,
+        WorkItemLinkRelation.duplicates,
+        WorkItemLinkRelation.duplicatedBy,
       ],
     );
   });
@@ -54,7 +54,7 @@ void main() {
 
   test("labels each type from this item's side", () {
     expect(
-      [for (final type in WorkItemLinkType.values) type.label],
+      [for (final type in WorkItemLinkRelation.values) type.label],
       ['Related', 'Blocks', 'Blocked by', 'Duplicates', 'Duplicated by'],
     );
   });

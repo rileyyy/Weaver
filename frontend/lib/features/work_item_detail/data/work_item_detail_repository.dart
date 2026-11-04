@@ -3,7 +3,7 @@ import 'package:weaver/features/work_item_detail/models/quick_pick_dates.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_link_type.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_link_relation.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_url_link.dart';
 import 'package:weaver/shared/models/custom_field.dart';
@@ -145,12 +145,13 @@ abstract class WorkItemDetailRepository {
   Future<List<WorkItemLink>> loadLinks(String workItemId);
 
   /// Links [workItemId] to [targetWorkItemId] as [type], read from
-  /// [workItemId]'s side. The server refuses a self link, a repeat of an
-  /// existing link and a blocks cycle with a 409 that says which.
+  /// [workItemId]'s side. The server refuses a self link with a 400, and a
+  /// repeat of an existing link or a blocks cycle with a 409; each says
+  /// why.
   Future<WorkItemLink> addLink(
     String workItemId,
     String targetWorkItemId,
-    WorkItemLinkType type,
+    WorkItemLinkRelation type,
   );
 
   Future<void> deleteLink(String linkId);

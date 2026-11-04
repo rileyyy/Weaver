@@ -243,7 +243,7 @@ void main() {
             newName: 'PR 7',
           ),
         ),
-        'Added link PR 7',
+        'Added URL link PR 7',
       );
       expect(
         _change(
@@ -252,7 +252,7 @@ void main() {
             oldValue: {'url': 'https://example.com/pr/7', 'label': null},
           ),
         ),
-        'Removed link https://example.com/pr/7',
+        'Removed URL link https://example.com/pr/7',
       );
     });
 

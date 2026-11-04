@@ -4,7 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:weaver/core/dates/date_format.dart';
 import 'package:weaver/core/di/injection.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_link_type.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_link_relation.dart';
 import 'package:weaver/features/work_item_detail/repeat_settings_view_model.dart';
 import 'package:weaver/features/work_item_detail/widgets/comments_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/confirm_dialogs.dart';
@@ -582,7 +582,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
     await _viewModel.saveParent(pick.item);
   }
 
-  Future<void> _pickLink(WorkItemLinkType type) async {
+  Future<void> _pickLink(WorkItemLinkRelation type) async {
     final pick = await showWorkItemPicker(
       context,
       title: 'Add a "${type.label}" link',

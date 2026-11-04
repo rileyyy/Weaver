@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_link_type.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_link_relation.dart';
 import 'package:weaver/features/work_item_detail/widgets/links_section.dart';
 
 WorkItemLink _link(
   String id,
-  WorkItemLinkType type, {
+  WorkItemLinkRelation type, {
   required int number,
   required String title,
 }) => WorkItemLink(
@@ -21,7 +21,7 @@ WorkItemLink _link(
 Future<void> _pump(
   WidgetTester tester, {
   List<WorkItemLink> links = const [],
-  ValueChanged<WorkItemLinkType>? onAdd,
+  ValueChanged<WorkItemLinkRelation>? onAdd,
   ValueChanged<String>? onRemove,
   ValueChanged<String>? onOpen,
 }) => tester.pumpWidget(
@@ -50,9 +50,9 @@ void main() {
     await _pump(
       tester,
       links: [
-        _link('a', WorkItemLinkType.related, number: 3, title: 'Lights'),
-        _link('b', WorkItemLinkType.blockedBy, number: 4, title: 'Drywall'),
-        _link('c', WorkItemLinkType.blocks, number: 5, title: 'Trim'),
+        _link('a', WorkItemLinkRelation.related, number: 3, title: 'Lights'),
+        _link('b', WorkItemLinkRelation.blockedBy, number: 4, title: 'Drywall'),
+        _link('c', WorkItemLinkRelation.blocks, number: 5, title: 'Trim'),
       ],
     );
 
@@ -75,7 +75,9 @@ void main() {
     final opened = <String>[];
     await _pump(
       tester,
-      links: [_link('a', WorkItemLinkType.related, number: 3, title: 'Lights')],
+      links: [
+        _link('a', WorkItemLinkRelation.related, number: 3, title: 'Lights'),
+      ],
       onOpen: opened.add,
     );
 
@@ -88,7 +90,9 @@ void main() {
     final removed = <String>[];
     await _pump(
       tester,
-      links: [_link('a', WorkItemLinkType.related, number: 3, title: 'Lights')],
+      links: [
+        _link('a', WorkItemLinkRelation.related, number: 3, title: 'Lights'),
+      ],
       onRemove: removed.add,
     );
 
@@ -98,16 +102,16 @@ void main() {
   });
 
   testWidgets('adding defaults to Related', (tester) async {
-    final added = <WorkItemLinkType>[];
+    final added = <WorkItemLinkRelation>[];
     await _pump(tester, onAdd: added.add);
 
     await tester.tap(find.widgetWithText(TextButton, 'Add link'));
 
-    expect(added, [WorkItemLinkType.related]);
+    expect(added, [WorkItemLinkRelation.related]);
   });
 
   testWidgets('adding uses the chosen type', (tester) async {
-    final added = <WorkItemLinkType>[];
+    final added = <WorkItemLinkRelation>[];
     await _pump(tester, onAdd: added.add);
 
     await tester.tap(find.byKey(const Key('link-type-picker')));
@@ -116,6 +120,6 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, 'Add link'));
 
-    expect(added, [WorkItemLinkType.blockedBy]);
+    expect(added, [WorkItemLinkRelation.blockedBy]);
   });
 }

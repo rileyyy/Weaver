@@ -1,5 +1,5 @@
 import 'package:weaver/core/network/api_dates.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_link_type.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_link_relation.dart';
 import 'package:weaver/shared/models/user_kind.dart';
 
 /// One change to a work item, as `GET /work-items/{id}/history` returns it.
@@ -81,8 +81,8 @@ class WorkItemHistoryEntry {
       'link' when oldValue == null => 'Linked${_link(newValue, newName)}',
       'link' => 'Unlinked${_link(oldValue, oldName)}',
       'urlLink' when oldValue == null =>
-        'Added link ${_urlLink(newValue, newName)}',
-      'urlLink' => 'Removed link ${_urlLink(oldValue, oldName)}',
+        'Added URL link ${_urlLink(newValue, newName)}',
+      'urlLink' => 'Removed URL link ${_urlLink(oldValue, oldName)}',
       // Recorded alongside 'created', saying where the item started.
       'spaceId' when oldValue == null => 'In Space $newText',
       'recurrence' => _verbed(
@@ -111,7 +111,7 @@ class WorkItemHistoryEntry {
     if (value is! Map) return ' ${_text(value, name)}';
     final other = name ?? '${value['workItemId']}';
     final type = switch (value['type']) {
-      final String wire => WorkItemLinkType.tryFromWire(wire),
+      final String wire => WorkItemLinkRelation.tryFromWire(wire),
       _ => null,
     };
     return type == null ? ' $other' : ': ${type.phrase} $other';

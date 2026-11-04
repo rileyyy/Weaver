@@ -1,4 +1,4 @@
-import 'package:weaver/features/work_item_detail/models/work_item_link_type.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_link_relation.dart';
 
 /// A link as seen from the work item currently being viewed: the
 /// `linkedWorkItem*` fields are always the other side, and [type] reads
@@ -15,7 +15,7 @@ class WorkItemLink {
 
   factory WorkItemLink.fromJson(Map<String, dynamic> json) => WorkItemLink(
     id: json['id'] as String,
-    type: WorkItemLinkType.fromWire(json['type'] as String),
+    type: WorkItemLinkRelation.fromWire(json['type'] as String),
     linkedWorkItemId: json['linkedWorkItemId'] as String,
     linkedWorkItemNumber: json['linkedWorkItemNumber'] as int,
     linkedWorkItemTitle: json['linkedWorkItemTitle'] as String,
@@ -23,7 +23,7 @@ class WorkItemLink {
   );
 
   final String id;
-  final WorkItemLinkType type;
+  final WorkItemLinkRelation type;
   final String linkedWorkItemId;
   final int linkedWorkItemNumber;
   final String linkedWorkItemTitle;

@@ -9,7 +9,7 @@ import 'package:weaver/features/work_item_detail/models/quick_pick_dates.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_link_type.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_link_relation.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_url_link.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
@@ -37,6 +37,7 @@ WorkItem _item({
   String title = 'A task',
   String? description,
   String? when,
+  bool whenResolved = false,
   Map<String, Object?> fields = const {},
   int version = 1,
 }) => WorkItem(
@@ -58,6 +59,7 @@ WorkItem _item({
   tags: tags,
   fields: fields,
   when: when,
+  whenResolved: whenResolved,
 );
 
 class _FakeCurrentUser implements CurrentUser {
@@ -72,7 +74,7 @@ const _currentUser = _FakeCurrentUser('user-1');
 class _FakeRepository implements WorkItemDetailRepository {
   _FakeRepository({this.getItemError, this.saveError});
 
-  final Object? getItemError;
+  Object? getItemError;
   final Exception? saveError;
   WorkItem item = _item();
   bool deleted = false;
@@ -87,7 +89,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   final List<int> expectedVersions = [];
   final List<WorkItemComment> commentsList = [];
   final List<WorkItemLink> linksList = [];
-  final List<(String, WorkItemLinkType)> addLinkCalls = [];
+  final List<(String, WorkItemLinkRelation)> addLinkCalls = [];
   final List<WorkItemUrlLink> urlLinksList = [];
   final List<(String, String?)> addUrlLinkCalls = [];
   final List<String> allSpacesSearchCalls = [];
@@ -408,7 +410,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   Future<WorkItemLink> addLink(
     String workItemId,
     String targetWorkItemId,
-    WorkItemLinkType type,
+    WorkItemLinkRelation type,
   ) async {
     addLinkCalls.add((targetWorkItemId, type));
     final error = saveError;
@@ -1326,12 +1328,12 @@ void main() {
     WorkItemDetailViewModel loadedViewModel(_FakeRepository repository) =>
         WorkItemDetailViewModel(repository, _currentUser, WorkItemStore());
 
-    test('load lists the work-item links and the web links', () async {
+    test('load lists the work-item links and the URL links', () async {
       final repository = _FakeRepository()
         ..linksList.add(
           const WorkItemLink(
             id: 'link-1',
-            type: WorkItemLinkType.blockedBy,
+            type: WorkItemLinkRelation.blockedBy,
             linkedWorkItemId: 'item-2',
             linkedWorkItemNumber: 2,
             linkedWorkItemTitle: 'Drywall',
@@ -1345,7 +1347,7 @@ void main() {
 
       await viewModel.load('item-1');
 
-      expect(viewModel.links.single.type, WorkItemLinkType.blockedBy);
+      expect(viewModel.links.single.type, WorkItemLinkRelation.blockedBy);
       expect(viewModel.urlLinks.single.url, 'https://example.com');
     });
 
@@ -1356,13 +1358,15 @@ void main() {
 
       final ok = await viewModel.addLink(
         _item(id: 'item-2', number: 2),
-        WorkItemLinkType.blocks,
+        WorkItemLinkRelation.blocks,
       );
 
       expect(ok, isTrue);
-      expect(repository.addLinkCalls, [('item-2', WorkItemLinkType.blocks)]);
+      expect(repository.addLinkCalls, [
+        ('item-2', WorkItemLinkRelation.blocks),
+      ]);
       expect(viewModel.links.single.linkedWorkItemId, 'item-2');
-      expect(viewModel.links.single.type, WorkItemLinkType.blocks);
+      expect(viewModel.links.single.type, WorkItemLinkRelation.blocks);
     });
 
     test(
@@ -1379,7 +1383,7 @@ void main() {
 
         final ok = await viewModel.addLink(
           _item(id: 'item-2', number: 2),
-          WorkItemLinkType.blocks,
+          WorkItemLinkRelation.blocks,
         );
 
         expect(ok, isFalse);
@@ -1388,6 +1392,83 @@ void main() {
           'These items already block each other (409).',
         );
         expect(viewModel.links, isEmpty);
+      },
+    );
+
+    test(
+      "addLink shows the server's message when it refuses a self link",
+      () async {
+        final repository = _FakeRepository(
+          saveError: const ApiException(
+            'A work item cannot link to itself.',
+            statusCode: 400,
+          ),
+        );
+        final viewModel = loadedViewModel(repository);
+        await viewModel.load('item-1');
+
+        final ok = await viewModel.addLink(
+          _item(),
+          WorkItemLinkRelation.related,
+        );
+
+        expect(ok, isFalse);
+        expect(viewModel.saveError, 'A work item cannot link to itself.');
+      },
+    );
+
+    test('adding a blocked-by link reloads the item, whose When the server '
+        'now counts as resolved', () async {
+      final repository = _FakeRepository()..item = _item(when: 'after drywall');
+      final viewModel = loadedViewModel(repository);
+      await viewModel.load('item-1');
+      expect(viewModel.item!.whenResolved, isFalse);
+      repository.item = _item(when: 'after drywall', whenResolved: true);
+
+      final ok = await viewModel.addLink(
+        _item(id: 'item-2', number: 2),
+        WorkItemLinkRelation.blockedBy,
+      );
+
+      expect(ok, isTrue);
+      expect(viewModel.item!.whenResolved, isTrue);
+    });
+
+    test('removing a link reloads the item, since its When may no longer '
+        'be resolved', () async {
+      final repository = _FakeRepository()..item = _item(when: 'after drywall');
+      final viewModel = loadedViewModel(repository);
+      await viewModel.load('item-1');
+      repository.item = _item(when: 'after drywall', whenResolved: true);
+      await viewModel.addLink(
+        _item(id: 'item-2', number: 2),
+        WorkItemLinkRelation.blockedBy,
+      );
+      repository.item = _item(when: 'after drywall');
+
+      final ok = await viewModel.deleteLink(viewModel.links.single.id);
+
+      expect(ok, isTrue);
+      expect(viewModel.item!.whenResolved, isFalse);
+    });
+
+    test(
+      'a link still counts as added when reloading the item fails',
+      () async {
+        final repository = _FakeRepository();
+        final viewModel = loadedViewModel(repository);
+        await viewModel.load('item-1');
+        repository.getItemError = const ApiException('network down');
+
+        final ok = await viewModel.addLink(
+          _item(id: 'item-2', number: 2),
+          WorkItemLinkRelation.blockedBy,
+        );
+
+        expect(ok, isTrue);
+        expect(viewModel.saveError, isNull);
+        expect(viewModel.links, hasLength(1));
+        expect(viewModel.item, isNotNull);
       },
     );
 
@@ -1400,7 +1481,7 @@ void main() {
 
       final ok = await viewModel.addLink(
         _item(id: 'item-2', number: 2),
-        WorkItemLinkType.related,
+        WorkItemLinkRelation.related,
       );
 
       expect(ok, isFalse);
@@ -1427,7 +1508,10 @@ void main() {
       final repository = _FakeRepository();
       final viewModel = loadedViewModel(repository);
       await viewModel.load('item-1');
-      await viewModel.addLink(_item(id: 'item-2'), WorkItemLinkType.related);
+      await viewModel.addLink(
+        _item(id: 'item-2'),
+        WorkItemLinkRelation.related,
+      );
 
       final ok = await viewModel.deleteLink(viewModel.links.single.id);
 
@@ -1494,7 +1578,7 @@ void main() {
       );
     });
 
-    test('deleteUrlLink removes the web link from the list', () async {
+    test('deleteUrlLink removes the URL link from the list', () async {
       final repository = _FakeRepository();
       final viewModel = loadedViewModel(repository);
       await viewModel.load('item-1');

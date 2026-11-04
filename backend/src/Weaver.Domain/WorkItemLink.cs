@@ -47,7 +47,7 @@ public class WorkItemLink : IHasCreatedAt
             WorkItemLinkRelation.BlockedBy => (WorkItemLinkType.Blocks, true),
             WorkItemLinkRelation.Duplicates => (WorkItemLinkType.Duplicates, false),
             WorkItemLinkRelation.DuplicatedBy => (WorkItemLinkType.Duplicates, true),
-            _ => throw new DomainValidationException($"Link type {relation} is not one of Related, Blocks, BlockedBy, Duplicates or DuplicatedBy."),
+            _ => throw new DomainValidationException($"Link type {relation} is not one of {WorkItemLinkRelationNames.All}."),
         };
 
         return new WorkItemLink

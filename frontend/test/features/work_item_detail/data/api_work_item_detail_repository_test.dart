@@ -6,7 +6,7 @@ import 'package:http/testing.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/work_item_detail/data/api_work_item_detail_repository.dart';
 import 'package:weaver/features/work_item_detail/models/quick_pick.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_link_type.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_link_relation.dart';
 import 'package:weaver/shared/data/api_status_repository.dart';
 import 'package:weaver/shared/data/api_type_repository.dart';
 import 'package:weaver/shared/data/api_user_directory_repository.dart';
@@ -565,7 +565,7 @@ void main() {
     final links = await repository.loadLinks('item-1');
 
     expect(sentRequest!.url.path, '/api/work-items/item-1/links');
-    expect(links.single.type, WorkItemLinkType.blockedBy);
+    expect(links.single.type, WorkItemLinkRelation.blockedBy);
     expect(links.single.linkedWorkItemNumber, 2);
     expect(links.single.linkedWorkItemTitle, 'Other task');
   });
@@ -581,7 +581,7 @@ void main() {
     final link = await repository.addLink(
       'item-1',
       'item-2',
-      WorkItemLinkType.blocks,
+      WorkItemLinkRelation.blocks,
     );
 
     expect(sentRequest!.method, 'POST');
@@ -590,7 +590,7 @@ void main() {
       'targetWorkItemId': 'item-2',
       'type': 'Blocks',
     });
-    expect(link.type, WorkItemLinkType.blocks);
+    expect(link.type, WorkItemLinkRelation.blocks);
   });
 
   test("addLink reports the server's reason for refusing a link", () async {
@@ -603,7 +603,7 @@ void main() {
     final repository = _repository(client);
 
     await expectLater(
-      repository.addLink('item-1', 'item-2', WorkItemLinkType.blocks),
+      repository.addLink('item-1', 'item-2', WorkItemLinkRelation.blocks),
       throwsA(
         isA<ApiException>()
             .having((e) => e.isConflict, 'isConflict', isTrue)
@@ -615,6 +615,32 @@ void main() {
       ),
     );
   });
+
+  test(
+    "addLink reports the server's reason for refusing a self link",
+    () async {
+      final client = MockClient(
+        (request) async => _jsonResponse({
+          'title': 'Bad Request',
+          'detail': 'Work item item-1 cannot be linked to itself.',
+        }, statusCode: 400),
+      );
+      final repository = _repository(client);
+
+      await expectLater(
+        repository.addLink('item-1', 'item-1', WorkItemLinkRelation.related),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.statusCode, 'statusCode', 400)
+              .having(
+                (e) => e.message,
+                'message',
+                contains('cannot be linked to itself'),
+              ),
+        ),
+      );
+    },
+  );
 
   test('loadUrlLinks parses the URL link list', () async {
     http.Request? sentRequest;

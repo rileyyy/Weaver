@@ -8,7 +8,7 @@ import 'package:weaver/features/work_item_detail/models/quick_pick_dates.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_link_type.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_link_relation.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_url_link.dart';
 import 'package:weaver/shared/data/status_repository.dart';
@@ -295,7 +295,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   Future<WorkItemLink> addLink(
     String workItemId,
     String targetWorkItemId,
-    WorkItemLinkType type,
+    WorkItemLinkRelation type,
   ) => _api.post(
     '/work-items/$workItemId/links',
     {'targetWorkItemId': targetWorkItemId, 'type': type.wire},
@@ -313,7 +313,7 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   Future<List<WorkItemUrlLink>> loadUrlLinks(String workItemId) => _api.get(
     '/work-items/$workItemId/url-links',
     (json) => JsonApiClient.listOf(json, WorkItemUrlLink.fromJson),
-    failureMessage: 'Failed to load web links',
+    failureMessage: 'Failed to load URL links',
   );
 
   @override
@@ -325,12 +325,12 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     '/work-items/$workItemId/url-links',
     {'url': url, 'label': ?label},
     (json) => WorkItemUrlLink.fromJson(json as Map<String, dynamic>),
-    failureMessage: 'Failed to add web link',
+    failureMessage: 'Failed to add URL link',
   );
 
   @override
   Future<void> deleteUrlLink(String urlLinkId) => _api.delete(
     '/work-item-url-links/$urlLinkId',
-    failureMessage: 'Failed to delete web link',
+    failureMessage: 'Failed to delete URL link',
   );
 }

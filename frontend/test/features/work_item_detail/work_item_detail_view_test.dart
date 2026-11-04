@@ -7,7 +7,7 @@ import 'package:weaver/features/work_item_detail/models/work_item_child_summary.
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_history_entry.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_link_type.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_link_relation.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_url_link.dart';
 import 'package:weaver/features/work_item_detail/repeat_settings_view_model.dart';
@@ -46,7 +46,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   final List<String> createdSubItems = [];
   final List<WorkItemChildSummary> children = [];
   final List<String> allSpacesSearches = [];
-  final List<(String, WorkItemLinkType)> linkSaves = [];
+  final List<(String, WorkItemLinkRelation)> linkSaves = [];
   final List<(String, String?)> urlLinkSaves = [];
 
   /// When set, the server refuses the next link with this reason.
@@ -198,7 +198,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   Future<WorkItemLink> addLink(
     String workItemId,
     String targetWorkItemId,
-    WorkItemLinkType type,
+    WorkItemLinkRelation type,
   ) async {
     linkSaves.add((targetWorkItemId, type));
     if (linkRefusal case final reason?) {
@@ -704,7 +704,7 @@ void main() {
         workItem('paint', number: 12, title: 'Paint', spaceId: 'house');
 
     Future<void> addLink(
-      WorkItemLinkType type,
+      WorkItemLinkRelation type,
       String pick,
       WidgetTester tester,
     ) async {
@@ -725,11 +725,11 @@ void main() {
       final repository = _FakeRepository()..others['paint'] = paint();
       await _openDetails(tester, repository: repository);
 
-      await addLink(WorkItemLinkType.blocks, '#12 Paint', tester);
+      await addLink(WorkItemLinkRelation.blocks, '#12 Paint', tester);
 
       expect(repository.allSpacesSearches, ['']);
       expect(repository.searches, isEmpty);
-      expect(repository.linkSaves, [('paint', WorkItemLinkType.blocks)]);
+      expect(repository.linkSaves, [('paint', WorkItemLinkRelation.blocks)]);
       expect(find.text('No linked work items'), findsNothing);
       expect(find.text('#12 Paint'), findsOneWidget);
     });
@@ -740,7 +740,7 @@ void main() {
         ..linkRefusal = 'Paint already blocks this item (409).';
       await _openDetails(tester, repository: repository);
 
-      await addLink(WorkItemLinkType.blocks, '#12 Paint', tester);
+      await addLink(WorkItemLinkRelation.blocks, '#12 Paint', tester);
 
       expect(
         find.text('Paint already blocks this item (409).'),
@@ -749,7 +749,7 @@ void main() {
       expect(find.text('No linked work items'), findsOneWidget);
     });
 
-    testWidgets('a web link that is not a full address is refused before '
+    testWidgets('a URL link that is not a full address is refused before '
         'saving', (tester) async {
       final repository = _FakeRepository();
       await _openDetails(tester, repository: repository);
@@ -759,9 +759,9 @@ void main() {
         'example.com',
       );
       await tester.ensureVisible(
-        find.widgetWithText(TextButton, 'Add web link'),
+        find.widgetWithText(TextButton, 'Add URL link'),
       );
-      await tester.tap(find.widgetWithText(TextButton, 'Add web link'));
+      await tester.tap(find.widgetWithText(TextButton, 'Add URL link'));
       await tester.pumpAndSettle();
 
       expect(repository.urlLinkSaves, isEmpty);
@@ -771,7 +771,7 @@ void main() {
       );
     });
 
-    testWidgets('adding a web link lists it by its label', (tester) async {
+    testWidgets('adding a URL link lists it by its label', (tester) async {
       final repository = _FakeRepository();
       await _openDetails(tester, repository: repository);
 
@@ -784,9 +784,9 @@ void main() {
         'PR 7',
       );
       await tester.ensureVisible(
-        find.widgetWithText(TextButton, 'Add web link'),
+        find.widgetWithText(TextButton, 'Add URL link'),
       );
-      await tester.tap(find.widgetWithText(TextButton, 'Add web link'));
+      await tester.tap(find.widgetWithText(TextButton, 'Add URL link'));
       await tester.pumpAndSettle();
 
       expect(repository.urlLinkSaves, [('https://example.com/pr/7', 'PR 7')]);

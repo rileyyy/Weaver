@@ -38,6 +38,7 @@ public class WorkItemUrlLinkTests
     [TestCase("ftp://example.com/file")]
     [TestCase("javascript:alert(1)")]
     [TestCase("mailto:someone@example.com")]
+    [TestCase("http:///x")]
     public void Create_WithAnythingButAnAbsoluteWebAddress_IsRejected(string? url)
     {
         Assert.Throws<DomainValidationException>(() => WorkItemUrlLink.Create(_item, url!, null));

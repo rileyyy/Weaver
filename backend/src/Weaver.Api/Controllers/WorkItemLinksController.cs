@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Weaver.Api.Contracts;
 using Weaver.Application.Services;
+using Weaver.Domain;
 using Weaver.Domain.Exceptions;
 
 namespace Weaver.Api.Controllers;
@@ -32,7 +33,7 @@ public class WorkItemLinksController(IWorkItemLinkService links) : ControllerBas
     public async Task<ActionResult<WorkItemLinkDto>> Create(Guid workItemId, CreateWorkItemLinkRequest request)
     {
         var type = request.Type
-            ?? throw new DomainValidationException("Link type is required: Related, Blocks, BlockedBy, Duplicates or DuplicatedBy.");
+            ?? throw new DomainValidationException($"Link type is required: one of {WorkItemLinkRelationNames.All}.");
         var link = await _links.CreateAsync(workItemId, request.TargetWorkItemId, type);
         return CreatedAtAction(nameof(ListForWorkItem), new { workItemId }, WorkItemLinkDto.FromView(link));
     }

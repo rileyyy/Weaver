@@ -10,7 +10,7 @@ import 'package:weaver/features/work_item_detail/models/quick_pick.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
-import 'package:weaver/features/work_item_detail/models/work_item_link_type.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_link_relation.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_url_link.dart';
 import 'package:weaver/shared/data/current_user.dart';
@@ -432,14 +432,18 @@ class WorkItemDetailViewModel extends ViewModel {
   /// Links this item to [target] as [type], read from this item's side.
   /// The server's reason for refusing a link (a self link, a repeat, or a
   /// blocks cycle) is shown as it says it.
-  Future<bool> addLink(WorkItem target, WorkItemLinkType type) => _mutate(
-    () async {
-      final created = await _repository.addLink(_id, target.id, type);
-      _links = [..._links, created];
-    },
-    errorMessage: 'Could not add this link. Try again.',
-    serverExplainsRefusal: true,
-  );
+  Future<bool> addLink(WorkItem target, WorkItemLinkRelation type) async {
+    final added = await _mutate(
+      () async {
+        final created = await _repository.addLink(_id, target.id, type);
+        _links = [..._links, created];
+      },
+      errorMessage: 'Could not add this link. Try again.',
+      serverExplainsRefusal: true,
+    );
+    if (added) await _reloadItemAfterLinkChange();
+    return added;
+  }
 
   /// Items in every Space that [text] matches, to pick a link's target
   /// from. The item itself is left out, since the server would refuse it.
@@ -451,15 +455,34 @@ class WorkItemDetailViewModel extends ViewModel {
     ];
   }
 
-  Future<bool> deleteLink(String linkId) => _mutate(() async {
-    await _repository.deleteLink(linkId);
-    _links = [
-      for (final l in _links)
-        if (l.id != linkId) l,
-    ];
-  }, errorMessage: 'Could not remove this link. Try again.');
+  Future<bool> deleteLink(String linkId) async {
+    final deleted = await _mutate(() async {
+      await _repository.deleteLink(linkId);
+      _links = [
+        for (final l in _links)
+          if (l.id != linkId) l,
+      ];
+    }, errorMessage: 'Could not remove this link. Try again.');
+    if (deleted) await _reloadItemAfterLinkChange();
+    return deleted;
+  }
 
-  /// Adds a web link to [url], named [label] when it isn't blank.
+  /// The server resolves a When from the item's live blockers without
+  /// bumping its version, so a link write's response can't carry the new
+  /// [WorkItem.whenResolved]; only a fresh copy of the item does. The link
+  /// itself is already saved, so a failed reload just leaves When stale
+  /// rather than reporting the link as failed.
+  Future<void> _reloadItemAfterLinkChange() async {
+    final asOf = _items.revision;
+    try {
+      _items.putAll([await _repository.getItem(_id)], asOf: asOf);
+    } on ApiException {
+      return;
+    }
+    notifyIfActive();
+  }
+
+  /// Adds a URL link to [url], named [label] when it isn't blank.
   Future<bool> addUrlLink(String url, {String? label}) {
     final trimmedUrl = url.trim();
     final error = WorkItemUrlLink.urlError(trimmedUrl);
@@ -472,7 +495,7 @@ class WorkItemDetailViewModel extends ViewModel {
         label: (trimmedLabel?.isEmpty ?? true) ? null : trimmedLabel,
       );
       _urlLinks = [..._urlLinks, created];
-    }, errorMessage: 'Could not add this web link. Try again.');
+    }, errorMessage: 'Could not add this URL link. Try again.');
   }
 
   Future<bool> deleteUrlLink(String urlLinkId) => _mutate(() async {
@@ -481,7 +504,7 @@ class WorkItemDetailViewModel extends ViewModel {
       for (final l in _urlLinks)
         if (l.id != urlLinkId) l,
     ];
-  }, errorMessage: 'Could not remove this web link. Try again.');
+  }, errorMessage: 'Could not remove this URL link. Try again.');
 
   /// Creates a child of this item, in its Space, with just [title] and the
   /// Space's first status, and lists it under Sub-Items. The new item isn't

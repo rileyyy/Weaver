@@ -40,12 +40,13 @@ void main() {
       ],
     );
 
+    expect(find.text('URL Links'), findsOneWidget);
     expect(find.text('PR 7'), findsOneWidget);
     expect(find.text('https://example.com/pr/7'), findsOneWidget);
     expect(find.text('https://example.com/quote'), findsOneWidget);
   });
 
-  testWidgets('tapping a web link opens it', (tester) async {
+  testWidgets('tapping a URL link opens it', (tester) async {
     final opened = <Uri>[];
     await _pump(
       tester,
@@ -60,7 +61,7 @@ void main() {
     expect(opened, [Uri.parse('https://example.com/pr/7')]);
   });
 
-  testWidgets('removing a web link passes its id', (tester) async {
+  testWidgets('removing a URL link passes its id', (tester) async {
     final removed = <String>[];
     await _pump(
       tester,
@@ -68,7 +69,7 @@ void main() {
       onRemove: removed.add,
     );
 
-    await tester.tap(find.byTooltip('Remove web link'));
+    await tester.tap(find.byTooltip('Remove URL link'));
 
     expect(removed, ['u1']);
   });
@@ -87,7 +88,7 @@ void main() {
 
     await tester.enterText(_field('https://…'), 'https://example.com');
     await tester.enterText(_field('Label (optional)'), 'Quote');
-    await tester.tap(find.widgetWithText(TextButton, 'Add web link'));
+    await tester.tap(find.widgetWithText(TextButton, 'Add URL link'));
     await tester.pumpAndSettle();
 
     expect(added, [('https://example.com', 'Quote')]);
@@ -95,11 +96,11 @@ void main() {
     expect(find.text('Quote'), findsNothing);
   });
 
-  testWidgets('a refused web link keeps what was typed', (tester) async {
+  testWidgets('a refused URL link keeps what was typed', (tester) async {
     await _pump(tester, onAdd: (_, _) async => false);
 
     await tester.enterText(_field('https://…'), 'example.com');
-    await tester.tap(find.widgetWithText(TextButton, 'Add web link'));
+    await tester.tap(find.widgetWithText(TextButton, 'Add URL link'));
     await tester.pumpAndSettle();
 
     expect(find.text('example.com'), findsOneWidget);
@@ -115,7 +116,7 @@ void main() {
       },
     );
 
-    await tester.tap(find.widgetWithText(TextButton, 'Add web link'));
+    await tester.tap(find.widgetWithText(TextButton, 'Add URL link'));
     await tester.pumpAndSettle();
 
     expect(calls, 0);
