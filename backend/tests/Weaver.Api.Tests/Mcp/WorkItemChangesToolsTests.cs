@@ -21,7 +21,7 @@ public class WorkItemChangesToolsTests
         var service = new Mock<IWorkItemChangesService>(MockBehavior.Strict);
         service
             .Setup(s => s.ListSinceAsync(new WorkItemChangesQuery(Since, spaceId, true, "abc", 10), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new WorkItemChangesPage([new ChangedWorkItem(deleted, Deleted: true, [])], "next"));
+            .ReturnsAsync(new WorkItemChangesPage([new ChangedWorkItem(deleted, Deleted: true, Restored: false, [])], "next"));
 
         var page = await new WorkItemChangesTools(service.Object).ListChangesSince(Since, spaceId, true, "abc", 10);
 

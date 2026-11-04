@@ -16,7 +16,8 @@ public class WorkItemHistoryService(IWeaverDbContext db) : IWorkItemHistoryServi
             _db.WorkItemHistory.Where(e => e.WorkItemId == workItemId).OrderByDescending(e => e.Id),
             ct);
 
-        if (entries.Count == 0 && !await _db.WorkItems.AnyAsync(w => w.Id == workItemId, ct))
+        // History outlives the item, so a trashed one's is still readable.
+        if (entries.Count == 0 && !await _db.WorkItems.IgnoreQueryFilters().AnyAsync(w => w.Id == workItemId, ct))
         {
             throw new EntityNotFoundException(nameof(WorkItem), workItemId);
         }

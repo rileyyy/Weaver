@@ -33,7 +33,8 @@ public class WorkItemTypeService(IWeaverDbContext db, IAdminAuthorizer admins, I
 
     protected override async Task MoveWorkItemsAsync(WorkItemType deleted, Guid? replacementId, CancellationToken ct)
     {
-        var items = await Db.WorkItems.Where(w => w.TypeId == deleted.Id).ToListAsync(ct);
+        // Trashed items too: one restored later mustn't point at a value that's gone.
+        var items = await Db.WorkItems.IgnoreQueryFilters().Where(w => w.TypeId == deleted.Id).ToListAsync(ct);
         foreach (var item in items)
         {
             History.RecordChanges(item.Id, item.ChangeType(replacementId));

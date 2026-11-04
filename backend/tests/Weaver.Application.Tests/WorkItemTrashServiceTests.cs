@@ -331,6 +331,20 @@ public class WorkItemTrashServiceTests
         });
     }
 
+    [Test]
+    public async Task History_StillNamesATrashedItem_ThatALinkEntryPointsAt()
+    {
+        var history = new WorkItemHistoryService(_db);
+        var item = await CreateAsync("Old shed");
+        var survivor = await CreateAsync("Garden");
+        await new WorkItemLinkService(_db, _caller).CreateAsync(survivor.Id, item.Id);
+        await _trash.MoveToTrashAsync(item.Id);
+
+        var linkEntry = (await history.ListForWorkItemAsync(survivor.Id)).First(e => e.Field == WorkItemHistoryField.Link);
+
+        Assert.That(linkEntry.NewName, Does.EndWith("Old shed"));
+    }
+
     /// <summary>Stands in for ticket 20's purge: the row goes, its history stays.</summary>
     private async Task PurgeAsync(Guid id)
     {

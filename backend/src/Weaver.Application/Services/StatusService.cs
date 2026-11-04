@@ -42,7 +42,9 @@ public class StatusService(IWeaverDbContext db, IAdminAuthorizer admins, ICaller
     /// </summary>
     protected override async Task MoveWorkItemsAsync(Status deleted, Guid? replacementId, CancellationToken ct)
     {
+        // Trashed items too: one restored later mustn't point at a value that's gone.
         var moving = await Db.WorkItems
+            .IgnoreQueryFilters()
             .Where(w => w.StatusId == deleted.Id)
             .OrderBy(w => w.Rank).ThenBy(w => w.Number).ThenBy(w => w.Id)
             .ToListAsync(ct);

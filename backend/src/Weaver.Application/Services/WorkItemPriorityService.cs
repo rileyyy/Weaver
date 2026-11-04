@@ -19,7 +19,8 @@ public class WorkItemPriorityService(IWeaverDbContext db, IAdminAuthorizer admin
 
     protected override async Task MoveWorkItemsAsync(WorkItemPriority deleted, Guid? replacementId, CancellationToken ct)
     {
-        var items = await Db.WorkItems.Where(w => w.PriorityId == deleted.Id).ToListAsync(ct);
+        // Trashed items too: one restored later mustn't point at a value that's gone.
+        var items = await Db.WorkItems.IgnoreQueryFilters().Where(w => w.PriorityId == deleted.Id).ToListAsync(ct);
         foreach (var item in items)
         {
             History.RecordChanges(item.Id, item.ChangePriority(replacementId));
