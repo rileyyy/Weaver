@@ -23,16 +23,19 @@ Goal / Task); an item only takes its own Space's.
 _Avoid:_ project, workspace, board.
 
 **Type**
-: A per-Space kind of work item (e.g. Room, Chore, Bug). It has a colour,
-and from ticket 14 its own custom fields. Types don't limit what can be
+: A per-Space kind of work item (e.g. Room, Chore, Bug). It has a colour
+and its own custom fields. Types don't limit what can be
 nested under what. It replaced the global Layer (ticket 13).
 _Avoid:_ layer, work-item type. (Code and API names such as `WorkItemType`,
 `/api/work-item-types` and `list_work_item_types` keep the `work-item`
 prefix, matching statuses and priorities.)
 
-**Custom field** *(planned)*
+**Custom field**
 : A field a Type defines: text, Markdown, number, currency, date, checkbox,
-single select, multi-select, user, or URL.
+single select, multi-select, user, or URL. Only admins define them. An
+item's values belong to its Type's fields, so changing the item's Type
+clears them (history keeps them).
+_Avoid:_ attribute, property.
 
 **Roll-up** *(planned)*
 : An optional setting on a number or currency field. It shows on a parent
