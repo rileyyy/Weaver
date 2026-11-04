@@ -161,7 +161,7 @@ public static class ApiClient
         var admin = await FirstAdminAsync();
         var space = await (await admin.PostJsonAsync(
             "/api/spaces",
-            new SpaceNameRequest($"{name} {Guid.NewGuid():N}"[..40]))).ReadAsync<SpaceDto>();
+            new SpaceNameRequest($"{name} {Guid.NewGuid():N}"))).ReadAsync<SpaceDto>();
         return space.Id;
     }
 }
