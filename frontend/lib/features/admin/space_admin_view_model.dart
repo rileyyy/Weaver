@@ -85,6 +85,7 @@ class SpaceAdminViewModel extends ViewModel {
 
   /// Close to the server's collation-ordered list, so the order doesn't jump
   /// on the next load.
-  static List<Space> _sorted(List<Space> spaces) => [...spaces]
-    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  static List<Space> _sorted(List<Space> spaces) =>
+      [...spaces]
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 }
