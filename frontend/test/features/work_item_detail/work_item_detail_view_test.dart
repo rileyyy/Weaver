@@ -21,6 +21,7 @@ import 'package:weaver/shared/models/work_item_status.dart';
 import 'package:weaver/shared/models/work_item_type.dart';
 import 'package:weaver/shared/widgets/user_name_label.dart';
 
+import '../../shared/fakes/work_items.dart';
 import '../../shared/recurrence/fake_recurrence_repository.dart';
 
 class _NoUser implements CurrentUser {
@@ -28,13 +29,26 @@ class _NoUser implements CurrentUser {
   String? get currentUserId => null;
 }
 
-/// Serves what the detail view loads and saves descriptions; anything else
-/// is unexpected.
+/// Serves what the detail view loads and saves descriptions, statuses,
+/// parents and sub-items; anything else is unexpected.
 class _FakeRepository implements WorkItemDetailRepository {
-  _FakeRepository({this.description});
+  _FakeRepository({this.description, this.parentId});
 
   String? description;
+  String? parentId;
+  String statusId = 'todo';
   int version = 1;
+  final List<(String, int)> statusSaves = [];
+  final List<(String?, int)> parentSaves = [];
+  final List<String> searches = [];
+  final List<String> createdSubItems = [];
+  final List<WorkItemChildSummary> children = [];
+
+  /// Items other than this one, which [getItem] and the search serve.
+  final Map<String, WorkItem> others = {};
+
+  /// Ids the server refuses as a parent, as this item's own descendants.
+  Set<String> descendantIds = const {};
 
   /// When set, the next description save loses to this description, saved
   /// by someone else, and fails with a 409.
@@ -42,23 +56,25 @@ class _FakeRepository implements WorkItemDetailRepository {
   final List<(String, int)> descriptionSaves = [];
 
   @override
-  Future<WorkItem> getItem(String id) async => WorkItem(
-    number: 1,
-    id: id,
-    spaceId: 'home',
-    parentId: null,
-    title: 'Original title',
-    description: description,
-    statusId: 'todo',
-    typeId: null,
-    priorityId: null,
-    assignedToUserId: null,
-    startDate: null,
-    endDate: null,
-    createdAt: DateTime(2026, 9, 1),
-    updatedAt: DateTime(2026, 9, 1),
-    version: version,
-  );
+  Future<WorkItem> getItem(String id) async =>
+      others[id] ??
+      WorkItem(
+        number: 1,
+        id: id,
+        spaceId: 'home',
+        parentId: parentId,
+        title: 'Original title',
+        description: description,
+        statusId: statusId,
+        typeId: null,
+        priorityId: null,
+        assignedToUserId: null,
+        startDate: null,
+        endDate: null,
+        createdAt: DateTime(2026, 9, 1),
+        updatedAt: DateTime(2026, 9, 1),
+        version: version,
+      );
 
   @override
   Future<WorkItem> updateDescription(
@@ -77,8 +93,64 @@ class _FakeRepository implements WorkItemDetailRepository {
   }
 
   @override
+  Future<WorkItem> changeStatus(
+    String id,
+    String statusId, {
+    required int expectedVersion,
+  }) {
+    statusSaves.add((statusId, expectedVersion));
+    this.statusId = statusId;
+    version++;
+    return getItem(id);
+  }
+
+  @override
+  Future<WorkItem> reparent(
+    String id,
+    String? parentId, {
+    required int expectedVersion,
+  }) {
+    parentSaves.add((parentId, expectedVersion));
+    if (descendantIds.contains(parentId)) {
+      return Future.error(
+        const ApiException('it would create a cycle', statusCode: 409),
+      );
+    }
+    this.parentId = parentId;
+    version++;
+    return getItem(id);
+  }
+
+  @override
+  Future<List<WorkItem>> searchWorkItems(String spaceId, String text) async {
+    searches.add(text);
+    return [
+      for (final item in others.values)
+        if (item.title.toLowerCase().contains(text.toLowerCase())) item,
+    ];
+  }
+
+  @override
+  Future<WorkItemChildSummary> createSubItem(
+    String parentId, {
+    required String title,
+    required String statusId,
+  }) async {
+    createdSubItems.add(title);
+    final child = WorkItemChildSummary(
+      id: 'child-${children.length + 1}',
+      number: 40 + children.length,
+      title: title,
+      statusId: statusId,
+    );
+    children.add(child);
+    return child;
+  }
+
+  @override
   Future<List<WorkItemStatus>> loadStatuses(String spaceId) async => const [
     WorkItemStatus(id: 'todo', name: 'To Do', order: 0),
+    WorkItemStatus(id: 'done', name: 'Done', order: 1),
   ];
 
   @override
@@ -103,7 +175,7 @@ class _FakeRepository implements WorkItemDetailRepository {
 
   @override
   Future<List<WorkItemChildSummary>> loadChildren(String parentId) async =>
-      const [];
+      List.of(children);
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
@@ -150,6 +222,7 @@ Future<void> _openDetails(
   FakeRecurrenceRepository? recurrences,
   WorkItemHistoryRepository? history,
   _FakeRepository? repository,
+  VoidCallback? onChanged,
 }) async {
   tester.view.physicalSize = const Size(1200, 1600);
   tester.view.devicePixelRatio = 1;
@@ -162,6 +235,7 @@ Future<void> _openDetails(
             MaterialPageRoute<void>(
               builder: (_) => WorkItemDetailView(
                 workItemId: 'item-1',
+                onChanged: onChanged,
                 viewModel: WorkItemDetailViewModel(
                   repository ?? _FakeRepository(),
                   _NoUser(),
@@ -428,5 +502,144 @@ void main() {
       ),
       findsNothing,
     );
+  });
+
+  group('status', () {
+    testWidgets("offers the Space's statuses and saves the pick", (
+      tester,
+    ) async {
+      final repository = _FakeRepository();
+      var changed = false;
+      await _openDetails(
+        tester,
+        repository: repository,
+        onChanged: () => changed = true,
+      );
+
+      await tester.tap(find.byKey(const Key('status-picker')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Done').last);
+      await tester.pumpAndSettle();
+
+      expect(repository.statusSaves, [('done', 1)]);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('status-picker')),
+          matching: find.text('Done'),
+        ),
+        findsOneWidget,
+      );
+      expect(changed, isTrue, reason: 'the board refreshes on close');
+    });
+  });
+
+  group('parent', () {
+    WorkItem kitchen() => workItem('kitchen', number: 5, title: 'Kitchen');
+    WorkItem garden() => workItem('garden', number: 9, title: 'Garden');
+
+    Finder parentField(String text) => find.descendant(
+      of: find.byKey(const Key('parent-picker')),
+      matching: find.text(text),
+    );
+
+    Future<void> pickParent(WidgetTester tester, String option) async {
+      await tester.tap(find.byKey(const Key('parent-picker')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(option));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets("shows the parent's number and title", (tester) async {
+      final repository = _FakeRepository(parentId: 'kitchen')
+        ..others['kitchen'] = kitchen();
+      await _openDetails(tester, repository: repository);
+
+      expect(parentField('#5 Kitchen'), findsOneWidget);
+    });
+
+    testWidgets('searches the Space and moves the item under the pick', (
+      tester,
+    ) async {
+      final repository = _FakeRepository()
+        ..others['kitchen'] = kitchen()
+        ..others['garden'] = garden();
+      var changed = false;
+      await _openDetails(
+        tester,
+        repository: repository,
+        onChanged: () => changed = true,
+      );
+      expect(parentField('None'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('parent-picker')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Search by title or #number'),
+        'gar',
+      );
+      await tester.pumpAndSettle(const Duration(milliseconds: 400));
+      expect(find.text('#5 Kitchen'), findsNothing);
+      await tester.tap(find.text('#9 Garden'));
+      await tester.pumpAndSettle();
+
+      expect(repository.searches, ['', 'gar']);
+      expect(repository.parentSaves, [('garden', 1)]);
+      expect(parentField('#9 Garden'), findsOneWidget);
+      expect(changed, isTrue, reason: 'the board refreshes on close');
+    });
+
+    testWidgets('"No parent" makes the item top-level', (tester) async {
+      final repository = _FakeRepository(parentId: 'kitchen')
+        ..others['kitchen'] = kitchen();
+      await _openDetails(tester, repository: repository);
+
+      await pickParent(tester, 'No parent');
+
+      expect(repository.parentSaves, [(null, 1)]);
+      expect(parentField('None'), findsOneWidget);
+    });
+
+    testWidgets('a parent inside the item is refused with a clear message', (
+      tester,
+    ) async {
+      final repository = _FakeRepository(parentId: 'kitchen')
+        ..others['kitchen'] = kitchen()
+        ..others['garden'] = garden()
+        ..descendantIds = {'garden'};
+      await _openDetails(tester, repository: repository);
+
+      await pickParent(tester, '#9 Garden');
+
+      expect(
+        find.text(
+          "#9 Garden is inside this work item, so it can't be its parent.",
+        ),
+        findsOneWidget,
+      );
+      expect(parentField('#5 Kitchen'), findsOneWidget);
+    });
+  });
+
+  testWidgets('adding a sub-item lists it under Sub-Items', (tester) async {
+    final repository = _FakeRepository();
+    var changed = false;
+    await _openDetails(
+      tester,
+      repository: repository,
+      onChanged: () => changed = true,
+    );
+    expect(find.text('No sub-items'), findsOneWidget);
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'New sub-item title'),
+      'Paint the walls',
+    );
+    await tester.tap(find.widgetWithText(TextButton, 'Add sub-item'));
+    await tester.pumpAndSettle();
+
+    expect(repository.createdSubItems, ['Paint the walls']);
+    expect(find.text('#40 Paint the walls'), findsOneWidget);
+    expect(find.text('No sub-items'), findsNothing);
+    expect(changed, isTrue, reason: 'the board refreshes on close');
   });
 }

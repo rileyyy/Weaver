@@ -61,6 +61,18 @@ because Milestone 9's "assigned to" field needs Milestone 10's users.
 - **Migration:** `WorkItemTrash` adds two nullable columns and an index.
   No reset needed.
 
+## 2026-11-04 — Detail dialog: status, parent and sub-items
+
+`feature/detail-dialog-status-parent-sub-items` (ticket 33 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md)).
+App only; uses ticket 17's search.
+
+- **Status** is a dropdown of the item's Space's statuses.
+- **Parent** is picked by searching the item's Space, or set to none. A
+  cycle is refused with a message naming the item in the way.
+- **Add sub-item** creates a child from the dialog's Sub-Items section.
+- The board reloads after the dialog closes when any of these changed.
+
 ## 2026-11-04 — Custom fields on Types
 
 `feature/custom-fields-on-types` (ticket 14 of

@@ -325,4 +325,56 @@ void main() {
       expect(sentVersion, 9);
     });
   });
+
+  group('a 409 the item has not changed since', () {
+    // The server also answers 409 when the change itself breaks a rule,
+    // such as a parent that would make a cycle.
+    const rejection = ApiException('It would create a cycle.', statusCode: 409);
+
+    test('is rethrown as it is, not as a conflict', () async {
+      final store = _storeWith([workItem('a', version: 3)]);
+
+      final write = store.write(
+        'a',
+        optimistic: (item) => item.movedToParent('b'),
+        send: (_) async => throw rejection,
+        reload: () async => workItem('a', version: 3),
+      );
+
+      await expectLater(
+        write,
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e, 'error', isNot(isA<WorkItemConflict>()))
+              .having((e) => e.message, 'message', rejection.message),
+        ),
+      );
+      expect(store['a']?.parentId, isNull);
+    });
+
+    test('does not reject the writes queued behind it', () async {
+      final store = _storeWith([workItem('a', version: 3)]);
+      final firstResponse = Completer<WorkItem>();
+
+      final first = store.write(
+        'a',
+        send: (_) => firstResponse.future,
+        reload: () async => workItem('a', version: 3),
+      );
+      int? queuedVersion;
+      final queued = store.write(
+        'a',
+        send: (version) async {
+          queuedVersion = version;
+          return workItem('a', version: 4);
+        },
+        reload: () => throw StateError('No conflict expected'),
+      );
+      firstResponse.completeError(rejection);
+
+      await expectLater(first, throwsA(isA<ApiException>()));
+      await queued;
+      expect(queuedVersion, 3);
+    });
+  });
 }

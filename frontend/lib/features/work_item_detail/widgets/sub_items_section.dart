@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
+import 'package:weaver/features/work_item_detail/widgets/text_entry_row.dart';
 import 'package:weaver/shared/widgets/field_label.dart';
 
 class SubItemsSection extends StatelessWidget {
@@ -8,11 +9,15 @@ class SubItemsSection extends StatelessWidget {
     required this.children,
     required this.statusColorFor,
     required this.onOpen,
+    required this.onAdd,
   });
 
   final List<WorkItemChildSummary> children;
   final Color? Function(String statusId) statusColorFor;
   final ValueChanged<String> onOpen;
+
+  /// Adds a sub-item with the given title; returns whether it was added.
+  final Future<bool> Function(String title) onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -43,6 +48,11 @@ class SubItemsSection extends StatelessWidget {
               ),
               onTap: () => onOpen(child.id),
             ),
+        TextEntryRow(
+          hintText: 'New sub-item title',
+          buttonLabel: 'Add sub-item',
+          onSubmit: onAdd,
+        ),
       ],
     );
   }
