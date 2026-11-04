@@ -82,7 +82,8 @@ class WorkItemStore extends ChangeNotifier {
   ///
   /// On a 409 the item is reloaded with [reload] and a [WorkItemConflict]
   /// thrown; writes to the same item already queued behind it fail the same
-  /// way without being sent. Other failures are rethrown as they are.
+  /// way without being sent. A 409 for an item that turns out unchanged is
+  /// a rule the change broke, and is rethrown as it is, like other failures.
   Future<WorkItem> write(
     String id, {
     WorkItemEdit? optimistic,
@@ -129,35 +130,42 @@ class WorkItemStore extends ChangeNotifier {
       return saved;
     } on ApiException catch (e) {
       if (!e.isConflict) rethrow;
-      throw await _reloadAfterConflict(id, e, reload);
+      throw await _reloadAfterConflict(id, e, reload, stored.version);
     } finally {
       _pending[id]?.remove(optimistic);
       notifyListeners();
     }
   }
 
-  Future<WorkItemConflict> _reloadAfterConflict(
+  /// The [ApiException] to fail the write with: a [WorkItemConflict], or
+  /// [rejection] itself when the item turns out not to have changed since
+  /// [sentVersion]. The server also answers 409 when the change breaks a
+  /// rule (a parent that would make a cycle), and that says nothing about
+  /// the stored copy being stale.
+  Future<ApiException> _reloadAfterConflict(
     String id,
     ApiException rejection,
     Future<WorkItem> Function() reload,
+    int sentVersion,
   ) async {
-    _conflictCounts[id] = (_conflictCounts[id] ?? 0) + 1;
-    // Every edit still pending was made against the stale copy too; the
-    // writes they belong to are rejected when their turn comes.
-    _pending.remove(id);
-    // Set before the reload so the writes queued behind this one always
-    // find a conflict to fail with, whatever the reload does.
-    _lastConflicts[id] = WorkItemConflict(rejection.message, latest: null);
     final WorkItem latest;
     try {
       latest = await reload();
     } on Exception {
-      return _lastConflicts[id]!;
+      return _markStale(id, WorkItemConflict(rejection.message, latest: null));
     }
+    if (latest.version == sentVersion) return rejection;
     _confirm(latest);
-    return _lastConflicts[id] = WorkItemConflict(
-      rejection.message,
-      latest: latest,
-    );
+    return _markStale(id, WorkItemConflict(rejection.message, latest: latest));
+  }
+
+  // Safe to do after the reload: the writes queued behind this one only
+  // check for a conflict once this write has finished.
+  WorkItemConflict _markStale(String id, WorkItemConflict conflict) {
+    _conflictCounts[id] = (_conflictCounts[id] ?? 0) + 1;
+    // Every edit still pending was made against the stale copy too; the
+    // writes they belong to are rejected when their turn comes.
+    _pending.remove(id);
+    return _lastConflicts[id] = conflict;
   }
 }
