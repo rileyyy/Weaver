@@ -138,9 +138,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   @override
   Future<List<WorkItemType>> loadTypes(String spaceId) async {
     lookupSpaceIds.add(spaceId);
-    return const [
-    WorkItemType(id: 'type-task', name: 'Task', order: 0),
-  ];
+    return const [WorkItemType(id: 'type-task', name: 'Task', order: 0)];
   }
 
   @override

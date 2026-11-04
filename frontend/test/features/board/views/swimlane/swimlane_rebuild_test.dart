@@ -18,27 +18,29 @@ import '../../../../shared/fakes/work_items.dart';
 
 class _TwoLaneRepository implements BoardRepository {
   @override
-  Future<List<Space>> loadSpaces() => Future.value(const [Space(id: 'home', name: 'Home')]);
+  Future<List<Space>> loadSpaces() =>
+      Future.value(const [Space(id: 'home', name: 'Home')]);
 
   @override
-  Future<BoardData> loadBoard(String spaceId, String? scopeItemId) => Future.value(
-    BoardData(
-      statuses: const [
-        WorkItemStatus(id: 'todo', name: 'To Do', order: 0),
-        WorkItemStatus(id: 'done', name: 'Done', order: 1),
-      ],
-      swimlanes: [
-        SwimlaneItems(
-          lane: workItem('lane-a', title: 'Lane A'),
-          cards: [workItem('card-a', parentId: 'lane-a')],
+  Future<BoardData> loadBoard(String spaceId, String? scopeItemId) =>
+      Future.value(
+        BoardData(
+          statuses: const [
+            WorkItemStatus(id: 'todo', name: 'To Do', order: 0),
+            WorkItemStatus(id: 'done', name: 'Done', order: 1),
+          ],
+          swimlanes: [
+            SwimlaneItems(
+              lane: workItem('lane-a', title: 'Lane A'),
+              cards: [workItem('card-a', parentId: 'lane-a')],
+            ),
+            SwimlaneItems(
+              lane: workItem('lane-b', title: 'Lane B'),
+              cards: [workItem('card-b', parentId: 'lane-b')],
+            ),
+          ],
         ),
-        SwimlaneItems(
-          lane: workItem('lane-b', title: 'Lane B'),
-          cards: [workItem('card-b', parentId: 'lane-b')],
-        ),
-      ],
-    ),
-  );
+      );
 
   @override
   Future<List<User>> loadUsers() => Future.value(const []);
@@ -84,14 +86,19 @@ void main() {
     addTearDown(tester.view.reset);
 
     final items = WorkItemStore();
-    final viewModel = BoardViewModel(_TwoLaneRepository(), items, MemoryLastSpaceStore());
+    final viewModel = BoardViewModel(
+      _TwoLaneRepository(),
+      items,
+      MemoryLastSpaceStore(),
+    );
     addTearDown(viewModel.dispose);
     await viewModel.load();
     await tester.pumpWidget(_board(viewModel));
 
     final columnBuildsByLane = <String, int>{};
     final labelBuildsByLane = <String, int>{};
-    void count(Map<String, int> builds, String lane) => builds[lane] = (builds[lane] ?? 0) + 1;
+    void count(Map<String, int> builds, String lane) =>
+        builds[lane] = (builds[lane] ?? 0) + 1;
     widgets.debugOnRebuildDirtyWidget = (element, _) {
       switch (element.widget) {
         case final StatusColumn column:
@@ -104,7 +111,10 @@ void main() {
 
     await items.write(
       'card-a',
-      send: (version) async => withVersion(workItem('card-a', title: 'Renamed', parentId: 'lane-a'), version + 1),
+      send: (version) async => withVersion(
+        workItem('card-a', title: 'Renamed', parentId: 'lane-a'),
+        version + 1,
+      ),
       reload: () => throw StateError('No conflict expected'),
     );
     await tester.pump();
