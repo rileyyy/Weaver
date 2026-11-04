@@ -154,6 +154,13 @@ void main() {
       );
     });
 
+    test('a restore from the Trash names the item', () {
+      expect(
+        _change(_entryJson(field: 'restored', newValue: 'Task')),
+        'Restored "Task" from the Trash',
+      );
+    });
+
     test('comments read as added, edited or deleted', () {
       expect(
         _change(_entryJson(field: 'comment', newValue: 'Looks good')),

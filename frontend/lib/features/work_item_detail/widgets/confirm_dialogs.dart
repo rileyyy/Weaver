@@ -7,8 +7,8 @@ Future<bool> confirmDeleteWorkItem(BuildContext context) async =>
       builder: (dialogContext) => AlertDialog(
         title: const Text('Delete work item?'),
         content: const Text(
-          'This will permanently delete this work item and any sub-items. '
-          'This cannot be undone.',
+          'This work item and any sub-items will move to the Trash. You can '
+          'restore them from the Trash tab.',
         ),
         actions: [
           TextButton(
