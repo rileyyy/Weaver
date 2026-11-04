@@ -534,18 +534,6 @@ void main() {
     expect(viewModel.isLoading, isFalse);
   });
 
-  test('statusName resolves the current status from the loaded list', () async {
-    final repository = _FakeRepository();
-    final viewModel = WorkItemDetailViewModel(
-      repository,
-      _currentUser,
-      WorkItemStore(),
-    );
-    await viewModel.load('item-1');
-
-    expect(viewModel.statusName, 'To Do');
-  });
-
   test('load populates children from the repository', () async {
     final repository = _FakeRepository()
       ..childrenList = [
@@ -1606,7 +1594,6 @@ void main() {
       expect(repository.changeStatusCalls, ['done']);
       expect(repository.expectedVersions, [4]);
       expect(viewModel.item!.statusId, 'done');
-      expect(viewModel.statusName, 'Done');
     });
 
     test('marks the dialog changed, since the board must re-rank the card '

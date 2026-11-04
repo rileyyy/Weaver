@@ -96,13 +96,6 @@ class WorkItemDetailViewModel extends ViewModel {
   bool isOwnComment(WorkItemComment comment) =>
       comment.authorUserId == _currentUser.currentUserId;
 
-  String? get statusName {
-    for (final status in _statuses) {
-      if (status.id == item?.statusId) return status.name;
-    }
-    return null;
-  }
-
   /// Looks up a status's configured color by id — used to mark each
   /// sub-item's status in the "Sub-Items" section without duplicating the
   /// loaded status list into the view.

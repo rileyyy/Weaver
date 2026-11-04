@@ -11,6 +11,7 @@ import 'package:weaver/features/work_item_detail/widgets/custom_fields_section.d
 import 'package:weaver/features/work_item_detail/widgets/description_field.dart';
 import 'package:weaver/features/work_item_detail/widgets/history_tab.dart';
 import 'package:weaver/features/work_item_detail/widgets/links_section.dart';
+import 'package:weaver/features/work_item_detail/widgets/parent_field.dart';
 import 'package:weaver/features/work_item_detail/widgets/repeat_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/schedule_fields.dart';
 import 'package:weaver/features/work_item_detail/widgets/sub_items_section.dart';
@@ -22,6 +23,7 @@ import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/recurrence/widgets/confirm_stop_repeating.dart';
 import 'package:weaver/shared/widgets/field_label.dart';
 import 'package:weaver/shared/widgets/user_name_label.dart';
+import 'package:weaver/shared/work_item_picker/work_item_picker_dialog.dart';
 
 /// Below this available content width, the two-column layout collapses to a
 /// single stacked column — the two-column form is too cramped on a phone
@@ -357,6 +359,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
           children: _viewModel.children,
           statusColorFor: _viewModel.statusColorFor,
           onOpen: (id) => unawaited(_openNestedItem(id)),
+          onAdd: _viewModel.addSubItem,
         ),
         const SizedBox(height: 20),
         RepeatSection(
@@ -416,7 +419,30 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
         ),
         const SizedBox(height: 16),
         const FieldLabel('Status'),
-        Text(_viewModel.statusName ?? item.statusId),
+        // Keyed by the saved status so the picker follows a failed save's
+        // revert or a conflict's reload, which `initialValue` alone doesn't.
+        KeyedSubtree(
+          key: ValueKey(item.statusId),
+          child: DropdownButtonFormField<String>(
+            key: const Key('status-picker'),
+            initialValue: item.statusId,
+            decoration: const InputDecoration(),
+            items: [
+              for (final status in _viewModel.statuses)
+                DropdownMenuItem(value: status.id, child: Text(status.name)),
+            ],
+            onChanged: (value) {
+              if (value != null) unawaited(_viewModel.saveStatus(value));
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+        const FieldLabel('Parent'),
+        ParentField(
+          key: const Key('parent-picker'),
+          parent: _viewModel.parent,
+          onTap: () => unawaited(_pickParent()),
+        ),
         const SizedBox(height: 16),
         const FieldLabel('Assigned To'),
         DropdownButtonFormField<String?>(
@@ -534,6 +560,17 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
     // this one was in flight, and a conflict reload may have replaced it.
     if (!ok && mounted) setState(() => _tags = [..._viewModel.item!.tags]);
     return ok;
+  }
+
+  Future<void> _pickParent() async {
+    final pick = await showWorkItemPicker(
+      context,
+      title: 'Choose a parent',
+      search: _viewModel.searchParents,
+      noneLabel: 'No parent',
+    );
+    if (pick == null) return;
+    await _viewModel.saveParent(pick.item);
   }
 
   Future<void> _closeDiscardingChanges() async {
