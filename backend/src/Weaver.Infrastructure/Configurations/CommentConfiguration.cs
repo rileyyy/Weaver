@@ -17,6 +17,9 @@ public class CommentConfiguration : IEntityTypeConfiguration<Comment>
             .HasForeignKey(c => c.WorkItemId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // Matches WorkItem's Trash filter: a trashed item's comments are kept, but hidden with it.
+        builder.HasQueryFilter(c => c.WorkItem!.TrashedAtUtc == null);
+
         builder.HasOne(c => c.AuthorUser)
             .WithMany()
             .HasForeignKey(c => c.AuthorUserId)

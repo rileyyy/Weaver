@@ -15,12 +15,15 @@ public interface IWorkItemHierarchy
     /// </summary>
     Task<bool> IsSelfOrDescendantAsync(Guid itemId, Guid candidateId, CancellationToken ct = default);
 
-    /// <summary>Every descendant of <paramref name="rootId"/>, at any depth.</summary>
+    /// <summary>
+    /// Every live descendant of <paramref name="rootId"/>, at any depth. A trashed item and
+    /// everything under it are left out.
+    /// </summary>
     Task<IReadOnlyList<Guid>> GetDescendantIdsAsync(Guid rootId, CancellationToken ct = default);
 
     /// <summary>
     /// <paramref name="itemIds"/> that exist, and every ancestor of each, at any depth, each id
-    /// once. Ends even on a corrupt tree with a cycle.
+    /// once, trashed or not. Ends even on a corrupt tree with a cycle.
     /// </summary>
     Task<IReadOnlyList<Guid>> GetSelfAndAncestorIdsAsync(IReadOnlyCollection<Guid> itemIds, CancellationToken ct = default);
 }

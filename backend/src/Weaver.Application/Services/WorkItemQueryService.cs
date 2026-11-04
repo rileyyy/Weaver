@@ -47,12 +47,12 @@ public class WorkItemQueryService(IWeaverDbContext db, IWorkItemHierarchy hierar
         var onPage = numbers.Take(query.Limit).ToList();
         var nextCursor = numbers.Count > query.Limit ? new WorkItemQueryCursor(onPage[^1]).Encode() : null;
 
-        return (_db.WorkItems.Where(w => onPage.Contains(w.Number)).OrderBy(w => w.Number), nextCursor);
+        return (Candidates(query).Where(w => onPage.Contains(w.Number)).OrderBy(w => w.Number), nextCursor);
     }
 
     private async Task<IQueryable<WorkItem>> MatchingAsync(WorkItemQuery query, CancellationToken ct)
     {
-        IQueryable<WorkItem> items = _db.WorkItems;
+        var items = Candidates(query);
         items = InSpaces(items, query.SpaceIds);
         items = MatchingText(items, query.Text);
         items = Numbered(items, query.Number);
@@ -64,6 +64,10 @@ public class WorkItemQueryService(IWeaverDbContext db, IWorkItemHierarchy hierar
         items = InBacklog(items, query.BacklogOnly);
         return query.HasDateWindow ? await InDateWindowAsync(items, query, ct) : items;
     }
+
+    /// <summary>Include-deleted is the one way to see the Trash through the query (ADR-0007).</summary>
+    private IQueryable<WorkItem> Candidates(WorkItemQuery query) =>
+        query.IncludeDeleted ? _db.WorkItems.IgnoreQueryFilters() : _db.WorkItems;
 
     /// <summary>
     /// ADR-0003's rule: an item with dates matches when they overlap the window; an item with

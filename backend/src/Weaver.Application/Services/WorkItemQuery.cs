@@ -21,6 +21,10 @@ namespace Weaver.Application.Services;
 /// <param name="To">End of the date window, inclusive.</param>
 /// <param name="BacklogOnly">Only Backlog items: not Done and with no dates (ADR-0003).</param>
 /// <param name="UpdatedSince">Only items last updated at or after this moment.</param>
+/// <param name="IncludeDeleted">
+/// Also list items in the Trash, which every other read leaves out (ADR-0007). They're marked
+/// by their trash time.
+/// </param>
 public sealed record WorkItemQuery(
     IReadOnlyList<Guid>? SpaceIds = null,
     string? Text = null,
@@ -34,6 +38,7 @@ public sealed record WorkItemQuery(
     DateOnly? To = null,
     bool BacklogOnly = false,
     DateTimeOffset? UpdatedSince = null,
+    bool IncludeDeleted = false,
     string? Cursor = null,
     int Limit = WorkItemQuery.DefaultLimit)
 {

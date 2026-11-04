@@ -121,6 +121,24 @@ public class WorkItem : IHasUpdatedAt
 
     public DateOnly? RecurrenceDate { get; private set; }
 
+    /// <summary>
+    /// When the item went to the Trash (ADR-0007), or null while it's live. Every normal read
+    /// leaves trashed items out; the row stays, with its links and comments, until it's purged.
+    /// </summary>
+    public DateTimeOffset? TrashedAtUtc { get; private set; }
+
+    /// <summary>
+    /// The item whose delete trashed this one: itself when it was the one deleted, otherwise
+    /// the ancestor whose subtree it went with. Restoring that item brings back exactly the
+    /// items trashed with it, not ones deleted separately before.
+    /// </summary>
+    public Guid? TrashRootId { get; private set; }
+
+    public bool IsTrashed => TrashedAtUtc is not null;
+
+    /// <summary>The item a delete was made on, as opposed to one that went with its ancestor.</summary>
+    public bool IsTrashRoot => IsTrashed && TrashRootId == Id;
+
     public DateTimeOffset CreatedAtUtc { get; private set; }
 
     public DateTimeOffset UpdatedAtUtc { get; private set; }
@@ -421,6 +439,36 @@ public class WorkItem : IHasUpdatedAt
     {
         RecurrenceSourceId = sourceId;
         RecurrenceDate = date;
+    }
+
+    /// <summary>
+    /// Moves the item to the Trash as part of the delete made on <paramref name="trashRootId"/>
+    /// (this item, or the ancestor whose subtree is going).
+    /// </summary>
+    public void MoveToTrash(Guid trashRootId, DateTimeOffset trashedAtUtc)
+    {
+        if (IsTrashed)
+        {
+            throw new DomainValidationException($"Work item {Id} is already in the Trash.");
+        }
+
+        TrashedAtUtc = trashedAtUtc;
+        TrashRootId = trashRootId;
+    }
+
+    /// <summary>
+    /// Takes the item out of the Trash where it is. Placing a restored item under a parent that
+    /// still exists is the caller's job, since that needs other rows.
+    /// </summary>
+    public void RestoreFromTrash()
+    {
+        if (!IsTrashed)
+        {
+            throw new DomainValidationException($"Work item {Id} isn't in the Trash.");
+        }
+
+        TrashedAtUtc = null;
+        TrashRootId = null;
     }
 
     /// <summary>

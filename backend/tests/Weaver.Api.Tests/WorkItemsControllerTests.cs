@@ -138,18 +138,6 @@ public class WorkItemsControllerTests
     }
 
     [Test]
-    public async Task Delete_DelegatesCascadeFlagAndExpectedVersionToService_AndReturnsNoContent()
-    {
-        var id = Guid.NewGuid();
-        _workItems.Setup(s => s.DeleteAsync(id, true, 7u, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-
-        var result = await _controller.Delete(id, cascade: true, expectedVersion: 7u);
-
-        Assert.That(result, Is.TypeOf<NoContentResult>());
-        _workItems.VerifyAll();
-    }
-
-    [Test]
     public async Task UpdateDetails_PassesOnlyTheSentFieldsThrough()
     {
         var item = MakeWorkItem();

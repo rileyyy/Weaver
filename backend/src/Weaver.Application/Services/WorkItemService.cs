@@ -277,58 +277,6 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
         return await SaveWriteAsync(item, changes, ct);
     }
 
-    public async Task DeleteAsync(Guid id, bool cascade = false, uint? expectedVersion = null, CancellationToken ct = default)
-    {
-        var item = await FindForWriteAsync(id, expectedVersion, ct);
-
-        var descendantIds = await _hierarchy.GetDescendantIdsAsync(id, ct);
-        var descendants = await _db.WorkItems.Where(w => descendantIds.Contains(w.Id)).ToListAsync(ct);
-        if (descendants.Count > 0 && !cascade)
-        {
-            throw new WorkItemHasChildrenException(id);
-        }
-
-        var deletedIds = descendants.Select(w => w.Id).Append(id).ToList();
-
-        // Link FKs are Restrict (two Cascade paths to WorkItems is rejected by
-        // EF), so links touching the deleted subtree must be removed explicitly
-        // in the same SaveChanges or Postgres rejects the whole delete.
-        var links = await _db.WorkItemLinks
-            .Where(l => deletedIds.Contains(l.WorkItemId) || deletedIds.Contains(l.LinkedWorkItemId))
-            .ToListAsync(ct);
-
-        _db.WorkItemLinks.RemoveRange(links);
-        _db.WorkItems.RemoveRange(descendants);
-        _db.WorkItems.Remove(item);
-        foreach (var deleted in descendants.Append(item))
-        {
-            _history.Record(deleted.Id, WorkItemHistoryField.Deleted, deleted.Title, null);
-        }
-
-        RecordLinksLostBySurvivors(links, deletedIds);
-        await SaveWorkItemChangesAsync(id, ct);
-    }
-
-    /// <summary>
-    /// An item outside the deleted subtree loses its link to the deleted one, which is a change
-    /// to that item too.
-    /// </summary>
-    private void RecordLinksLostBySurvivors(IEnumerable<WorkItemLink> links, IReadOnlyCollection<Guid> deletedIds)
-    {
-        foreach (var link in links)
-        {
-            if (!deletedIds.Contains(link.WorkItemId))
-            {
-                _history.Record(link.WorkItemId, WorkItemHistoryField.Link, link.LinkedWorkItemId, null);
-            }
-
-            if (!deletedIds.Contains(link.LinkedWorkItemId))
-            {
-                _history.Record(link.LinkedWorkItemId, WorkItemHistoryField.Link, link.WorkItemId, null);
-            }
-        }
-    }
-
     /// <summary>
     /// Rejects an overwrite based on a stale read. <c>xmin</c> alone only guards the few
     /// milliseconds inside one request; comparing against the version the client last saw

@@ -53,6 +53,16 @@ public class WorkItemRecurrence : IHasUpdatedAt
         GeneratedThrough = date;
     }
 
+    /// <summary>
+    /// For a template coming back from the Trash: generation picks up from today rather than
+    /// catching up on every occurrence missed while it was trashed. Occurrences that already
+    /// exist, trashed or not, are still never created twice.
+    /// </summary>
+    public void RestartFromToday()
+    {
+        GeneratedThrough = null;
+    }
+
     public void ApplySchedule(RecurrenceSchedule schedule)
     {
         Frequency = schedule.Frequency;

@@ -2,7 +2,7 @@ using Weaver.Domain;
 
 namespace Weaver.Application.Services;
 
-/// <summary>Live work items as <see cref="WorkItemSummary"/>, in one projection with no lookup per item.</summary>
+/// <summary>Work items with a row (live or trashed) as <see cref="WorkItemSummary"/>, in one projection with no lookup per item.</summary>
 internal static class WorkItemSummaries
 {
     public static IQueryable<WorkItemSummary> Summarize(this IQueryable<WorkItem> items) =>
@@ -17,5 +17,7 @@ internal static class WorkItemSummaries
             w.StartDate,
             w.EndDate,
             w.AssignedToUser == null ? null : w.AssignedToUser.Username,
-            w.Children.Count()));
+            // EF applies the Trash filter to the navigation too, so trashed children aren't counted.
+            w.Children.Count(),
+            w.TrashedAtUtc));
 }

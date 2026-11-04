@@ -15,6 +15,10 @@ public class WorkItemRecurrenceConfiguration : IEntityTypeConfiguration<WorkItem
             .HasForeignKey<WorkItemRecurrence>(r => r.WorkItemId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // Matches WorkItem's Trash filter: a trashed item's schedule is hidden with it, which
+        // also keeps background generation from copying a trashed template.
+        builder.HasQueryFilter(r => r.WorkItem!.TrashedAtUtc == null);
+
         builder.Ignore(r => r.Schedule);
     }
 }

@@ -12,6 +12,7 @@ public static class DependencyInjection
     public static IServiceCollection AddWeaverApplication(this IServiceCollection services) =>
         services
             .AddScoped<IWorkItemService, WorkItemService>()
+            .AddScoped<IWorkItemTrashService, WorkItemTrashService>()
             .AddScoped<IAuthService, AuthService>()
             .AddScoped<IUserService, UserService>()
             .AddScoped<IAdminAuthorizer, AdminAuthorizer>()

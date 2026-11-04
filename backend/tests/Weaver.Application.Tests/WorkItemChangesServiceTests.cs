@@ -17,6 +17,7 @@ public class WorkItemChangesServiceTests
     private WeaverDbContext _db = null!;
     private FakeCallerContext _caller = null!;
     private WorkItemService _workItems = null!;
+    private WorkItemTrashService _trash = null!;
     private WorkItemChangesService _changes = null!;
     private User _alice = null!;
     private User _bob = null!;
@@ -32,6 +33,7 @@ public class WorkItemChangesServiceTests
         _home = TestSpaces.Add(_db, "Home");
         _caller = new FakeCallerContext(_alice.Id);
         _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), _caller);
+        _trash = new WorkItemTrashService(_db, new IterativeWorkItemHierarchy(_db), _caller, _clock);
         _changes = new WorkItemChangesService(_db, _caller);
     }
 
@@ -71,7 +73,7 @@ public class WorkItemChangesServiceTests
         var item = await CreateAsync("Old shed");
         _clock.Advance(TimeSpan.FromDays(1));
         await _workItems.UpdateDetailsAsync(item.Id, new WorkItemDetailsPatch { Title = "Old garden shed" });
-        await _workItems.DeleteAsync(item.Id);
+        await _trash.MoveToTrashAsync(item.Id);
 
         var changed = (await _changes.ListSinceAsync(new WorkItemChangesQuery(Today))).Items.Single();
 
@@ -95,7 +97,7 @@ public class WorkItemChangesServiceTests
         var child = await CreateAsync("Tiles", parent.Id);
         _clock.Advance(TimeSpan.FromDays(1));
 
-        await _workItems.DeleteAsync(parent.Id, cascade: true);
+        await _trash.MoveToTrashAsync(parent.Id, cascade: true);
 
         var page = await _changes.ListSinceAsync(new WorkItemChangesQuery(Today));
         Assert.That(
@@ -108,7 +110,7 @@ public class WorkItemChangesServiceTests
     {
         _clock.Advance(TimeSpan.FromDays(1));
         var item = await CreateAsync("Typo");
-        await _workItems.DeleteAsync(item.Id);
+        await _trash.MoveToTrashAsync(item.Id);
 
         var changed = (await _changes.ListSinceAsync(new WorkItemChangesQuery(Today))).Items.Single();
 
@@ -190,8 +192,8 @@ public class WorkItemChangesServiceTests
         await _workItems.ChangeStatusAsync(homeItem.Id, _home.Doing);
         await _workItems.ChangeStatusAsync(villageItem.Id, village.Doing);
 
-        await _workItems.DeleteAsync(homeDeleted.Id);
-        await _workItems.DeleteAsync(villageDeleted.Id);
+        await _trash.MoveToTrashAsync(homeDeleted.Id);
+        await _trash.MoveToTrashAsync(villageDeleted.Id);
 
         var page = await _changes.ListSinceAsync(new WorkItemChangesQuery(Today, SpaceId: _home.Id));
 

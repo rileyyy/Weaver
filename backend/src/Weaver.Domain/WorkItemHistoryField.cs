@@ -9,8 +9,11 @@ public static class WorkItemHistoryField
     /// <summary>The item was created. New value: its title.</summary>
     public const string Created = "created";
 
-    /// <summary>The item was deleted. Old value: its title.</summary>
+    /// <summary>The item was deleted (moved to the Trash). Old value: its title.</summary>
     public const string Deleted = "deleted";
+
+    /// <summary>The item was restored from the Trash. New value: its title.</summary>
+    public const string Restored = "restored";
 
     /// <summary>A comment was added (new value only), edited (both) or deleted (old value only). Values: the body.</summary>
     public const string Comment = "comment";

@@ -41,14 +41,17 @@ public class PostgresWorkItemHierarchy(WeaverDbContext db) : IWorkItemHierarchy
 
     public async Task<IReadOnlyList<Guid>> GetDescendantIdsAsync(Guid rootId, CancellationToken ct = default) =>
         // UNION (not UNION ALL) drops rows already seen, so this terminates even on a corrupt tree.
+        // Raw SQL skips EF's Trash filter, so it's repeated here: a subtree trashed on its own
+        // earlier isn't part of this one.
         await _db.Database
             .SqlQuery<Guid>($"""
                 WITH RECURSIVE descendants ("Id") AS (
-                    SELECT "Id" FROM "WorkItems" WHERE "ParentId" = {rootId}
+                    SELECT "Id" FROM "WorkItems" WHERE "ParentId" = {rootId} AND "TrashedAtUtc" IS NULL
                     UNION
                     SELECT w."Id"
                     FROM "WorkItems" w
                     JOIN descendants d ON w."ParentId" = d."Id"
+                    WHERE w."TrashedAtUtc" IS NULL
                 )
                 SELECT "Id" AS "Value" FROM descendants
                 """)

@@ -30,6 +30,7 @@ public class WorkItemSearchTools(IWorkItemQueryService query)
         [Description("End of the date window, inclusive (yyyy-MM-dd).")] DateOnly? to = null,
         [Description("True for only the Backlog: items that aren't Done and have no dates.")] bool backlogOnly = false,
         [Description("Only items last updated at or after this moment, as an ISO 8601 timestamp with offset. See list_changes_since for what changed.")] DateTimeOffset? updatedSince = null,
+        [Description("True to also list items in the Trash, each with trashedAtUtc set. Every other read leaves them out. Use list_trash for what can be restored.")] bool includeDeleted = false,
         [Description("The nextCursor from the previous page. Omit for the first page.")] string? cursor = null,
         [Description("Items per page, 1 to 1000. Defaults to 50.")] int limit = WorkItemQuery.DefaultLimit,
         CancellationToken ct = default) =>
@@ -49,6 +50,7 @@ public class WorkItemSearchTools(IWorkItemQueryService query)
                     To: to,
                     BacklogOnly: backlogOnly,
                     UpdatedSince: updatedSince,
+                    IncludeDeleted: includeDeleted,
                     Cursor: cursor,
                     Limit: limit),
                 ct);

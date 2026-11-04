@@ -19,6 +19,7 @@ public class WorkItemRecurrenceServiceTests
     private FixedTimeProvider _time = null!;
     private WorkItemRecurrenceService _recurrences = null!;
     private WorkItemService _workItems = null!;
+    private WorkItemTrashService _trash = null!;
     private TestSpace _space = null!;
 
     [SetUp]
@@ -29,6 +30,7 @@ public class WorkItemRecurrenceServiceTests
         var calendar = new ServerCalendar(new ServerSettingsService(_db, new AdminAuthorizer(_db)), _time);
         _recurrences = new WorkItemRecurrenceService(_db, calendar, NullLogger<WorkItemRecurrenceService>.Instance, FakeCallerContext.Anyone());
         _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), FakeCallerContext.Anyone());
+        _trash = new WorkItemTrashService(_db, new IterativeWorkItemHierarchy(_db), FakeCallerContext.Anyone(), _time);
         _space = TestSpaces.Add(_db);
     }
 
@@ -313,7 +315,7 @@ public class WorkItemRecurrenceServiceTests
         await RepeatWeekly(item.Id, DayOfWeek.Monday);
         var occurrence = (await Occurrences(item.Id)).Single();
 
-        await _workItems.DeleteAsync(occurrence.Id);
+        await _trash.MoveToTrashAsync(occurrence.Id);
         await _recurrences.GenerateDueAsync();
 
         Assert.That(await Occurrences(item.Id), Is.Empty);

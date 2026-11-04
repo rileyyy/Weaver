@@ -13,7 +13,7 @@ namespace Weaver.Api.Mcp;
 [McpServerToolType]
 public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
 {
-    private const string ExpectedVersionDescription =
+    internal const string ExpectedVersionDescription =
         "The work item's version from your last read. If given and the item has changed since, the " +
         "write is rejected instead of overwriting someone else's change.";
 
@@ -196,21 +196,6 @@ public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
         TranslateWriteAsync(actorLabel, () => _workItems.SetCustomFieldsAsync(id, values, expectedVersion, ct));
-
-    [McpServerTool(Name = "delete_work_item", Destructive = true)]
-    [Description("Deletes a work item. If it has children, cascade must be true or the delete is " +
-        "rejected — a subtree is never silently dropped. Links to any deleted item are removed.")]
-    public Task DeleteWorkItem(
-        [Description("The work item's id.")] Guid id,
-        [Description("Must be true to delete a work item that has children; this also deletes the entire subtree.")] bool cascade = false,
-        [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
-        [Description(ActorLabelArgument.Description)] string? actorLabel = null,
-        CancellationToken ct = default) =>
-        McpExceptionTranslation.TranslateAsync(() =>
-        {
-            _caller.UseActorLabel(actorLabel);
-            return _workItems.DeleteAsync(id, cascade, expectedVersion, ct);
-        });
 
     private Task<WorkItemWriteResponse> TranslateWriteAsync(string? actorLabel, Func<Task<WorkItemWriteResult>> write) =>
         McpExceptionTranslation.TranslateAsync(async () =>
