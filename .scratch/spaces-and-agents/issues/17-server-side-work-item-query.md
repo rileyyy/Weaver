@@ -12,7 +12,7 @@
 - [x] Cursor paging neither skips nor repeats items when ranks change between pages, with a test
 - [x] Text search uses Postgres full-text search with supporting indexes
 - [x] REST endpoint and MCP search tool; `#123` resolves directly
-- [ ] Integration tests against real Postgres for each filter
+- [x] Integration tests against real Postgres for each filter
   - `WorkItemSearchTests` has a test for each filter, plus tests for:
     - the AND combination
     - the descendant rule
@@ -20,7 +20,7 @@
     - bad arguments
     - MCP with a read-only key
     - an `EXPLAIN` showing the text search can use its GIN index
-  - The tests compile but haven't run: the machine that built this has no Docker. CI runs them, so check that run before merging.
+  - The machine that built this has no Docker, so they were first run by CI on PR #12, where all 144 integration tests passed.
   - The InMemory Application tests (`WorkItemQueryServiceTests`) pass, and a unit test confirms the search's SQL uses the index's exact `to_tsvector` expression.
 
 ## Comments
