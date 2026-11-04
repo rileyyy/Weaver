@@ -33,6 +33,34 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-04 — Trash: delete and restore
+
+`feature/trash-delete-and-restore` (ticket 19 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0007](docs/adr/0007-trash.md)). Purging and retention are ticket 20.
+
+- **Deleting moves to the Trash**: the item and its sub-items disappear
+  from every view, list, search and count, but nothing is lost. Links and
+  comments are kept, hidden while the item is trashed.
+- **The board's Trash tab** lists each delete with who made it and when,
+  and how many items it holds, with Restore.
+- **Restore brings back what went together**: the item and the sub-items
+  deleted with it, but not a sub-item deleted separately before. It goes
+  back under its parent, or the nearest ancestor that still exists, or to
+  the top of its Space.
+- **Repeating items:** a deleted copy is never recreated, deleting the
+  repeating item stops its schedule, and restoring it resumes from today
+  without catching up on the time it spent in the Trash.
+- **History** records `deleted` and `restored`; "changes since T" marks
+  items `deleted` (now in the Trash or purged) or `restored`.
+- **API:** `DELETE /api/work-items/{id}` keeps its route and now trashes;
+  `GET /api/trash` and `POST /api/trash/{id}/restore` are new. The search
+  takes `includeDeleted`, and items and summaries carry `trashedAtUtc`.
+  MCP adds `list_trash` (read-only keys too) and `restore_work_item`, and
+  `search_work_items` takes `includeDeleted`.
+- **Migration:** `WorkItemTrash` adds two nullable columns and an index.
+  No reset needed.
+
 ## 2026-11-04 — Custom fields on Types
 
 `feature/custom-fields-on-types` (ticket 14 of

@@ -30,3 +30,10 @@
 **2026-11-02, from ticket 10 (change history with actor):**
 
 - Purging hard-deletes rows that history still refers to by id only (no FK), so a purge doesn't need to touch history. Decide whether purged items' history is kept (it is, by default) or pruned with them.
+
+**2026-11-04, from ticket 19 (Trash: delete and restore):**
+
+- Trashed rows have `TrashedAtUtc` and `TrashRootId`, which identifies the delete they went with. An EF global query filter hides them, so purge must read with `IgnoreQueryFilters()`. Comments, links and recurrences have matching filters.
+- Purge per delete: rows `WHERE TrashRootId = <root>`. Expiry can use `TrashedAtUtc`.
+- Both link FKs and the parent FK are `Restrict`. Purging therefore has to remove links touching the purged rows, and record a `link` removal on any surviving item, because trashing deliberately recorded nothing for survivors. It also has to deal with trashed children of other deletes whose `ParentId` points into the purged rows. `RestoreAsync` already handles a missing parent by moving the restored item up to the nearest live ancestor. Nulling those `ParentId`s before the delete works.
+- Purged items fall back to `DeletedItemTrace` in changes since T, which is already tested with a simulated purge.
