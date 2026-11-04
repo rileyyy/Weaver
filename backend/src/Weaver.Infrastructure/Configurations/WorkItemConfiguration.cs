@@ -66,6 +66,10 @@ public class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         // every other board filter).
         builder.Property(w => w.Tags).HasColumnType("text[]").IsRequired();
 
+        // One document keyed by field id: fields are defined at runtime, so they can't be
+        // columns, and validation lives in the Application layer (ADR-0002).
+        builder.Property(w => w.CustomFields).HasJsonConversion();
+
         // A board cell is (SpaceId, ParentId, StatusId); rank only needs to sort within that
         // cell. SpaceId leads so a Space's top-level items (null parent) are one cell of their own.
         builder.HasIndex(w => new { w.SpaceId, w.ParentId, w.StatusId, w.Rank });

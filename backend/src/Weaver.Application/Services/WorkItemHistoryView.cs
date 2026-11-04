@@ -7,7 +7,8 @@ namespace Weaver.Application.Services;
 /// One history entry as readers see it: who (account, its kind, the key and actor label),
 /// when, and the field's old and new values as JSON. <see cref="OldName"/> and
 /// <see cref="NewName"/> name what an id value refers to (a status, a user, another item),
-/// when that still exists.
+/// when that still exists. <see cref="FieldName"/> is a custom field's current name, null for
+/// every other field.
 /// </summary>
 public sealed record WorkItemHistoryView(
     long Id,
@@ -23,4 +24,5 @@ public sealed record WorkItemHistoryView(
     JsonElement? OldValue,
     JsonElement? NewValue,
     string? OldName,
-    string? NewName);
+    string? NewName,
+    string? FieldName);

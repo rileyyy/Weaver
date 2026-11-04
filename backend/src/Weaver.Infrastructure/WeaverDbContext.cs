@@ -26,6 +26,8 @@ public class WeaverDbContext(DbContextOptions<WeaverDbContext> options) : DbCont
 
     public DbSet<WorkItemType> WorkItemTypes => Set<WorkItemType>();
 
+    public DbSet<CustomFieldDefinition> CustomFields => Set<CustomFieldDefinition>();
+
     public DbSet<WorkItemPriority> WorkItemPriorities => Set<WorkItemPriority>();
 
     public DbSet<Comment> Comments => Set<Comment>();
@@ -86,6 +88,7 @@ public class WeaverDbContext(DbContextOptions<WeaverDbContext> options) : DbCont
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
         modelBuilder.ApplyConfiguration(new ApiKeyConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new CustomFieldDefinitionConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemPriorityConfiguration());
         modelBuilder.ApplyConfiguration(new CommentConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemLinkConfiguration());

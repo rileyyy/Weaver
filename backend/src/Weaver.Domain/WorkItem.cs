@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Weaver.Domain.Exceptions;
 
 namespace Weaver.Domain;
@@ -16,6 +17,7 @@ public class WorkItem : IHasUpdatedAt
     public const int WhenMaxLength = 200;
 
     private List<string> _tags = [];
+    private Dictionary<Guid, JsonElement> _customFields = [];
 
     /// <summary>For EF Core, which materializes through private setters.</summary>
     private WorkItem()
@@ -72,6 +74,18 @@ public class WorkItem : IHasUpdatedAt
     {
         get => _tags;
         private set => _tags = [.. value];
+    }
+
+    /// <summary>
+    /// The values of the item's Type's custom fields, by field id (ADR-0002); a field with no
+    /// value has no entry. Stored as one JSON document so adding a field needs no migration.
+    /// Changed through <see cref="SetCustomFields"/>, and cleared when the Type changes, since
+    /// another Type's fields are different fields.
+    /// </summary>
+    public IReadOnlyDictionary<Guid, JsonElement> CustomFields
+    {
+        get => _customFields;
+        private set => _customFields = new Dictionary<Guid, JsonElement>(value);
     }
 
     public double Rank { get; private set; }
@@ -191,10 +205,10 @@ public class WorkItem : IHasUpdatedAt
         var changed = new ChangedFields();
         Title = changed.Apply(WorkItemField.Title, Title, patch.Title);
         Description = changed.Apply(WorkItemField.Description, Description, patch.Description);
-        TypeId = changed.Apply(WorkItemField.TypeId, TypeId, patch.TypeId);
+        var typeId = changed.Apply(WorkItemField.TypeId, TypeId, patch.TypeId);
         PriorityId = changed.Apply(WorkItemField.PriorityId, PriorityId, patch.PriorityId);
         When = changed.Apply(WorkItemField.When, When, NormalizeWhen(patch.When));
-        return changed.Changes;
+        return [.. changed.Changes, .. SwitchType(typeId)];
     }
 
     private static Optional<string?> NormalizeWhen(Optional<string?> when)
@@ -218,8 +232,74 @@ public class WorkItem : IHasUpdatedAt
     public IReadOnlyList<FieldChange> ChangeType(Guid? typeId)
     {
         var changed = new ChangedFields();
-        TypeId = changed.Set(WorkItemField.TypeId, TypeId, typeId);
-        return changed.Changes;
+        var newTypeId = changed.Set(WorkItemField.TypeId, TypeId, typeId);
+        return [.. changed.Changes, .. SwitchType(newTypeId)];
+    }
+
+    /// <summary>
+    /// Field definitions belong to one Type, so none of the old Type's fields exist on the new
+    /// one: their values are cleared, each reported so history keeps what was lost.
+    /// </summary>
+    private IReadOnlyList<FieldChange> SwitchType(Guid? typeId)
+    {
+        if (typeId == TypeId)
+        {
+            return [];
+        }
+
+        TypeId = typeId;
+        var cleared = _customFields
+            .Select(v => new FieldChange(WorkItemField.CustomField(v.Key), v.Value, null))
+            .ToList();
+        _customFields = [];
+        return cleared;
+    }
+
+    /// <summary>
+    /// Sets the custom field values in <paramref name="patch"/>, leaving every other field's
+    /// alone. Returns the fields whose value changed.
+    /// </summary>
+    public IReadOnlyList<FieldChange> SetCustomFields(CustomFieldPatch patch)
+    {
+        if (patch.Values.Count > 0 && patch.TypeId != TypeId)
+        {
+            throw new DomainValidationException("The work item's Type changed; read its fields again.");
+        }
+
+        return patch.Values
+            .Select(v => SetCustomField(v.Field.Id, v.Value))
+            .OfType<FieldChange>()
+            .ToList();
+    }
+
+    /// <summary>Used when an admin removes a field from the item's Type.</summary>
+    public IReadOnlyList<FieldChange> RemoveCustomField(Guid fieldId) =>
+        SetCustomField(fieldId, null) is { } change ? [change] : [];
+
+    /// <summary>Used when an admin removes options from a select field: choices of them go.</summary>
+    public IReadOnlyList<FieldChange> PruneCustomField(CustomFieldDefinition field) =>
+        _customFields.TryGetValue(field.Id, out var stored) && SetCustomField(field.Id, field.Prune(stored)) is { } change
+            ? [change]
+            : [];
+
+    private FieldChange? SetCustomField(Guid fieldId, JsonElement? value)
+    {
+        var old = _customFields.TryGetValue(fieldId, out var current) ? current : (JsonElement?)null;
+        if (old?.GetRawText() == value?.GetRawText())
+        {
+            return null;
+        }
+
+        if (value is { } next)
+        {
+            _customFields[fieldId] = next;
+        }
+        else
+        {
+            _customFields.Remove(fieldId);
+        }
+
+        return new FieldChange(WorkItemField.CustomField(fieldId), old, value);
     }
 
     /// <summary>Used when an admin deletes the item's priority and picks a replacement (or none).</summary>
@@ -320,6 +400,7 @@ public class WorkItem : IHasUpdatedAt
         var copy = New(SpaceId, parentId, Title, Description, statusId, rank, TypeId, PriorityId);
         copy.AssignedToUserId = AssignedToUserId;
         copy._tags = [.. _tags];
+        copy._customFields = new Dictionary<Guid, JsonElement>(_customFields);
         copy.When = When;
         copy.StartDate = date;
         copy.EndDate = date;

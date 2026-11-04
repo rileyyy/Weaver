@@ -95,6 +95,40 @@ namespace Weaver.Infrastructure.Migrations
                     b.ToTable("Comments");
                 });
 
+            modelBuilder.Entity("Weaver.Domain.CustomFieldDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Options")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TypeId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TypeId", "Order")
+                        .IsUnique();
+
+                    b.ToTable("CustomFields", (string)null);
+                });
+
             modelBuilder.Entity("Weaver.Domain.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -327,6 +361,10 @@ namespace Weaver.Infrastructure.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CustomFields")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
 
                     b.Property<string>("Description")
                         .HasColumnType("text");
@@ -598,6 +636,15 @@ namespace Weaver.Infrastructure.Migrations
                     b.Navigation("AuthorUser");
 
                     b.Navigation("WorkItem");
+                });
+
+            modelBuilder.Entity("Weaver.Domain.CustomFieldDefinition", b =>
+                {
+                    b.HasOne("Weaver.Domain.WorkItemType", null)
+                        .WithMany()
+                        .HasForeignKey("TypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Weaver.Domain.RefreshToken", b =>

@@ -7,8 +7,9 @@ namespace Weaver.Application.Services;
 
 /// <summary>
 /// Names for the ids history values hold (a Space, status, type, priority, user or another
-/// work item), so readers don't each have to look them up. Looked up when read, so an id whose
-/// row is gone since has no name and readers fall back to the raw value.
+/// work item, or a custom field's option or user), and for the custom fields themselves, so
+/// readers don't each have to look them up. Looked up when read, so an id whose row is gone
+/// since has no name and readers fall back to the raw value.
 /// </summary>
 internal sealed class HistoryValueNames
 {
@@ -34,10 +35,12 @@ internal sealed class HistoryValueNames
     };
 
     private readonly Dictionary<(Kind, Guid), string> _names;
+    private readonly Dictionary<Guid, CustomFieldDefinition> _customFields;
 
-    private HistoryValueNames(Dictionary<(Kind, Guid), string> names)
+    private HistoryValueNames(Dictionary<(Kind, Guid), string> names, Dictionary<Guid, CustomFieldDefinition> customFields)
     {
         _names = names;
+        _customFields = customFields;
     }
 
     public static async Task<HistoryValueNames> LoadAsync(
@@ -45,9 +48,24 @@ internal sealed class HistoryValueNames
         IReadOnlyCollection<WorkItemHistoryEntry> entries,
         CancellationToken ct)
     {
+        var customFieldIds = entries
+            .Select(e => WorkItemField.CustomFieldId(e.Field))
+            .OfType<Guid>()
+            .Distinct()
+            .ToList();
+        var customFields = customFieldIds.Count == 0
+            ? []
+            : await db.CustomFields.AsNoTracking().Where(f => customFieldIds.Contains(f.Id)).ToDictionaryAsync(f => f.Id, ct);
+
+        var kindByField = new Dictionary<string, Kind>(KindByField);
+        foreach (var field in customFields.Values.Where(f => f.Kind == CustomFieldKind.User))
+        {
+            kindByField[field.ChangeName] = Kind.User;
+        }
+
         var idsByKind = entries
-            .Where(e => KindByField.ContainsKey(e.Field))
-            .SelectMany(e => new[] { e.OldValue, e.NewValue }.Select(v => (Kind: KindByField[e.Field], Id: IdIn(v))))
+            .Where(e => kindByField.ContainsKey(e.Field))
+            .SelectMany(e => new[] { e.OldValue, e.NewValue }.Select(v => (Kind: kindByField[e.Field], Id: IdIn(v))))
             .Where(x => x.Id is not null)
             .GroupBy(x => x.Kind, x => x.Id!.Value)
             .ToDictionary(g => g.Key, g => g.Distinct().ToList());
@@ -61,13 +79,54 @@ internal sealed class HistoryValueNames
             }
         }
 
-        return new HistoryValueNames(names);
+        return new HistoryValueNames(names, customFields);
     }
 
-    public string? NameOf(string field, string? valueJson) =>
-        KindByField.TryGetValue(field, out var kind) && IdIn(valueJson) is { } id
+    public string? NameOf(string field, string? valueJson)
+    {
+        if (CustomFieldOf(field) is { } customField)
+        {
+            return CustomValueName(customField, valueJson);
+        }
+
+        return KindByField.TryGetValue(field, out var kind) && IdIn(valueJson) is { } id
             ? _names.GetValueOrDefault((kind, id))
             : null;
+    }
+
+    /// <summary>A custom field's current name; null for every other field, or a field since removed.</summary>
+    public string? FieldNameOf(string field) => CustomFieldOf(field)?.Name;
+
+    private CustomFieldDefinition? CustomFieldOf(string field) =>
+        WorkItemField.CustomFieldId(field) is { } id ? _customFields.GetValueOrDefault(id) : null;
+
+    /// <summary>Options removed since have no name, and are left out of a multi-select's.</summary>
+    private string? CustomValueName(CustomFieldDefinition field, string? valueJson)
+    {
+        if (valueJson is null)
+        {
+            return null;
+        }
+
+        switch (field.Kind)
+        {
+            case CustomFieldKind.User:
+                return IdIn(valueJson) is { } userId ? _names.GetValueOrDefault((Kind.User, userId)) : null;
+            case CustomFieldKind.SingleSelect:
+                return OptionName(field, IdIn(valueJson));
+            case CustomFieldKind.MultiSelect:
+                var value = JsonSerializer.Deserialize<JsonElement>(valueJson);
+                var names = value.ValueKind == JsonValueKind.Array
+                    ? value.EnumerateArray().Select(e => OptionName(field, e.TryGetGuid(out var id) ? id : null)).OfType<string>().ToList()
+                    : [];
+                return names.Count == 0 ? null : string.Join(", ", names);
+            default:
+                return null;
+        }
+    }
+
+    private static string? OptionName(CustomFieldDefinition field, Guid? optionId) =>
+        field.Options.FirstOrDefault(o => o.Id == optionId)?.Name;
 
     private static Guid? IdIn(string? valueJson)
     {

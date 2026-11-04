@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Weaver.Domain;
 
 namespace Weaver.Application.Services;
@@ -109,7 +110,9 @@ public interface IWorkItemService
     /// Patches a work item's descriptive fields — title, description, type, priority —
     /// independently of status/parent/schedule/assignee. These fields share no
     /// cross-cutting invariant with each other or with those other operations, so they're
-    /// safe to group behind one call unlike e.g. status and parent.
+    /// safe to group behind one call unlike e.g. status and parent. Changing the Type clears
+    /// the item's custom field values, since the new Type's fields are other fields; each
+    /// cleared value is recorded in history and reported as changed.
     /// </summary>
     Task<WorkItemWriteResult> UpdateDetailsAsync(
         Guid id,
@@ -124,6 +127,18 @@ public interface IWorkItemService
     Task<WorkItemWriteResult> AssignAsync(
         Guid id,
         Guid? userId,
+        uint? expectedVersion = null,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Sets custom field values (ADR-0002), by field id. A field left out keeps its value and a
+    /// JSON <c>null</c> clears it. Every field must be one of the item's Type's, and each value
+    /// must fit its field: the right kind, an option the field has, a user who exists and is
+    /// active. Changed fields are named <see cref="WorkItemField.CustomField"/>.
+    /// </summary>
+    Task<WorkItemWriteResult> SetCustomFieldsAsync(
+        Guid id,
+        IReadOnlyDictionary<Guid, JsonElement> values,
         uint? expectedVersion = null,
         CancellationToken ct = default);
 
