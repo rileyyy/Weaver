@@ -4,15 +4,15 @@
 
 **Blocked by:** 09, 10, 13
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Admins add, rename, reorder and remove fields on a Type, including select options
-- [ ] Values are stored in a shape that can change without a schema migration, and validated on write (wrong kind, unknown option, unknown user are rejected)
-- [ ] Field updates use patch semantics and `expectedVersion`, and each change is recorded in history
-- [ ] Changing an item's Type has a defined, tested rule for values that don't exist on the new Type
-- [ ] Removing a field definition has a defined rule for existing values
-- [ ] The detail dialog renders an editor for every field kind
-- [ ] MCP returns field definitions and values and can set values; agents can't change definitions
+- [x] Admins add, rename, reorder and remove fields on a Type, including select options
+- [x] Values are stored in a shape that can change without a schema migration, and validated on write (wrong kind, unknown option, unknown user are rejected)
+- [x] Field updates use patch semantics and `expectedVersion`, and each change is recorded in history
+- [x] Changing an item's Type has a defined, tested rule for values that don't exist on the new Type
+- [x] Removing a field definition has a defined rule for existing values
+- [x] The detail dialog renders an editor for every field kind
+- [x] MCP returns field definitions and values and can set values; agents can't change definitions
 
 ## Comments
 
@@ -25,3 +25,11 @@
 **2026-11-02, from ticket 10 (change history with actor):**
 
 - Custom field changes must record history with old and new values. Field names are free-form strings in history (`Field`, max 50 chars), so a custom field needs a naming scheme that can't collide with the built-in `WorkItemField` and `WorkItemHistoryField` names.
+
+**2026-11-04, on closing:**
+
+- Storage: definitions are a `CustomFields` table per Type (options as jsonb, with ids); values are one jsonb document per item, keyed by field id. Changes go by `fields.<fieldId>` in `changedFields` and history; history views add `fieldName`.
+- Type-change rule: changing an item's Type (a detail edit, or an admin deleting the Type with a replacement) clears all its values, each recorded in history with its old value. Carrying a value to a same-named field of the new Type was left out as a guess.
+- Field-removal rule: removing a field removes its value from every item of the Type, and removing a select option removes that choice; each is recorded in the item's history, attributed to the admin.
+- A field's kind is fixed once created. A user field also refuses a deactivated user, as the assignee does. Currency is an amount with at most 2 decimals and no currency code; add one when it's needed.
+- Not run here: `CustomFieldTests` in the Postgres integration tests (jsonb round trip, history, both rules, MCP) and the `CustomFieldsOnTypes` migration, for lack of Docker. CI runs them; check before merging. The editors were not tried by hand in a running app.

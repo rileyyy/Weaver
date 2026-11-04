@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Weaver.Application.Auth;
 using Weaver.Application.Persistence;
@@ -230,16 +231,39 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
     {
         if (userId is { } assigneeId)
         {
-            var assignee = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == assigneeId, ct)
-                ?? throw new EntityNotFoundException(nameof(User), assigneeId);
-            if (!assignee.IsActive)
-            {
-                throw new DomainValidationException($"User '{assignee.Username}' is deactivated and can't be assigned work.");
-            }
+            await EnsureAssignableAsync(assigneeId, ct);
         }
 
         var item = await FindForWriteAsync(id, expectedVersion, ct);
         return await SaveWriteAsync(item, item.AssignTo(userId), ct);
+    }
+
+    public async Task<WorkItemWriteResult> SetCustomFieldsAsync(
+        Guid id,
+        IReadOnlyDictionary<Guid, JsonElement> values,
+        uint? expectedVersion = null,
+        CancellationToken ct = default)
+    {
+        var item = await FindForWriteAsync(id, expectedVersion, ct);
+        var typeFields = await _db.CustomFields.AsNoTracking().Where(f => f.TypeId == item.TypeId).ToListAsync(ct);
+        var patch = CustomFieldPatch.Validate(item.TypeId, typeFields, values);
+        foreach (var userId in patch.UserIds)
+        {
+            await EnsureAssignableAsync(userId, ct);
+        }
+
+        return await SaveWriteAsync(item, item.SetCustomFields(patch), ct);
+    }
+
+    /// <summary>The rule for the assignee and for a user custom field alike.</summary>
+    private async Task EnsureAssignableAsync(Guid userId, CancellationToken ct)
+    {
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct)
+            ?? throw new EntityNotFoundException(nameof(User), userId);
+        if (!user.IsActive)
+        {
+            throw new DomainValidationException($"User '{user.Username}' is deactivated and can't be assigned work.");
+        }
     }
 
     public async Task<WorkItemWriteResult> SetTagsAsync(

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Weaver.Api.Contracts;
@@ -211,6 +212,20 @@ public class WorkItemsControllerTests
 
         Assert.That(OkValue(result).Item, Is.EqualTo(WorkItemDto.FromEntity(item)));
         _workItems.VerifyAll();
+    }
+
+    [Test]
+    public async Task SetCustomFields_DelegatesTheValuesAndExpectedVersion_AndReturnsTheChangedFields()
+    {
+        var item = MakeWorkItem();
+        var fieldId = Guid.NewGuid();
+        var values = new Dictionary<Guid, JsonElement> { [fieldId] = JsonSerializer.SerializeToElement(1200) };
+        _workItems.Setup(s => s.SetCustomFieldsAsync(item.Id, values, 7u, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemWriteResult(item, [WorkItemField.CustomField(fieldId)]));
+
+        var result = await _controller.SetCustomFields(item.Id, new SetCustomFieldsRequest(values, 7u));
+
+        Assert.That(OkValue(result).ChangedFields, Is.EqualTo(new[] { $"fields.{fieldId}" }));
     }
 
     [Test]

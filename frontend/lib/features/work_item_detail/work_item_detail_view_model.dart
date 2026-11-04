@@ -15,6 +15,7 @@ import 'package:weaver/shared/data/current_user.dart';
 import 'package:weaver/shared/data/work_item_conflict.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/markdown/task_list.dart';
+import 'package:weaver/shared/models/custom_field.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
@@ -35,6 +36,8 @@ class WorkItemDetailViewModel extends ViewModel {
   List<WorkItemStatus> _statuses = const [];
   List<WorkItemType> _types = const [];
   List<WorkItemPriority> _priorities = const [];
+  List<CustomField> _customFields = const [];
+  String? _customFieldsTypeId;
   List<User> _users = const [];
   List<WorkItemComment> _comments = const [];
   List<WorkItemLink> _links = const [];
@@ -58,6 +61,10 @@ class WorkItemDetailViewModel extends ViewModel {
   List<WorkItemStatus> get statuses => _statuses;
   List<WorkItemType> get types => _types;
   List<WorkItemPriority> get priorities => _priorities;
+
+  /// The fields the item's saved Type defines, in order; empty without a
+  /// Type.
+  List<CustomField> get customFields => _customFields;
   List<User> get users => _users;
   List<WorkItemComment> get comments => _comments;
   List<WorkItemLink> get links => _links;
@@ -112,6 +119,13 @@ class WorkItemDetailViewModel extends ViewModel {
       final AsyncError? b,
       final AsyncError? c,
       final AsyncError? d,
+    ) =>
+      [a, b, c, d],
+    (
+      final AsyncError? a,
+      final AsyncError? b,
+      final AsyncError? c,
+      final AsyncError? d,
       final AsyncError? e,
     ) =>
       [a, b, c, d, e],
@@ -134,16 +148,19 @@ class WorkItemDetailViewModel extends ViewModel {
       ).wait;
       // Only the item says which Space's statuses, Types and priorities it
       // can take.
-      final (statuses, types, priorities) = await (
+      final (statuses, types, priorities, customFields) = await (
         _repository.loadStatuses(item.spaceId),
         _repository.loadTypes(item.spaceId),
         _repository.loadPriorities(item.spaceId),
+        _loadCustomFields(item.typeId),
       ).wait;
       _items.putAll([item], asOf: asOf);
       _itemId = id;
       _statuses = statuses;
       _types = types;
       _priorities = priorities;
+      _customFields = customFields;
+      _customFieldsTypeId = item.typeId;
       _users = users;
       _comments = comments;
       _links = links;
@@ -189,6 +206,40 @@ class WorkItemDetailViewModel extends ViewModel {
         expectedVersion: version,
       ),
     );
+  }
+
+  /// Whether saving [typeId] would clear values the item holds: the server
+  /// drops them, since another Type's fields are other fields.
+  bool typeChangeClearsFields(String? typeId) =>
+      typeId != item?.typeId && (item?.fields.isNotEmpty ?? false);
+
+  /// Saves one custom field's value (null clears it) on its own, like the
+  /// other metadata fields. The server checks it against the field.
+  Future<bool> saveCustomField(String fieldId, Object? value) => _save(
+    (version) => _repository.setCustomFields(_id, {
+      fieldId: value,
+    }, expectedVersion: version),
+  );
+
+  Future<List<CustomField>> _loadCustomFields(String? typeId) async =>
+      typeId == null ? const [] : _repository.loadCustomFields(typeId);
+
+  /// A save, or the latest version a conflict brings in, can leave the item
+  /// with another Type, whose fields are other fields.
+  Future<void> _followType() async {
+    final typeId = item?.typeId;
+    if (item == null || typeId == _customFieldsTypeId) return;
+    _customFieldsTypeId = typeId;
+    try {
+      _customFields = await _loadCustomFields(typeId);
+    } on ApiException {
+      // The old Type's fields no longer apply to the item.
+      _customFields = const [];
+      _saveError ??=
+          "This Type's fields could not be loaded. Reopen the "
+          'item to edit them.';
+    }
+    notifyIfActive();
   }
 
   /// Ticks or unticks the [taskIndex]th task line of the saved
@@ -338,10 +389,15 @@ class WorkItemDetailViewModel extends ViewModel {
   Future<bool> _save(
     Future<WorkItem> Function(int expectedVersion) send, {
     String errorMessage = 'Could not save your change. Try again.',
-  }) => _mutate(
-    () => _items.write(_id, send: send, reload: () => _repository.getItem(_id)),
-    errorMessage: errorMessage,
-  );
+  }) async {
+    final saved = await _mutate(
+      () =>
+          _items.write(_id, send: send, reload: () => _repository.getItem(_id)),
+      errorMessage: errorMessage,
+    );
+    await _followType();
+    return saved;
+  }
 
   void _reportConflict(WorkItemConflict conflict) {
     const notSaved =

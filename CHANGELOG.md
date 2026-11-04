@@ -33,6 +33,29 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-04 — Custom fields on Types
+
+`feature/custom-fields-on-types` (ticket 14 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0002](docs/adr/0002-types-and-custom-fields.md)). Builds on ticket 13.
+
+- **Each Type defines its own fields**: text, Markdown, number, currency,
+  date, checkbox, single select, multi-select, user and URL. Admins add,
+  rename, reorder and remove them, and edit select options, from a Type's
+  row on the Admin page's Types tab.
+- **The detail dialog edits every field** with an editor for its kind.
+  Each value saves on its own, and the server rejects a value of the wrong
+  kind, an unknown option or an unknown user.
+- **Changing an item's Type clears its values**, and removing a field or
+  option removes the values that used it. History keeps every cleared
+  value.
+- **API:** `/api/custom-fields` for definitions and
+  `PATCH /api/work-items/{id}/fields` for values; work items carry
+  `fields`. MCP `list_work_item_types` includes each Type's fields, and
+  `set_work_item_fields` sets values. Agents can't change definitions.
+- **Migration:** `CustomFieldsOnTypes` adds the definitions table and the
+  items' values column. No reset needed.
+
 ## 2026-11-04 — Server-side work-item query, with MCP search
 
 `feature/server-side-work-item-query` (ticket 17 of

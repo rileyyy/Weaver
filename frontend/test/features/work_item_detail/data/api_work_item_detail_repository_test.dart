@@ -9,6 +9,7 @@ import 'package:weaver/features/work_item_detail/models/quick_pick.dart';
 import 'package:weaver/shared/data/api_status_repository.dart';
 import 'package:weaver/shared/data/api_type_repository.dart';
 import 'package:weaver/shared/data/api_user_directory_repository.dart';
+import 'package:weaver/shared/models/custom_field_kind.dart';
 
 import '../../../core/network/fakes/fixed_api_endpoint.dart';
 
@@ -24,6 +25,7 @@ Map<String, dynamic> _itemJson({
   String? priorityId,
   String? assignedToUserId,
   List<String> tags = const [],
+  Map<String, Object?> fields = const {},
   int version = 7,
 }) => {
   'id': 'item-1',
@@ -37,6 +39,7 @@ Map<String, dynamic> _itemJson({
   'priorityId': priorityId,
   'assignedToUserId': assignedToUserId,
   'tags': tags,
+  'fields': fields,
   'rank': 0,
   'startDate': null,
   'endDate': null,
@@ -401,6 +404,69 @@ void main() {
       'expectedVersion': 7,
     });
     expect(item.tags, ['urgent']);
+  });
+
+  test("loadCustomFields parses the Type's fields and their options", () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse([
+        {
+          'id': 'field-floor',
+          'typeId': 'type-room',
+          'name': 'Floor',
+          'kind': 'SingleSelect',
+          'order': 0,
+          'options': [
+            {'id': 'option-oak', 'name': 'Oak'},
+          ],
+        },
+      ]);
+    });
+    final repository = ApiWorkItemDetailRepository(
+      client,
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiTypeRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
+    );
+
+    final fields = await repository.loadCustomFields('type-room');
+
+    expect(sentRequest!.url.path, '/api/custom-fields');
+    expect(sentRequest!.url.queryParameters['typeId'], 'type-room');
+    expect(fields.single.kind, CustomFieldKind.singleSelect);
+    expect(fields.single.optionName('option-oak'), 'Oak');
+  });
+
+  test('setCustomFields patches the values by field id', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse(
+        _writeJson(_itemJson(fields: {'field-budget': 1200}, version: 8)),
+      );
+    });
+    final repository = ApiWorkItemDetailRepository(
+      client,
+      endpoint,
+      ApiStatusRepository(client, endpoint),
+      ApiTypeRepository(client, endpoint),
+      ApiUserDirectoryRepository(client, endpoint),
+    );
+
+    final item = await repository.setCustomFields('item-1', {
+      'field-budget': 1200,
+      'field-due': null,
+    }, expectedVersion: 7);
+
+    expect(sentRequest!.method, 'PATCH');
+    expect(sentRequest!.url.path, '/api/work-items/item-1/fields');
+    expect(jsonDecode(sentRequest!.body), {
+      'values': {'field-budget': 1200, 'field-due': null},
+      'expectedVersion': 7,
+    });
+    expect(item.fields, {'field-budget': 1200});
   });
 
   test('reschedule patches both dates', () async {

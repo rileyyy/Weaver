@@ -116,14 +116,22 @@ public abstract class LookupService<T>(IWeaverDbContext db, IAdminAuthorizer adm
         return value;
     }
 
-    protected async Task<T> EditAsync(Guid actorUserId, Guid id, Action<T> edit, CancellationToken ct)
+    protected Task<T> EditAsync(Guid actorUserId, Guid id, Action<T> edit, CancellationToken ct) =>
+        EditAsync(actorUserId, id, value =>
+        {
+            edit(value);
+            return Task.CompletedTask;
+        }, ct);
+
+    /// <summary>For an edit that also has to change other rows, saved together with it.</summary>
+    protected async Task<T> EditAsync(Guid actorUserId, Guid id, Func<T, Task> edit, CancellationToken ct)
     {
         await _admins.EnsureAdminAsync(actorUserId, ct);
 
         var value = await Values.FindAsync([id], ct)
             ?? throw new EntityNotFoundException(Kind, id);
 
-        edit(value);
+        await edit(value);
         await EnsureNameFreeAsync(value, ct);
 
         await Db.SaveChangesAsync(ct);

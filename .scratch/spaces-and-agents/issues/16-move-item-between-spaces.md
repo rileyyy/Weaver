@@ -18,3 +18,7 @@
 **2026-11-02, from ticket 10 (change history with actor):**
 
 - Moving an item between Spaces must record history for the item (and every descendant it moves), attributed to the caller.
+
+**2026-11-04, from ticket 14 (custom fields on Types):**
+
+- A move changes the item's Type (Types are per Space), so go through `WorkItem.ChangeType` or `UpdateDetails`: they clear the item's custom field values and return a `fields.<fieldId>` change per cleared value for history. Don't set `TypeId` around them.

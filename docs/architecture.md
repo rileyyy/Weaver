@@ -177,6 +177,55 @@ Types replaced Layers in ticket 13 and gain custom fields in ticket 14
 - **Statuses** start as To Do, Doing, Done in each Space, with a per-row
   `Color`, so colours can be changed without a schema change.
 
+### Custom fields
+
+Each Type defines its own fields (ticket 14,
+[ADR-0002](adr/0002-types-and-custom-fields.md)).
+
+- **Definitions are a table per Type** (`CustomFields`: `TypeId`, `Name`,
+  `Order`, `Kind`, `Options` as jsonb), built on `LookupValue` and
+  `LookupService<T>` with the Type as the siblings' scope: names unique and
+  order kept within the Type, every change by a human admin. They cascade
+  with their Type. The kinds are text, Markdown, number, currency, date,
+  checkbox, single select, multi-select, user and URL. **A field's kind is
+  fixed once created**, since stored values have its shape; to change it,
+  remove the field and add another.
+- **Select options carry ids** (`CustomFieldOption`), and values store the
+  id, so renaming an option keeps every choice of it. An edit sends the
+  whole option list in order; an option left out is removed.
+- **Values are one jsonb document per item** (`WorkItems.CustomFields`),
+  keyed by field id, so adding or removing a field needs no migration.
+  `CustomFieldDefinition.Normalize` turns what a caller sent into the one
+  stored shape (trimmed text, numbers without trailing zeros, currency with
+  at most 2 decimals, `yyyy-MM-dd` dates, http(s) URLs, option ids in option
+  order; blank text, an empty multi-select and `null` clear the field), so
+  equal values never count as a change. Values are compared re-serialized,
+  because Postgres hands jsonb back with its own whitespace.
+- **Only a validated `CustomFieldPatch` can be applied.**
+  `WorkItemService.SetCustomFieldsAsync` loads the item's Type's
+  definitions, validates the patch (an unknown field, the wrong kind or an
+  unknown option is a 400), checks that each user named exists and is
+  active (as for the assignee), then applies it with `expectedVersion`. A
+  field left out keeps its value.
+- **Changes go by `fields.<fieldId>`**, in `changedFields` and in history.
+  Built-in names have no dot, so they can't collide, and a rename doesn't
+  change old entries. History views add `fieldName` (the field's current
+  name) and name a user or option value.
+- **Changing an item's Type clears its values**, since another Type's
+  fields are other fields. Each cleared value is recorded in history (old
+  value, new `null`) and reported as changed. That holds for a detail edit
+  and for an admin deleting the Type with a replacement. Carrying values to
+  a same-named field of the new Type was left out: it would be a guess.
+- **Removing a field removes its values** from every item of the Type, and
+  removing a select option removes that choice; each item records it in
+  history, attributed to the admin.
+- **Endpoints:** `GET /api/custom-fields?typeId=`, `POST` with a `typeId`,
+  `PUT /{id}` (name and option list), `PUT /order?typeId=`, `DELETE /{id}`;
+  `PATCH /api/work-items/{id}/fields` with `values` by field id. Work items
+  carry their values in `fields`. Over MCP `list_work_item_types` returns
+  each Type with its fields and `set_work_item_fields` sets values; no tool
+  changes a definition, and a test keeps it so.
+
 ### Lookup management
 
 - **Statuses, Types and priorities share `LookupValue`** (`Id`, `Name`,

@@ -7,6 +7,7 @@ import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/features/work_item_detail/repeat_settings_view_model.dart';
 import 'package:weaver/features/work_item_detail/widgets/comments_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/confirm_dialogs.dart';
+import 'package:weaver/features/work_item_detail/widgets/custom_fields_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/description_field.dart';
 import 'package:weaver/features/work_item_detail/widgets/history_tab.dart';
 import 'package:weaver/features/work_item_detail/widgets/links_section.dart';
@@ -393,6 +394,14 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
           ],
           onChanged: (value) => setState(() => _selectedTypeId = value),
         ),
+        if (_viewModel.typeChangeClearsFields(_selectedTypeId))
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              "Saving another Type clears this item's custom field values.",
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
         const SizedBox(height: 16),
         const FieldLabel('Priority'),
         DropdownButtonFormField<String?>(
@@ -440,6 +449,12 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
               unawaited(_viewModel.saveSchedule(start, end)),
         ),
         const SizedBox(height: 16),
+        CustomFieldsSection(
+          fields: _viewModel.customFields,
+          values: item.fields,
+          users: _viewModel.users,
+          onSave: _viewModel.saveCustomField,
+        ),
         Text(
           'Created ${formatDate(item.createdAt)} · '
           'Updated ${formatDate(item.updatedAt)}',

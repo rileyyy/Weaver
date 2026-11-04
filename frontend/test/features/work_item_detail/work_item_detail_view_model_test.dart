@@ -13,6 +13,8 @@ import 'package:weaver/features/work_item_detail/models/work_item_priority.dart'
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
 import 'package:weaver/shared/data/current_user.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
+import 'package:weaver/shared/models/custom_field.dart';
+import 'package:weaver/shared/models/custom_field_kind.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item.dart';
@@ -31,6 +33,7 @@ WorkItem _item({
   String title = 'A task',
   String? description,
   String? when,
+  Map<String, Object?> fields = const {},
   int version = 1,
 }) => WorkItem(
   number: 1,
@@ -49,6 +52,7 @@ WorkItem _item({
   updatedAt: DateTime.utc(2026, 1, 1),
   version: version,
   tags: tags,
+  fields: fields,
   when: when,
 );
 
@@ -84,6 +88,9 @@ class _FakeRepository implements WorkItemDetailRepository {
   int getItemCalls = 0;
   int loadLinksCalls = 0;
   final List<String> lookupSpaceIds = [];
+  Map<String, List<CustomField>> fieldsByType = {};
+  final List<String> loadCustomFieldsCalls = [];
+  final List<Map<String, Object?>> setCustomFieldsCalls = [];
 
   /// When set, [assign] waits on it, so a test can overlap two saves.
   Completer<void>? assignGate;
@@ -344,7 +351,51 @@ class _FakeRepository implements WorkItemDetailRepository {
 
   @override
   Future<List<QuickPickDates>> loadQuickPicks() async => quickPicks;
+
+  @override
+  Future<List<CustomField>> loadCustomFields(String typeId) async {
+    loadCustomFieldsCalls.add(typeId);
+    return fieldsByType[typeId] ?? const [];
+  }
+
+  @override
+  Future<WorkItem> setCustomFields(
+    String id,
+    Map<String, Object?> values, {
+    required int expectedVersion,
+  }) async {
+    setCustomFieldsCalls.add(values);
+    expectedVersions.add(expectedVersion);
+    final error = saveError;
+    if (error != null) throw error;
+    _checkVersion(expectedVersion);
+    final fields = {...item.fields, ...values}
+      ..removeWhere((_, value) => value == null);
+    return item = _item(
+      id: id,
+      statusId: item.statusId,
+      typeId: item.typeId,
+      fields: fields,
+      version: item.version + 1,
+    );
+  }
 }
+
+const _budget = CustomField(
+  id: 'field-budget',
+  typeId: 'type-room',
+  name: 'Budget',
+  kind: CustomFieldKind.currency,
+  order: 0,
+);
+
+const _effort = CustomField(
+  id: 'field-effort',
+  typeId: 'type-task',
+  name: 'Effort',
+  kind: CustomFieldKind.number,
+  order: 0,
+);
 
 void main() {
   test('load populates item, statuses, types, priorities and users', () async {
@@ -637,6 +688,145 @@ void main() {
       expect(viewModel.isSaving, isFalse);
     },
   );
+
+  group('custom fields', () {
+    _FakeRepository roomRepository({
+      Map<String, Object?> fields = const {},
+      Exception? saveError,
+    }) => _FakeRepository(saveError: saveError)
+      ..item = _item(typeId: 'type-room', fields: fields)
+      ..fieldsByType = {
+        'type-room': [_budget],
+        'type-task': [_effort],
+      };
+
+    test("load offers the item's Type's fields", () async {
+      final repository = roomRepository();
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
+
+      await viewModel.load('item-1');
+
+      expect(viewModel.customFields, [_budget]);
+    });
+
+    test('an item without a Type has no fields to load', () async {
+      final repository = _FakeRepository();
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
+
+      await viewModel.load('item-1');
+
+      expect(viewModel.customFields, isEmpty);
+      expect(repository.loadCustomFieldsCalls, isEmpty);
+    });
+
+    test(
+      'saveCustomField sends only that field, with the item version',
+      () async {
+        final repository = roomRepository();
+        final viewModel = WorkItemDetailViewModel(
+          repository,
+          _currentUser,
+          WorkItemStore(),
+        );
+        await viewModel.load('item-1');
+
+        final saved = await viewModel.saveCustomField('field-budget', 1200);
+
+        expect(saved, isTrue);
+        expect(repository.setCustomFieldsCalls, [
+          {'field-budget': 1200},
+        ]);
+        expect(repository.expectedVersions, [1]);
+        expect(viewModel.item!.fields, {'field-budget': 1200});
+      },
+    );
+
+    test(
+      'saveCustomField shows the server reason for a rejected value',
+      () async {
+        final repository = roomRepository(
+          saveError: const ApiException(
+            'Budget takes a number.',
+            statusCode: 400,
+          ),
+        );
+        final viewModel = WorkItemDetailViewModel(
+          repository,
+          _currentUser,
+          WorkItemStore(),
+        );
+        await viewModel.load('item-1');
+
+        final saved = await viewModel.saveCustomField('field-budget', 'lots');
+
+        expect(saved, isFalse);
+        expect(viewModel.saveError, 'Budget takes a number.');
+      },
+    );
+
+    test("changing the Type loads the new Type's fields", () async {
+      final repository = roomRepository();
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
+      await viewModel.load('item-1');
+
+      await viewModel.saveDetails(
+        title: 'A task',
+        description: null,
+        typeId: 'type-task',
+        priorityId: null,
+      );
+
+      expect(viewModel.customFields, [_effort]);
+    });
+
+    test(
+      "a conflict that brings in another Type loads that Type's fields",
+      () async {
+        final repository = roomRepository();
+        final viewModel = WorkItemDetailViewModel(
+          repository,
+          _currentUser,
+          WorkItemStore(),
+        );
+        await viewModel.load('item-1');
+        // Someone else changed the Type since this dialog loaded.
+        repository.item = _item(typeId: 'type-task', version: 2);
+
+        final saved = await viewModel.saveCustomField('field-budget', 1);
+
+        expect(saved, isFalse);
+        expect(viewModel.item!.typeId, 'type-task');
+        expect(viewModel.customFields, [_effort]);
+      },
+    );
+
+    test(
+      'typeChangeClearsFields says when a Type change would lose values',
+      () async {
+        final viewModel = WorkItemDetailViewModel(
+          roomRepository(fields: {'field-budget': 1200}),
+          _currentUser,
+          WorkItemStore(),
+        );
+        await viewModel.load('item-1');
+
+        expect(viewModel.typeChangeClearsFields('type-task'), isTrue);
+        expect(viewModel.typeChangeClearsFields('type-room'), isFalse);
+      },
+    );
+  });
 
   group('toggleDescriptionTask', () {
     test('saves the description with only that task toggled', () async {

@@ -65,6 +65,10 @@ public class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         // the raw array couldn't serve anyway, and the item count is household-sized.
         builder.Property(w => w.Tags).HasColumnType("text[]").IsRequired();
 
+        // One document keyed by field id: fields are defined at runtime, so they can't be
+        // columns, and validation lives in the Application layer (ADR-0002).
+        builder.Property(w => w.CustomFields).HasJsonConversion();
+
         // Serves PostgresWorkItemSearch.MatchingText, whose to_tsvector expression must stay
         // identical to this one or Postgres can't use the index. 'simple' rather than a language:
         // items mix languages, and prefix matching does the work stemming would.

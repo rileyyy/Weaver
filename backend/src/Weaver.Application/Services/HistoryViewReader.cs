@@ -44,7 +44,8 @@ internal static class HistoryViewReader
                 Parse(r.Entry.OldValue),
                 Parse(r.Entry.NewValue),
                 names.NameOf(r.Entry.Field, r.Entry.OldValue),
-                names.NameOf(r.Entry.Field, r.Entry.NewValue)))
+                names.NameOf(r.Entry.Field, r.Entry.NewValue),
+                names.FieldNameOf(r.Entry.Field)))
             .ToList();
     }
 

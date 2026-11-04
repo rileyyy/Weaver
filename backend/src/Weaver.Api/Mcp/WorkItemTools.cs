@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
@@ -126,7 +127,8 @@ public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
 
     [McpServerTool(Name = "update_work_item_details", Destructive = false, Idempotent = true)]
     [Description("Changes a work item's title, description, type, priority and/or When. Independent of " +
-        "status, parent, schedule, and assignee — use their own tools for those. " + PatchDescription)]
+        "status, parent, schedule, and assignee — use their own tools for those. Changing the Type clears the " +
+        "item's custom field values. " + PatchDescription)]
     public Task<WorkItemWriteResponse> UpdateWorkItemDetails(
         RequestContext<CallToolRequestParams> context,
         [Description("The work item's id.")] Guid id,
@@ -178,6 +180,22 @@ public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
             : Optional<IReadOnlyList<string>>.Unset;
         return TranslateWriteAsync(actorLabel, () => _workItems.SetTagsAsync(id, patch, expectedVersion, ct));
     }
+
+    [McpServerTool(Name = "set_work_item_fields", Destructive = false, Idempotent = true)]
+    [Description("Sets a work item's custom field values, independently of every other field. The item's " +
+        "Type defines its fields: list_work_item_types gives each field's id, kind and options. Only the " +
+        "fields you send change: leave a field out to keep it, or send null to clear it. Changing the item's " +
+        "Type clears every value. Returns the item with its new version and the changed fields, named fields.<fieldId>.")]
+    public Task<WorkItemWriteResponse> SetWorkItemFields(
+        [Description("The work item's id.")] Guid id,
+        [Description("Values by field id. By kind: Text and Markdown take a string; Number a number; Currency a " +
+            "number with at most 2 decimals; Date \"yyyy-MM-dd\"; Checkbox true or false; SingleSelect one option id; " +
+            "MultiSelect a list of option ids; User a user id (from list_users); Url an http(s) address.")]
+        IReadOnlyDictionary<Guid, JsonElement> values,
+        [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
+        [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        CancellationToken ct = default) =>
+        TranslateWriteAsync(actorLabel, () => _workItems.SetCustomFieldsAsync(id, values, expectedVersion, ct));
 
     [McpServerTool(Name = "delete_work_item", Destructive = true)]
     [Description("Deletes a work item. If it has children, cascade must be true or the delete is " +

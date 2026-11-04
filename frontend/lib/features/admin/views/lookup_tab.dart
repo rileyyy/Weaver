@@ -5,6 +5,7 @@ import 'package:weaver/features/admin/lookup_admin_view_model.dart';
 import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/models/lookup_value.dart';
 import 'package:weaver/features/admin/space_admin_view_model.dart';
+import 'package:weaver/features/admin/views/type_fields_page.dart';
 import 'package:weaver/features/admin/widgets/admin_list_frame.dart';
 import 'package:weaver/features/admin/widgets/delete_lookup_dialog.dart';
 import 'package:weaver/features/admin/widgets/name_dialog.dart';
@@ -27,9 +28,9 @@ class LookupTab extends StatelessWidget {
     LookupKind.priorities =>
       'This Space’s priorities, from least to most urgent. Drag to reorder.',
     LookupKind.types =>
-      'This Space’s Types say what kind of thing a work item is and colour '
-          'its card on the board. Any Type can sit under any other. Drag to '
-          'reorder.',
+      'This Space’s Types say what kind of thing a work item is, colour '
+          'its card on the board and define its custom fields. Any Type can '
+          'sit under any other. Drag to reorder.',
   };
 
   @override
@@ -66,6 +67,19 @@ class LookupTab extends StatelessWidget {
               : null,
           onEdit: (value) => unawaited(_edit(context, value)),
           onDelete: (value) => unawaited(_delete(context, value)),
+          extraAction: _kind == LookupKind.types
+              ? (
+                  icon: Icons.list_alt_outlined,
+                  tooltipOf: (value) => '${value.name} fields',
+                  onPressed: (value) => unawaited(
+                    showTypeFieldsPage(
+                      context,
+                      typeId: value.id,
+                      typeName: value.name,
+                    ),
+                  ),
+                )
+              : null,
         ),
       ),
     );

@@ -30,6 +30,8 @@ public interface IWeaverDbContext
 
     DbSet<WorkItemType> WorkItemTypes { get; }
 
+    DbSet<CustomFieldDefinition> CustomFields { get; }
+
     DbSet<WorkItemPriority> WorkItemPriorities { get; }
 
     DbSet<Comment> Comments { get; }
