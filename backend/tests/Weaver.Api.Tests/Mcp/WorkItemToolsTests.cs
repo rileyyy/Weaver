@@ -261,18 +261,6 @@ public class WorkItemToolsTests
     }
 
     [Test]
-    public void DeleteWorkItem_WhenHasChildrenAndCascadeFalse_ThrowsMcpExceptionWithSameMessage()
-    {
-        var id = Guid.NewGuid();
-        var domainException = new WorkItemHasChildrenException(id);
-        _workItems.Setup(w => w.DeleteAsync(id, false, null, It.IsAny<CancellationToken>())).ThrowsAsync(domainException);
-
-        var thrown = Assert.ThrowsAsync<McpException>(() => _tools.DeleteWorkItem(id, ct: CancellationToken.None));
-
-        Assert.That(thrown!.Message, Is.EqualTo(domainException.Message));
-    }
-
-    [Test]
     public async Task SetWorkItemTags_DelegatesToService()
     {
         var item = MakeWorkItem();
@@ -349,17 +337,6 @@ public class WorkItemToolsTests
             _tools.SetWorkItemTags(CallWith("id", "tags"), id, tags, ct: CancellationToken.None));
 
         Assert.That(thrown!.Message, Is.EqualTo(domainException.Message));
-    }
-
-    [Test]
-    public async Task DeleteWorkItem_WithCascadeTrue_DelegatesToService()
-    {
-        var id = Guid.NewGuid();
-        _workItems.Setup(w => w.DeleteAsync(id, true, 7u, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-
-        await _tools.DeleteWorkItem(id, cascade: true, expectedVersion: 7u, ct: CancellationToken.None);
-
-        _workItems.VerifyAll();
     }
 
     /// <summary>A tools/call request that sent exactly the named arguments.</summary>

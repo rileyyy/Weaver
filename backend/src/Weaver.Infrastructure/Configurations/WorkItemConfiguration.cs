@@ -85,6 +85,14 @@ public class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         // cell. SpaceId leads so a Space's top-level items (null parent) are one cell of their own.
         builder.HasIndex(w => new { w.SpaceId, w.ParentId, w.StatusId, w.Rank });
 
+        // ADR-0007: every normal read leaves the Trash out, so a new query can't forget to.
+        // Reads that must see trashed rows (the Trash itself, include-deleted, changes since T,
+        // and lookup deletes that re-point every item) opt out with IgnoreQueryFilters.
+        builder.HasQueryFilter(w => w.TrashedAtUtc == null);
+
+        // Restore finds the items trashed with a root by this.
+        builder.HasIndex(w => w.TrashRootId);
+
         builder.Property(w => w.Version)
             .IsRowVersion()
             .HasColumnName("xmin")

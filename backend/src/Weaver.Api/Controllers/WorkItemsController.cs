@@ -169,12 +169,4 @@ public class WorkItemsController(IWorkItemService workItems) : ControllerBase
         var result = await _workItems.SetCustomFieldsAsync(id, request.Values, request.ExpectedVersion);
         return Ok(WorkItemWriteResponse.FromResult(result));
     }
-
-    [HttpDelete("{id:guid}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    public async Task<IActionResult> Delete(Guid id, [FromQuery] bool cascade = false, [FromQuery] uint? expectedVersion = null)
-    {
-        await _workItems.DeleteAsync(id, cascade, expectedVersion);
-        return NoContent();
-    }
 }

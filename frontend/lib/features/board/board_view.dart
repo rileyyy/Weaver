@@ -6,6 +6,7 @@ import 'package:weaver/core/theme/app_theme.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/repeating_items_view_model.dart';
+import 'package:weaver/features/board/trash_view_model.dart';
 import 'package:weaver/features/board/views/board_tab.dart';
 import 'package:weaver/features/board/views/header/header_bar.dart';
 import 'package:weaver/features/board/views/header/sort_bar.dart';
@@ -15,6 +16,7 @@ import 'package:weaver/features/board/views/hierarchy/hierarchy_view.dart';
 import 'package:weaver/features/board/views/repeating/repeating_view.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_view.dart';
 import 'package:weaver/features/board/views/swimlane/swimlane_view.dart';
+import 'package:weaver/features/board/views/trash/trash_view.dart';
 import 'package:weaver/features/board/widgets/add_tags_dialog.dart';
 import 'package:weaver/features/board/widgets/assign_dialog.dart';
 import 'package:weaver/features/board/widgets/create_work_item_dialog.dart';
@@ -53,6 +55,7 @@ class _BoardViewState extends State<BoardView>
   final BoardViewModel _viewModel = getIt<BoardViewModel>();
   final RepeatingItemsViewModel _repeatingViewModel =
       getIt<RepeatingItemsViewModel>();
+  final TrashViewModel _trashViewModel = getIt<TrashViewModel>();
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
   late final TabController _tabController = TabController(
@@ -106,6 +109,7 @@ class _BoardViewState extends State<BoardView>
       ..removeListener(_showMoveErrorIfAny)
       ..dispose();
     _repeatingViewModel.dispose();
+    _trashViewModel.dispose();
     _searchDebounce?.cancel();
     _searchController.dispose();
     _tabController
@@ -130,10 +134,15 @@ class _BoardViewState extends State<BoardView>
 
   void _onTabChanged() {
     setState(() {});
-    // Reloaded on every visit: schedules can change from any detail dialog.
-    if (_tabController.index == BoardTab.repeating.index &&
-        !_tabController.indexIsChanging) {
-      unawaited(_repeatingViewModel.load());
+    // Reloaded on every visit: schedules can change, and items be deleted,
+    // from any detail dialog.
+    if (!_tabController.indexIsChanging) {
+      if (_tabController.index == BoardTab.repeating.index) {
+        unawaited(_repeatingViewModel.load());
+      }
+      if (_tabController.index == BoardTab.trash.index) {
+        unawaited(_trashViewModel.load());
+      }
     }
     final needsHierarchyData =
         _tabController.index == BoardTab.hierarchy.index ||
@@ -379,6 +388,10 @@ class _BoardViewState extends State<BoardView>
                           onItemOpened: (id) =>
                               unawaited(_openRepeatingItem(id)),
                           onSchedulesChanged: _refreshAfterDetailEdits,
+                        ),
+                        TrashView(
+                          viewModel: _trashViewModel,
+                          onRestored: _refreshAfterDetailEdits,
                         ),
                       ],
                     ),

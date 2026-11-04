@@ -211,25 +211,6 @@ public class WorkItemHistoryTests
     }
 
     [Test]
-    public async Task Delete_RecordsADeleteForTheItemAndEachDescendant_ReadableAfterwards()
-    {
-        var root = await CreateAsync("Root");
-        var child = await CreateAsync("Child", root.Id);
-
-        await _workItems.DeleteAsync(root.Id, cascade: true);
-
-        var rootEntry = (await _history.ListForWorkItemAsync(root.Id)).First();
-        var childEntry = (await _history.ListForWorkItemAsync(child.Id)).First();
-        Assert.Multiple(() =>
-        {
-            Assert.That(rootEntry.Field, Is.EqualTo(WorkItemHistoryField.Deleted));
-            Assert.That(rootEntry.OldValue?.GetString(), Is.EqualTo("Root"));
-            Assert.That(rootEntry.NewValue, Is.Null);
-            Assert.That(childEntry.Field, Is.EqualTo(WorkItemHistoryField.Deleted));
-        });
-    }
-
-    [Test]
     public async Task Comments_RecordAddEditAndDeleteWithTheBody()
     {
         var comments = new CommentService(_db, _clock, _caller);
@@ -282,25 +263,6 @@ public class WorkItemHistoryTests
             Assert.That(itemEntries[1].NewName, Is.EqualTo($"#{other.Number} Other"));
             Assert.That(otherEntries[1].NewValue?.GetGuid(), Is.EqualTo(item.Id));
             Assert.That(otherEntries[0].OldValue?.GetGuid(), Is.EqualTo(item.Id));
-        });
-    }
-
-    [Test]
-    public async Task Delete_RecordsTheLinkRemovedOnTheItemThatSurvives()
-    {
-        var links = new WorkItemLinkService(_db, _caller);
-        var item = await CreateAsync("Item");
-        var survivor = await CreateAsync("Survivor");
-        await links.CreateAsync(survivor.Id, item.Id);
-
-        await _workItems.DeleteAsync(item.Id);
-
-        var entry = (await _history.ListForWorkItemAsync(survivor.Id)).First();
-        Assert.Multiple(() =>
-        {
-            Assert.That(entry.Field, Is.EqualTo(WorkItemHistoryField.Link));
-            Assert.That(entry.OldValue?.GetGuid(), Is.EqualTo(item.Id));
-            Assert.That(entry.NewValue, Is.Null);
         });
     }
 

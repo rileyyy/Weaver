@@ -92,11 +92,12 @@ public class CustomFieldService(IWeaverDbContext db, IAdminAuthorizer admins, IC
     }
 
     /// <summary>
-    /// Every item of the Type, tracked. Which of them hold a value is checked in memory: that
-    /// keeps the query portable, and a Type's items are few enough for a household server.
+    /// Every item of the Type, trashed ones included so a restore doesn't bring back a stale
+    /// value, tracked. Which of them hold a value is checked in memory: that keeps the query
+    /// portable, and a Type's items are few enough for a household server.
     /// </summary>
     private async Task<List<WorkItem>> ItemsOfTypeAsync(Guid typeId, CancellationToken ct) =>
-        await Db.WorkItems.Where(w => w.TypeId == typeId).ToListAsync(ct);
+        await Db.WorkItems.IgnoreQueryFilters().Where(w => w.TypeId == typeId).ToListAsync(ct);
 
     private IQueryable<CustomFieldDefinition> InType(Guid typeId) => Values.Where(f => f.TypeId == typeId);
 }

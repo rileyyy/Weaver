@@ -19,6 +19,7 @@ public class WorkItemQueryServiceTests
     private WorkItemQueryService _query = null!;
     private TestSpace _home = null!;
     private int _lastNumber;
+    private WorkItemTrashService _trash = null!;
 
     [SetUp]
     public void SetUp()
@@ -29,6 +30,7 @@ public class WorkItemQueryServiceTests
         var hierarchy = new IterativeWorkItemHierarchy(_db);
         _workItems = new WorkItemService(_db, hierarchy, FakeCallerContext.Anyone());
         _query = new WorkItemQueryService(_db, hierarchy, new InMemoryWorkItemSearch());
+        _trash = new WorkItemTrashService(_db, hierarchy, FakeCallerContext.Anyone(), _clock);
         _lastNumber = 0;
     }
 
@@ -415,6 +417,75 @@ public class WorkItemQueryServiceTests
             Assert.That(summary.ChildCount, Is.EqualTo(1));
             Assert.That(page.NextCursor, Is.Not.Null);
         });
+    }
+
+    [Test]
+    public async Task TrashedItems_AreLeftOut()
+    {
+        var kept = await CreateAsync("Kept");
+        var trashed = await CreateAsync("Trashed");
+        await _trash.MoveToTrashAsync(trashed.Id);
+
+        var page = await _query.QueryAsync(new WorkItemQuery());
+
+        Assert.That(page.Items.Select(w => w.Id), Is.EqualTo(new[] { kept.Id }));
+    }
+
+    [Test]
+    public async Task IncludeDeleted_ListsTrashedItemsToo_MarkedAsTrashed()
+    {
+        var kept = await CreateAsync("Kept");
+        var trashed = await CreateAsync("Trashed");
+        await _trash.MoveToTrashAsync(trashed.Id);
+
+        var items = (await _query.QueryAsync(new WorkItemQuery(IncludeDeleted: true))).Items;
+        var summaries = (await _query.QuerySummariesAsync(new WorkItemQuery(IncludeDeleted: true))).Items;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(items.Select(w => (w.Id, w.IsTrashed)), Is.EqualTo(new[] { (kept.Id, false), (trashed.Id, true) }));
+            Assert.That(summaries.Select(s => s.TrashedAtUtc is not null), Is.EqualTo(new[] { false, true }));
+        });
+    }
+
+    [Test]
+    public async Task IncludeDeleted_StillAppliesTheOtherFilters()
+    {
+        await CreateAsync("Paint the hall");
+        var trashed = await CreateAsync("Paint the gate");
+        await CreateAsync("Fix the boiler");
+        await _trash.MoveToTrashAsync(trashed.Id);
+
+        var page = await _query.QueryAsync(new WorkItemQuery(Text: "gate", IncludeDeleted: true));
+
+        Assert.That(page.Items.Select(w => w.Id), Is.EqualTo(new[] { trashed.Id }));
+    }
+
+    [Test]
+    public async Task ChildCount_LeavesTrashedChildrenOut()
+    {
+        var parent = await CreateAsync("Parent");
+        var child = await CreateAsync("Child", parent.Id);
+        await CreateAsync("Sibling", parent.Id);
+        await _trash.MoveToTrashAsync(child.Id);
+
+        var page = await _query.QuerySummariesAsync(new WorkItemQuery(Number: parent.Number));
+
+        Assert.That(page.Items.Single().ChildCount, Is.EqualTo(1));
+    }
+
+    // IgnoreQueryFilters lifts the Trash filter from navigations too, so the count says so itself.
+    [Test]
+    public async Task ChildCount_LeavesTrashedChildrenOut_EvenWithIncludeDeleted()
+    {
+        var parent = await CreateAsync("Parent");
+        var child = await CreateAsync("Child", parent.Id);
+        await CreateAsync("Sibling", parent.Id);
+        await _trash.MoveToTrashAsync(child.Id);
+
+        var page = await _query.QuerySummariesAsync(new WorkItemQuery(Number: parent.Number, IncludeDeleted: true));
+
+        Assert.That(page.Items.Single().ChildCount, Is.EqualTo(1));
     }
 
     private static DateOnly Nov(int day) => new(2026, 11, day);

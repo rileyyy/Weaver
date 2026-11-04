@@ -139,7 +139,8 @@ public class UserAdministrationService(
         var user = await FindAsync(userId, ct);
         await EnsureAnotherActiveAdminAsync(user, ct);
 
-        var commentCount = await _db.Comments.CountAsync(c => c.AuthorUserId == userId, ct);
+        // Comments on trashed items still exist, and still block the delete.
+        var commentCount = await _db.Comments.IgnoreQueryFilters().CountAsync(c => c.AuthorUserId == userId, ct);
         if (commentCount > 0)
         {
             throw new UserHasCommentsException(user.Username, commentCount);
@@ -218,7 +219,8 @@ public class UserAdministrationService(
 
     private async Task UnassignWorkItemsAsync(Guid userId, CancellationToken ct)
     {
-        var assigned = await _db.WorkItems.Where(w => w.AssignedToUserId == userId).ToListAsync(ct);
+        // Trashed items too, so one restored later isn't assigned to a deactivated account.
+        var assigned = await _db.WorkItems.IgnoreQueryFilters().Where(w => w.AssignedToUserId == userId).ToListAsync(ct);
         foreach (var item in assigned)
         {
             _history.RecordChanges(item.Id, item.AssignTo(null));

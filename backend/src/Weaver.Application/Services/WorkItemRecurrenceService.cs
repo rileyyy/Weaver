@@ -138,7 +138,10 @@ public class WorkItemRecurrenceService(
         var horizon = today.AddDays(WorkItemRecurrence.LeadDays);
         var from = recurrence.GeneratedThrough?.AddDays(1) ?? today;
 
+        // A trashed copy still counts: deleting an occurrence mustn't make it come back, and its
+        // (source, date) pair is unique, so a second copy couldn't be saved anyway.
         var existing = await _db.WorkItems
+            .IgnoreQueryFilters()
             .Where(w => w.RecurrenceSourceId == template.Id && w.RecurrenceDate >= from && w.RecurrenceDate <= horizon)
             .Select(w => w.RecurrenceDate!.Value)
             .ToListAsync(ct);

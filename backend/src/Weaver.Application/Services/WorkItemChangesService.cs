@@ -43,16 +43,25 @@ public class WorkItemChangesService(IWeaverDbContext db, ICallerContext caller) 
         List<Guid> itemIds,
         CancellationToken ct)
     {
-        var live = await LiveSummariesAsync(itemIds, ct);
-        var deleted = await DeletedSummariesAsync(itemIds.Where(id => !live.ContainsKey(id)).ToList(), ct);
+        var withRows = await RowSummariesAsync(itemIds, ct);
+        var purged = await PurgedSummariesAsync(itemIds.Where(id => !withRows.ContainsKey(id)).ToList(), ct);
         var changes = (await HistoryViewReader.ReadAsync(
                 _db, entries.Where(e => itemIds.Contains(e.WorkItemId)).OrderBy(e => e.Id), ct))
             .ToLookup(c => c.WorkItemId);
 
         return itemIds
-            .Select(id => live.TryGetValue(id, out var summary)
-                ? new ChangedWorkItem(summary, Deleted: false, changes[id].ToList())
-                : new ChangedWorkItem(deleted[id], Deleted: true, changes[id].ToList()))
+            .Select(id =>
+            {
+                var itemChanges = changes[id].ToList();
+                if (!withRows.TryGetValue(id, out var summary))
+                {
+                    return new ChangedWorkItem(purged[id], Deleted: true, Restored: false, itemChanges);
+                }
+
+                var trashed = summary.TrashedAtUtc is not null;
+                var restored = !trashed && itemChanges.Any(c => c.Field == WorkItemHistoryField.Restored);
+                return new ChangedWorkItem(summary, Deleted: trashed, Restored: restored, itemChanges);
+            })
             .ToList();
     }
 
@@ -73,40 +82,44 @@ public class WorkItemChangesService(IWeaverDbContext db, ICallerContext caller) 
     }
 
     /// <summary>
-    /// A live item is in the Space its row says. A deleted one has no row, so it's in the Space
-    /// its history last put it in, worked out here for just the deleted items changed since T.
+    /// An item with a row, live or trashed, is in the Space its row says. A purged one has no row,
+    /// so it's in the Space its history last put it in, worked out here for just the purged items
+    /// changed since T.
     /// </summary>
     private async Task<IQueryable<WorkItemHistoryEntry>> InSpaceAsync(
         IQueryable<WorkItemHistoryEntry> entries,
         Guid spaceId,
         CancellationToken ct)
     {
-        var deletedIds = await entries
-            .Where(e => !_db.WorkItems.Any(w => w.Id == e.WorkItemId))
+        var rows = _db.WorkItems.IgnoreQueryFilters();
+        var purgedIds = await entries
+            .Where(e => !rows.Any(w => w.Id == e.WorkItemId))
             .Select(e => e.WorkItemId)
             .Distinct()
             .ToListAsync(ct);
-        var deletedInSpace = (await DeletedItemTrace.LoadAsync(_db, deletedIds, ct)).Values
+        var purgedInSpace = (await DeletedItemTrace.LoadAsync(_db, purgedIds, ct)).Values
             .Where(t => t.SpaceId == spaceId)
             .Select(t => t.WorkItemId)
             .ToList();
 
         return entries.Where(e =>
-            _db.WorkItems.Any(w => w.Id == e.WorkItemId && w.SpaceId == spaceId) || deletedInSpace.Contains(e.WorkItemId));
+            rows.Any(w => w.Id == e.WorkItemId && w.SpaceId == spaceId) || purgedInSpace.Contains(e.WorkItemId));
     }
 
-    private async Task<Dictionary<Guid, WorkItemSummary>> LiveSummariesAsync(List<Guid> itemIds, CancellationToken ct) =>
+    /// <summary>Trashed rows included: a trashed item's summary is still its row, number and all.</summary>
+    private async Task<Dictionary<Guid, WorkItemSummary>> RowSummariesAsync(List<Guid> itemIds, CancellationToken ct) =>
         await _db.WorkItems
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(w => itemIds.Contains(w.Id))
             .Summarize()
             .ToDictionaryAsync(s => s.Id, ct);
 
     /// <summary>
-    /// A deleted item has no row left, so its summary is rebuilt from its history: the title it
+    /// A purged item has no row left, so its summary is rebuilt from its history: the title it
     /// had when deleted and the Space it was last in.
     /// </summary>
-    private async Task<Dictionary<Guid, WorkItemSummary>> DeletedSummariesAsync(List<Guid> itemIds, CancellationToken ct)
+    private async Task<Dictionary<Guid, WorkItemSummary>> PurgedSummariesAsync(List<Guid> itemIds, CancellationToken ct)
     {
         if (itemIds.Count == 0)
         {

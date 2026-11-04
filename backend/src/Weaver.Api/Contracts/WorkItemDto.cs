@@ -5,7 +5,8 @@ namespace Weaver.Api.Contracts;
 
 /// <summary>
 /// <see cref="Fields"/> holds the values of the item's Type's custom fields by field id (see
-/// <see cref="CustomFieldDto"/>); a field with no value is left out.
+/// <see cref="CustomFieldDto"/>); a field with no value is left out. <see cref="TrashedAtUtc"/> is
+/// set only for an item in the Trash, which a read returns only when it asked for deleted items.
 /// </summary>
 public record WorkItemDto(
     Guid Id,
@@ -27,6 +28,7 @@ public record WorkItemDto(
     bool WhenResolved,
     Guid? RecurrenceSourceId,
     DateOnly? RecurrenceDate,
+    DateTimeOffset? TrashedAtUtc,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
     uint Version)
@@ -51,6 +53,7 @@ public record WorkItemDto(
         item.IsWhenResolved,
         item.RecurrenceSourceId,
         item.RecurrenceDate,
+        item.TrashedAtUtc,
         item.CreatedAtUtc,
         item.UpdatedAtUtc,
         item.Version);

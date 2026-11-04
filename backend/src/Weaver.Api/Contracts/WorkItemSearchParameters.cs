@@ -36,6 +36,9 @@ public sealed class WorkItemSearchParameters
 
     public DateTimeOffset? UpdatedSince { get; init; }
 
+    /// <summary>Also list items in the Trash, each with its <c>trashedAtUtc</c> set.</summary>
+    public bool IncludeDeleted { get; init; }
+
     /// <summary>The <c>nextCursor</c> from the previous page; omit for the first.</summary>
     public string? Cursor { get; init; }
 
@@ -55,6 +58,7 @@ public sealed class WorkItemSearchParameters
         To: To,
         BacklogOnly: BacklogOnly,
         UpdatedSince: UpdatedSince,
+        IncludeDeleted: IncludeDeleted,
         Cursor: Cursor,
         Limit: Limit);
 }

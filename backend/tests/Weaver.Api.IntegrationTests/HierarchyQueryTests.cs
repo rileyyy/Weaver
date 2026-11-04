@@ -19,7 +19,7 @@ public class HierarchyQueryTests
     }
 
     [Test]
-    public async Task CascadeDelete_RemovesADeepSubtree()
+    public async Task CascadeDelete_TrashesADeepSubtree_AndRestoreBringsItAllBack()
     {
         var chain = await CreateChainAsync(depth: 5);
 
@@ -31,6 +31,26 @@ public class HierarchyQueryTests
             var get = await _client.GetAsync($"/api/work-items/{item.Id}");
             Assert.That(get.StatusCode, Is.EqualTo(HttpStatusCode.NotFound), item.Title);
         }
+
+        await _client.PostAsync($"/api/trash/{chain[0].Id}/restore", null);
+        foreach (var item in chain)
+        {
+            var get = await _client.GetAsync($"/api/work-items/{item.Id}");
+            Assert.That(get.StatusCode, Is.EqualTo(HttpStatusCode.OK), item.Title);
+        }
+    }
+
+    // The raw-SQL descendant walk skips EF's Trash filter, so it repeats it: a child already in
+    // the Trash isn't a child the delete has to cascade to.
+    [Test]
+    public async Task Delete_AParentWhoseOnlyChildIsAlreadyTrashed_NeedsNoCascade()
+    {
+        var chain = await CreateChainAsync(depth: 3);
+        await _client.DeleteAsync($"/api/work-items/{chain[1].Id}?cascade=true");
+
+        var response = await _client.DeleteAsync($"/api/work-items/{chain[0].Id}");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
     }
 
     [Test]

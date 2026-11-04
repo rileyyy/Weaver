@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Weaver.Application.Auth;
 using Weaver.Application.Services;
 using Weaver.Domain;
@@ -17,6 +18,7 @@ public class WorkItemChangesServiceTests
     private WeaverDbContext _db = null!;
     private FakeCallerContext _caller = null!;
     private WorkItemService _workItems = null!;
+    private WorkItemTrashService _trash = null!;
     private WorkItemChangesService _changes = null!;
     private User _alice = null!;
     private User _bob = null!;
@@ -32,6 +34,7 @@ public class WorkItemChangesServiceTests
         _home = TestSpaces.Add(_db, "Home");
         _caller = new FakeCallerContext(_alice.Id);
         _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), _caller);
+        _trash = new WorkItemTrashService(_db, new IterativeWorkItemHierarchy(_db), _caller, _clock);
         _changes = new WorkItemChangesService(_db, _caller);
     }
 
@@ -66,12 +69,98 @@ public class WorkItemChangesServiceTests
     }
 
     [Test]
-    public async Task AnItemDeletedSinceT_IsListedAndMarkedDeleted_WithWhatHistoryStillKnows()
+    public async Task AnItemTrashedSinceT_IsMarkedDeleted_WithItsSummaryFromItsRow()
+    {
+        var item = await CreateAsync("Old shed");
+        _clock.Advance(TimeSpan.FromDays(1));
+        await _trash.MoveToTrashAsync(item.Id);
+
+        var changed = (await _changes.ListSinceAsync(new WorkItemChangesQuery(Today))).Items.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed.Deleted, Is.True);
+            Assert.That(changed.Restored, Is.False);
+            Assert.That(changed.Item.Title, Is.EqualTo("Old shed"));
+            Assert.That(changed.Item.StatusName, Is.EqualTo("To Do"));
+            Assert.That(changed.Item.TrashedAtUtc, Is.EqualTo(Today));
+        });
+    }
+
+    [Test]
+    public async Task AnItemTrashedBeforeT_AndRestoredSince_IsMarkedRestored()
+    {
+        var item = await CreateAsync("Old shed");
+        await _trash.MoveToTrashAsync(item.Id);
+        _clock.Advance(TimeSpan.FromDays(1));
+
+        await _trash.RestoreAsync(item.Id);
+
+        var changed = (await _changes.ListSinceAsync(new WorkItemChangesQuery(Today))).Items.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed.Restored, Is.True);
+            Assert.That(changed.Deleted, Is.False);
+            Assert.That(changed.Changes.Select(c => c.Field), Is.EqualTo(new[] { WorkItemHistoryField.Restored }));
+        });
+    }
+
+    [Test]
+    public async Task AnItemDeletedAndRestoredSinceT_IsMarkedRestored_NotDeleted()
+    {
+        var item = await CreateAsync("Old shed");
+        _clock.Advance(TimeSpan.FromDays(1));
+        await _trash.MoveToTrashAsync(item.Id);
+        await _trash.RestoreAsync(item.Id);
+
+        var changed = (await _changes.ListSinceAsync(new WorkItemChangesQuery(Today))).Items.Single();
+
+        Assert.That((changed.Deleted, changed.Restored), Is.EqualTo((false, true)));
+    }
+
+    [Test]
+    public async Task AnItemRestoredThenDeletedAgainSinceT_IsMarkedDeleted_NotRestored()
+    {
+        var item = await CreateAsync("Old shed");
+        _clock.Advance(TimeSpan.FromDays(1));
+        await _trash.MoveToTrashAsync(item.Id);
+        await _trash.RestoreAsync(item.Id);
+        await _trash.MoveToTrashAsync(item.Id);
+
+        var changed = (await _changes.ListSinceAsync(new WorkItemChangesQuery(Today))).Items.Single();
+
+        Assert.That((changed.Deleted, changed.Restored), Is.EqualTo((true, false)));
+    }
+
+    [Test]
+    public async Task ASpace_ListsItsTrashedAndRestoredItems_ByTheirRowsSpace()
+    {
+        var village = TestSpaces.Add(_db, "Village");
+        var trashed = await CreateAsync("Old boiler");
+        var restored = await CreateAsync("Old fence");
+        await CreateAsync("Old fete", space: village);
+        var villageTrashed = await CreateAsync("Old stall", space: village);
+        await _trash.MoveToTrashAsync(restored.Id);
+        _clock.Advance(TimeSpan.FromDays(1));
+        await _trash.MoveToTrashAsync(trashed.Id);
+        await _trash.RestoreAsync(restored.Id);
+        await _trash.MoveToTrashAsync(villageTrashed.Id);
+
+        var page = await _changes.ListSinceAsync(new WorkItemChangesQuery(Today, SpaceId: _home.Id));
+
+        Assert.That(
+            page.Items.Select(i => (i.Item.Title, i.Deleted, i.Restored)),
+            Is.EqualTo(new[] { ("Old boiler", true, false), ("Old fence", false, true) }));
+    }
+
+    [Test]
+    public async Task AnItemPurgedSinceT_IsMarkedDeleted_WithWhatHistoryStillKnows()
     {
         var item = await CreateAsync("Old shed");
         _clock.Advance(TimeSpan.FromDays(1));
         await _workItems.UpdateDetailsAsync(item.Id, new WorkItemDetailsPatch { Title = "Old garden shed" });
-        await _workItems.DeleteAsync(item.Id);
+        await _trash.MoveToTrashAsync(item.Id);
+        await PurgeAsync(item.Id);
 
         var changed = (await _changes.ListSinceAsync(new WorkItemChangesQuery(Today))).Items.Single();
 
@@ -95,7 +184,7 @@ public class WorkItemChangesServiceTests
         var child = await CreateAsync("Tiles", parent.Id);
         _clock.Advance(TimeSpan.FromDays(1));
 
-        await _workItems.DeleteAsync(parent.Id, cascade: true);
+        await _trash.MoveToTrashAsync(parent.Id, cascade: true);
 
         var page = await _changes.ListSinceAsync(new WorkItemChangesQuery(Today));
         Assert.That(
@@ -108,7 +197,7 @@ public class WorkItemChangesServiceTests
     {
         _clock.Advance(TimeSpan.FromDays(1));
         var item = await CreateAsync("Typo");
-        await _workItems.DeleteAsync(item.Id);
+        await _trash.MoveToTrashAsync(item.Id);
 
         var changed = (await _changes.ListSinceAsync(new WorkItemChangesQuery(Today))).Items.Single();
 
@@ -179,7 +268,7 @@ public class WorkItemChangesServiceTests
     }
 
     [Test]
-    public async Task ASpace_LimitsTheListToItsItems_IncludingItsDeletedOnes()
+    public async Task ASpace_LimitsTheListToItsItems_IncludingItsPurgedOnes()
     {
         var village = TestSpaces.Add(_db, "Village");
         var homeItem = await CreateAsync("Boiler");
@@ -190,8 +279,10 @@ public class WorkItemChangesServiceTests
         await _workItems.ChangeStatusAsync(homeItem.Id, _home.Doing);
         await _workItems.ChangeStatusAsync(villageItem.Id, village.Doing);
 
-        await _workItems.DeleteAsync(homeDeleted.Id);
-        await _workItems.DeleteAsync(villageDeleted.Id);
+        await _trash.MoveToTrashAsync(homeDeleted.Id);
+        await _trash.MoveToTrashAsync(villageDeleted.Id);
+        await PurgeAsync(homeDeleted.Id);
+        await PurgeAsync(villageDeleted.Id);
 
         var page = await _changes.ListSinceAsync(new WorkItemChangesQuery(Today, SpaceId: _home.Id));
 
@@ -305,5 +396,13 @@ public class WorkItemChangesServiceTests
     {
         space ??= _home;
         return _workItems.CreateAsync(title, null, parentId, space.ToDo, spaceId: parentId is null ? space.Id : null);
+    }
+
+    /// <summary>Stands in for ticket 20's purge: the row goes, its history stays.</summary>
+    private async Task PurgeAsync(Guid id)
+    {
+        _db.ChangeTracker.Clear();
+        _db.WorkItems.Remove(await _db.WorkItems.IgnoreQueryFilters().SingleAsync(w => w.Id == id));
+        await _db.SaveChangesAsync();
     }
 }

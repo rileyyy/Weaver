@@ -411,6 +411,12 @@ namespace Weaver.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<Guid?>("TrashRootId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("TrashedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid?>("TypeId")
                         .HasColumnType("uuid");
 
@@ -439,6 +445,8 @@ namespace Weaver.Infrastructure.Migrations
                     b.HasIndex("PriorityId");
 
                     b.HasIndex("StatusId");
+
+                    b.HasIndex("TrashRootId");
 
                     b.HasIndex("TypeId");
 

@@ -19,6 +19,7 @@ public class WorkItemRecurrenceServiceTests
     private FixedTimeProvider _time = null!;
     private WorkItemRecurrenceService _recurrences = null!;
     private WorkItemService _workItems = null!;
+    private WorkItemTrashService _trash = null!;
     private TestSpace _space = null!;
 
     [SetUp]
@@ -29,6 +30,7 @@ public class WorkItemRecurrenceServiceTests
         var calendar = new ServerCalendar(new ServerSettingsService(_db, new AdminAuthorizer(_db)), _time);
         _recurrences = new WorkItemRecurrenceService(_db, calendar, NullLogger<WorkItemRecurrenceService>.Instance, FakeCallerContext.Anyone());
         _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), FakeCallerContext.Anyone());
+        _trash = new WorkItemTrashService(_db, new IterativeWorkItemHierarchy(_db), FakeCallerContext.Anyone(), _time);
         _space = TestSpaces.Add(_db);
     }
 
@@ -313,10 +315,93 @@ public class WorkItemRecurrenceServiceTests
         await RepeatWeekly(item.Id, DayOfWeek.Monday);
         var occurrence = (await Occurrences(item.Id)).Single();
 
-        await _workItems.DeleteAsync(occurrence.Id);
+        await _trash.MoveToTrashAsync(occurrence.Id);
         await _recurrences.GenerateDueAsync();
 
         Assert.That(await Occurrences(item.Id), Is.Empty);
+    }
+
+    // Trash rules for repeating items (ticket 19): a trashed copy still counts as generated, a
+    // trashed template stops, and a restored template resumes from today.
+
+    [Test]
+    public async Task SetAsync_Again_DoesNotRecreateATrashedOccurrence()
+    {
+        var item = await CreateItem("Report");
+        await RepeatWeekly(item.Id, DayOfWeek.Monday);
+        var occurrence = (await Occurrences(item.Id)).Single();
+        await _trash.MoveToTrashAsync(occurrence.Id);
+
+        await _recurrences.SetAsync(item.Id, RecurrenceFrequency.Weekly, [DayOfWeek.Monday, DayOfWeek.Friday], Today, null);
+
+        Assert.That(
+            (await Occurrences(item.Id)).Select(w => w.RecurrenceDate),
+            Is.EqualTo(new DateOnly?[] { new DateOnly(2026, 10, 2) }),
+            "only the new Friday; the trashed Monday stays in the Trash");
+    }
+
+    [Test]
+    public async Task RestoringATrashedOccurrence_DoesNotDuplicateIt()
+    {
+        var item = await CreateItem("Report");
+        await RepeatWeekly(item.Id, DayOfWeek.Monday);
+        var occurrence = (await Occurrences(item.Id)).Single();
+        await _trash.MoveToTrashAsync(occurrence.Id);
+        await _recurrences.SetAsync(item.Id, RecurrenceFrequency.Weekly, [DayOfWeek.Monday], Today, null);
+
+        await _trash.RestoreAsync(occurrence.Id);
+        await _recurrences.GenerateDueAsync();
+
+        Assert.That((await Occurrences(item.Id)).Select(w => w.Id), Is.EqualTo(new[] { occurrence.Id }));
+    }
+
+    [Test]
+    public async Task TrashingTheTemplate_StopsItsSchedule_AndHidesIt()
+    {
+        var item = await CreateItem("Report");
+        await RepeatWeekly(item.Id, DayOfWeek.Monday);
+        await _trash.MoveToTrashAsync(item.Id);
+
+        _time.Advance(TimeSpan.FromDays(14));
+        var created = await _recurrences.GenerateDueAsync();
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That(created, Is.Zero);
+            Assert.That(await _recurrences.ListAsync(), Is.Empty);
+            Assert.That((await Occurrences(item.Id)).Select(w => w.RecurrenceDate), Is.EqualTo(new DateOnly?[] { Monday }));
+        });
+    }
+
+    [Test]
+    public async Task RestoringTheTemplate_ResumesFromToday_WithoutCatchingUpOnTheTimeInTheTrash()
+    {
+        var item = await CreateItem("Report");
+        await RepeatWeekly(item.Id, DayOfWeek.Monday);
+        await _trash.MoveToTrashAsync(item.Id);
+        _time.Advance(TimeSpan.FromDays(21));
+
+        await _trash.RestoreAsync(item.Id);
+        await _recurrences.GenerateDueAsync();
+
+        Assert.That((await Occurrences(item.Id)).Select(w => w.RecurrenceDate), Is.EqualTo(new DateOnly?[]
+        {
+            Monday, Monday.AddDays(21),
+        }));
+    }
+
+    [Test]
+    public async Task ATrashedSubItemOfTheTemplate_IsNotCopied()
+    {
+        var item = await CreateItem("Report");
+        await CreateItem("Kept", item.Id);
+        var trashed = await CreateItem("Trashed", item.Id);
+        await _trash.MoveToTrashAsync(trashed.Id);
+
+        await RepeatWeekly(item.Id, DayOfWeek.Monday);
+
+        var copy = (await Occurrences(item.Id)).Single();
+        Assert.That(await _db.WorkItems.Where(w => w.ParentId == copy.Id).Select(w => w.Title).ToListAsync(), Is.EqualTo(new[] { "Kept" }));
     }
 
     [Test]

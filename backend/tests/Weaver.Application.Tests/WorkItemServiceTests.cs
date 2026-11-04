@@ -100,77 +100,6 @@ public class WorkItemServiceTests
     }
 
     [Test]
-    public async Task DeleteAsync_WithChildren_WithoutCascade_Throws()
-    {
-        var parent = await _service.CreateAsync("Parent", null, null, _space.ToDo, spaceId: _space.Id);
-        await _service.CreateAsync("Child", null, parent.Id, _space.ToDo);
-
-        Assert.ThrowsAsync<WorkItemHasChildrenException>(() => _service.DeleteAsync(parent.Id));
-    }
-
-    [Test]
-    public async Task DeleteAsync_WithChildren_WithCascade_DeletesWholeSubtree()
-    {
-        var root = await _service.CreateAsync("Root", null, null, _space.ToDo, spaceId: _space.Id);
-        var child = await _service.CreateAsync("Child", null, root.Id, _space.ToDo);
-        await _service.CreateAsync("Grandchild", null, child.Id, _space.ToDo);
-
-        await _service.DeleteAsync(root.Id, cascade: true);
-
-        Assert.That(await _db.WorkItems.ToListAsync(), Is.Empty);
-    }
-
-    [Test]
-    public async Task DeleteAsync_Leaf_DoesNotRequireCascade()
-    {
-        var item = await _service.CreateAsync("Leaf", null, null, _space.ToDo, spaceId: _space.Id);
-
-        await _service.DeleteAsync(item.Id);
-
-        Assert.That(await _db.WorkItems.ToListAsync(), Is.Empty);
-    }
-
-    [Test]
-    public async Task DeleteAsync_ItemWithLinksOnEitherSide_RemovesThoseLinks()
-    {
-        var item = await _service.CreateAsync("Item", null, null, _space.ToDo, spaceId: _space.Id);
-        var linkedFrom = await _service.CreateAsync("Linked from", null, null, _space.ToDo, spaceId: _space.Id);
-        var linkedTo = await _service.CreateAsync("Linked to", null, null, _space.ToDo, spaceId: _space.Id);
-        await AddLinkAsync(item.Id, linkedTo.Id);
-        await AddLinkAsync(linkedFrom.Id, item.Id);
-        var unrelatedLink = await AddLinkAsync(linkedFrom.Id, linkedTo.Id);
-
-        await _service.DeleteAsync(item.Id);
-
-        var remainingLinks = await _db.WorkItemLinks.ToListAsync();
-        Assert.That(remainingLinks.Select(l => l.Id), Is.EqualTo(new[] { unrelatedLink.Id }));
-        Assert.That(await _db.WorkItems.CountAsync(), Is.EqualTo(2));
-    }
-
-    [Test]
-    public async Task DeleteAsync_WithCascade_RemovesLinksOfDescendants()
-    {
-        var root = await _service.CreateAsync("Root", null, null, _space.ToDo, spaceId: _space.Id);
-        var child = await _service.CreateAsync("Child", null, root.Id, _space.ToDo);
-        var grandchild = await _service.CreateAsync("Grandchild", null, child.Id, _space.ToDo);
-        var outside = await _service.CreateAsync("Outside", null, null, _space.ToDo, spaceId: _space.Id);
-        await AddLinkAsync(outside.Id, grandchild.Id);
-
-        await _service.DeleteAsync(root.Id, cascade: true);
-
-        Assert.That(await _db.WorkItemLinks.ToListAsync(), Is.Empty);
-        Assert.That((await _db.WorkItems.SingleAsync()).Id, Is.EqualTo(outside.Id));
-    }
-
-    private async Task<WorkItemLink> AddLinkAsync(Guid workItemId, Guid linkedWorkItemId)
-    {
-        var link = WorkItemLink.Create(workItemId, linkedWorkItemId);
-        _db.WorkItemLinks.Add(link);
-        await _db.SaveChangesAsync();
-        return link;
-    }
-
-    [Test]
     public async Task CreateAsync_AfterASiblingThatSharesItsRank_RespacesTheCell()
     {
         var parent = await _service.CreateAsync("Parent", null, null, _space.ToDo, spaceId: _space.Id);
@@ -788,17 +717,6 @@ public class WorkItemServiceTests
 
         _db.ChangeTracker.Clear();
         Assert.That((await _db.WorkItems.SingleAsync()).AssignedToUserId, Is.Null);
-    }
-
-    [Test]
-    public async Task DeleteAsync_WithStaleExpectedVersion_ThrowsAndDeletesNothing()
-    {
-        var item = await _service.CreateAsync("Item", null, null, _space.ToDo, spaceId: _space.Id);
-
-        Assert.ThrowsAsync<WorkItemVersionConflictException>(() =>
-            _service.DeleteAsync(item.Id, expectedVersion: item.Version + 1));
-
-        Assert.That(await _db.WorkItems.AnyAsync(), Is.True);
     }
 
     [Test]

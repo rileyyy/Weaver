@@ -7,7 +7,8 @@ namespace Weaver.Application.Tests;
 /// <summary>
 /// <see cref="IWorkItemHierarchy"/> for the EF InMemory provider, which can't run the
 /// recursive SQL the real implementation uses. Walks one level per query with the same
-/// contract; <c>Weaver.Api.IntegrationTests</c> covers the Postgres implementation.
+/// contract, including which walks see trashed rows (raw SQL skips EF's Trash filter);
+/// <c>Weaver.Api.IntegrationTests</c> covers the Postgres implementation.
 /// </summary>
 public class IterativeWorkItemHierarchy(WeaverDbContext db) : IWorkItemHierarchy
 {
@@ -32,6 +33,7 @@ public class IterativeWorkItemHierarchy(WeaverDbContext db) : IWorkItemHierarchy
             }
 
             currentId = await _db.WorkItems
+                .IgnoreQueryFilters()
                 .Where(w => w.Id == currentId)
                 .Select(w => w.ParentId)
                 .FirstOrDefaultAsync(ct);
@@ -66,6 +68,7 @@ public class IterativeWorkItemHierarchy(WeaverDbContext db) : IWorkItemHierarchy
         while (frontier.Count > 0)
         {
             var rows = await _db.WorkItems
+                .IgnoreQueryFilters()
                 .Where(w => frontier.Contains(w.Id))
                 .Select(w => new { w.Id, w.ParentId })
                 .ToListAsync(ct);

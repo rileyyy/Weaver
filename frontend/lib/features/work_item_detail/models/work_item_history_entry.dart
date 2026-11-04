@@ -75,6 +75,7 @@ class WorkItemHistoryEntry {
     return switch (field) {
       'created' => 'Created "$newText"',
       'deleted' => 'Deleted "$oldText"',
+      'restored' => 'Restored "$newText" from the Trash',
       'comment' => _verbed('a comment', 'Added', 'Edited', 'Deleted'),
       'link' when oldValue == null => 'Linked $newText',
       'link' => 'Unlinked $oldText',

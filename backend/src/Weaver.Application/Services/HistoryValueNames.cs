@@ -161,7 +161,8 @@ internal sealed class HistoryValueNames
                 .Select(x => (x.Id, x.Name)).ToList(),
             Kind.User => (await db.Users.Where(u => ids.Contains(u.Id)).Select(u => new { u.Id, u.Username }).ToListAsync(ct))
                 .Select(x => (x.Id, x.Username)).ToList(),
-            _ => (await db.WorkItems.Where(w => ids.Contains(w.Id)).Select(w => new { w.Id, w.Number, w.Title }).ToListAsync(ct))
+            // A trashed item still has a name; only a purged one has none.
+            _ => (await db.WorkItems.IgnoreQueryFilters().Where(w => ids.Contains(w.Id)).Select(w => new { w.Id, w.Number, w.Title }).ToListAsync(ct))
                 .Select(x => (x.Id, $"#{x.Number} {x.Title}")).ToList(),
         };
 }

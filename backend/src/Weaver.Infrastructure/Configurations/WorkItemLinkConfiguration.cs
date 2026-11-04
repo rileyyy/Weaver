@@ -24,5 +24,9 @@ public class WorkItemLinkConfiguration : IEntityTypeConfiguration<WorkItemLink>
             .WithMany()
             .HasForeignKey(l => l.LinkedWorkItemId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Matches WorkItem's Trash filter: a link is kept while either end is in the Trash, but
+        // hidden, so no live item lists a trashed one as a link target.
+        builder.HasQueryFilter(l => l.WorkItem!.TrashedAtUtc == null && l.LinkedWorkItem!.TrashedAtUtc == null);
     }
 }

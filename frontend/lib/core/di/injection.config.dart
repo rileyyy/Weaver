@@ -64,11 +64,14 @@ import 'package:weaver/features/auth/data/flutter_secure_token_store.dart'
 import 'package:weaver/features/auth/data/secure_token_store.dart' as _i54;
 import 'package:weaver/features/board/board_view_model.dart' as _i314;
 import 'package:weaver/features/board/data/api_board_repository.dart' as _i436;
+import 'package:weaver/features/board/data/api_trash_repository.dart' as _i797;
 import 'package:weaver/features/board/data/board_repository.dart' as _i522;
 import 'package:weaver/features/board/data/flutter_secure_last_space_store.dart'
     as _i114;
 import 'package:weaver/features/board/data/last_space_store.dart' as _i120;
+import 'package:weaver/features/board/data/trash_repository.dart' as _i1009;
 import 'package:weaver/features/board/repeating_items_view_model.dart' as _i87;
+import 'package:weaver/features/board/trash_view_model.dart' as _i773;
 import 'package:weaver/features/work_item_detail/data/api_work_item_detail_repository.dart'
     as _i335;
 import 'package:weaver/features/work_item_detail/data/api_work_item_history_repository.dart'
@@ -187,11 +190,18 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i202.ApiEndpoint>(),
       ),
     );
+    gh.lazySingleton<_i1009.TrashRepository>(
+      () =>
+          _i797.ApiTrashRepository(gh<_i519.Client>(), gh<_i202.ApiEndpoint>()),
+    );
     gh.lazySingleton<_i562.UserDirectoryRepository>(
       () => _i982.ApiUserDirectoryRepository(
         gh<_i519.Client>(),
         gh<_i202.ApiEndpoint>(),
       ),
+    );
+    gh.factory<_i773.TrashViewModel>(
+      () => _i773.TrashViewModel(gh<_i1009.TrashRepository>()),
     );
     gh.lazySingleton<_i600.SpaceRepository>(
       () =>
