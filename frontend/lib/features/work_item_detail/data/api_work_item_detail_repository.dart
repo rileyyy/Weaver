@@ -12,6 +12,7 @@ import 'package:weaver/features/work_item_detail/models/work_item_priority.dart'
 import 'package:weaver/shared/data/status_repository.dart';
 import 'package:weaver/shared/data/type_repository.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
+import 'package:weaver/shared/models/custom_field.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
@@ -164,6 +165,26 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     },
     _writtenItem,
     failureMessage: 'Failed to reschedule work item',
+  );
+
+  @override
+  Future<List<CustomField>> loadCustomFields(String typeId) => _api.get(
+    '/custom-fields',
+    (json) => JsonApiClient.listOf(json, CustomField.fromJson),
+    query: {'typeId': typeId},
+    failureMessage: 'Failed to load custom fields',
+  );
+
+  @override
+  Future<WorkItem> setCustomFields(
+    String id,
+    Map<String, Object?> values, {
+    required int expectedVersion,
+  }) => _api.patch(
+    '/work-items/$id/fields',
+    {'values': values, 'expectedVersion': expectedVersion},
+    _writtenItem,
+    failureMessage: 'Failed to save custom fields',
   );
 
   @override

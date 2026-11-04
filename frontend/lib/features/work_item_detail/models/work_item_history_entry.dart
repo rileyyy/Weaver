@@ -3,7 +3,8 @@ import 'package:weaver/shared/models/user_kind.dart';
 
 /// One change to a work item, as `GET /work-items/{id}/history` returns it.
 /// Values arrive as the JSON the field has in the API; the server also names
-/// id values (a status, user or other item) while they still exist.
+/// id values (a status, user or other item) while they still exist, and
+/// a custom field (whose changes go by `fields.<id>`) by its current name.
 class WorkItemHistoryEntry {
   const WorkItemHistoryEntry({
     required this.id,
@@ -17,6 +18,7 @@ class WorkItemHistoryEntry {
     required this.newValue,
     required this.oldName,
     required this.newName,
+    this.fieldName,
   });
 
   factory WorkItemHistoryEntry.fromJson(Map<String, dynamic> json) {
@@ -33,6 +35,7 @@ class WorkItemHistoryEntry {
       newValue: json['newValue'],
       oldName: json['oldName'] as String?,
       newName: json['newName'] as String?,
+      fieldName: json['fieldName'] as String?,
     );
   }
 
@@ -50,6 +53,10 @@ class WorkItemHistoryEntry {
   final Object? newValue;
   final String? oldName;
   final String? newName;
+
+  /// A custom field's current name; null for every other field, and for a
+  /// custom field that has been removed since.
+  final String? fieldName;
 
   String get actorName => accountName ?? 'Weaver';
 
@@ -79,7 +86,7 @@ class WorkItemHistoryEntry {
         'Repeat',
         'Stopped repeating',
       ),
-      _ => '${_fieldLabels[field] ?? field}: $oldText → $newText',
+      _ => '$_fieldLabel: $oldText → $newText',
     };
   }
 
@@ -91,6 +98,12 @@ class WorkItemHistoryEntry {
     if (newValue == null) return '$removed$subject: $oldText';
     return '$edited$subject: $oldText → $newText';
   }
+
+  String get _fieldLabel =>
+      fieldName ??
+      (field.startsWith('fields.')
+          ? 'Removed field'
+          : _fieldLabels[field] ?? field);
 
   static const _fieldLabels = {
     'title': 'Title',

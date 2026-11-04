@@ -4,6 +4,7 @@ import 'package:weaver/features/work_item_detail/models/work_item_child_summary.
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
+import 'package:weaver/shared/models/custom_field.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
@@ -37,6 +38,17 @@ abstract class WorkItemDetailRepository {
   Future<List<WorkItemPriority>> loadPriorities(String spaceId);
 
   Future<List<User>> loadUsers();
+
+  /// The custom fields the Type [typeId] defines, in order.
+  Future<List<CustomField>> loadCustomFields(String typeId);
+
+  /// Sets the custom field values in [values], by field id: a null value
+  /// clears that field, and fields left out keep their value.
+  Future<WorkItem> setCustomFields(
+    String id,
+    Map<String, Object?> values, {
+    required int expectedVersion,
+  });
 
   /// [expectedVersion] is the [WorkItem.version] the edit was based
   /// on; the save fails with a 409 [ApiException] if the item has changed

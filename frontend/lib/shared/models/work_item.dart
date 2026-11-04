@@ -23,6 +23,7 @@ class WorkItem {
     required this.updatedAt,
     required this.version,
     this.tags = const [],
+    this.fields = const {},
     this.when,
     this.whenResolved = false,
     this.recurrenceSourceId,
@@ -46,6 +47,7 @@ class WorkItem {
     updatedAt: parseApiTimestamp(json['updatedAtUtc'] as String),
     version: json['version'] as int,
     tags: stringList(json['tags']),
+    fields: (json['fields'] as Map<String, dynamic>?) ?? const {},
     when: json['when'] as String?,
     whenResolved: json['whenResolved'] as bool? ?? false,
     recurrenceSourceId: json['recurrenceSourceId'] as String?,
@@ -76,6 +78,11 @@ class WorkItem {
   /// backend can reject a save based on a stale read.
   final int version;
   final List<String> tags;
+
+  /// The values of the item's Type's custom fields, by field id, as the
+  /// server sends them (a string, number, bool or list); a field with no
+  /// value is absent. Changing the Type clears them on the server.
+  final Map<String, Object?> fields;
 
   /// The free-text phrase behind the item's dates ("after drywall"), and
   /// whether the server counts it as resolved (backed by dates). Weaver
@@ -140,6 +147,7 @@ class WorkItem {
     updatedAt: updatedAt,
     version: version,
     tags: tags ?? this.tags,
+    fields: fields,
     when: when,
     whenResolved: whenResolved,
     recurrenceSourceId: recurrenceSourceId,

@@ -11,6 +11,7 @@ Map<String, dynamic> _entryJson({
   String? accountKind = 'Human',
   String? apiKeyLabel,
   String? actorLabel,
+  String? fieldName,
 }) => {
   'id': 7,
   'workItemId': 'item-1',
@@ -26,6 +27,7 @@ Map<String, dynamic> _entryJson({
   'newValue': newValue,
   'oldName': oldName,
   'newName': newName,
+  'fieldName': fieldName,
 };
 
 String _change(Map<String, dynamic> json) =>
@@ -206,6 +208,27 @@ void main() {
           ),
         ),
         'Stopped repeating: Monthly from 2027-01-04 until 2027-12-31',
+      );
+    });
+
+    test('a custom field goes by its name', () {
+      expect(
+        _change(
+          _entryJson(
+            field: 'fields.f-1',
+            fieldName: 'Budget',
+            oldValue: 1200,
+            newValue: 900,
+          ),
+        ),
+        'Budget: 1200 → 900',
+      );
+    });
+
+    test('a custom field since removed says so', () {
+      expect(
+        _change(_entryJson(field: 'fields.f-1', oldValue: 'Oak')),
+        'Removed field: Oak → none',
       );
     });
 
