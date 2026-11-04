@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// A lookup list reordered by dragging each row's handle, with edit and
-/// delete buttons. The handle starts a drag straight away on every
+/// delete buttons, and optionally one more action per row. The handle starts a drag straight away on every
 /// platform, where the default long-press would hide the feature on
 /// desktop and clash with the row's own buttons.
 class ReorderableLookupList<T> extends StatelessWidget {
@@ -16,6 +16,7 @@ class ReorderableLookupList<T> extends StatelessWidget {
     this.subtitleOf,
     this.swatchOf,
     this.deleteDisabledReason,
+    this.extraAction,
   });
 
   final List<T> items;
@@ -29,6 +30,14 @@ class ReorderableLookupList<T> extends StatelessWidget {
 
   /// When set, deleting is disabled and this explains why.
   final String? deleteDisabledReason;
+
+  /// A button shown before edit, such as opening a Type's fields.
+  final ({
+    IconData icon,
+    String Function(T item) tooltipOf,
+    ValueChanged<T> onPressed,
+  })?
+  extraAction;
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +77,12 @@ class ReorderableLookupList<T> extends StatelessWidget {
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (extraAction case final action?)
+                IconButton(
+                  icon: Icon(action.icon),
+                  tooltip: action.tooltipOf(item),
+                  onPressed: () => action.onPressed(item),
+                ),
               IconButton(
                 icon: const Icon(Icons.edit_outlined),
                 tooltip: 'Edit $title',

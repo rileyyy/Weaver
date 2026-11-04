@@ -20,9 +20,13 @@ import 'package:weaver/core/network/server_origin_store.dart' as _i936;
 import 'package:weaver/core/network/server_settings.dart' as _i577;
 import 'package:weaver/features/admin/agent_admin_view_model.dart' as _i588;
 import 'package:weaver/features/admin/agent_keys_view_model.dart' as _i841;
+import 'package:weaver/features/admin/custom_field_admin_view_model.dart'
+    as _i285;
 import 'package:weaver/features/admin/data/agent_admin_repository.dart' as _i6;
 import 'package:weaver/features/admin/data/api_agent_admin_repository.dart'
     as _i705;
+import 'package:weaver/features/admin/data/api_custom_field_admin_repository.dart'
+    as _i977;
 import 'package:weaver/features/admin/data/api_lookup_admin_repository.dart'
     as _i427;
 import 'package:weaver/features/admin/data/api_server_settings_admin_repository.dart'
@@ -33,6 +37,8 @@ import 'package:weaver/features/admin/data/api_status_admin_repository.dart'
     as _i550;
 import 'package:weaver/features/admin/data/api_user_admin_repository.dart'
     as _i756;
+import 'package:weaver/features/admin/data/custom_field_admin_repository.dart'
+    as _i1046;
 import 'package:weaver/features/admin/data/lookup_admin_repository.dart'
     as _i377;
 import 'package:weaver/features/admin/data/server_settings_admin_repository.dart'
@@ -182,6 +188,12 @@ extension GetItInjectableX on _i174.GetIt {
       () =>
           _i796.ApiSpaceRepository(gh<_i519.Client>(), gh<_i202.ApiEndpoint>()),
     );
+    gh.lazySingleton<_i1046.CustomFieldAdminRepository>(
+      () => _i977.ApiCustomFieldAdminRepository(
+        gh<_i519.Client>(),
+        gh<_i202.ApiEndpoint>(),
+      ),
+    );
     gh.lazySingleton<_i300.ServerSettingsAdminRepository>(
       () => _i365.ApiServerSettingsAdminRepository(
         gh<_i519.Client>(),
@@ -270,6 +282,12 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i742.SpaceAdminViewModel>(
       () => _i742.SpaceAdminViewModel(gh<_i447.SpaceAdminRepository>()),
+    );
+    gh.factoryParam<_i285.CustomFieldAdminViewModel, String, dynamic>(
+      (typeId, _) => _i285.CustomFieldAdminViewModel(
+        gh<_i1046.CustomFieldAdminRepository>(),
+        typeId,
+      ),
     );
     gh.factory<_i486.UserAdminViewModel>(
       () => _i486.UserAdminViewModel(

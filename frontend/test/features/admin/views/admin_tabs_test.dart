@@ -114,6 +114,34 @@ void main() {
       expect(find.byType(CircleAvatar), findsOneWidget);
     });
 
+    testWidgets("a Type offers its fields, and a priority doesn't", (
+      tester,
+    ) async {
+      final repository = FakeLookupAdminRepository(const [
+        LookupValue(id: 'room', name: 'Room', order: 0, color: '#43A047'),
+      ]);
+      final types = LookupAdminViewModel(repository, LookupKind.types);
+      final priorities = LookupAdminViewModel(
+        repository,
+        LookupKind.priorities,
+      );
+      addTearDown(types.dispose);
+      addTearDown(priorities.dispose);
+      await types.showSpace('home');
+      await priorities.showSpace('home');
+      final spaces = await _loadedSpaces(tester);
+
+      await tester.pumpWidget(
+        _host(LookupTab(viewModel: types, spaces: spaces)),
+      );
+      expect(find.byTooltip('Room fields'), findsOneWidget);
+
+      await tester.pumpWidget(
+        _host(LookupTab(viewModel: priorities, spaces: spaces)),
+      );
+      expect(find.byTooltip('Room fields'), findsNothing);
+    });
+
     testWidgets('a priority has no colour to edit', (tester) async {
       final viewModel = LookupAdminViewModel(
         FakeLookupAdminRepository(const [
