@@ -25,6 +25,8 @@ import '../../shared/fakes/work_items.dart';
 
 WorkItem _item({
   String id = 'item-1',
+  int number = 1,
+  String? parentId,
   String statusId = 'todo',
   String? typeId,
   String? priorityId,
@@ -36,10 +38,10 @@ WorkItem _item({
   Map<String, Object?> fields = const {},
   int version = 1,
 }) => WorkItem(
-  number: 1,
+  number: number,
   id: id,
   spaceId: 'home',
-  parentId: null,
+  parentId: parentId,
   title: title,
   description: description,
   statusId: statusId,
@@ -91,6 +93,18 @@ class _FakeRepository implements WorkItemDetailRepository {
   Map<String, List<CustomField>> fieldsByType = {};
   final List<String> loadCustomFieldsCalls = [];
   final List<Map<String, Object?>> setCustomFieldsCalls = [];
+  final List<String> changeStatusCalls = [];
+  final List<String?> reparentCalls = [];
+  final List<(String, String, String)> createSubItemCalls = [];
+  final List<(String, String)> searchCalls = [];
+  List<WorkItem> searchResults = const [];
+
+  /// Ids the server would refuse as this item's parent, since they're the
+  /// item's own descendants.
+  Set<String> descendantIds = const {};
+
+  /// Items [getItem] serves other than [item], such as its parent.
+  final Map<String, WorkItem> others = {};
 
   /// When set, [assign] waits on it, so a test can overlap two saves.
   Completer<void>? assignGate;
@@ -108,7 +122,7 @@ class _FakeRepository implements WorkItemDetailRepository {
     final error = getItemError;
     // An Object so tests can simulate either an API failure or a bug.
     if (error != null) Error.throwWithStackTrace(error, StackTrace.current);
-    return item;
+    return others[id] ?? item;
   }
 
   @override
@@ -239,6 +253,77 @@ class _FakeRepository implements WorkItemDetailRepository {
     if (error != null) throw error;
     _checkVersion(expectedVersion);
     return item = withVersion(item, item.version + 1);
+  }
+
+  @override
+  Future<WorkItem> changeStatus(
+    String id,
+    String statusId, {
+    required int expectedVersion,
+  }) async {
+    changeStatusCalls.add(statusId);
+    expectedVersions.add(expectedVersion);
+    final error = saveError;
+    if (error != null) throw error;
+    _checkVersion(expectedVersion);
+    return item = _item(
+      id: id,
+      statusId: statusId,
+      parentId: item.parentId,
+      version: item.version + 1,
+    );
+  }
+
+  @override
+  Future<WorkItem> reparent(
+    String id,
+    String? parentId, {
+    required int expectedVersion,
+  }) async {
+    reparentCalls.add(parentId);
+    expectedVersions.add(expectedVersion);
+    final error = saveError;
+    if (error != null) throw error;
+    _checkVersion(expectedVersion);
+    if (parentId != null && descendantIds.contains(parentId)) {
+      throw const ApiException(
+        'Cannot set parent: it would create a cycle.',
+        statusCode: 409,
+      );
+    }
+    return item = _item(
+      id: id,
+      statusId: item.statusId,
+      parentId: parentId,
+      version: item.version + 1,
+    );
+  }
+
+  @override
+  Future<WorkItemChildSummary> createSubItem(
+    String parentId, {
+    required String title,
+    required String statusId,
+  }) async {
+    createSubItemCalls.add((parentId, title, statusId));
+    final error = saveError;
+    if (error != null) throw error;
+    final child = WorkItemChildSummary(
+      id: 'child-${childrenList.length + 1}',
+      number: 100 + childrenList.length,
+      title: title,
+      statusId: statusId,
+    );
+    childrenList.add(child);
+    return child;
+  }
+
+  @override
+  Future<List<WorkItem>> searchWorkItems(String spaceId, String text) async {
+    searchCalls.add((spaceId, text));
+    final error = saveError;
+    if (error != null) throw error;
+    return searchResults;
   }
 
   @override
@@ -447,18 +532,6 @@ void main() {
 
     expect(viewModel.loadError, isNotNull);
     expect(viewModel.isLoading, isFalse);
-  });
-
-  test('statusName resolves the current status from the loaded list', () async {
-    final repository = _FakeRepository();
-    final viewModel = WorkItemDetailViewModel(
-      repository,
-      _currentUser,
-      WorkItemStore(),
-    );
-    await viewModel.load('item-1');
-
-    expect(viewModel.statusName, 'To Do');
   });
 
   test('load populates children from the repository', () async {
@@ -1503,5 +1576,239 @@ void main() {
         expect(repository.rescheduleCalls, isEmpty);
       },
     );
+  });
+
+  group('saveStatus', () {
+    test('moves the item to the status with the loaded version', () async {
+      final repository = _FakeRepository()..item = _item(version: 4);
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
+      await viewModel.load('item-1');
+
+      final ok = await viewModel.saveStatus('done');
+
+      expect(ok, isTrue);
+      expect(repository.changeStatusCalls, ['done']);
+      expect(repository.expectedVersions, [4]);
+      expect(viewModel.item!.statusId, 'done');
+    });
+
+    test('marks the dialog changed, since the board must re-rank the card '
+        'in its new column', () async {
+      final viewModel = WorkItemDetailViewModel(
+        _FakeRepository(),
+        _currentUser,
+        WorkItemStore(),
+      );
+      await viewModel.load('item-1');
+
+      await viewModel.saveStatus('done');
+
+      expect(viewModel.hasChanges, isTrue);
+    });
+
+    test('the current status saves nothing', () async {
+      final repository = _FakeRepository();
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
+      await viewModel.load('item-1');
+
+      await viewModel.saveStatus('todo');
+
+      expect(repository.changeStatusCalls, isEmpty);
+      expect(viewModel.hasChanges, isFalse);
+    });
+  });
+
+  group('parent', () {
+    final kitchen = _item(id: 'kitchen', number: 5, title: 'Kitchen');
+    final garden = _item(id: 'garden', number: 9, title: 'Garden');
+
+    test('load fetches the parent, to show its number and title', () async {
+      final repository = _FakeRepository()
+        ..item = _item(parentId: 'kitchen')
+        ..others['kitchen'] = kitchen;
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
+
+      await viewModel.load('item-1');
+
+      expect(viewModel.parent?.number, 5);
+      expect(viewModel.parent?.title, 'Kitchen');
+    });
+
+    test('a top-level item has no parent to fetch', () async {
+      final repository = _FakeRepository();
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
+
+      await viewModel.load('item-1');
+
+      expect(viewModel.parent, isNull);
+      expect(repository.getItemCalls, 1);
+    });
+
+    test('saveParent moves the item under the picked item with the loaded '
+        'version, and marks the dialog changed', () async {
+      final repository = _FakeRepository()..item = _item(version: 3);
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
+      await viewModel.load('item-1');
+
+      final ok = await viewModel.saveParent(garden);
+
+      expect(ok, isTrue);
+      expect(repository.reparentCalls, ['garden']);
+      expect(repository.expectedVersions, [3]);
+      expect(viewModel.item!.parentId, 'garden');
+      expect(viewModel.parent?.title, 'Garden');
+      expect(viewModel.hasChanges, isTrue);
+    });
+
+    test('saveParent with no item makes it top-level', () async {
+      final repository = _FakeRepository()
+        ..item = _item(parentId: 'kitchen')
+        ..others['kitchen'] = kitchen;
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
+      await viewModel.load('item-1');
+
+      final ok = await viewModel.saveParent(null);
+
+      expect(ok, isTrue);
+      expect(repository.reparentCalls, [null]);
+      expect(viewModel.item!.parentId, isNull);
+      expect(viewModel.parent, isNull);
+    });
+
+    test('a parent inside the item is refused with a message naming it, '
+        'and nothing else changes', () async {
+      final repository = _FakeRepository()
+        ..item = _item(parentId: 'kitchen')
+        ..others['kitchen'] = kitchen
+        ..descendantIds = {'garden'};
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
+      await viewModel.load('item-1');
+
+      final ok = await viewModel.saveParent(garden);
+
+      expect(ok, isFalse);
+      expect(
+        viewModel.saveError,
+        "#9 Garden is inside this work item, so it can't be its parent.",
+      );
+      expect(viewModel.item!.parentId, 'kitchen');
+      expect(viewModel.parent?.title, 'Kitchen');
+      expect(viewModel.reloadGeneration, 0);
+      expect(viewModel.hasChanges, isFalse);
+    });
+
+    test("searchParents searches the item's Space, leaving out the item and "
+        'its sub-items', () async {
+      final repository = _FakeRepository()
+        ..childrenList = [
+          const WorkItemChildSummary(
+            id: 'child-1',
+            number: 2,
+            title: 'Child',
+            statusId: 'todo',
+          ),
+        ]
+        ..searchResults = [
+          _item(),
+          kitchen,
+          _item(id: 'child-1', number: 2),
+          garden,
+        ];
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
+      await viewModel.load('item-1');
+
+      final found = await viewModel.searchParents('ki');
+
+      expect(repository.searchCalls, [('home', 'ki')]);
+      expect(found.map((i) => i.id), ['kitchen', 'garden']);
+    });
+  });
+
+  group('addSubItem', () {
+    test("creates a child in the Space's first status and lists it", () async {
+      final repository = _FakeRepository();
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
+      await viewModel.load('item-1');
+
+      final ok = await viewModel.addSubItem('  Paint the walls ');
+
+      expect(ok, isTrue);
+      expect(repository.createSubItemCalls, [
+        ('item-1', 'Paint the walls', 'todo'),
+      ]);
+      expect(viewModel.children.single.title, 'Paint the walls');
+      expect(viewModel.hasChanges, isTrue);
+    });
+
+    test('a blank title is rejected without calling the server', () async {
+      final repository = _FakeRepository();
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
+      await viewModel.load('item-1');
+
+      final ok = await viewModel.addSubItem('   ');
+
+      expect(ok, isFalse);
+      expect(repository.createSubItemCalls, isEmpty);
+      expect(viewModel.saveError, 'Title is required.');
+    });
+
+    test('a failure says so and lists nothing new', () async {
+      final repository = _FakeRepository(
+        saveError: const ApiException('boom', statusCode: 500),
+      );
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
+      await viewModel.load('item-1');
+
+      final ok = await viewModel.addSubItem('Paint');
+
+      expect(ok, isFalse);
+      expect(viewModel.saveError, 'Could not add the sub-item. Try again.');
+      expect(viewModel.children, isEmpty);
+      expect(viewModel.hasChanges, isFalse);
+    });
   });
 }
