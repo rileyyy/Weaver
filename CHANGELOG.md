@@ -33,6 +33,27 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-04 — Server-side work-item query, with MCP search
+
+`feature/server-side-work-item-query` (ticket 17 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0006](docs/adr/0006-server-side-query-and-views.md)). Backend only;
+the app switches to it in ticket 18.
+
+- **Agents can find work items**: MCP `search_work_items` filters by
+  Space, text, status category, assignee, tags (any or all), Type, date
+  window, Backlog and last update, and `#123` looks up that item.
+- **REST:** `GET /api/work-items/search` takes the same inputs and returns
+  full items.
+- **Text search** matches every typed word, or the start of it, in the
+  title, description or When, using Postgres full-text search with an
+  index.
+- **The date window** shows items whose dates overlap it, leaves out
+  undated items, and keeps an undated parent when something under it
+  matches ([ADR-0003](docs/adr/0003-when-and-backlog.md)).
+- **Paging is stable**: results come in `#Number` order with a cursor, so
+  items moving between pages are neither skipped nor repeated.
+
 ## 2026-11-03 — Types replace Layers, per Space
 
 `feature/types-replace-layers` (ticket 13 of
