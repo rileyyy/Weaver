@@ -1,0 +1,44 @@
+using Weaver.Domain;
+
+namespace Weaver.Application.Services;
+
+/// <summary>
+/// Which work items to list (ADR-0006). Every input left out applies no filter, and the inputs
+/// given AND together; a list input matches any of its values unless it says otherwise. Pass the
+/// same values with each page's <see cref="Cursor"/>: the cursor is a position in these results.
+/// </summary>
+/// <param name="SpaceIds">Only items in these Spaces.</param>
+/// <param name="Text">
+/// Words that must all appear, as words or the start of one, in the title, description or When.
+/// Text that is just <c>#123</c> looks up that <see cref="Number"/> instead.
+/// </param>
+/// <param name="Number">Only the item with this Number.</param>
+/// <param name="StatusCategories">Only items whose status is in one of these categories.</param>
+/// <param name="AssigneeId">Only items assigned to this user.</param>
+/// <param name="Tags">Matched ignoring case and combined by <see cref="TagMatch"/>. Tags are global across Spaces.</param>
+/// <param name="TypeIds">Only items of one of these Types.</param>
+/// <param name="From">Start of the date window, inclusive. See <see cref="IWorkItemQueryService"/> for the rule.</param>
+/// <param name="To">End of the date window, inclusive.</param>
+/// <param name="BacklogOnly">Only Backlog items: not Done and with no dates (ADR-0003).</param>
+/// <param name="UpdatedSince">Only items last updated at or after this moment.</param>
+public sealed record WorkItemQuery(
+    IReadOnlyList<Guid>? SpaceIds = null,
+    string? Text = null,
+    int? Number = null,
+    IReadOnlyList<StatusCategory>? StatusCategories = null,
+    Guid? AssigneeId = null,
+    IReadOnlyList<string>? Tags = null,
+    TagMatch TagMatch = TagMatch.Any,
+    IReadOnlyList<Guid>? TypeIds = null,
+    DateOnly? From = null,
+    DateOnly? To = null,
+    bool BacklogOnly = false,
+    DateTimeOffset? UpdatedSince = null,
+    string? Cursor = null,
+    int Limit = WorkItemQuery.DefaultLimit)
+{
+    public const int DefaultLimit = 50;
+    public const int MaxLimit = 1000;
+
+    public bool HasDateWindow => From is not null || To is not null;
+}

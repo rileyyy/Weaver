@@ -186,7 +186,8 @@ public class McpTests
             Assert.That(readOnly, Is.Not.Empty);
             Assert.That(
                 readOnly,
-                Has.All.Matches<string>(n => n.StartsWith("list_") || n.StartsWith("get_") || n == "whoami"));
+                Has.All.Matches<string>(n =>
+                    n.StartsWith("list_") || n.StartsWith("get_") || n.StartsWith("search_") || n == "whoami"));
         });
     }
 

@@ -28,7 +28,7 @@ public class WorkItemHistoryTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(history.Select(e => e.Field), Is.EqualTo(new[] { "statusId", "title", "created" }));
+            Assert.That(history.Select(e => e.Field), Is.EqualTo(new[] { "statusId", "title", "spaceId", "created" }));
             Assert.That(history.Select(e => e.AccountName), Is.All.EqualTo(auth.User.Username));
             Assert.That(history.Select(e => e.AccountKind), Is.All.EqualTo(UserKind.Human));
             Assert.That(history.Select(e => e.ApiKeyId), Is.All.Null);
@@ -54,7 +54,7 @@ public class WorkItemHistoryTests
         {
             Assert.That(stale.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
             Assert.That(invalid.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
-            Assert.That((await HistoryAsync(client, item.Id)).Select(e => e.Field), Is.EqualTo(new[] { "created" }));
+            Assert.That((await HistoryAsync(client, item.Id)).Select(e => e.Field), Is.EqualTo(new[] { "spaceId", "created" }));
         });
     }
 
@@ -68,7 +68,7 @@ public class WorkItemHistoryTests
         var response = await client.PatchJsonAsync($"/api/work-items/{item.Id}/details", new { title = "Renamed" });
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
-        Assert.That((await HistoryAsync(client, item.Id)).Select(e => e.Field), Is.EqualTo(new[] { "created" }));
+        Assert.That((await HistoryAsync(client, item.Id)).Select(e => e.Field), Is.EqualTo(new[] { "spaceId", "created" }));
     }
 
     [Test]
@@ -83,6 +83,7 @@ public class WorkItemHistoryTests
         Assert.That(history.Select(e => (e.Field, e.OldValue?.GetString())), Is.EqualTo(new[]
         {
             ("deleted", (string?)"Short-lived"),
+            ("spaceId", null),
             ("created", null),
         }));
     }

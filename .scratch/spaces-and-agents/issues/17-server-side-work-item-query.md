@@ -4,12 +4,31 @@
 
 **Blocked by:** 13
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Every input above is supported, and combinations AND together
-- [ ] The date window uses the new rule: undated items are excluded, and an undated parent is included when a descendant matches
-- [ ] Backlog-only returns non-Done items with no dates
-- [ ] Cursor paging neither skips nor repeats items when ranks change between pages, with a test
-- [ ] Text search uses Postgres full-text search with supporting indexes
-- [ ] REST endpoint and MCP search tool; `#123` resolves directly
-- [ ] Integration tests against real Postgres for each filter
+- [x] Every input above is supported, and combinations AND together
+- [x] The date window uses the new rule: undated items are excluded, and an undated parent is included when a descendant matches
+- [x] Backlog-only returns non-Done items with no dates
+- [x] Cursor paging neither skips nor repeats items when ranks change between pages, with a test
+- [x] Text search uses Postgres full-text search with supporting indexes
+- [x] REST endpoint and MCP search tool; `#123` resolves directly
+- [x] Integration tests against real Postgres for each filter
+  - `WorkItemSearchTests` has a test for each filter, plus tests for:
+    - the AND combination
+    - the descendant rule
+    - cursor stability when ranks change between pages
+    - bad arguments
+    - MCP with a read-only key
+    - an `EXPLAIN` showing the text search can use its GIN index
+  - The machine that built this has no Docker, so they were first run by CI on PR #12, where all 144 integration tests passed.
+  - The InMemory Application tests (`WorkItemQueryServiceTests`) pass, and a unit test confirms the search's SQL uses the index's exact `to_tsvector` expression.
+
+## Comments
+
+**2026-11-04, from the implementation:**
+
+- **Undated parents:** a parent with no dates is included only when a descendant matches the whole query, not just the date window, so a layout never draws a parent with nothing listed under it.
+- **Include-deleted:** ADR-0006 lists this input, but it isn't here because nothing is soft-deleted until the Trash. Ticket 19 should add it.
+- **Done cutoff:** excluding Done items completed before a cutoff belongs to ticket 21.
+- **Text search and tags:** text search covers title, description and When, but not tags. The old client-side search also matched tags. Ticket 18 should send typed tags through the tag filter, or a later ticket can add tags to the index.
+- **Result shapes:** REST `GET /api/work-items/search` returns full items, for ticket 18. MCP `search_work_items` returns `WorkItemSummary`s, ready for ticket 29's null-omission.

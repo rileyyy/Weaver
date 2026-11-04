@@ -53,4 +53,27 @@ public class PostgresWorkItemHierarchy(WeaverDbContext db) : IWorkItemHierarchy
                 SELECT "Id" AS "Value" FROM descendants
                 """)
             .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Guid>> GetSelfAndAncestorIdsAsync(IReadOnlyCollection<Guid> itemIds, CancellationToken ct = default)
+    {
+        if (itemIds.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = itemIds.ToArray();
+        // UNION (not UNION ALL) drops rows already seen, so this terminates even on a corrupt tree.
+        return await _db.Database
+            .SqlQuery<Guid>($"""
+                WITH RECURSIVE ancestors ("Id", "ParentId") AS (
+                    SELECT "Id", "ParentId" FROM "WorkItems" WHERE "Id" = ANY({ids})
+                    UNION
+                    SELECT w."Id", w."ParentId"
+                    FROM "WorkItems" w
+                    JOIN ancestors a ON w."Id" = a."ParentId"
+                )
+                SELECT DISTINCT "Id" AS "Value" FROM ancestors
+                """)
+            .ToListAsync(ct);
+    }
 }

@@ -60,15 +60,26 @@ public class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         // Postgres treats NULLs as distinct, so hand-created items (both columns null) never collide.
         builder.HasIndex(w => new { w.RecurrenceSourceId, w.RecurrenceDate }).IsUnique();
 
-        // Native Postgres array column (Npgsql maps List<string> to text[]
-        // directly) — no join table, since nothing queries by tag
-        // server-side today (tag search/filter is client-side, matching
-        // every other board filter).
+        // Native Postgres array column (Npgsql maps List<string> to text[] directly), with no
+        // join table: the work-item query matches tags case-insensitively, which an index on
+        // the raw array couldn't serve anyway, and the item count is household-sized.
         builder.Property(w => w.Tags).HasColumnType("text[]").IsRequired();
 
         // One document keyed by field id: fields are defined at runtime, so they can't be
         // columns, and validation lives in the Application layer (ADR-0002).
         builder.Property(w => w.CustomFields).HasJsonConversion();
+
+        // Serves PostgresWorkItemSearch.MatchingText, whose to_tsvector expression must stay
+        // identical to this one or Postgres can't use the index. 'simple' rather than a language:
+        // items mix languages, and prefix matching does the work stemming would.
+        builder.HasIndex(w => new { w.Title, w.Description, w.When })
+            .HasDatabaseName(PostgresWorkItemSearch.IndexName)
+            .HasMethod("GIN")
+            .IsTsVectorExpressionIndex(PostgresWorkItemSearch.TextSearchConfig);
+
+        // Lets the date window range-scan on StartDate. The open-ended (null) cases still need a
+        // filter pass, which is cheap at household scale.
+        builder.HasIndex(w => new { w.StartDate, w.EndDate });
 
         // A board cell is (SpaceId, ParentId, StatusId); rank only needs to sort within that
         // cell. SpaceId leads so a Space's top-level items (null parent) are one cell of their own.

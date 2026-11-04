@@ -15,6 +15,7 @@ public static class DependencyInjection
             .AddInterceptors(new TimestampInterceptor(provider.GetRequiredService<TimeProvider>())));
         services.AddScoped<IWeaverDbContext>(provider => provider.GetRequiredService<WeaverDbContext>());
         services.AddScoped<IWorkItemHierarchy, PostgresWorkItemHierarchy>();
+        services.AddSingleton<IWorkItemSearch, PostgresWorkItemSearch>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
         return services;
     }

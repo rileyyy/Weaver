@@ -445,6 +445,14 @@ namespace Weaver.Infrastructure.Migrations
                     b.HasIndex("RecurrenceSourceId", "RecurrenceDate")
                         .IsUnique();
 
+                    b.HasIndex("StartDate", "EndDate");
+
+                    b.HasIndex("Title", "Description", "When")
+                        .HasDatabaseName("IX_WorkItems_TextSearch")
+                        .HasAnnotation("Npgsql:TsVectorConfig", "simple");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Title", "Description", "When"), "GIN");
+
                     b.HasIndex("SpaceId", "ParentId", "StatusId", "Rank");
 
                     b.ToTable("WorkItems");

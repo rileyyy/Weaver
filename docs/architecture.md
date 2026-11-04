@@ -281,11 +281,10 @@ Each Type defines its own fields (ticket 14,
 ### Tags
 
 - **`Tags` is a `List<string>` mapped to a Postgres `text[]` column**, the
-  first scalar-list field on `WorkItem`. No join table and no index: all
-  tag search and filtering happens on the client over data it already has
-  until the server-side query replaces it
-  ([ADR-0006](adr/0006-server-side-query-and-views.md)). Tags stay global
-  across Spaces.
+  first scalar-list field on `WorkItem`. No join table and no index: the
+  [work-item query](#work-item-query) matches tags lower-cased inside the
+  array (`unnest`), which an index on the raw array couldn't serve, and
+  the item count is household-sized. Tags stay global across Spaces.
 - **Tags are set as a whole** (`SetTagsAsync`, `PATCH
   /work-items/{id}/tags`); there is no add/remove-one endpoint. The client
   sends the complete list, or `null` to clear it; leaving `tags` out
@@ -520,6 +519,62 @@ Each Type defines its own fields (ticket 14,
   configurations also use, so the validation limit and the column limit
   can't drift. Before this, oversized input reached the database and
   returned a 500.
+
+### Work-item query
+
+One query in the Application layer (`IWorkItemQueryService`,
+[ADR-0006](adr/0006-server-side-query-and-views.md)) serves `GET
+/api/work-items/search` (full `WorkItemDto`s, for Flutter from ticket 18)
+and MCP `search_work_items` (`WorkItemSummary`s). Views (ticket 23) will
+store its inputs.
+
+- **Inputs** (`WorkItemQuery`): Spaces, text, `number`, status
+  categories, assignee, tags with `tagMatch` `Any` or `All`, Types, a
+  `from`/`to` date window, `backlogOnly` and `updatedSince`. Each input
+  left out applies no filter, the ones given AND together, and a list
+  input matches any of its values. Over REST a list repeats its key
+  (`?tags=a&tags=b`).
+- **`#123` resolves directly**: text that is just `#` and digits looks up
+  that Number instead of searching.
+- **Text search is Postgres full-text search** with the `simple`
+  configuration over title, description and When. Every typed word must
+  match as a word or the start of one (`paint:* & hall:*`), built by
+  `PostgresPrefixQuery`, which keeps only letters and digits so typed
+  text can't break `to_tsquery`. `simple` rather than a language because
+  items mix languages and prefix matching does the work stemming would.
+  A GIN expression index (`IX_WorkItems_TextSearch`, Npgsql's
+  `IsTsVectorExpressionIndex`) serves it. Postgres only uses an expression
+  index when the query's expression is identical, so
+  `PostgresWorkItemSearch` is written to translate to the index's exact
+  `to_tsvector(...)`, and a unit test reads the SQL to keep them in step.
+  Tags aren't searched by text; the tag filter covers them.
+- **The date window follows [ADR-0003](adr/0003-when-and-backlog.md)**:
+  an item with a date matches when its dates overlap the window (a
+  missing start or end, on the item or the window, is open on that side),
+  and an undated item matches only when one of its descendants matches
+  the whole query, so a layout can still draw the parent a listed item
+  sits under, and never one with nothing listed beneath it. A dated
+  parent is judged by its own dates. The undated ancestors come from
+  `IWorkItemHierarchy.GetSelfAndAncestorIdsAsync`, one recursive query
+  over the parents of the dated matches. A window ending before it
+  starts is a 400.
+- **Backlog-only** is every non-Done item with no dates.
+- **Pages by `Number`**, with an opaque cursor (`WorkItemQueryCursor`)
+  holding the last Number on the page. A Number never changes and new
+  items get higher ones, so items moving between pages (a rank change) or
+  being added can't make a reader skip or repeat one, which an offset over
+  `Rank` could. An item that stops matching between pages simply isn't
+  returned. Default 50 per page, at most 1000. Cursors share
+  `OpaqueCursor`'s encoding with "changes since T" but carry their own
+  prefix, so one listing refuses the other's cursor.
+- **Provider-only matching sits behind `IWorkItemSearch`** (full-text and
+  tags, `PostgresWorkItemSearch`), like `IWorkItemHierarchy`, because the
+  InMemory provider used by the service tests can't run either. The
+  tests use `InMemoryWorkItemSearch`; the Postgres versions are covered by
+  `WorkItemSearchTests` in the integration tests, including an `EXPLAIN`
+  with sequential scans off that shows the index can be used.
+- **Not in it yet**: include-deleted waits for the Trash (ticket 19), and
+  excluding Done items completed before a cutoff for ticket 21.
 
 ### Optimistic concurrency
 
@@ -803,10 +858,9 @@ Each Type defines its own fields (ticket 14,
   `WorkItemService`), so an agent can rebuild the whole tree;
   `list_work_item_children` with `parentId` omitted returns top-level items.
   `list_changes_since` pages with a cursor instead (see
-  [Change history](#change-history)).
-  There is no search, filter or `#Number` lookup yet; the server-side query
-  replaces this paging in Milestone 16
-  ([ADR-0006](adr/0006-server-side-query-and-views.md)).
+  [Change history](#change-history)). `search_work_items` runs the
+  [work-item query](#work-item-query) and returns summaries; it's how an
+  agent filters, searches text or looks up a `#Number`.
 - **Auth is the REST API's.** `app.MapMcp("/mcp")` sits in the same
   pipeline after `UseAuthentication()` / `UseAuthorization()`, so it
   inherits the fallback policy. A request with no bearer value, or a bad
