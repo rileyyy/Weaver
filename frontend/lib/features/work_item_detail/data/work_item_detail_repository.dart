@@ -95,6 +95,32 @@ abstract class WorkItemDetailRepository {
     required int expectedVersion,
   });
 
+  /// Moves the item to [statusId], at the top of that status in its lane.
+  Future<WorkItem> changeStatus(
+    String id,
+    String statusId, {
+    required int expectedVersion,
+  });
+
+  /// Moves the item under [parentId] (null makes it top-level). The server
+  /// rejects a parent that is the item or one of its descendants with a
+  /// 409, as it does a parent in another Space.
+  Future<WorkItem> reparent(
+    String id,
+    String? parentId, {
+    required int expectedVersion,
+  });
+
+  /// Creates a child of [parentId] in its Space with just a title.
+  Future<WorkItemChildSummary> createSubItem(
+    String parentId, {
+    required String title,
+    required String statusId,
+  });
+
+  /// The first page of items in [spaceId] matching [text], for a picker.
+  Future<List<WorkItem>> searchWorkItems(String spaceId, String text);
+
   /// Replaces this work item's full tag list.
   Future<WorkItem> updateTags(
     String id,

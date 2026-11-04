@@ -12,6 +12,7 @@ import 'package:weaver/features/work_item_detail/models/work_item_priority.dart'
 import 'package:weaver/shared/data/status_repository.dart';
 import 'package:weaver/shared/data/type_repository.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
+import 'package:weaver/shared/data/work_item_search_repository.dart';
 import 'package:weaver/shared/models/custom_field.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
@@ -26,12 +27,14 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     this._statuses,
     this._types,
     this._users,
+    this._search,
   ) : _api = JsonApiClient(client, endpoint);
 
   final JsonApiClient _api;
   final StatusRepository _statuses;
   final TypeRepository _types;
   final UserDirectoryRepository _users;
+  final WorkItemSearchRepository _search;
 
   static WorkItem _detail(Object? json) =>
       WorkItem.fromJson(json as Map<String, dynamic>);
@@ -186,6 +189,51 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     _writtenItem,
     failureMessage: 'Failed to save custom fields',
   );
+
+  @override
+  Future<WorkItem> changeStatus(
+    String id,
+    String statusId, {
+    required int expectedVersion,
+  }) => _api.put(
+    '/work-items/$id/status',
+    {'statusId': statusId, 'afterId': null, 'expectedVersion': expectedVersion},
+    _writtenItem,
+    failureMessage: 'Failed to change status',
+  );
+
+  @override
+  Future<WorkItem> reparent(
+    String id,
+    String? parentId, {
+    required int expectedVersion,
+  }) => _api.put(
+    '/work-items/$id/parent',
+    {'parentId': parentId, 'afterId': null, 'expectedVersion': expectedVersion},
+    _writtenItem,
+    failureMessage: 'Failed to change the parent',
+  );
+
+  @override
+  Future<WorkItemChildSummary> createSubItem(
+    String parentId, {
+    required String title,
+    required String statusId,
+  }) => _api.post(
+    '/work-items',
+    {
+      'title': title,
+      'description': null,
+      'parentId': parentId,
+      'statusId': statusId,
+    },
+    (json) => WorkItemChildSummary.fromJson(json as Map<String, dynamic>),
+    failureMessage: 'Failed to create sub-item',
+  );
+
+  @override
+  Future<List<WorkItem>> searchWorkItems(String spaceId, String text) =>
+      _search.search(spaceId: spaceId, text: text);
 
   @override
   Future<WorkItem> updateTags(

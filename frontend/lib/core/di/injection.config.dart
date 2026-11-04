@@ -87,11 +87,14 @@ import 'package:weaver/shared/data/api_space_repository.dart' as _i796;
 import 'package:weaver/shared/data/api_status_repository.dart' as _i209;
 import 'package:weaver/shared/data/api_type_repository.dart' as _i601;
 import 'package:weaver/shared/data/api_user_directory_repository.dart' as _i982;
+import 'package:weaver/shared/data/api_work_item_search_repository.dart'
+    as _i607;
 import 'package:weaver/shared/data/current_user.dart' as _i875;
 import 'package:weaver/shared/data/space_repository.dart' as _i600;
 import 'package:weaver/shared/data/status_repository.dart' as _i770;
 import 'package:weaver/shared/data/type_repository.dart' as _i930;
 import 'package:weaver/shared/data/user_directory_repository.dart' as _i562;
+import 'package:weaver/shared/data/work_item_search_repository.dart' as _i871;
 import 'package:weaver/shared/data/work_item_store.dart' as _i723;
 import 'package:weaver/shared/recurrence/data/api_recurrence_repository.dart'
     as _i919;
@@ -162,6 +165,12 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i447.SpaceAdminRepository>(
       () => _i775.ApiSpaceAdminRepository(
+        gh<_i519.Client>(),
+        gh<_i202.ApiEndpoint>(),
+      ),
+    );
+    gh.lazySingleton<_i871.WorkItemSearchRepository>(
+      () => _i607.ApiWorkItemSearchRepository(
         gh<_i519.Client>(),
         gh<_i202.ApiEndpoint>(),
       ),
@@ -241,6 +250,16 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i562.UserDirectoryRepository>(),
       ),
     );
+    gh.lazySingleton<_i982.WorkItemDetailRepository>(
+      () => _i335.ApiWorkItemDetailRepository(
+        gh<_i519.Client>(),
+        gh<_i202.ApiEndpoint>(),
+        gh<_i770.StatusRepository>(),
+        gh<_i930.TypeRepository>(),
+        gh<_i562.UserDirectoryRepository>(),
+        gh<_i871.WorkItemSearchRepository>(),
+      ),
+    );
     gh.lazySingleton<_i377.LookupAdminRepository>(
       () => _i427.ApiLookupAdminRepository(
         gh<_i519.Client>(),
@@ -265,15 +284,6 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i588.AgentAdminViewModel>(
       () => _i588.AgentAdminViewModel(gh<_i6.AgentAdminRepository>()),
-    );
-    gh.lazySingleton<_i982.WorkItemDetailRepository>(
-      () => _i335.ApiWorkItemDetailRepository(
-        gh<_i519.Client>(),
-        gh<_i202.ApiEndpoint>(),
-        gh<_i770.StatusRepository>(),
-        gh<_i930.TypeRepository>(),
-        gh<_i562.UserDirectoryRepository>(),
-      ),
     );
     gh.factory<_i338.ServerSettingsAdminViewModel>(
       () => _i338.ServerSettingsAdminViewModel(

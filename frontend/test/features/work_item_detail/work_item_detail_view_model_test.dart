@@ -25,6 +25,8 @@ import '../../shared/fakes/work_items.dart';
 
 WorkItem _item({
   String id = 'item-1',
+  int number = 1,
+  String? parentId,
   String statusId = 'todo',
   String? typeId,
   String? priorityId,
@@ -36,10 +38,10 @@ WorkItem _item({
   Map<String, Object?> fields = const {},
   int version = 1,
 }) => WorkItem(
-  number: 1,
+  number: number,
   id: id,
   spaceId: 'home',
-  parentId: null,
+  parentId: parentId,
   title: title,
   description: description,
   statusId: statusId,
@@ -91,6 +93,18 @@ class _FakeRepository implements WorkItemDetailRepository {
   Map<String, List<CustomField>> fieldsByType = {};
   final List<String> loadCustomFieldsCalls = [];
   final List<Map<String, Object?>> setCustomFieldsCalls = [];
+  final List<String> changeStatusCalls = [];
+  final List<String?> reparentCalls = [];
+  final List<(String, String, String)> createSubItemCalls = [];
+  final List<(String, String)> searchCalls = [];
+  List<WorkItem> searchResults = const [];
+
+  /// Ids the server would refuse as this item's parent, since they're the
+  /// item's own descendants.
+  Set<String> descendantIds = const {};
+
+  /// Items [getItem] serves other than [item], such as its parent.
+  final Map<String, WorkItem> others = {};
 
   /// When set, [assign] waits on it, so a test can overlap two saves.
   Completer<void>? assignGate;
@@ -108,7 +122,7 @@ class _FakeRepository implements WorkItemDetailRepository {
     final error = getItemError;
     // An Object so tests can simulate either an API failure or a bug.
     if (error != null) Error.throwWithStackTrace(error, StackTrace.current);
-    return item;
+    return others[id] ?? item;
   }
 
   @override
@@ -239,6 +253,77 @@ class _FakeRepository implements WorkItemDetailRepository {
     if (error != null) throw error;
     _checkVersion(expectedVersion);
     return item = withVersion(item, item.version + 1);
+  }
+
+  @override
+  Future<WorkItem> changeStatus(
+    String id,
+    String statusId, {
+    required int expectedVersion,
+  }) async {
+    changeStatusCalls.add(statusId);
+    expectedVersions.add(expectedVersion);
+    final error = saveError;
+    if (error != null) throw error;
+    _checkVersion(expectedVersion);
+    return item = _item(
+      id: id,
+      statusId: statusId,
+      parentId: item.parentId,
+      version: item.version + 1,
+    );
+  }
+
+  @override
+  Future<WorkItem> reparent(
+    String id,
+    String? parentId, {
+    required int expectedVersion,
+  }) async {
+    reparentCalls.add(parentId);
+    expectedVersions.add(expectedVersion);
+    final error = saveError;
+    if (error != null) throw error;
+    _checkVersion(expectedVersion);
+    if (parentId != null && descendantIds.contains(parentId)) {
+      throw const ApiException(
+        'Cannot set parent: it would create a cycle.',
+        statusCode: 409,
+      );
+    }
+    return item = _item(
+      id: id,
+      statusId: item.statusId,
+      parentId: parentId,
+      version: item.version + 1,
+    );
+  }
+
+  @override
+  Future<WorkItemChildSummary> createSubItem(
+    String parentId, {
+    required String title,
+    required String statusId,
+  }) async {
+    createSubItemCalls.add((parentId, title, statusId));
+    final error = saveError;
+    if (error != null) throw error;
+    final child = WorkItemChildSummary(
+      id: 'child-${childrenList.length + 1}',
+      number: 100 + childrenList.length,
+      title: title,
+      statusId: statusId,
+    );
+    childrenList.add(child);
+    return child;
+  }
+
+  @override
+  Future<List<WorkItem>> searchWorkItems(String spaceId, String text) async {
+    searchCalls.add((spaceId, text));
+    final error = saveError;
+    if (error != null) throw error;
+    return searchResults;
   }
 
   @override

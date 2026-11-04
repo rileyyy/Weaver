@@ -9,6 +9,7 @@ import 'package:weaver/features/work_item_detail/models/quick_pick.dart';
 import 'package:weaver/shared/data/api_status_repository.dart';
 import 'package:weaver/shared/data/api_type_repository.dart';
 import 'package:weaver/shared/data/api_user_directory_repository.dart';
+import 'package:weaver/shared/data/api_work_item_search_repository.dart';
 import 'package:weaver/shared/models/custom_field_kind.dart';
 
 import '../../../core/network/fakes/fixed_api_endpoint.dart';
@@ -64,10 +65,19 @@ Map<String, dynamic> _commentJson({DateTime? updatedAt}) => {
   'updatedAtUtc': updatedAt?.toIso8601String(),
 };
 
-void main() {
-  const baseUrl = 'http://backend.test/api';
-  const endpoint = FixedApiEndpoint(baseUrl);
+const _endpoint = FixedApiEndpoint('http://backend.test/api');
 
+ApiWorkItemDetailRepository _repository(http.Client client) =>
+    ApiWorkItemDetailRepository(
+      client,
+      _endpoint,
+      ApiStatusRepository(client, _endpoint),
+      ApiTypeRepository(client, _endpoint),
+      ApiUserDirectoryRepository(client, _endpoint),
+      ApiWorkItemSearchRepository(client, _endpoint),
+    );
+
+void main() {
   test(
     'getItem parses the work item, including type/priority/assignee',
     () async {
@@ -80,13 +90,7 @@ void main() {
           ),
         ),
       );
-      final repository = ApiWorkItemDetailRepository(
-        client,
-        endpoint,
-        ApiStatusRepository(client, endpoint),
-        ApiTypeRepository(client, endpoint),
-        ApiUserDirectoryRepository(client, endpoint),
-      );
+      final repository = _repository(client);
 
       final item = await repository.getItem('item-1');
 
@@ -101,13 +105,7 @@ void main() {
       (request) async =>
           _jsonResponse(_itemJson(tags: ['urgent', 'needs review'])),
     );
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiTypeRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+    final repository = _repository(client);
 
     final item = await repository.getItem('item-1');
 
@@ -127,13 +125,7 @@ void main() {
         },
       ]);
     });
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiTypeRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+    final repository = _repository(client);
 
     final children = await repository.loadChildren('item-1');
 
@@ -151,13 +143,7 @@ void main() {
         {'id': 'type-1', 'name': 'Project', 'order': 0},
       ]);
     });
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiTypeRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+    final repository = _repository(client);
 
     final types = await repository.loadTypes('home');
 
@@ -174,13 +160,7 @@ void main() {
         {'id': 'priority-high', 'name': 'High', 'order': 2},
       ]);
     });
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiTypeRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+    final repository = _repository(client);
 
     final priorities = await repository.loadPriorities('home');
 
@@ -202,13 +182,7 @@ void main() {
         },
       ]),
     );
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiTypeRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+    final repository = _repository(client);
 
     final users = await repository.loadUsers();
 
@@ -225,13 +199,7 @@ void main() {
           _writeJson(_itemJson(typeId: 'type-1', priorityId: 'priority-high')),
         );
       });
-      final repository = ApiWorkItemDetailRepository(
-        client,
-        endpoint,
-        ApiStatusRepository(client, endpoint),
-        ApiTypeRepository(client, endpoint),
-        ApiUserDirectoryRepository(client, endpoint),
-      );
+      final repository = _repository(client);
 
       final item = await repository.updateDetails(
         'item-1',
@@ -263,13 +231,7 @@ void main() {
         sentRequest = request;
         return _jsonResponse(_writeJson(_itemJson(version: 8)));
       });
-      final repository = ApiWorkItemDetailRepository(
-        client,
-        endpoint,
-        ApiStatusRepository(client, endpoint),
-        ApiTypeRepository(client, endpoint),
-        ApiUserDirectoryRepository(client, endpoint),
-      );
+      final repository = _repository(client);
 
       final item = await repository.updateDescription(
         'item-1',
@@ -291,13 +253,7 @@ void main() {
     final client = MockClient(
       (request) async => _jsonResponse(_writeJson(_itemJson(version: 8))),
     );
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiTypeRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+    final repository = _repository(client);
 
     final item = await repository.updateDetails(
       'item-1',
@@ -320,13 +276,7 @@ void main() {
           'detail': 'Changed by someone else.',
         }, statusCode: 409),
       );
-      final repository = ApiWorkItemDetailRepository(
-        client,
-        endpoint,
-        ApiStatusRepository(client, endpoint),
-        ApiTypeRepository(client, endpoint),
-        ApiUserDirectoryRepository(client, endpoint),
-      );
+      final repository = _repository(client);
 
       final call = repository.updateTags('item-1', [
         'urgent',
@@ -355,13 +305,7 @@ void main() {
         sentRequest = request;
         return _jsonResponse(_writeJson(_itemJson(assignedToUserId: 'user-1')));
       });
-      final repository = ApiWorkItemDetailRepository(
-        client,
-        endpoint,
-        ApiStatusRepository(client, endpoint),
-        ApiTypeRepository(client, endpoint),
-        ApiUserDirectoryRepository(client, endpoint),
-      );
+      final repository = _repository(client);
 
       final item = await repository.assign(
         'item-1',
@@ -385,13 +329,7 @@ void main() {
       sentRequest = request;
       return _jsonResponse(_writeJson(_itemJson(tags: ['urgent'])));
     });
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiTypeRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+    final repository = _repository(client);
 
     final item = await repository.updateTags('item-1', [
       'urgent',
@@ -423,13 +361,7 @@ void main() {
         },
       ]);
     });
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiTypeRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+    final repository = _repository(client);
 
     final fields = await repository.loadCustomFields('type-room');
 
@@ -447,13 +379,7 @@ void main() {
         _writeJson(_itemJson(fields: {'field-budget': 1200}, version: 8)),
       );
     });
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiTypeRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+    final repository = _repository(client);
 
     final item = await repository.setCustomFields('item-1', {
       'field-budget': 1200,
@@ -475,13 +401,7 @@ void main() {
       sentRequest = request;
       return _jsonResponse(_writeJson(_itemJson()));
     });
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiTypeRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+    final repository = _repository(client);
     final start = DateTime(2026, 2, 1);
 
     await repository.reschedule('item-1', start, null, expectedVersion: 7);
@@ -507,13 +427,7 @@ void main() {
         }),
       );
     });
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiTypeRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+    final repository = _repository(client);
 
     final item = await repository.updateWhen(
       'item-1',
@@ -543,13 +457,7 @@ void main() {
         },
       ]);
     });
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiTypeRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+    final repository = _repository(client);
 
     final picks = await repository.loadQuickPicks();
 
@@ -563,13 +471,7 @@ void main() {
     final client = MockClient(
       (request) async => _jsonResponse([_commentJson()]),
     );
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiTypeRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+    final repository = _repository(client);
 
     final comments = await repository.loadComments('item-1');
 
@@ -583,13 +485,7 @@ void main() {
       sentRequest = request;
       return _jsonResponse(_commentJson());
     });
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiTypeRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+    final repository = _repository(client);
 
     await repository.addComment('item-1', 'Looks good');
 
@@ -604,13 +500,7 @@ void main() {
       sentRequest = request;
       return _jsonResponse(_commentJson(updatedAt: DateTime.utc(2026, 1, 2)));
     });
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiTypeRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+    final repository = _repository(client);
 
     final comment = await repository.updateComment('comment-1', 'Edited');
 
@@ -625,13 +515,7 @@ void main() {
       sentRequest = request;
       return http.Response('', 204);
     });
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiTypeRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+    final repository = _repository(client);
 
     await repository.deleteComment('comment-1');
 
@@ -647,13 +531,7 @@ void main() {
         sentRequest = request;
         return http.Response('', 204);
       });
-      final repository = ApiWorkItemDetailRepository(
-        client,
-        endpoint,
-        ApiStatusRepository(client, endpoint),
-        ApiTypeRepository(client, endpoint),
-        ApiUserDirectoryRepository(client, endpoint),
-      );
+      final repository = _repository(client);
 
       await repository.deleteItem('item-1', cascade: true, expectedVersion: 7);
 
@@ -676,13 +554,7 @@ void main() {
         },
       ]),
     );
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiTypeRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+    final repository = _repository(client);
 
     final links = await repository.loadLinks('item-1');
 
@@ -699,13 +571,7 @@ void main() {
         'linkedWorkItemTitle': 'Other task',
       });
     });
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiTypeRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+    final repository = _repository(client);
 
     await repository.addLink('item-1', 'item-2');
 
@@ -719,17 +585,97 @@ void main() {
       sentRequest = request;
       return http.Response('', 204);
     });
-    final repository = ApiWorkItemDetailRepository(
-      client,
-      endpoint,
-      ApiStatusRepository(client, endpoint),
-      ApiTypeRepository(client, endpoint),
-      ApiUserDirectoryRepository(client, endpoint),
-    );
+    final repository = _repository(client);
 
     await repository.deleteLink('link-1');
 
     expect(sentRequest!.method, 'DELETE');
     expect(sentRequest!.url.path, '/api/work-item-links/link-1');
+  });
+
+  test('changeStatus puts the status and version, ranking it first', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse(_writeJson(_itemJson(version: 8)));
+    });
+
+    final saved = await _repository(
+      client,
+    ).changeStatus('item-1', 'status-done', expectedVersion: 7);
+
+    expect(sentRequest!.method, 'PUT');
+    expect(sentRequest!.url.path, '/api/work-items/item-1/status');
+    expect(jsonDecode(sentRequest!.body), {
+      'statusId': 'status-done',
+      'afterId': null,
+      'expectedVersion': 7,
+    });
+    expect(saved.version, 8);
+  });
+
+  test('reparent puts the new parent, or null for none', () async {
+    final bodies = <Object?>[];
+    final client = MockClient((request) async {
+      expect(request.url.path, '/api/work-items/item-1/parent');
+      bodies.add(jsonDecode(request.body));
+      return _jsonResponse(_writeJson(_itemJson()));
+    });
+    final repository = _repository(client);
+
+    await repository.reparent('item-1', 'parent-1', expectedVersion: 7);
+    await repository.reparent('item-1', null, expectedVersion: 8);
+
+    expect(bodies, [
+      {'parentId': 'parent-1', 'afterId': null, 'expectedVersion': 7},
+      {'parentId': null, 'afterId': null, 'expectedVersion': 8},
+    ]);
+  });
+
+  test('createSubItem posts a child of the parent and returns it', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse({
+        ..._itemJson(),
+        'id': 'child-1',
+        'number': 12,
+        'title': 'Paint',
+      }, statusCode: 201);
+    });
+
+    final child = await _repository(
+      client,
+    ).createSubItem('item-1', title: 'Paint', statusId: 'status-todo');
+
+    expect(sentRequest!.method, 'POST');
+    expect(sentRequest!.url.path, '/api/work-items');
+    expect(jsonDecode(sentRequest!.body), {
+      'title': 'Paint',
+      'description': null,
+      'parentId': 'item-1',
+      'statusId': 'status-todo',
+    });
+    expect(child.id, 'child-1');
+    expect(child.number, 12);
+    expect(child.title, 'Paint');
+  });
+
+  test('searchWorkItems searches the given Space', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse({
+        'items': [_itemJson()],
+        'nextCursor': null,
+      });
+    });
+
+    final items = await _repository(client).searchWorkItems('space-home', '#1');
+
+    expect(sentRequest!.url.path, '/api/work-items/search');
+    expect(sentRequest!.url.queryParameters['spaceIds'], 'space-home');
+    expect(sentRequest!.url.queryParameters['text'], '#1');
+    expect(items.single.id, 'item-1');
   });
 }
