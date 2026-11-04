@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/shared/markdown/markdown_text.dart';
+import 'package:weaver/shared/navigation/external_link_opener.dart';
 
 Future<void> _show(
   WidgetTester tester,

@@ -10,7 +10,9 @@ import 'package:weaver/features/work_item_detail/models/quick_pick.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_link_type.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_url_link.dart';
 import 'package:weaver/shared/data/current_user.dart';
 import 'package:weaver/shared/data/work_item_conflict.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
@@ -41,6 +43,7 @@ class WorkItemDetailViewModel extends ViewModel {
   List<User> _users = const [];
   List<WorkItemComment> _comments = const [];
   List<WorkItemLink> _links = const [];
+  List<WorkItemUrlLink> _urlLinks = const [];
   List<WorkItemChildSummary> _children = const [];
   WorkItem? _parent;
   bool _isLoading = true;
@@ -69,6 +72,7 @@ class WorkItemDetailViewModel extends ViewModel {
   List<User> get users => _users;
   List<WorkItemComment> get comments => _comments;
   List<WorkItemLink> get links => _links;
+  List<WorkItemUrlLink> get urlLinks => _urlLinks;
   List<WorkItemChildSummary> get children => _children;
 
   /// The item's parent, for its number and title; null for a top-level
@@ -127,6 +131,15 @@ class WorkItemDetailViewModel extends ViewModel {
       final AsyncError? e,
     ) =>
       [a, b, c, d, e],
+    (
+      final AsyncError? a,
+      final AsyncError? b,
+      final AsyncError? c,
+      final AsyncError? d,
+      final AsyncError? e,
+      final AsyncError? f,
+    ) =>
+      [a, b, c, d, e, f],
     _ => throw StateError('Unexpected parallel wait errors: $errors'),
   };
 
@@ -137,11 +150,12 @@ class WorkItemDetailViewModel extends ViewModel {
 
     try {
       final asOf = _items.revision;
-      final (item, users, comments, links, children) = await (
+      final (item, users, comments, links, urlLinks, children) = await (
         _repository.getItem(id),
         _repository.loadUsers(),
         _repository.loadComments(id),
         _repository.loadLinks(id),
+        _repository.loadUrlLinks(id),
         _repository.loadChildren(id),
       ).wait;
       // Only the item says which Space's statuses, Types and priorities it
@@ -163,6 +177,7 @@ class WorkItemDetailViewModel extends ViewModel {
       _users = users;
       _comments = comments;
       _links = links;
+      _urlLinks = urlLinks;
       _children = children;
       _parent = parent;
     } on ParallelWaitError<Object?, Object?> catch (e) {
@@ -414,14 +429,27 @@ class WorkItemDetailViewModel extends ViewModel {
     ];
   }, errorMessage: 'Could not delete this comment. Try again.');
 
-  Future<bool> addLink(String targetWorkItemId) => _mutate(
+  /// Links this item to [target] as [type], read from this item's side.
+  /// The server's reason for refusing a link (a self link, a repeat, or a
+  /// blocks cycle) is shown as it says it.
+  Future<bool> addLink(WorkItem target, WorkItemLinkType type) => _mutate(
     () async {
-      final created = await _repository.addLink(_id, targetWorkItemId);
+      final created = await _repository.addLink(_id, target.id, type);
       _links = [..._links, created];
     },
-    errorMessage:
-        'Could not add this link. Check the work item id and try again.',
+    errorMessage: 'Could not add this link. Try again.',
+    serverExplainsRefusal: true,
   );
+
+  /// Items in every Space that [text] matches, to pick a link's target
+  /// from. The item itself is left out, since the server would refuse it.
+  Future<List<WorkItem>> searchLinkTargets(String text) async {
+    final found = await _repository.searchAllWorkItems(text);
+    return [
+      for (final candidate in found)
+        if (candidate.id != _itemId) candidate,
+    ];
+  }
 
   Future<bool> deleteLink(String linkId) => _mutate(() async {
     await _repository.deleteLink(linkId);
@@ -430,6 +458,30 @@ class WorkItemDetailViewModel extends ViewModel {
         if (l.id != linkId) l,
     ];
   }, errorMessage: 'Could not remove this link. Try again.');
+
+  /// Adds a web link to [url], named [label] when it isn't blank.
+  Future<bool> addUrlLink(String url, {String? label}) {
+    final trimmedUrl = url.trim();
+    final error = WorkItemUrlLink.urlError(trimmedUrl);
+    if (error != null) return _reject(error);
+    final trimmedLabel = label?.trim();
+    return _mutate(() async {
+      final created = await _repository.addUrlLink(
+        _id,
+        trimmedUrl,
+        label: (trimmedLabel?.isEmpty ?? true) ? null : trimmedLabel,
+      );
+      _urlLinks = [..._urlLinks, created];
+    }, errorMessage: 'Could not add this web link. Try again.');
+  }
+
+  Future<bool> deleteUrlLink(String urlLinkId) => _mutate(() async {
+    await _repository.deleteUrlLink(urlLinkId);
+    _urlLinks = [
+      for (final l in _urlLinks)
+        if (l.id != urlLinkId) l,
+    ];
+  }, errorMessage: 'Could not remove this web link. Try again.');
 
   /// Creates a child of this item, in its Space, with just [title] and the
   /// Space's first status, and lists it under Sub-Items. The new item isn't
@@ -500,6 +552,7 @@ class WorkItemDetailViewModel extends ViewModel {
     Future<void> Function() action, {
     required String errorMessage,
     String? refusedMessage,
+    bool serverExplainsRefusal = false,
   }) async {
     _pendingSaves++;
     _saveError = null;
@@ -519,6 +572,7 @@ class WorkItemDetailViewModel extends ViewModel {
         // A 409 that isn't a [WorkItemConflict]: the change broke a rule.
         ApiException(isConflict: true) when refusedMessage != null =>
           refusedMessage,
+        ApiException(isConflict: true) when serverExplainsRefusal => e.message,
         _ => errorMessage,
       };
       return false;

@@ -176,7 +176,87 @@ void main() {
       );
     });
 
-    test('links name the other item', () {
+    test('typed links name the type in words and the other item', () {
+      expect(
+        _change(
+          _entryJson(
+            field: 'link',
+            newValue: {'workItemId': 'x', 'type': 'Blocks'},
+            newName: '#4 Paint',
+          ),
+        ),
+        'Linked: blocks #4 Paint',
+      );
+      expect(
+        _change(
+          _entryJson(
+            field: 'link',
+            oldValue: {'workItemId': 'x', 'type': 'BlockedBy'},
+            oldName: '#4 Drywall',
+          ),
+        ),
+        'Unlinked: blocked by #4 Drywall',
+      );
+      expect(
+        _change(
+          _entryJson(
+            field: 'link',
+            newValue: {'workItemId': 'x', 'type': 'Related'},
+            newName: '#4 Other',
+          ),
+        ),
+        'Linked: related to #4 Other',
+      );
+    });
+
+    test('a typed link to a purged item falls back to its id', () {
+      expect(
+        _change(
+          _entryJson(
+            field: 'link',
+            newValue: {'workItemId': 'x', 'type': 'DuplicatedBy'},
+          ),
+        ),
+        'Linked: duplicated by x',
+      );
+    });
+
+    test('a link of a type this app does not know still reads', () {
+      expect(
+        _change(
+          _entryJson(
+            field: 'link',
+            newValue: {'workItemId': 'x', 'type': 'Causes'},
+            newName: '#4 Other',
+          ),
+        ),
+        'Linked #4 Other',
+      );
+    });
+
+    test('URL links name the label, or the URL without one', () {
+      expect(
+        _change(
+          _entryJson(
+            field: 'urlLink',
+            newValue: {'url': 'https://example.com/pr/7', 'label': 'PR 7'},
+            newName: 'PR 7',
+          ),
+        ),
+        'Added link PR 7',
+      );
+      expect(
+        _change(
+          _entryJson(
+            field: 'urlLink',
+            oldValue: {'url': 'https://example.com/pr/7', 'label': null},
+          ),
+        ),
+        'Removed link https://example.com/pr/7',
+      );
+    });
+
+    test('untyped links from before link types name the other item', () {
       expect(
         _change(_entryJson(field: 'link', newValue: 'x', newName: '#4 Other')),
         'Linked #4 Other',

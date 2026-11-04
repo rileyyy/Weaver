@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:weaver/core/dates/date_format.dart';
 import 'package:weaver/core/di/injection.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_link_type.dart';
 import 'package:weaver/features/work_item_detail/repeat_settings_view_model.dart';
 import 'package:weaver/features/work_item_detail/widgets/comments_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/confirm_dialogs.dart';
@@ -16,6 +17,7 @@ import 'package:weaver/features/work_item_detail/widgets/repeat_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/schedule_fields.dart';
 import 'package:weaver/features/work_item_detail/widgets/sub_items_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/tags_editor.dart';
+import 'package:weaver/features/work_item_detail/widgets/url_links_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/when_field.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
 import 'package:weaver/features/work_item_detail/work_item_history_view_model.dart';
@@ -489,8 +491,15 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
         const SizedBox(height: 20),
         LinksSection(
           links: _viewModel.links,
-          onAdd: _viewModel.addLink,
+          onAdd: (type) => unawaited(_pickLink(type)),
           onRemove: (id) => unawaited(_viewModel.deleteLink(id)),
+          onOpen: (id) => unawaited(_openNestedItem(id)),
+        ),
+        const SizedBox(height: 20),
+        UrlLinksSection(
+          links: _viewModel.urlLinks,
+          onAdd: (url, label) => _viewModel.addUrlLink(url, label: label),
+          onRemove: (id) => unawaited(_viewModel.deleteUrlLink(id)),
         ),
       ],
     );
@@ -573,6 +582,17 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
     await _viewModel.saveParent(pick.item);
   }
 
+  Future<void> _pickLink(WorkItemLinkType type) async {
+    final pick = await showWorkItemPicker(
+      context,
+      title: 'Add a "${type.label}" link',
+      search: _viewModel.searchLinkTargets,
+    );
+    final target = pick?.item;
+    if (target == null) return;
+    await _viewModel.addLink(target, type);
+  }
+
   Future<void> _closeDiscardingChanges() async {
     if (!await confirmDiscardChanges(context) || !mounted) return;
     _seedFrom(_viewModel.item!);
@@ -598,8 +618,8 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
     await _repeat.stopRepeating();
   }
 
-  /// Opens a sub-item, or the item that created this one, in a dialog on
-  /// top of this one.
+  /// Opens a sub-item, a linked item, or the item that created this one,
+  /// in a dialog on top of this one.
   Future<void> _openNestedItem(String workItemId) async {
     final changed = await showWorkItemDetailDialog(
       context,
