@@ -32,26 +32,25 @@ class _StubBoardRepository implements BoardRepository {
   @override
   Future<BoardData> loadBoard(String spaceId, String? scopeItemId) =>
       Future.value(
-    BoardData(
-      statuses: const [WorkItemStatus(id: 'todo', name: 'To Do', order: 0)],
-      swimlanes: [
-        SwimlaneItems(
-          lane: workItem('epic-board', title: 'Swimlane board'),
-          cards: [
-            workItem(
-              'wi-1',
-              title: 'Design swimlane layout',
-              parentId: 'epic-board',
+        BoardData(
+          statuses: const [WorkItemStatus(id: 'todo', name: 'To Do', order: 0)],
+          swimlanes: [
+            SwimlaneItems(
+              lane: workItem('epic-board', title: 'Swimlane board'),
+              cards: [
+                workItem(
+                  'wi-1',
+                  title: 'Design swimlane layout',
+                  parentId: 'epic-board',
+                ),
+              ],
             ),
           ],
         ),
-      ],
-    ),
-  );
+      );
 
   @override
-  Future<List<WorkItem>> loadAllItems(String spaceId) =>
-      Future.value(const []);
+  Future<List<WorkItem>> loadAllItems(String spaceId) => Future.value(const []);
 
   @override
   Future<List<User>> loadUsers() => Future.value(const []);

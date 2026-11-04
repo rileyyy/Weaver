@@ -23,19 +23,20 @@ class WorkItemCard {
 
   /// [item] drawn as a card in the lane of [laneId], which owns it on the
   /// board whatever [WorkItem.parentId] says.
-  factory WorkItemCard.fromWorkItem(WorkItem item, {required String laneId}) => WorkItemCard(
-    id: item.id,
-    number: item.number,
-    title: item.title,
-    parentId: laneId,
-    statusId: item.statusId,
-    description: item.description,
-    startDate: item.startDate,
-    endDate: item.endDate,
-    assignedToUserId: item.assignedToUserId,
-    typeId: item.typeId,
-    tags: item.tags,
-  );
+  factory WorkItemCard.fromWorkItem(WorkItem item, {required String laneId}) =>
+      WorkItemCard(
+        id: item.id,
+        number: item.number,
+        title: item.title,
+        parentId: laneId,
+        statusId: item.statusId,
+        description: item.description,
+        startDate: item.startDate,
+        endDate: item.endDate,
+        assignedToUserId: item.assignedToUserId,
+        typeId: item.typeId,
+        tags: item.tags,
+      );
 
   final String id;
 
