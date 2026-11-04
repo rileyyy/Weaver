@@ -17,7 +17,8 @@ internal static class WorkItemSummaries
             w.StartDate,
             w.EndDate,
             w.AssignedToUser == null ? null : w.AssignedToUser.Username,
-            // EF applies the Trash filter to the navigation too, so trashed children aren't counted.
-            w.Children.Count(),
+            // Filtered here rather than left to the Trash query filter: a caller that reads
+            // trashed rows lifts that filter from navigations too.
+            w.Children.Count(c => c.TrashedAtUtc == null),
             w.TrashedAtUtc));
 }

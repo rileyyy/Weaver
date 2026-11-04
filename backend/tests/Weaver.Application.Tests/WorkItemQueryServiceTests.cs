@@ -474,6 +474,20 @@ public class WorkItemQueryServiceTests
         Assert.That(page.Items.Single().ChildCount, Is.EqualTo(1));
     }
 
+    // IgnoreQueryFilters lifts the Trash filter from navigations too, so the count says so itself.
+    [Test]
+    public async Task ChildCount_LeavesTrashedChildrenOut_EvenWithIncludeDeleted()
+    {
+        var parent = await CreateAsync("Parent");
+        var child = await CreateAsync("Child", parent.Id);
+        await CreateAsync("Sibling", parent.Id);
+        await _trash.MoveToTrashAsync(child.Id);
+
+        var page = await _query.QuerySummariesAsync(new WorkItemQuery(Number: parent.Number, IncludeDeleted: true));
+
+        Assert.That(page.Items.Single().ChildCount, Is.EqualTo(1));
+    }
+
     private static DateOnly Nov(int day) => new(2026, 11, day);
 
     private async Task<WorkItem> CreateDatedAsync(string title, DateOnly? start, DateOnly? end, Guid? parentId = null)

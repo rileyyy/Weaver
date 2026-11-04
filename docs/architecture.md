@@ -115,9 +115,10 @@ and it is what allows MCP tools to reuse the same business logic (see
   every row stays, with its links, comments and history.
   - **An EF global query filter** (`TrashedAtUtc == null`) hides trashed
     items from every normal read, so a new query can't forget to. Comments,
-    links (either end trashed) and recurrences carry matching filters, and
-    EF applies the filter inside navigations too, so child counts skip the
-    Trash. Raw SQL skips EF's filters, so the recursive descendant walk
+    links (either end trashed) and recurrences carry matching filters. EF
+    applies the filter inside navigations too, but `IgnoreQueryFilters()`
+    lifts it from them as well, so a projection that must skip the Trash
+    whatever the caller (the summary's child count) filters explicitly. Raw SQL skips EF's filters, so the recursive descendant walk
     repeats it; the walks up don't need it, since a live item never sits
     under a trashed one.
   - **Opting out is explicit**, with `IgnoreQueryFilters()`: the Trash

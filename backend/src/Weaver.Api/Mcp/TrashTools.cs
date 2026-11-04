@@ -23,7 +23,7 @@ public class TrashTools(IWorkItemTrashService trash, HttpCallerContext caller)
     public Task DeleteWorkItem(
         [Description("The work item's id.")] Guid id,
         [Description("Must be true to delete a work item that has children; this also deletes the entire subtree.")] bool cascade = false,
-        [Description(WorkItemTools.ExpectedVersionDescription)] uint? expectedVersion = null,
+        [Description(ExpectedVersionArgument.Description)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(() =>

@@ -13,10 +13,6 @@ namespace Weaver.Api.Mcp;
 [McpServerToolType]
 public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
 {
-    internal const string ExpectedVersionDescription =
-        "The work item's version from your last read. If given and the item has changed since, the " +
-        "write is rejected instead of overwriting someone else's change.";
-
     private const string PatchDescription =
         "Only the fields you send change: leave a field out to keep it, or send null to clear it. " +
         "Returns the item with its new version and the list of fields that changed.";
@@ -89,7 +85,7 @@ public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
         [Description("The work item's id.")] Guid id,
         [Description("Id of the status column to move the item to: one of the item's own Space's, from list_statuses.")] Guid statusId,
         [Description("Id of an existing sibling (same parent and status) to place this item immediately after. Omit to place it first.")] Guid? afterId = null,
-        [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
+        [Description(ExpectedVersionArgument.Description)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
         TranslateWriteAsync(actorLabel, () => _workItems.ChangeStatusAsync(id, statusId, afterId, expectedVersion, ct));
@@ -102,7 +98,7 @@ public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
         [Description("The work item's id.")] Guid id,
         [Description("Id of the new parent work item, in the same Space. Omit to make it a top-level item of its Space.")] Guid? parentId = null,
         [Description("Id of an existing sibling under the new parent (same status) to place this item immediately after. Omit to place it first.")] Guid? afterId = null,
-        [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
+        [Description(ExpectedVersionArgument.Description)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
         TranslateWriteAsync(actorLabel, () => _workItems.ReparentAsync(id, parentId, afterId, expectedVersion, ct));
@@ -115,7 +111,7 @@ public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
         [Description("The work item's id.")] Guid id,
         [Description("New start date (yyyy-MM-dd, a calendar date), or null to clear it.")] DateOnly? startDate = null,
         [Description("New end date (yyyy-MM-dd, a calendar date), or null to clear it.")] DateOnly? endDate = null,
-        [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
+        [Description(ExpectedVersionArgument.Description)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
         TranslateWriteAsync(actorLabel, () => _workItems.RescheduleAsync(
@@ -138,7 +134,7 @@ public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
         [Description("Id of the work item priority (one of the item's own Space's, from list_work_item_priorities), or null to clear it.")] Guid? priorityId = null,
         [Description("Free-text phrase for when the item should happen (e.g. \"after drywall\"), or null to clear it. " +
             "It stays unresolved until the item has dates; set those with reschedule_work_item and keep the phrase.")] string? when = null,
-        [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
+        [Description(ExpectedVersionArgument.Description)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default)
     {
@@ -158,7 +154,7 @@ public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
     public Task<WorkItemWriteResponse> AssignWorkItem(
         [Description("The work item's id.")] Guid id,
         [Description("Id of the user to assign. Omit to unassign.")] Guid? userId = null,
-        [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
+        [Description(ExpectedVersionArgument.Description)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
         TranslateWriteAsync(actorLabel, () => _workItems.AssignAsync(id, userId, expectedVersion, ct));
@@ -170,7 +166,7 @@ public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
         RequestContext<CallToolRequestParams> context,
         [Description("The work item's id.")] Guid id,
         [Description("The complete new list of tags, replacing the existing list entirely. Null or an empty list clears the tags; omitted leaves them unchanged.")] IReadOnlyList<string>? tags = null,
-        [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
+        [Description(ExpectedVersionArgument.Description)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default)
     {
@@ -192,7 +188,7 @@ public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
             "number with at most 2 decimals; Date \"yyyy-MM-dd\"; Checkbox true or false; SingleSelect one option id; " +
             "MultiSelect a list of option ids; User a user id (from list_users); Url an http(s) address.")]
         IReadOnlyDictionary<Guid, JsonElement> values,
-        [Description(ExpectedVersionDescription)] uint? expectedVersion = null,
+        [Description(ExpectedVersionArgument.Description)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
         TranslateWriteAsync(actorLabel, () => _workItems.SetCustomFieldsAsync(id, values, expectedVersion, ct));

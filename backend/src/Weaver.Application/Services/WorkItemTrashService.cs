@@ -96,24 +96,26 @@ public class WorkItemTrashService(
     {
         var item = await _db.WorkItems.IgnoreQueryFilters().FirstOrDefaultAsync(w => w.Id == id, ct)
             ?? throw new EntityNotFoundException(nameof(WorkItem), id);
-        if (item.IsTrashed && !item.IsTrashRoot)
+        if (!item.IsTrashed)
+        {
+            throw new DomainValidationException($"Work item {id} isn't in the Trash.");
+        }
+
+        if (!item.IsTrashRoot)
         {
             throw new DomainValidationException(
                 $"Work item {id} was deleted along with work item {item.TrashRootId}; restore that one instead.");
         }
 
-        item.RestoreFromTrash();
-        _history.Record(item.Id, WorkItemHistoryField.Restored, null, item.Title);
-        await PlaceUnderNearestLiveAncestorAsync(item, ct);
-
-        var trashedWith = await Trash().Where(w => w.TrashRootId == id && w.Id != id).ToListAsync(ct);
-        foreach (var descendant in trashedWith)
+        var trashedWith = await Trash().Where(w => w.TrashRootId == id).ToListAsync(ct);
+        foreach (var restored in trashedWith)
         {
-            descendant.RestoreFromTrash();
-            _history.Record(descendant.Id, WorkItemHistoryField.Restored, null, descendant.Title);
+            restored.RestoreFromTrash();
+            _history.Record(restored.Id, WorkItemHistoryField.Restored, null, restored.Title);
         }
 
-        await RestartRecurrencesAsync(trashedWith.Select(w => w.Id).Append(id).ToList(), ct);
+        await PlaceUnderNearestLiveAncestorAsync(item, ct);
+        await RestartRecurrencesAsync(trashedWith.Select(w => w.Id).ToList(), ct);
         await SaveAsync(id, ct);
         return item;
     }

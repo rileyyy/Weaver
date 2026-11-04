@@ -1,10 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:weaver/core/dates/date_format.dart';
 import 'package:weaver/features/board/models/trashed_work_item.dart';
 import 'package:weaver/features/board/trash_view_model.dart';
-import 'package:weaver/shared/models/user_kind.dart';
+import 'package:weaver/features/board/views/trash/widgets/trashed_item_tile.dart';
 import 'package:weaver/shared/widgets/load_error_view.dart';
 
 /// The Trash tab: each delete, with who made it and when, and restore.
@@ -45,7 +44,7 @@ class TrashView extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 8),
           itemCount: items.length,
           separatorBuilder: (_, _) => const Divider(height: 1),
-          itemBuilder: (context, index) => _TrashedItemTile(
+          itemBuilder: (context, index) => TrashedItemTile(
             item: items[index],
             onRestore: (item) => unawaited(_restore(context, item)),
           ),
@@ -66,49 +65,5 @@ class TrashView extends StatelessWidget {
         context,
       ).showSnackBar(SnackBar(content: Text(error)));
     }
-  }
-}
-
-class _TrashedItemTile extends StatelessWidget {
-  const _TrashedItemTile({required this.item, required this.onRestore});
-
-  final TrashedWorkItem item;
-  final ValueChanged<TrashedWorkItem> onRestore;
-
-  @override
-  Widget build(BuildContext context) {
-    final details = [
-      ?item.spaceName,
-      _deletion,
-      if (item.itemCount > 1) '${item.itemCount} items',
-    ].join(' · ');
-    return ListTile(
-      leading: const Icon(Icons.delete_outline),
-      title: Text(
-        '#${item.number} ${item.title}',
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Text(details),
-      trailing: TextButton.icon(
-        icon: const Icon(Icons.restore_from_trash_outlined),
-        label: const Text('Restore'),
-        onPressed: () => onRestore(item),
-      ),
-    );
-  }
-
-  /// e.g. "Deleted 2026-11-04 09:05 by claude (agent, tidy-up)".
-  String get _deletion {
-    final when =
-        'Deleted ${formatDate(item.trashedAt)} ${formatTime(item.trashedAt)}';
-    final name = item.deletedByName;
-    if (name == null) return when;
-    final actor = [
-      if (item.deletedByKind == UserKind.agent) 'agent',
-      ?item.deletedByActorLabel,
-    ];
-    return actor.isEmpty
-        ? '$when by $name'
-        : '$when by $name (${actor.join(', ')})';
   }
 }
