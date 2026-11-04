@@ -285,7 +285,7 @@ public class WorkItem : IHasUpdatedAt
     private FieldChange? SetCustomField(Guid fieldId, JsonElement? value)
     {
         var old = _customFields.TryGetValue(fieldId, out var current) ? current : (JsonElement?)null;
-        if (old?.GetRawText() == value?.GetRawText())
+        if (Compact(old) == Compact(value))
         {
             return null;
         }
@@ -301,6 +301,12 @@ public class WorkItem : IHasUpdatedAt
 
         return new FieldChange(WorkItemField.CustomField(fieldId), old, value);
     }
+
+    /// <summary>
+    /// Compared re-serialized rather than by raw text: Postgres returns jsonb with its own
+    /// whitespace, which would make an unchanged value look changed.
+    /// </summary>
+    private static string? Compact(JsonElement? value) => value is { } v ? JsonSerializer.Serialize(v) : null;
 
     /// <summary>Used when an admin deletes the item's priority and picks a replacement (or none).</summary>
     public IReadOnlyList<FieldChange> ChangePriority(Guid? priorityId)

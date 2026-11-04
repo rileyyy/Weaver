@@ -8,7 +8,9 @@ namespace Weaver.Api.Contracts;
 /// One change to a work item. <see cref="Field"/> is a work item field name (as in its JSON)
 /// or one of created, deleted, comment, link and recurrence. The values are JSON in the shape
 /// that field has in the API; <see cref="OldName"/>/<see cref="NewName"/> name an id value
-/// (a status, user or other item) while it still exists. A null account is Weaver itself.
+/// (a status, user or other item) while it still exists. A custom field's changes go by
+/// <c>fields.&lt;fieldId&gt;</c>, with <see cref="FieldName"/> its current name (null for other
+/// fields, or a field since removed). A null account is Weaver itself.
 /// </summary>
 public record WorkItemHistoryEntryDto(
     long Id,
@@ -24,7 +26,8 @@ public record WorkItemHistoryEntryDto(
     JsonElement? OldValue,
     JsonElement? NewValue,
     string? OldName,
-    string? NewName)
+    string? NewName,
+    string? FieldName)
 {
     public static WorkItemHistoryEntryDto FromView(WorkItemHistoryView view) => new(
         view.Id,
@@ -40,5 +43,6 @@ public record WorkItemHistoryEntryDto(
         view.OldValue,
         view.NewValue,
         view.OldName,
-        view.NewName);
+        view.NewName,
+        view.FieldName);
 }

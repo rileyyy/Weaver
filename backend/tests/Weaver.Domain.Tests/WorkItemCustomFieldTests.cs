@@ -80,6 +80,22 @@ public class WorkItemCustomFieldTests
     }
 
     [Test]
+    public void SetCustomFields_ToAValueStoredWithOtherWhitespace_IsNotAChange()
+    {
+        var tags = CustomFieldDefinition.Create(Room, "Wood", CustomFieldKind.MultiSelect, order: 2, ["Oak", "Pine"]);
+        var (oak, pine) = (tags.Options[0].Id, tags.Options[1].Id);
+        var item = NewRoom();
+        // As Postgres hands jsonb back: with a space after each comma.
+        typeof(WorkItem).GetProperty(nameof(WorkItem.CustomFields))!
+            .SetValue(item, new Dictionary<Guid, JsonElement> { [tags.Id] = Json($"[\"{oak}\", \"{pine}\"]") });
+
+        var changes = item.SetCustomFields(CustomFieldPatch.Validate(
+            Room, [tags], new Dictionary<Guid, JsonElement> { [tags.Id] = Json($"[\"{oak}\",\"{pine}\"]") }));
+
+        Assert.That(changes, Is.Empty);
+    }
+
+    [Test]
     public void Validate_AFieldTheTypeDoesNotHave_IsRejected()
     {
         var other = CustomFieldDefinition.Create(Chore, "Effort", CustomFieldKind.Number, order: 0);

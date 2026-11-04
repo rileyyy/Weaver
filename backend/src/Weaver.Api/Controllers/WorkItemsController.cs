@@ -115,7 +115,8 @@ public class WorkItemsController(IWorkItemService workItems) : ControllerBase
 
     /// <summary>
     /// Patches title/description/type/priority/When. Independent of status,
-    /// parent, schedule, and assignee — see their own endpoints.
+    /// parent, schedule, and assignee — see their own endpoints. Changing the Type clears the
+    /// item's custom field values.
     /// </summary>
     [HttpPatch("{id:guid}/details")]
     public async Task<ActionResult<WorkItemWriteResponse>> UpdateDetails(Guid id, UpdateWorkItemDetailsRequest request)
@@ -154,6 +155,18 @@ public class WorkItemsController(IWorkItemService workItems) : ControllerBase
             ? new Optional<IReadOnlyList<string>>(request.Tags.Value ?? [])
             : Optional<IReadOnlyList<string>>.Unset;
         var result = await _workItems.SetTagsAsync(id, tags, request.ExpectedVersion);
+        return Ok(WorkItemWriteResponse.FromResult(result));
+    }
+
+    /// <summary>
+    /// Sets custom field values by field id: a field left out keeps its value and <c>null</c>
+    /// clears it. Each field must be one of the item's Type's. Changed fields are named
+    /// <c>fields.&lt;fieldId&gt;</c>.
+    /// </summary>
+    [HttpPatch("{id:guid}/fields")]
+    public async Task<ActionResult<WorkItemWriteResponse>> SetCustomFields(Guid id, SetCustomFieldsRequest request)
+    {
+        var result = await _workItems.SetCustomFieldsAsync(id, request.Values, request.ExpectedVersion);
         return Ok(WorkItemWriteResponse.FromResult(result));
     }
 

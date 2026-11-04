@@ -1,7 +1,12 @@
+using System.Text.Json;
 using Weaver.Domain;
 
 namespace Weaver.Api.Contracts;
 
+/// <summary>
+/// <see cref="Fields"/> holds the values of the item's Type's custom fields by field id (see
+/// <see cref="CustomFieldDto"/>); a field with no value is left out.
+/// </summary>
 public record WorkItemDto(
     Guid Id,
     int Number,
@@ -14,6 +19,7 @@ public record WorkItemDto(
     Guid? PriorityId,
     Guid? AssignedToUserId,
     IReadOnlyList<string> Tags,
+    IReadOnlyDictionary<Guid, JsonElement> Fields,
     double Rank,
     DateOnly? StartDate,
     DateOnly? EndDate,
@@ -37,6 +43,7 @@ public record WorkItemDto(
         item.PriorityId,
         item.AssignedToUserId,
         item.Tags,
+        item.CustomFields,
         item.Rank,
         item.StartDate,
         item.EndDate,

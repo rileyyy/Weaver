@@ -292,6 +292,34 @@ public class WorkItemToolsTests
     }
 
     [Test]
+    public async Task SetWorkItemFields_DelegatesTheValuesToTheService()
+    {
+        var item = MakeWorkItem();
+        var fieldId = Guid.NewGuid();
+        var values = new Dictionary<Guid, JsonElement> { [fieldId] = JsonSerializer.SerializeToElement("Oak") };
+        _workItems.Setup(w => w.SetCustomFieldsAsync(item.Id, values, 7u, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemWriteResult(item, [WorkItemField.CustomField(fieldId)]));
+
+        var result = await _tools.SetWorkItemFields(item.Id, values, expectedVersion: 7u, ct: CancellationToken.None);
+
+        Assert.That(result.ChangedFields, Is.EqualTo(new[] { $"fields.{fieldId}" }));
+    }
+
+    [Test]
+    public void SetWorkItemFields_WithAValueTheFieldRejects_IsAToolError()
+    {
+        var id = Guid.NewGuid();
+        _workItems.Setup(w => w.SetCustomFieldsAsync(
+                id, It.IsAny<IReadOnlyDictionary<Guid, JsonElement>>(), null, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DomainValidationException("Budget takes a number."));
+
+        var error = Assert.ThrowsAsync<McpException>(() =>
+            _tools.SetWorkItemFields(id, new Dictionary<Guid, JsonElement>(), ct: CancellationToken.None));
+
+        Assert.That(error!.Message, Does.Contain("Budget takes a number."));
+    }
+
+    [Test]
     public async Task SetWorkItemTags_WithNullSent_ClearsTheTags()
     {
         var item = MakeWorkItem();
