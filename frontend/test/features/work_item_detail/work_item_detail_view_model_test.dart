@@ -792,7 +792,28 @@ void main() {
     });
 
     test(
-      'clearsCustomFields says when a Type change would lose values',
+      "a conflict that brings in another Type loads that Type's fields",
+      () async {
+        final repository = roomRepository();
+        final viewModel = WorkItemDetailViewModel(
+          repository,
+          _currentUser,
+          WorkItemStore(),
+        );
+        await viewModel.load('item-1');
+        // Someone else changed the Type since this dialog loaded.
+        repository.item = _item(typeId: 'type-task', version: 2);
+
+        final saved = await viewModel.saveCustomField('field-budget', 1);
+
+        expect(saved, isFalse);
+        expect(viewModel.item!.typeId, 'type-task');
+        expect(viewModel.customFields, [_effort]);
+      },
+    );
+
+    test(
+      'typeChangeClearsFields says when a Type change would lose values',
       () async {
         final viewModel = WorkItemDetailViewModel(
           roomRepository(fields: {'field-budget': 1200}),

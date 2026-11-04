@@ -115,14 +115,19 @@ internal sealed class HistoryValueNames
             case CustomFieldKind.SingleSelect:
                 return OptionName(field, IdIn(valueJson));
             case CustomFieldKind.MultiSelect:
-                var value = JsonSerializer.Deserialize<JsonElement>(valueJson);
-                var names = value.ValueKind == JsonValueKind.Array
-                    ? value.EnumerateArray().Select(e => OptionName(field, e.TryGetGuid(out var id) ? id : null)).OfType<string>().ToList()
-                    : [];
+                var names = OptionIdsIn(valueJson).Select(id => OptionName(field, id)).OfType<string>().ToList();
                 return names.Count == 0 ? null : string.Join(", ", names);
             default:
                 return null;
         }
+    }
+
+    private static IEnumerable<Guid?> OptionIdsIn(string valueJson)
+    {
+        var value = JsonSerializer.Deserialize<JsonElement>(valueJson);
+        return value.ValueKind == JsonValueKind.Array
+            ? value.EnumerateArray().Select(e => e.TryGetGuid(out var id) ? id : (Guid?)null).ToList()
+            : [];
     }
 
     private static string? OptionName(CustomFieldDefinition field, Guid? optionId) =>

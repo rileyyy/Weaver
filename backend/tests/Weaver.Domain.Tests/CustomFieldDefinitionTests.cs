@@ -57,6 +57,8 @@ public class CustomFieldDefinitionTests
     [TestCase("12", "12")]
     [TestCase("-3.25", "-3.25")]
     [TestCase("1.50", "1.5")]
+    [TestCase("0.00001", "0.00001")]
+    [TestCase("1e3", "1000")]
     public void Number_IsStoredAsANumber(string json, string expected)
     {
         Assert.That(Normalized(Field(CustomFieldKind.Number), json), Is.EqualTo(expected));
@@ -225,6 +227,15 @@ public class CustomFieldDefinitionTests
             Assert.That(field.Options[0].Id, Is.EqualTo(birch));
             Assert.That(field.Options[2].Id, Is.EqualTo(oak));
         });
+    }
+
+    [Test]
+    public void ReviseOptions_NamingTheSameOptionTwice_IsRejected()
+    {
+        var field = Field(CustomFieldKind.SingleSelect, "Oak");
+        var oak = field.Options[0].Id;
+
+        Assert.Throws<DomainValidationException>(() => field.ReviseOptions([new(oak, "Oak"), new(oak, "Pine")]));
     }
 
     [Test]

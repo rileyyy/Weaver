@@ -13,12 +13,10 @@ class CustomFieldTextEditor extends StatefulWidget {
     required this.kind,
     required this.value,
     required this.onSave,
-    this.label,
   });
 
   final CustomFieldKind kind;
   final Object? value;
-  final String? label;
 
   /// Called with the value to store (null clears it); returns whether it
   /// was saved.
@@ -141,7 +139,6 @@ class _CustomFieldTextEditorState extends State<CustomFieldTextEditor> {
       decoration: InputDecoration(
         hintText: isMarkdown ? 'Markdown' : null,
         errorText: _error,
-        labelText: widget.label,
       ),
       onSubmitted: isMarkdown ? null : (_) => unawaited(_save()),
     );

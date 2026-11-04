@@ -37,6 +37,7 @@ class WorkItemDetailViewModel extends ViewModel {
   List<WorkItemType> _types = const [];
   List<WorkItemPriority> _priorities = const [];
   List<CustomField> _customFields = const [];
+  String? _customFieldsTypeId;
   List<User> _users = const [];
   List<WorkItemComment> _comments = const [];
   List<WorkItemLink> _links = const [];
@@ -159,6 +160,7 @@ class WorkItemDetailViewModel extends ViewModel {
       _types = types;
       _priorities = priorities;
       _customFields = customFields;
+      _customFieldsTypeId = item.typeId;
       _users = users;
       _comments = comments;
       _links = links;
@@ -186,17 +188,15 @@ class WorkItemDetailViewModel extends ViewModel {
   /// Mirrors `WorkItem.TitleMaxLength` on the backend.
   static const int titleMaxLength = 500;
 
-  /// A changed Type brings its own fields, which are loaded once it's saved.
   Future<bool> saveDetails({
     required String title,
     required String? description,
     required String? typeId,
     required String? priorityId,
-  }) async {
+  }) {
     final error = titleError(title);
     if (error != null) return _reject(error);
-    final previousTypeId = item?.typeId;
-    final saved = await _save(
+    return _save(
       (version) => _repository.updateDetails(
         _id,
         title: title,
@@ -206,11 +206,6 @@ class WorkItemDetailViewModel extends ViewModel {
         expectedVersion: version,
       ),
     );
-    final savedTypeId = item?.typeId;
-    if (saved && savedTypeId != previousTypeId) {
-      await _reloadCustomFields(savedTypeId);
-    }
-    return saved;
   }
 
   /// Whether saving [typeId] would clear values the item holds: the server
@@ -229,13 +224,20 @@ class WorkItemDetailViewModel extends ViewModel {
   Future<List<CustomField>> _loadCustomFields(String? typeId) async =>
       typeId == null ? const [] : _repository.loadCustomFields(typeId);
 
-  Future<void> _reloadCustomFields(String? typeId) async {
+  /// A save, or the latest version a conflict brings in, can leave the item
+  /// with another Type, whose fields are other fields.
+  Future<void> _followType() async {
+    final typeId = item?.typeId;
+    if (item == null || typeId == _customFieldsTypeId) return;
+    _customFieldsTypeId = typeId;
     try {
       _customFields = await _loadCustomFields(typeId);
     } on ApiException {
       // The old Type's fields no longer apply to the item.
       _customFields = const [];
-      _saveError = "Saved, but this Type's fields could not be loaded.";
+      _saveError ??=
+          "This Type's fields could not be loaded. Reopen the "
+          'item to edit them.';
     }
     notifyIfActive();
   }
@@ -387,10 +389,15 @@ class WorkItemDetailViewModel extends ViewModel {
   Future<bool> _save(
     Future<WorkItem> Function(int expectedVersion) send, {
     String errorMessage = 'Could not save your change. Try again.',
-  }) => _mutate(
-    () => _items.write(_id, send: send, reload: () => _repository.getItem(_id)),
-    errorMessage: errorMessage,
-  );
+  }) async {
+    final saved = await _mutate(
+      () =>
+          _items.write(_id, send: send, reload: () => _repository.getItem(_id)),
+      errorMessage: errorMessage,
+    );
+    await _followType();
+    return saved;
+  }
 
   void _reportConflict(WorkItemConflict conflict) {
     const notSaved =

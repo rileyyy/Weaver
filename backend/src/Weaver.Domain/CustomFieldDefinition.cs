@@ -90,9 +90,9 @@ public class CustomFieldDefinition : LookupValue
                 throw new DomainValidationException($"{Name} already has an option named '{name}'.");
             }
 
-            if (option.Id is { } id && !existing.ContainsKey(id))
+            if (option.Id is { } id && !existing.Remove(id))
             {
-                throw new DomainValidationException($"{Name} has no option {id}.");
+                throw new DomainValidationException($"{Name} has no option {id}, or lists it twice.");
             }
 
             next.Add(new CustomFieldOption(option.Id ?? Guid.NewGuid(), name));
@@ -193,8 +193,10 @@ public class CustomFieldDefinition : LookupValue
             throw new DomainValidationException($"{Name} is out of range.");
         }
 
-        // Trailing zeros are dropped so 1.50 and 1.5 are the same value, not a change.
-        var normalized = decimal.Parse(number.ToString("G29", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+        // Trailing zeros are dropped so 1.50 and 1.5 are the same value, not a change. Dividing
+        // by a 1 of the maximum scale does that; a "G29" string round trip would write small
+        // values as 1E-05, which decimal.Parse then refuses.
+        var normalized = number / 1.0000000000000000000000000000m;
         if (maxDecimals is { } max && normalized.Scale > max)
         {
             throw new DomainValidationException($"{Name} takes an amount with at most {max} decimals.");

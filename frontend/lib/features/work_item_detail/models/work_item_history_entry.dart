@@ -99,11 +99,14 @@ class WorkItemHistoryEntry {
     return '$edited$subject: $oldText → $newText';
   }
 
+  /// Mirrors the backend's `WorkItemField.CustomFieldPrefix`.
+  static const String customFieldPrefix = 'fields.';
+
+  bool get isCustomField => field.startsWith(customFieldPrefix);
+
   String get _fieldLabel =>
       fieldName ??
-      (field.startsWith('fields.')
-          ? 'Removed field'
-          : _fieldLabels[field] ?? field);
+      (isCustomField ? 'Removed field' : _fieldLabels[field] ?? field);
 
   static const _fieldLabels = {
     'title': 'Title',
