@@ -42,6 +42,7 @@ class WorkItemDetailViewModel extends ViewModel {
   List<WorkItemComment> _comments = const [];
   List<WorkItemLink> _links = const [];
   List<WorkItemChildSummary> _children = const [];
+  WorkItem? _parent;
   bool _isLoading = true;
   String? _loadError;
   // A count, not a bool: saves can overlap, and the first one to finish
@@ -69,6 +70,10 @@ class WorkItemDetailViewModel extends ViewModel {
   List<WorkItemComment> get comments => _comments;
   List<WorkItemLink> get links => _links;
   List<WorkItemChildSummary> get children => _children;
+
+  /// The item's parent, for its number and title; null for a top-level
+  /// item.
+  WorkItem? get parent => _parent;
   bool get isLoading => _isLoading;
   String? get loadError => _loadError;
   bool get isSaving => _pendingSaves > 0;
@@ -148,11 +153,12 @@ class WorkItemDetailViewModel extends ViewModel {
       ).wait;
       // Only the item says which Space's statuses, Types and priorities it
       // can take.
-      final (statuses, types, priorities, customFields) = await (
+      final (statuses, types, priorities, customFields, parent) = await (
         _repository.loadStatuses(item.spaceId),
         _repository.loadTypes(item.spaceId),
         _repository.loadPriorities(item.spaceId),
         _loadCustomFields(item.typeId),
+        _loadParent(item.parentId),
       ).wait;
       _items.putAll([item], asOf: asOf);
       _itemId = id;
@@ -165,6 +171,7 @@ class WorkItemDetailViewModel extends ViewModel {
       _comments = comments;
       _links = links;
       _children = children;
+      _parent = parent;
     } on ParallelWaitError<Object?, Object?> catch (e) {
       rethrowNonApiErrors(_asyncErrors(e.errors));
       _loadError =
@@ -221,6 +228,46 @@ class WorkItemDetailViewModel extends ViewModel {
     }, expectedVersion: version),
   );
 
+  Future<WorkItem?> _loadParent(String? parentId) async =>
+      parentId == null ? null : _repository.getItem(parentId);
+
+  /// Moves the item under [newParent], or makes it top-level when null.
+  /// The board lays out lanes by parent, so the dialog counts as changed.
+  Future<bool> saveParent(WorkItem? newParent) async {
+    final saved = await _save(
+      (version) =>
+          _repository.reparent(_id, newParent?.id, expectedVersion: version),
+      optimistic: (item) => item.movedToParent(newParent?.id),
+      errorMessage: 'Could not change the parent. Try again.',
+      // The picker only offers items of this Space, so a refusal means the
+      // server found [newParent] among this item's descendants.
+      refusedMessage: newParent == null
+          ? null
+          : '#${newParent.number} ${newParent.title} is inside this work '
+                "item, so it can't be its parent.",
+    );
+    if (!saved) return false;
+    _parent = newParent;
+    _markChanged();
+    return true;
+  }
+
+  /// Items of this item's Space that [text] matches, to pick a parent from.
+  /// The item itself and its direct sub-items are left out, since the
+  /// server would refuse them; deeper descendants are only caught when
+  /// saved, as this doesn't know them.
+  Future<List<WorkItem>> searchParents(String text) async {
+    final current = item;
+    if (current == null) return const [];
+    final found = await _repository.searchWorkItems(current.spaceId, text);
+    final childIds = {for (final child in _children) child.id};
+    return [
+      for (final candidate in found)
+        if (candidate.id != current.id && !childIds.contains(candidate.id))
+          candidate,
+    ];
+  }
+
   Future<List<CustomField>> _loadCustomFields(String? typeId) async =>
       typeId == null ? const [] : _repository.loadCustomFields(typeId);
 
@@ -254,6 +301,25 @@ class WorkItemDetailViewModel extends ViewModel {
         expectedVersion: version,
       ),
     );
+  }
+
+  /// Moves the item to [statusId], one of its Space's [statuses]. Shown at
+  /// once; the dialog counts as changed, since the server ranks the item
+  /// first in its new status and the board's cards don't know that.
+  Future<bool> saveStatus(String statusId) async {
+    if (statusId == item?.statusId) return true;
+    final saved = await _save(
+      (version) =>
+          _repository.changeStatus(_id, statusId, expectedVersion: version),
+      optimistic: (item) => item.withStatus(statusId),
+    );
+    if (saved) _markChanged();
+    return saved;
+  }
+
+  void _markChanged() {
+    _hasChanges = true;
+    notifyIfActive();
   }
 
   Future<bool> saveAssignee(String? userId) => _save(
@@ -372,6 +438,26 @@ class WorkItemDetailViewModel extends ViewModel {
     ];
   }, errorMessage: 'Could not remove this link. Try again.');
 
+  /// Creates a child of this item, in its Space, with just [title] and the
+  /// Space's first status, and lists it under Sub-Items. The new item isn't
+  /// in the shared store, so the dialog counts as changed.
+  Future<bool> addSubItem(String title) async {
+    final trimmed = title.trim();
+    final error = titleError(trimmed);
+    if (error != null) return _reject(error);
+    final status = _statuses.reduce((a, b) => b.order < a.order ? b : a);
+    final added = await _mutate(() async {
+      final created = await _repository.createSubItem(
+        _id,
+        title: trimmed,
+        statusId: status.id,
+      );
+      _children = [..._children, created];
+    }, errorMessage: 'Could not add the sub-item. Try again.');
+    if (added) _markChanged();
+    return added;
+  }
+
   /// Called when a nested dialog (a sub-item, or the repeating item that
   /// created this one) closes. The Sub-Items list is reloaded either way,
   /// since its titles and statuses may have been edited there; [changed]
@@ -388,12 +474,19 @@ class WorkItemDetailViewModel extends ViewModel {
 
   Future<bool> _save(
     Future<WorkItem> Function(int expectedVersion) send, {
+    WorkItemEdit? optimistic,
     String errorMessage = 'Could not save your change. Try again.',
+    String? refusedMessage,
   }) async {
     final saved = await _mutate(
-      () =>
-          _items.write(_id, send: send, reload: () => _repository.getItem(_id)),
+      () => _items.write(
+        _id,
+        optimistic: optimistic,
+        send: send,
+        reload: () => _repository.getItem(_id),
+      ),
       errorMessage: errorMessage,
+      refusedMessage: refusedMessage,
     );
     await _followType();
     return saved;
@@ -413,6 +506,7 @@ class WorkItemDetailViewModel extends ViewModel {
   Future<bool> _mutate(
     Future<void> Function() action, {
     required String errorMessage,
+    String? refusedMessage,
   }) async {
     _pendingSaves++;
     _saveError = null;
@@ -427,7 +521,13 @@ class WorkItemDetailViewModel extends ViewModel {
     } on ApiException catch (e) {
       // A 400 carries the server's validation message ("Each tag must be
       // at most 50 characters."), which says more than "try again".
-      _saveError = e.statusCode == 400 ? e.message : errorMessage;
+      _saveError = switch (e) {
+        ApiException(statusCode: 400) => e.message,
+        // A 409 that isn't a [WorkItemConflict]: the change broke a rule.
+        ApiException(isConflict: true) when refusedMessage != null =>
+          refusedMessage,
+        _ => errorMessage,
+      };
       return false;
     } finally {
       _pendingSaves--;
