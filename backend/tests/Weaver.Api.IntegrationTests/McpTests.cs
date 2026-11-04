@@ -147,6 +147,45 @@ public class McpTests
         });
     }
 
+    // ADR-0007: a read-only key sees the Trash but can't restore from it.
+    [Test]
+    public async Task Mcp_WithAReadOnlyKey_ListsTheTrash_ButCantRestore()
+    {
+        var (human, _) = await ApiClient.SignedInAsync();
+        var item = await human.CreateWorkItemAsync($"Trashed {Guid.NewGuid():N}");
+        await human.DeleteAsync($"/api/work-items/{item.Id}");
+        var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadOnly);
+        await using var mcp = await ConnectAsync(agent);
+
+        var trash = await CallAsync<List<TrashedWorkItemDto>>(mcp, "list_trash");
+        var restore = await mcp.CallToolAsync("restore_work_item", new Dictionary<string, object?> { ["id"] = item.Id });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(trash.Select(t => t.Item.Id), Does.Contain(item.Id));
+            Assert.That(restore.IsError, Is.True);
+            Assert.That(TextOf(restore), Does.Contain("read-only"));
+        });
+    }
+
+    [Test]
+    public async Task Mcp_WithAReadWriteKey_RestoresFromTheTrash()
+    {
+        var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadWrite);
+        var item = await agent.CreateWorkItemAsync($"Trashed {Guid.NewGuid():N}");
+        await using var mcp = await ConnectAsync(agent);
+        await mcp.CallToolAsync("delete_work_item", new Dictionary<string, object?> { ["id"] = item.Id });
+
+        var restore = await mcp.CallToolAsync("restore_work_item", new Dictionary<string, object?> { ["id"] = item.Id });
+        var after = await agent.GetAsync($"/api/work-items/{item.Id}");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restore.IsError, Is.Not.True, () => TextOf(restore));
+            Assert.That(after.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        });
+    }
+
     [Test]
     public async Task Mcp_WithAReadWriteKey_WriteToolsWork()
     {

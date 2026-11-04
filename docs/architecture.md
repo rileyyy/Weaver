@@ -108,20 +108,43 @@ and it is what allows MCP tools to reuse the same business logic (see
   rank and the next one up; the whole cell is loaded only when two
   siblings share a rank and need respacing.
 - **Deleting an item with children requires `cascade: true`**, otherwise
-  `WorkItemHasChildrenException` (409). There is no silent subtree loss. A
-  cascade loads all descendants and removes them in one `SaveChanges`; EF
-  topologically sorts tracked deletes against the `Restrict` parent FK.
-  Deletes are permanent today; Milestone 16 moves them to the Trash
-  ([ADR-0007](adr/0007-trash.md)).
-- **Delete removes links.**
-  - Both `WorkItemLink` FKs are `Restrict`, because EF rejects two
-    `Cascade`/`SetNull` paths from one table to the same principal. So
-    `DeleteAsync` removes every link touching the deleted subtree itself,
-    in the same `SaveChanges`. Without that, Postgres rejects the delete
-    and the client gets an unmapped 500.
-  - The InMemory provider doesn't enforce FKs, so these paths are covered
-    by the integration tests against Postgres (see
-    [Testing](#testing-strategy)).
+  `WorkItemHasChildrenException` (409). There is no silent subtree loss.
+- **Delete moves to the Trash** ([ADR-0007](adr/0007-trash.md),
+  `WorkItemTrashService`, ticket 19). The item and its live subtree get
+  `TrashedAtUtc` and `TrashRootId` (the item the delete was made on), and
+  every row stays, with its links, comments and history.
+  - **An EF global query filter** (`TrashedAtUtc == null`) hides trashed
+    items from every normal read, so a new query can't forget to. Comments,
+    links (either end trashed) and recurrences carry matching filters, and
+    EF applies the filter inside navigations too, so child counts skip the
+    Trash. Raw SQL skips EF's filters, so the recursive descendant walk
+    repeats it; the walks up don't need it, since a live item never sits
+    under a trashed one.
+  - **Opting out is explicit**, with `IgnoreQueryFilters()`: the Trash
+    itself, the query's include-deleted input, "changes since T", history
+    value names, the recurrence duplicate check, and admin changes that
+    re-point every item using a value (deleting a status, Type, priority or
+    field, deactivating a user), so a restore never brings back an item
+    pointing at something gone.
+  - **`FindAsync` returns an already-tracked entity even when the filter
+    would hide it**, so the Trash service looks items up with a query.
+  - **Restore only takes the item a delete was made on**, and brings back
+    exactly the items with its `TrashRootId`: a child deleted separately
+    earlier stays in the Trash. It goes under its parent if that's live,
+    else the nearest live ancestor (at the end of that cell), else the top
+    of its Space. Restoring an item deleted with its ancestor is a 400
+    naming the ancestor.
+  - **Repeating items:** a trashed copy still counts as generated, so it's
+    never recreated (its unique source/date pair would refuse a second copy
+    anyway). A trashed template's recurrence is hidden, so generation skips
+    it; restoring it restarts generation from today rather than backfilling
+    the time it spent in the Trash.
+  - **Who deleted it** comes from the latest `deleted` history entry, not a
+    column: an account with history can't be hard-deleted, so it's always
+    there to name.
+  - Purging, and retention, are ticket 20. Both `WorkItemLink` FKs and the
+    parent FK are `Restrict`, so a purge has to remove links and deal with
+    trashed children of other deletes itself.
 - **Rank is a fractional `double` scoped to `(SpaceId, ParentId, StatusId)`**
   (the Space so each Space's top-level items rank among themselves), not
   globally unique. Drag-and-drop can insert between two siblings without
@@ -372,11 +395,15 @@ Each Type defines its own fields (ticket 14,
     at insert, not commit, so a transaction that commits after a page past
     its `Id` was read can be skipped. That's acceptable for a handful of
     writers; ask again from an earlier T if it matters.
-  - **Deletes are marked** (`deleted: true`). A deleted item has no row,
-    so its summary (title, last Space) is rebuilt from its history
-    (`DeletedItemTrace`); the number and the other fields are null.
-  - **The Space filter** uses an item's current Space, or for a deleted
-    item the Space its history last gave it. An item created before
+  - **Deletes and restores are marked.** `deleted: true` means the item is
+    deleted now; a trashed one keeps its row, so its summary is read from
+    it. A purged item has no row, so its summary (title, last Space) is
+    rebuilt from its history (`DeletedItemTrace`), with the number and the
+    other fields null. `restored: true` means it came back from the Trash
+    since T and is live now; at most one of the two is set, however often
+    it went back and forth.
+  - **The Space filter** uses an item's row's Space, trashed or not, or
+    for a purged item the Space its history last gave it. An item created before
     history recorded the Space (between tickets 10 and 11) and then
     deleted matches no Space.
   - **Excluding the caller's own changes** filters by account, and keeps

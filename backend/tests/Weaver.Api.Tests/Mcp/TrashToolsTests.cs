@@ -62,12 +62,12 @@ public class TrashToolsTests
     }
 
     [Test]
-    public async Task RestoreFromTrash_ReturnsTheRestoredItem()
+    public async Task RestoreWorkItem_ReturnsTheRestoredItem()
     {
         var item = WorkItem.Create(Guid.NewGuid(), "Old shed", null, Guid.NewGuid(), rank: 1.0);
         _trash.Setup(s => s.RestoreAsync(item.Id, It.IsAny<CancellationToken>())).ReturnsAsync(item);
 
-        var result = await _tools.RestoreFromTrash(item.Id, ct: CancellationToken.None);
+        var result = await _tools.RestoreWorkItem(item.Id, ct: CancellationToken.None);
 
         Assert.That(result.Id, Is.EqualTo(item.Id));
     }
@@ -79,7 +79,7 @@ public class TrashToolsTests
         Assert.Multiple(() =>
         {
             Assert.That(ToolOf(nameof(TrashTools.ListTrash)).ReadOnly, Is.True);
-            Assert.That(ToolOf(nameof(TrashTools.RestoreFromTrash)).ReadOnly, Is.False);
+            Assert.That(ToolOf(nameof(TrashTools.RestoreWorkItem)).ReadOnly, Is.False);
             Assert.That(ToolOf(nameof(TrashTools.DeleteWorkItem)).ReadOnly, Is.False);
         });
     }

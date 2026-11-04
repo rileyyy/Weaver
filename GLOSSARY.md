@@ -105,9 +105,10 @@ agent asks "what changed since yesterday?".
 status, dates, assignee, child count), as lists return it. Full detail comes
 from the item itself.
 
-**Trash** *(planned)*
-: Where deleted work items wait until the retention period ends. Humans and
-read-write agents can restore from it; only humans can purge it.
+**Trash**
+: Where deleted work items wait until the retention period ends. Every
+normal read leaves them out. Humans and read-write agents can restore from
+it; only humans can purge it (retention and purge are planned).
 
 **Agent account**
 : A user account for one agent runtime (e.g. "Claude Code (desktop)"). It

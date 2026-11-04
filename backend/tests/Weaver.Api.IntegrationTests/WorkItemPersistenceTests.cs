@@ -71,7 +71,7 @@ public class WorkItemPersistenceTests
     }
 
     [Test]
-    public async Task Delete_ASubtreeWithLinks_RemovesTheLinksToo()
+    public async Task Delete_ASubtreeWithLinks_HidesTheLinksUntilItsRestored()
     {
         var parent = await _client.CreateWorkItemAsync("Parent");
         var child = await _client.CreateWorkItemAsync("Child", parent.Id);
@@ -81,13 +81,17 @@ public class WorkItemPersistenceTests
             new CreateWorkItemLinkRequest(outsider.Id));
 
         var delete = await _client.DeleteAsync($"/api/work-items/{parent.Id}?cascade=true");
-        var outsiderLinks = await (await _client.GetAsync($"/api/work-items/{outsider.Id}/links"))
+        var whileTrashed = await (await _client.GetAsync($"/api/work-items/{outsider.Id}/links"))
+            .ReadAsync<List<WorkItemLinkDto>>();
+        await _client.PostAsync($"/api/trash/{parent.Id}/restore", null);
+        var afterRestore = await (await _client.GetAsync($"/api/work-items/{outsider.Id}/links"))
             .ReadAsync<List<WorkItemLinkDto>>();
 
         Assert.Multiple(() =>
         {
             Assert.That(delete.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
-            Assert.That(outsiderLinks, Is.Empty);
+            Assert.That(whileTrashed, Is.Empty);
+            Assert.That(afterRestore, Has.Count.EqualTo(1));
         });
     }
 

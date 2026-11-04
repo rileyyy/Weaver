@@ -18,7 +18,7 @@ public class TrashTools(IWorkItemTrashService trash, HttpCallerContext caller)
 
     [McpServerTool(Name = "delete_work_item", Destructive = true)]
     [Description("Deletes a work item by moving it, and its whole subtree, to the Trash, where it can be " +
-        "restored with restore_from_trash. If it has children, cascade must be true or the delete is " +
+        "restored with restore_work_item. If it has children, cascade must be true or the delete is " +
         "rejected. Its links and comments are kept, but hidden while it's in the Trash.")]
     public Task DeleteWorkItem(
         [Description("The work item's id.")] Guid id,
@@ -45,12 +45,12 @@ public class TrashTools(IWorkItemTrashService trash, HttpCallerContext caller)
             return (IReadOnlyList<TrashedWorkItemDto>)trash.Select(TrashedWorkItemDto.FromModel).ToList();
         });
 
-    [McpServerTool(Name = "restore_from_trash", Destructive = false)]
+    [McpServerTool(Name = "restore_work_item", Destructive = false)]
     [Description("Restores a deleted work item, and everything deleted with it, from the Trash. It goes back " +
         "under its parent if that still exists, otherwise under its nearest ancestor that does, otherwise to " +
         "the top level of its Space. Use an id from list_trash; an item deleted along with its parent is " +
         "restored by restoring that parent. Returns the restored item.")]
-    public Task<WorkItemDto> RestoreFromTrash(
+    public Task<WorkItemDto> RestoreWorkItem(
         [Description("The deleted work item's id, from list_trash.")] Guid id,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
