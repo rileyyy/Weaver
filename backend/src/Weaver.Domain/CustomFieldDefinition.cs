@@ -226,7 +226,6 @@ public class CustomFieldDefinition : LookupValue
         return value.Clone();
     }
 
-    /// <summary>Only web addresses, so a stored link can't run script when the app opens it.</summary>
     private JsonElement? NormalizeUrl(JsonElement value)
     {
         if (NormalizeText(value, UrlMaxLength) is not { } text)
@@ -234,8 +233,7 @@ public class CustomFieldDefinition : LookupValue
             return null;
         }
 
-        if (!Uri.TryCreate(text.GetString(), UriKind.Absolute, out var uri)
-            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        if (!WebAddress.IsHttpOrHttps(text.GetString()!))
         {
             throw new DomainValidationException($"{Name} takes an http or https address.");
         }

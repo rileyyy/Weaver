@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Weaver.Api.Auth;
+using Weaver.Api.Contracts;
 using Weaver.Api.Background;
 using Weaver.Api.Json;
 using Weaver.Api.Mcp;
@@ -56,6 +57,7 @@ builder.Services.AddHostedService<RecurrenceGenerationWorker>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<HttpCallerContext>();
 builder.Services.AddScoped<ICallerContext>(services => services.GetRequiredService<HttpCallerContext>());
+builder.Services.AddScoped<WorkItemDtoMapper>();
 
 // A read-only API key may not write (ADR-0004). Both transports apply Caller.EnsureCanWrite to
 // every write by default, so a new endpoint or tool is covered without opting in: REST to every

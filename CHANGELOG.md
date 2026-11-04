@@ -33,6 +33,35 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-04 — Typed links, URL links, and the link picker
+
+`feature/typed-links-url-links-and-picker` (ticket 26 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0009](docs/adr/0009-typed-links-and-dependency-flags.md)).
+
+- **Links have a type**: related, blocks / blocked by, or duplicates /
+  duplicated by, and they can cross Spaces. A blocks link is stored once
+  and each item reads it from its own side. Existing links became
+  *related*. Two items still have at most one link; a blocks link against
+  one that already runs the other way is rejected as a cycle.
+- **URL links** point outside Weaver (a PR, a quote, a product page): an
+  http or https address with an optional label.
+- **A When counts as resolved** once a live item blocks the item, as well
+  as when it has dates (ADR-0003). A blocker in the Trash stops counting.
+- **History** records `link` on both items as `{ workItemId, type }`, the
+  type read from each item's side (older entries hold just the id), and
+  `urlLink` as `{ url, label }`, named by the label or the URL.
+- **API:** `POST /api/work-items/{id}/links` requires `type`
+  (`Related`, `Blocks`, `BlockedBy`, `Duplicates`, `DuplicatedBy`), and
+  links carry `type`, `linkedWorkItemNumber` and `linkedWorkItemSpaceId`.
+  `GET`/`POST /api/work-items/{id}/url-links` and
+  `DELETE /api/work-item-url-links/{id}` are new. MCP's
+  `create_work_item_link` takes `type`, and `list_work_item_url_links`,
+  `create_work_item_url_link` and `delete_work_item_url_link` are new.
+- **Detail dialog:** links are grouped by type and added by picking a type
+  and searching every Space by title or `#Number`, instead of typing an
+  id. A URL Links section lists, opens, adds and removes URL links.
+
 ## 2026-11-04 — Trash: delete and restore
 
 `feature/trash-delete-and-restore` (ticket 19 of

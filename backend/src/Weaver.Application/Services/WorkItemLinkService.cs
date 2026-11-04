@@ -19,49 +19,69 @@ public class WorkItemLinkService(IWeaverDbContext db, ICallerContext caller) : I
             workItemId,
             ct);
 
-    public async Task<WorkItemLinkView> CreateAsync(Guid workItemId, Guid targetWorkItemId, CancellationToken ct = default)
+    public async Task<WorkItemLinkView> CreateAsync(
+        Guid workItemId,
+        Guid targetWorkItemId,
+        WorkItemLinkRelation type,
+        CancellationToken ct = default)
     {
-        var link = WorkItemLink.Create(workItemId, targetWorkItemId);
+        var link = WorkItemLink.Create(workItemId, targetWorkItemId, type);
 
-        if (!await _db.WorkItems.AnyAsync(w => w.Id == workItemId, ct))
-        {
-            throw new EntityNotFoundException(nameof(WorkItem), workItemId);
-        }
-
-        if (!await _db.WorkItems.AnyAsync(w => w.Id == targetWorkItemId, ct))
-        {
-            throw new EntityNotFoundException(nameof(WorkItem), targetWorkItemId);
-        }
-
-        var alreadyLinked = await _db.WorkItemLinks.AnyAsync(
-            l => (l.WorkItemId == workItemId && l.LinkedWorkItemId == targetWorkItemId) ||
-                 (l.WorkItemId == targetWorkItemId && l.LinkedWorkItemId == workItemId),
-            ct);
-        if (alreadyLinked)
-        {
-            throw new DuplicateWorkItemLinkException(workItemId, targetWorkItemId);
-        }
+        await _db.EnsureWorkItemExistsAsync(workItemId, ct);
+        await _db.EnsureWorkItemExistsAsync(targetWorkItemId, ct);
+        await EnsureNotLinkedAsync(link, ct);
 
         _db.WorkItemLinks.Add(link);
-        _history.Record(workItemId, WorkItemHistoryField.Link, null, targetWorkItemId);
-        _history.Record(targetWorkItemId, WorkItemHistoryField.Link, null, workItemId);
+        RecordLinkChange(link, added: true);
         await _db.SaveChangesAsync(ct);
         return (await ProjectAsync(_db.WorkItemLinks.Where(l => l.Id == link.Id), workItemId, ct)).Single();
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
     {
-        var link = await _db.WorkItemLinks.FindAsync([id], ct)
+        var link = await _db.WorkItemLinks.FirstOrDefaultAsync(l => l.Id == id, ct)
             ?? throw new EntityNotFoundException(nameof(WorkItemLink), id);
 
         _db.WorkItemLinks.Remove(link);
-        _history.Record(link.WorkItemId, WorkItemHistoryField.Link, link.LinkedWorkItemId, null);
-        _history.Record(link.LinkedWorkItemId, WorkItemHistoryField.Link, link.WorkItemId, null);
+        RecordLinkChange(link, added: false);
         await _db.SaveChangesAsync(ct);
     }
 
     /// <summary>
-    /// Both titles are selected as columns and the "other side" is picked in memory, since
+    /// The cycle is reported before the duplicate, since "already linked" wouldn't tell the
+    /// caller that the order they asked for is the opposite of the one that exists.
+    /// </summary>
+    private async Task EnsureNotLinkedAsync(WorkItemLink link, CancellationToken ct)
+    {
+        var existing = await _db.WorkItemLinks.FirstOrDefaultAsync(
+            l => (l.WorkItemId == link.WorkItemId && l.LinkedWorkItemId == link.LinkedWorkItemId) ||
+                 (l.WorkItemId == link.LinkedWorkItemId && l.LinkedWorkItemId == link.WorkItemId),
+            ct);
+        if (existing is null)
+        {
+            return;
+        }
+
+        if (link.IsReverseBlocksOf(existing))
+        {
+            throw new BlockingCycleException(link.WorkItemId, link.LinkedWorkItemId);
+        }
+
+        throw new DuplicateWorkItemLinkException(link.WorkItemId, link.LinkedWorkItemId);
+    }
+
+    /// <summary>Each item records the other, and the type as it reads from its own side.</summary>
+    private void RecordLinkChange(WorkItemLink link, bool added)
+    {
+        foreach (var side in new[] { link.WorkItemId, link.LinkedWorkItemId })
+        {
+            var value = new LinkHistoryValue(link.OtherSideOf(side), link.RelationFrom(side));
+            _history.Record(side, WorkItemHistoryField.Link, added ? null : value, added ? value : null);
+        }
+    }
+
+    /// <summary>
+    /// Both sides are selected as columns and the "other side" is picked in memory, since
     /// which side that is depends on the perspective, not on anything EF can translate.
     /// </summary>
     private static async Task<IReadOnlyList<WorkItemLinkView>> ProjectAsync(
@@ -73,17 +93,34 @@ public class WorkItemLinkService(IWeaverDbContext db, ICallerContext caller) : I
             .Select(l => new
             {
                 l.Id,
+                l.Type,
                 l.WorkItemId,
-                l.LinkedWorkItemId,
+                WorkItemNumber = l.WorkItem!.Number,
                 WorkItemTitle = l.WorkItem!.Title,
+                WorkItemSpaceId = l.WorkItem!.SpaceId,
+                l.LinkedWorkItemId,
+                LinkedWorkItemNumber = l.LinkedWorkItem!.Number,
                 LinkedWorkItemTitle = l.LinkedWorkItem!.Title,
+                LinkedWorkItemSpaceId = l.LinkedWorkItem!.SpaceId,
             })
             .ToListAsync(ct);
 
         return rows
             .Select(r => r.WorkItemId == perspectiveWorkItemId
-                ? new WorkItemLinkView(r.Id, r.LinkedWorkItemId, r.LinkedWorkItemTitle)
-                : new WorkItemLinkView(r.Id, r.WorkItemId, r.WorkItemTitle))
+                ? new WorkItemLinkView(
+                    r.Id,
+                    WorkItemLink.RelationFrom(r.Type, isSource: true),
+                    r.LinkedWorkItemId,
+                    r.LinkedWorkItemNumber,
+                    r.LinkedWorkItemTitle,
+                    r.LinkedWorkItemSpaceId)
+                : new WorkItemLinkView(
+                    r.Id,
+                    WorkItemLink.RelationFrom(r.Type, isSource: false),
+                    r.WorkItemId,
+                    r.WorkItemNumber,
+                    r.WorkItemTitle,
+                    r.WorkItemSpaceId))
             .ToList();
     }
 }

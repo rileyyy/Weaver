@@ -17,7 +17,7 @@ public class TrashControllerTests
     public void SetUp()
     {
         _trash = new Mock<IWorkItemTrashService>(MockBehavior.Strict);
-        _controller = new TrashController(_trash.Object);
+        _controller = new TrashController(_trash.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers()));
     }
 
     public static TrashedWorkItem MakeTrashed(Guid id) => new(

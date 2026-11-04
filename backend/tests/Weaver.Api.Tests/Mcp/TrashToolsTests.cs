@@ -4,6 +4,7 @@ using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using Moq;
 using Weaver.Api.Auth;
+using Weaver.Api.Contracts;
 using Weaver.Api.Mcp;
 using Weaver.Application.Services;
 using Weaver.Domain;
@@ -21,7 +22,7 @@ public class TrashToolsTests
     public void SetUp()
     {
         _trash = new Mock<IWorkItemTrashService>(MockBehavior.Strict);
-        _tools = new TrashTools(_trash.Object, new HttpCallerContext(new HttpContextAccessor()));
+        _tools = new TrashTools(_trash.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers()), new HttpCallerContext(new HttpContextAccessor()));
     }
 
     private static McpServerToolAttribute ToolOf(string method) =>

@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/work_item_detail/data/api_work_item_detail_repository.dart';
 import 'package:weaver/features/work_item_detail/models/quick_pick.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_link_relation.dart';
 import 'package:weaver/shared/data/api_status_repository.dart';
 import 'package:weaver/shared/data/api_type_repository.dart';
 import 'package:weaver/shared/data/api_user_directory_repository.dart';
@@ -63,6 +64,15 @@ Map<String, dynamic> _commentJson({DateTime? updatedAt}) => {
   'body': 'Looks good',
   'createdAtUtc': '2026-01-01T00:00:00Z',
   'updatedAtUtc': updatedAt?.toIso8601String(),
+};
+
+Map<String, dynamic> _linkJson({String type = 'Related'}) => {
+  'id': 'link-1',
+  'type': type,
+  'linkedWorkItemId': 'item-2',
+  'linkedWorkItemNumber': 2,
+  'linkedWorkItemTitle': 'Other task',
+  'linkedWorkItemSpaceId': 'space-work',
 };
 
 const _endpoint = FixedApiEndpoint('http://backend.test/api');
@@ -544,39 +554,170 @@ void main() {
     },
   );
 
-  test('loadLinks parses the link list', () async {
-    final client = MockClient(
-      (request) async => _jsonResponse([
-        {
-          'id': 'link-1',
-          'linkedWorkItemId': 'item-2',
-          'linkedWorkItemTitle': 'Other task',
-        },
-      ]),
-    );
+  test('loadLinks parses the typed link list', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse([_linkJson(type: 'BlockedBy')]);
+    });
     final repository = _repository(client);
 
     final links = await repository.loadLinks('item-1');
 
+    expect(sentRequest!.url.path, '/api/work-items/item-1/links');
+    expect(links.single.type, WorkItemLinkRelation.blockedBy);
+    expect(links.single.linkedWorkItemNumber, 2);
     expect(links.single.linkedWorkItemTitle, 'Other task');
   });
 
-  test('addLink posts the target work item id', () async {
+  test('addLink posts the target and the type from this side', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse(_linkJson(type: 'Blocks'), statusCode: 201);
+    });
+    final repository = _repository(client);
+
+    final link = await repository.addLink(
+      'item-1',
+      'item-2',
+      WorkItemLinkRelation.blocks,
+    );
+
+    expect(sentRequest!.method, 'POST');
+    expect(sentRequest!.url.path, '/api/work-items/item-1/links');
+    expect(jsonDecode(sentRequest!.body), {
+      'targetWorkItemId': 'item-2',
+      'type': 'Blocks',
+    });
+    expect(link.type, WorkItemLinkRelation.blocks);
+  });
+
+  test("addLink reports the server's reason for refusing a link", () async {
+    final client = MockClient(
+      (request) async => _jsonResponse({
+        'title': 'Conflict',
+        'detail': 'These items already block each other.',
+      }, statusCode: 409),
+    );
+    final repository = _repository(client);
+
+    await expectLater(
+      repository.addLink('item-1', 'item-2', WorkItemLinkRelation.blocks),
+      throwsA(
+        isA<ApiException>()
+            .having((e) => e.isConflict, 'isConflict', isTrue)
+            .having(
+              (e) => e.message,
+              'message',
+              contains('already block each other'),
+            ),
+      ),
+    );
+  });
+
+  test(
+    "addLink reports the server's reason for refusing a self link",
+    () async {
+      final client = MockClient(
+        (request) async => _jsonResponse({
+          'title': 'Bad Request',
+          'detail': 'Work item item-1 cannot be linked to itself.',
+        }, statusCode: 400),
+      );
+      final repository = _repository(client);
+
+      await expectLater(
+        repository.addLink('item-1', 'item-1', WorkItemLinkRelation.related),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.statusCode, 'statusCode', 400)
+              .having(
+                (e) => e.message,
+                'message',
+                contains('cannot be linked to itself'),
+              ),
+        ),
+      );
+    },
+  );
+
+  test('loadUrlLinks parses the URL link list', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse([
+        {'id': 'url-1', 'url': 'https://example.com/pr/7', 'label': 'PR 7'},
+        {'id': 'url-2', 'url': 'https://example.com/quote', 'label': null},
+      ]);
+    });
+    final repository = _repository(client);
+
+    final links = await repository.loadUrlLinks('item-1');
+
+    expect(sentRequest!.url.path, '/api/work-items/item-1/url-links');
+    expect(links.map((l) => l.displayName), [
+      'PR 7',
+      'https://example.com/quote',
+    ]);
+  });
+
+  test('addUrlLink posts the URL and label', () async {
     http.Request? sentRequest;
     final client = MockClient((request) async {
       sentRequest = request;
       return _jsonResponse({
-        'id': 'link-1',
-        'linkedWorkItemId': 'item-2',
-        'linkedWorkItemTitle': 'Other task',
-      });
+        'id': 'url-1',
+        'url': 'https://example.com/pr/7',
+        'label': 'PR 7',
+      }, statusCode: 201);
     });
     final repository = _repository(client);
 
-    await repository.addLink('item-1', 'item-2');
+    final link = await repository.addUrlLink(
+      'item-1',
+      'https://example.com/pr/7',
+      label: 'PR 7',
+    );
 
-    expect(sentRequest!.url.path, '/api/work-items/item-1/links');
-    expect(jsonDecode(sentRequest!.body), {'targetWorkItemId': 'item-2'});
+    expect(sentRequest!.method, 'POST');
+    expect(sentRequest!.url.path, '/api/work-items/item-1/url-links');
+    expect(jsonDecode(sentRequest!.body), {
+      'url': 'https://example.com/pr/7',
+      'label': 'PR 7',
+    });
+    expect(link.id, 'url-1');
+  });
+
+  test('addUrlLink leaves the label out when there is none', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse({
+        'id': 'url-1',
+        'url': 'https://example.com',
+        'label': null,
+      }, statusCode: 201);
+    });
+    final repository = _repository(client);
+
+    await repository.addUrlLink('item-1', 'https://example.com');
+
+    expect(jsonDecode(sentRequest!.body), {'url': 'https://example.com'});
+  });
+
+  test('deleteUrlLink deletes the work-item-url-links endpoint', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return http.Response('', 204);
+    });
+    final repository = _repository(client);
+
+    await repository.deleteUrlLink('url-1');
+
+    expect(sentRequest!.method, 'DELETE');
+    expect(sentRequest!.url.path, '/api/work-item-url-links/url-1');
   });
 
   test('deleteLink deletes the work-item-links endpoint', () async {
@@ -675,6 +816,24 @@ void main() {
 
     expect(sentRequest!.url.path, '/api/work-items/search');
     expect(sentRequest!.url.queryParameters['spaceIds'], 'space-home');
+    expect(sentRequest!.url.queryParameters['text'], '#1');
+    expect(items.single.id, 'item-1');
+  });
+
+  test('searchAllWorkItems searches every Space', () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse({
+        'items': [_itemJson()],
+        'nextCursor': null,
+      });
+    });
+
+    final items = await _repository(client).searchAllWorkItems('#1');
+
+    expect(sentRequest!.url.path, '/api/work-items/search');
+    expect(sentRequest!.url.queryParameters.containsKey('spaceIds'), isFalse);
     expect(sentRequest!.url.queryParameters['text'], '#1');
     expect(items.single.id, 'item-1');
   });

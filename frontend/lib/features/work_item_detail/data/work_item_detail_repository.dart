@@ -3,7 +3,9 @@ import 'package:weaver/features/work_item_detail/models/quick_pick_dates.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_link_relation.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_url_link.dart';
 import 'package:weaver/shared/models/custom_field.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
@@ -121,6 +123,10 @@ abstract class WorkItemDetailRepository {
   /// The first page of items in [spaceId] matching [text], for a picker.
   Future<List<WorkItem>> searchWorkItems(String spaceId, String text);
 
+  /// The first page of items in every Space matching [text], for a picker
+  /// whose pick may be in another Space, such as a link's target.
+  Future<List<WorkItem>> searchAllWorkItems(String text);
+
   /// Replaces this work item's full tag list.
   Future<WorkItem> updateTags(
     String id,
@@ -138,7 +144,27 @@ abstract class WorkItemDetailRepository {
 
   Future<List<WorkItemLink>> loadLinks(String workItemId);
 
-  Future<WorkItemLink> addLink(String workItemId, String targetWorkItemId);
+  /// Links [workItemId] to [targetWorkItemId] as [type], read from
+  /// [workItemId]'s side. The server refuses a self link with a 400, and a
+  /// repeat of an existing link or a blocks cycle with a 409; each says
+  /// why.
+  Future<WorkItemLink> addLink(
+    String workItemId,
+    String targetWorkItemId,
+    WorkItemLinkRelation type,
+  );
 
   Future<void> deleteLink(String linkId);
+
+  Future<List<WorkItemUrlLink>> loadUrlLinks(String workItemId);
+
+  /// The server refuses a [url] that isn't an absolute http(s) URL with a
+  /// 400.
+  Future<WorkItemUrlLink> addUrlLink(
+    String workItemId,
+    String url, {
+    String? label,
+  });
+
+  Future<void> deleteUrlLink(String urlLinkId);
 }

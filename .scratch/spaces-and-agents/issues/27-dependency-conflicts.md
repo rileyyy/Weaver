@@ -11,3 +11,9 @@
 - [ ] The Roadmap draws arrows for blocks links between visible items
 - [ ] An MCP tool lists current conflicts, optionally per Space
 - [ ] No code path changes dates in response to a conflict
+
+## Comments
+
+**2026-11-04, from ticket 26 (typed links):**
+
+- A blocks link is stored once as `WorkItemLink { WorkItemId blocks LinkedWorkItemId, Type = Blocks }`; `RelationFrom(id)` reads it from either side. `IWorkItemBlockers` (Application) already finds which items have a live blocker in one query, and the Trash filter on links hides trashed blockers, so conflict detection can start from there.

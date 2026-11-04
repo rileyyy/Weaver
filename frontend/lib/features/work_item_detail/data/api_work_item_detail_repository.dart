@@ -8,7 +8,9 @@ import 'package:weaver/features/work_item_detail/models/quick_pick_dates.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_link_relation.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
+import 'package:weaver/features/work_item_detail/models/work_item_url_link.dart';
 import 'package:weaver/shared/data/status_repository.dart';
 import 'package:weaver/shared/data/type_repository.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
@@ -236,6 +238,10 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
       _search.search(spaceId: spaceId, text: text);
 
   @override
+  Future<List<WorkItem>> searchAllWorkItems(String text) =>
+      _search.search(text: text);
+
+  @override
   Future<WorkItem> updateTags(
     String id,
     List<String> tags, {
@@ -286,17 +292,45 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
   );
 
   @override
-  Future<WorkItemLink> addLink(String workItemId, String targetWorkItemId) =>
-      _api.post(
-        '/work-items/$workItemId/links',
-        {'targetWorkItemId': targetWorkItemId},
-        (json) => WorkItemLink.fromJson(json as Map<String, dynamic>),
-        failureMessage: 'Failed to add link',
-      );
+  Future<WorkItemLink> addLink(
+    String workItemId,
+    String targetWorkItemId,
+    WorkItemLinkRelation type,
+  ) => _api.post(
+    '/work-items/$workItemId/links',
+    {'targetWorkItemId': targetWorkItemId, 'type': type.wire},
+    (json) => WorkItemLink.fromJson(json as Map<String, dynamic>),
+    failureMessage: 'Failed to add link',
+  );
 
   @override
   Future<void> deleteLink(String linkId) => _api.delete(
     '/work-item-links/$linkId',
     failureMessage: 'Failed to delete link',
+  );
+
+  @override
+  Future<List<WorkItemUrlLink>> loadUrlLinks(String workItemId) => _api.get(
+    '/work-items/$workItemId/url-links',
+    (json) => JsonApiClient.listOf(json, WorkItemUrlLink.fromJson),
+    failureMessage: 'Failed to load URL links',
+  );
+
+  @override
+  Future<WorkItemUrlLink> addUrlLink(
+    String workItemId,
+    String url, {
+    String? label,
+  }) => _api.post(
+    '/work-items/$workItemId/url-links',
+    {'url': url, 'label': ?label},
+    (json) => WorkItemUrlLink.fromJson(json as Map<String, dynamic>),
+    failureMessage: 'Failed to add URL link',
+  );
+
+  @override
+  Future<void> deleteUrlLink(String urlLinkId) => _api.delete(
+    '/work-item-url-links/$urlLinkId',
+    failureMessage: 'Failed to delete URL link',
   );
 }

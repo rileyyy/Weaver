@@ -123,6 +123,7 @@ public class CustomFieldDefinitionTests
     [TestCase("\"example.com\"")]
     [TestCase("\"ftp://example.com/file\"")]
     [TestCase("\"javascript:alert(1)\"")]
+    [TestCase("\"http:///x\"")]
     public void Url_NotAnHttpAddress_IsRejected(string json)
     {
         Assert.Throws<DomainValidationException>(() => Field(CustomFieldKind.Url).Normalize(Json(json)));

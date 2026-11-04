@@ -36,7 +36,8 @@ the API.
   priority, assignee, status, schedule, sub-items, and a sequential `#N`
   number.
 - **Tags, comments and links.** Free-text tags; comments editable by their
-  author; symmetric "related to" links between work items.
+  author; typed links between work items (related, blocks, duplicates),
+  across Spaces, and URL links to things outside Weaver.
 - **Markdown and checklists.** Descriptions and comments render Markdown.
   `- [ ]` task lines in a description are checkboxes you can tick, for
   checklists and shopping lists.

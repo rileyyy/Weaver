@@ -81,10 +81,12 @@ _Avoid:_ sprint, iteration, focus period.
 used and filtered on across every Space.
 
 **Link**
-: A relationship between two work items. Today it's untyped ("related
-to"); from Milestone 16 it's typed (related, blocks/blocked by,
-duplicates) and can cross Spaces. A **URL link** *(planned)* points outside
-Weaver instead.
+: A typed relationship between two work items, which can be in different
+Spaces: *related*, *blocks* / *blocked by*, or *duplicates* / *duplicated
+by*. A blocks link is stored once and each side reads it from its own view
+(drywall *blocks* paint; paint is *blocked by* drywall). Two items have at
+most one link. A **URL link** points outside Weaver instead (a PR, a quote,
+a product page), with an optional label.
 
 **Dependency conflict** *(planned)*
 : A blocked item scheduled to start before its blocker ends. Weaver flags it
