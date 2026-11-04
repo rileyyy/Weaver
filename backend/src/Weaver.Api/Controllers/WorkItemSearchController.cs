@@ -8,9 +8,10 @@ namespace Weaver.Api.Controllers;
 // The bearer challenge has no body.
 [ProducesResponseType(StatusCodes.Status401Unauthorized)]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
-public class WorkItemSearchController(IWorkItemQueryService query) : ControllerBase
+public class WorkItemSearchController(IWorkItemQueryService query, WorkItemDtoMapper dtos) : ControllerBase
 {
     private readonly IWorkItemQueryService _query = query;
+    private readonly WorkItemDtoMapper _dtos = dtos;
 
     /// <summary>
     /// The work-item query every client shares (ADR-0006): the inputs given AND together, and
@@ -21,6 +22,6 @@ public class WorkItemSearchController(IWorkItemQueryService query) : ControllerB
     public async Task<ActionResult<WorkItemPageDto>> Search([FromQuery] WorkItemSearchParameters parameters)
     {
         var page = await _query.QueryAsync(parameters.ToQuery());
-        return Ok(WorkItemPageDto.FromPage(page));
+        return Ok(await _dtos.ToPageDtoAsync(page));
     }
 }

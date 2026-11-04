@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Weaver.Api.Contracts;
 using Weaver.Application.Services;
+using Weaver.Domain.Exceptions;
 
 namespace Weaver.Api.Controllers;
 
@@ -23,13 +24,16 @@ public class WorkItemLinksController(IWorkItemLinkService links) : ControllerBas
 
     /// <summary>
     /// A link has no view of its own (it always reads from one side), so the Location header
-    /// points at the list it now appears in.
+    /// points at the list it now appears in. The type is how <paramref name="workItemId"/>
+    /// relates to the target; a blocked-by or duplicated-by link is stored the other way round.
     /// </summary>
     [HttpPost("api/work-items/{workItemId:guid}/links")]
     [ProducesResponseType<WorkItemLinkDto>(StatusCodes.Status201Created)]
     public async Task<ActionResult<WorkItemLinkDto>> Create(Guid workItemId, CreateWorkItemLinkRequest request)
     {
-        var link = await _links.CreateAsync(workItemId, request.TargetWorkItemId);
+        var type = request.Type
+            ?? throw new DomainValidationException("Link type is required: Related, Blocks, BlockedBy, Duplicates or DuplicatedBy.");
+        var link = await _links.CreateAsync(workItemId, request.TargetWorkItemId, type);
         return CreatedAtAction(nameof(ListForWorkItem), new { workItemId }, WorkItemLinkDto.FromView(link));
     }
 

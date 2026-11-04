@@ -23,6 +23,8 @@ public static class DependencyInjection
             .AddScoped<IFirstAdminBootstrapper, FirstAdminBootstrapper>()
             .AddScoped<ICommentService, CommentService>()
             .AddScoped<IWorkItemLinkService, WorkItemLinkService>()
+            .AddScoped<IWorkItemUrlLinkService, WorkItemUrlLinkService>()
+            .AddScoped<IWorkItemBlockers, WorkItemBlockers>()
             .AddScoped<IWorkItemHistoryService, WorkItemHistoryService>()
             .AddScoped<IWorkItemChangesService, WorkItemChangesService>()
             .AddScoped<IWorkItemQueryService, WorkItemQueryService>()

@@ -297,7 +297,34 @@ public class WorkItemTests
 
         item.UpdateDetails(new WorkItemDetailsPatch { When = "after drywall" });
 
-        Assert.That(item.IsWhenResolved, Is.False);
+        Assert.That(item.IsWhenResolved(hasLiveBlocker: false), Is.False);
+    }
+
+    [Test]
+    public void IsWhenResolved_WithAWhenAndALiveBlocker_IsTrue()
+    {
+        var item = NewItem();
+
+        item.UpdateDetails(new WorkItemDetailsPatch { When = "after drywall" });
+
+        Assert.That(item.IsWhenResolved(hasLiveBlocker: true), Is.True);
+    }
+
+    [Test]
+    public void WhenResolutionNeedsBlockers_OnlyForAWhenWithoutDates()
+    {
+        var undated = NewItem();
+        undated.UpdateDetails(new WorkItemDetailsPatch { When = "after drywall" });
+        var dated = NewItem();
+        dated.UpdateDetails(new WorkItemDetailsPatch { When = "next week" });
+        dated.Reschedule(new DateOnly(2026, 11, 9), null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(undated.WhenResolutionNeedsBlockers, Is.True);
+            Assert.That(dated.WhenResolutionNeedsBlockers, Is.False);
+            Assert.That(NewItem().WhenResolutionNeedsBlockers, Is.False);
+        });
     }
 
     [TestCase(true, false)]
@@ -310,7 +337,7 @@ public class WorkItemTests
 
         item.Reschedule(hasStart ? new DateOnly(2026, 11, 9) : null, hasEnd ? new DateOnly(2026, 11, 15) : null);
 
-        Assert.That(item.IsWhenResolved, Is.True);
+        Assert.That(item.IsWhenResolved(hasLiveBlocker: false), Is.True);
     }
 
     [Test]
@@ -320,7 +347,11 @@ public class WorkItemTests
 
         item.Reschedule(new DateOnly(2026, 11, 9), new DateOnly(2026, 11, 15));
 
-        Assert.That(item.IsWhenResolved, Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(item.IsWhenResolved(hasLiveBlocker: false), Is.False);
+            Assert.That(item.IsWhenResolved(hasLiveBlocker: true), Is.False);
+        });
     }
 
     [Test]

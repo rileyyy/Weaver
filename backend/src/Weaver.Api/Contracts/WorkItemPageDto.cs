@@ -9,7 +9,7 @@ namespace Weaver.Api.Contracts;
 /// </summary>
 public record WorkItemPageDto(IReadOnlyList<WorkItemDto> Items, string? NextCursor)
 {
-    public static WorkItemPageDto FromPage(WorkItemQueryPage<WorkItem> page) => new(
-        page.Items.Select(WorkItemDto.FromEntity).ToList(),
+    public static WorkItemPageDto FromPage(WorkItemQueryPage<WorkItem> page, Func<WorkItem, WorkItemDto> toDto) => new(
+        page.Items.Select(toDto).ToList(),
         page.NextCursor);
 }

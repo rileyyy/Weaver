@@ -106,11 +106,18 @@ public class WorkItem : IHasUpdatedAt
     public string? When { get; private set; }
 
     /// <summary>
-    /// Whether the When has been given concrete form. False when there is no When, since there
-    /// is nothing to resolve. Today only dates count; a blocked-by link will too once links
-    /// are typed (ticket 26).
+    /// Whether the When has been given concrete form: a date, or a live item blocking this one
+    /// (ADR-0003). False when there is no When, since there is nothing to resolve. Blockers are
+    /// other rows, so the caller says whether there is one; see <see cref="WhenResolutionNeedsBlockers"/>.
     /// </summary>
-    public bool IsWhenResolved => When is not null && (StartDate is not null || EndDate is not null);
+    public bool IsWhenResolved(bool hasLiveBlocker) =>
+        When is not null && (StartDate is not null || EndDate is not null || hasLiveBlocker);
+
+    /// <summary>
+    /// Whether <see cref="IsWhenResolved"/> depends on blockers at all, so readers can skip
+    /// looking them up for every other item.
+    /// </summary>
+    public bool WhenResolutionNeedsBlockers => When is not null && StartDate is null && EndDate is null;
 
     /// <summary>
     /// The repeating work item this one was generated from, and the occurrence date it was

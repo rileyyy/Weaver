@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Weaver.Api.Contracts;
+using Weaver.Domain;
 
 namespace Weaver.Api.IntegrationTests;
 
@@ -32,7 +33,7 @@ public class RestConventionTests
         var a = await client.CreateWorkItemAsync("A");
         var b = await client.CreateWorkItemAsync("B");
 
-        var response = await client.PostJsonAsync($"/api/work-items/{a.Id}/links", new CreateWorkItemLinkRequest(b.Id));
+        var response = await client.PostJsonAsync($"/api/work-items/{a.Id}/links", new CreateWorkItemLinkRequest(b.Id, WorkItemLinkRelation.Related));
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created));
     }

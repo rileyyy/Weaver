@@ -7,9 +7,10 @@ namespace Weaver.Application.Services;
 
 /// <summary>
 /// Names for the ids history values hold (a Space, status, type, priority, user or another
-/// work item, or a custom field's option or user), and for the custom fields themselves, so
-/// readers don't each have to look them up. Looked up when read, so an id whose row is gone
-/// since has no name and readers fall back to the raw value.
+/// work item, or a custom field's option or user), for URL links (the label, or the URL), and
+/// for the custom fields themselves, so readers don't each have to look them up. Looked up
+/// when read, so an id whose row is gone since has no name and readers fall back to the raw
+/// value.
 /// </summary>
 internal sealed class HistoryValueNames
 {
@@ -89,6 +90,11 @@ internal sealed class HistoryValueNames
             return CustomValueName(customField, valueJson);
         }
 
+        if (field == WorkItemHistoryField.UrlLink)
+        {
+            return UrlLinkName(valueJson);
+        }
+
         return KindByField.TryGetValue(field, out var kind) && IdIn(valueJson) is { } id
             ? _names.GetValueOrDefault((kind, id))
             : null;
@@ -133,6 +139,10 @@ internal sealed class HistoryValueNames
     private static string? OptionName(CustomFieldDefinition field, Guid? optionId) =>
         field.Options.FirstOrDefault(o => o.Id == optionId)?.Name;
 
+    /// <summary>
+    /// A plain id, or a link's <c>{ "workItemId", "type" }</c>, whose id is the other item.
+    /// Link entries from before links had types hold the plain id.
+    /// </summary>
     private static Guid? IdIn(string? valueJson)
     {
         if (valueJson is null)
@@ -141,8 +151,32 @@ internal sealed class HistoryValueNames
         }
 
         var value = JsonSerializer.Deserialize<JsonElement>(valueJson);
+        if (value.ValueKind == JsonValueKind.Object && value.TryGetProperty("workItemId", out var workItemId))
+        {
+            value = workItemId;
+        }
+
         return value.ValueKind == JsonValueKind.String && value.TryGetGuid(out var id) ? id : null;
     }
+
+    private static string? UrlLinkName(string? valueJson)
+    {
+        if (valueJson is null)
+        {
+            return null;
+        }
+
+        var value = JsonSerializer.Deserialize<JsonElement>(valueJson);
+        if (value.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        return TextProperty(value, "label") ?? TextProperty(value, "url");
+    }
+
+    private static string? TextProperty(JsonElement value, string name) =>
+        value.TryGetProperty(name, out var property) && property.ValueKind == JsonValueKind.String ? property.GetString() : null;
 
     private static async Task<List<(Guid Id, string Name)>> LoadNamesAsync(
         IWeaverDbContext db,

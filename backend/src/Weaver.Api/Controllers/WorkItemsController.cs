@@ -12,9 +12,10 @@ namespace Weaver.Api.Controllers;
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
-public class WorkItemsController(IWorkItemService workItems) : ControllerBase
+public class WorkItemsController(IWorkItemService workItems, WorkItemDtoMapper dtos) : ControllerBase
 {
     private readonly IWorkItemService _workItems = workItems;
+    private readonly WorkItemDtoMapper _dtos = dtos;
 
     /// <summary>
     /// Direct children of <paramref name="parentId"/>, or the top-level items of
@@ -26,7 +27,7 @@ public class WorkItemsController(IWorkItemService workItems) : ControllerBase
           [FromQuery] Guid? spaceId)
     {
         var items = await _workItems.GetChildrenAsync(parentId, spaceId);
-        return Ok(items.Select(WorkItemDto.FromEntity));
+        return Ok(await _dtos.ToDtosAsync(items));
     }
 
     /// <summary>
@@ -39,7 +40,7 @@ public class WorkItemsController(IWorkItemService workItems) : ControllerBase
         [FromQuery] Guid? spaceId)
     {
         var swimlanes = await _workItems.GetSwimlanesAsync(scopeItemId, spaceId);
-        return Ok(swimlanes.Select(SwimlaneDto.FromSwimlane));
+        return Ok(await _dtos.ToSwimlaneDtosAsync(swimlanes));
     }
 
     /// <summary>
@@ -54,14 +55,14 @@ public class WorkItemsController(IWorkItemService workItems) : ControllerBase
         [FromQuery] Guid? spaceId = null)
     {
         var items = await _workItems.GetAllAsync(offset, limit, spaceId);
-        return Ok(items.Select(WorkItemDto.FromEntity));
+        return Ok(await _dtos.ToDtosAsync(items));
     }
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<WorkItemDto>> GetById(Guid id)
     {
         var item = await _workItems.GetByIdAsync(id);
-        return item is null ? NotFound() : Ok(WorkItemDto.FromEntity(item));
+        return item is null ? NotFound() : Ok(await _dtos.ToDtoAsync(item));
     }
 
     [HttpPost]
@@ -78,7 +79,7 @@ public class WorkItemsController(IWorkItemService workItems) : ControllerBase
             request.PriorityId,
             request.SpaceId);
 
-        var dto = WorkItemDto.FromEntity(item);
+        var dto = await _dtos.ToDtoAsync(item);
         return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
     }
 
@@ -89,7 +90,7 @@ public class WorkItemsController(IWorkItemService workItems) : ControllerBase
     public async Task<ActionResult<WorkItemWriteResponse>> ChangeStatus(Guid id, ChangeWorkItemStatusRequest request)
     {
         var result = await _workItems.ChangeStatusAsync(id, request.StatusId, request.AfterId, request.ExpectedVersion);
-        return Ok(WorkItemWriteResponse.FromResult(result));
+        return Ok(await _dtos.ToWriteResponseAsync(result));
     }
 
     /// <summary>
@@ -99,7 +100,7 @@ public class WorkItemsController(IWorkItemService workItems) : ControllerBase
     public async Task<ActionResult<WorkItemWriteResponse>> Reparent(Guid id, ReparentWorkItemRequest request)
     {
         var result = await _workItems.ReparentAsync(id, request.ParentId, request.AfterId, request.ExpectedVersion);
-        return Ok(WorkItemWriteResponse.FromResult(result));
+        return Ok(await _dtos.ToWriteResponseAsync(result));
     }
 
     /// <summary>
@@ -110,7 +111,7 @@ public class WorkItemsController(IWorkItemService workItems) : ControllerBase
     public async Task<ActionResult<WorkItemWriteResponse>> Reschedule(Guid id, RescheduleWorkItemRequest request)
     {
         var result = await _workItems.RescheduleAsync(id, request.StartDate, request.EndDate, request.ExpectedVersion);
-        return Ok(WorkItemWriteResponse.FromResult(result));
+        return Ok(await _dtos.ToWriteResponseAsync(result));
     }
 
     /// <summary>
@@ -130,7 +131,7 @@ public class WorkItemsController(IWorkItemService workItems) : ControllerBase
             When = request.When,
         };
         var result = await _workItems.UpdateDetailsAsync(id, patch, request.ExpectedVersion);
-        return Ok(WorkItemWriteResponse.FromResult(result));
+        return Ok(await _dtos.ToWriteResponseAsync(result));
     }
 
     /// <summary>
@@ -141,7 +142,7 @@ public class WorkItemsController(IWorkItemService workItems) : ControllerBase
     public async Task<ActionResult<WorkItemWriteResponse>> Assign(Guid id, AssignWorkItemRequest request)
     {
         var result = await _workItems.AssignAsync(id, request.UserId, request.ExpectedVersion);
-        return Ok(WorkItemWriteResponse.FromResult(result));
+        return Ok(await _dtos.ToWriteResponseAsync(result));
     }
 
     /// <summary>
@@ -155,7 +156,7 @@ public class WorkItemsController(IWorkItemService workItems) : ControllerBase
             ? new Optional<IReadOnlyList<string>>(request.Tags.Value ?? [])
             : Optional<IReadOnlyList<string>>.Unset;
         var result = await _workItems.SetTagsAsync(id, tags, request.ExpectedVersion);
-        return Ok(WorkItemWriteResponse.FromResult(result));
+        return Ok(await _dtos.ToWriteResponseAsync(result));
     }
 
     /// <summary>
@@ -167,6 +168,6 @@ public class WorkItemsController(IWorkItemService workItems) : ControllerBase
     public async Task<ActionResult<WorkItemWriteResponse>> SetCustomFields(Guid id, SetCustomFieldsRequest request)
     {
         var result = await _workItems.SetCustomFieldsAsync(id, request.Values, request.ExpectedVersion);
-        return Ok(WorkItemWriteResponse.FromResult(result));
+        return Ok(await _dtos.ToWriteResponseAsync(result));
     }
 }

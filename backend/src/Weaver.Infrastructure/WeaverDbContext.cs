@@ -34,6 +34,8 @@ public class WeaverDbContext(DbContextOptions<WeaverDbContext> options) : DbCont
 
     public DbSet<WorkItemLink> WorkItemLinks => Set<WorkItemLink>();
 
+    public DbSet<WorkItemUrlLink> WorkItemUrlLinks => Set<WorkItemUrlLink>();
+
     public DbSet<WorkItemRecurrence> WorkItemRecurrences => Set<WorkItemRecurrence>();
 
     public DbSet<ServerSettings> ServerSettings => Set<ServerSettings>();
@@ -92,6 +94,7 @@ public class WeaverDbContext(DbContextOptions<WeaverDbContext> options) : DbCont
         modelBuilder.ApplyConfiguration(new WorkItemPriorityConfiguration());
         modelBuilder.ApplyConfiguration(new CommentConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemLinkConfiguration());
+        modelBuilder.ApplyConfiguration(new WorkItemUrlLinkConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemRecurrenceConfiguration());
         modelBuilder.ApplyConfiguration(new ServerSettingsConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemHistoryEntryConfiguration());

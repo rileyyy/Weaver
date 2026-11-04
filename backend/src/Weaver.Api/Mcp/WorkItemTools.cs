@@ -11,13 +11,14 @@ using Weaver.Domain;
 namespace Weaver.Api.Mcp;
 
 [McpServerToolType]
-public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
+public class WorkItemTools(IWorkItemService workItems, WorkItemDtoMapper dtos, HttpCallerContext caller)
 {
     private const string PatchDescription =
         "Only the fields you send change: leave a field out to keep it, or send null to clear it. " +
         "Returns the item with its new version and the list of fields that changed.";
 
     private readonly IWorkItemService _workItems = workItems;
+    private readonly WorkItemDtoMapper _dtos = dtos;
     private readonly HttpCallerContext _caller = caller;
 
     [McpServerTool(Name = "get_work_item", ReadOnly = true)]
@@ -26,8 +27,9 @@ public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
         [Description("The work item's id.")] Guid id,
         CancellationToken ct)
     {
-        var item = await _workItems.GetByIdAsync(id, ct);
-        return item is not null ? WorkItemDto.FromEntity(item) : throw new McpException($"Work item {id} was not found.");
+        var item = await _workItems.GetByIdAsync(id, ct)
+            ?? throw new McpException($"Work item {id} was not found.");
+        return await _dtos.ToDtoAsync(item, ct);
     }
 
     [McpServerTool(Name = "list_work_item_children", ReadOnly = true)]
@@ -40,7 +42,7 @@ public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
         McpExceptionTranslation.TranslateAsync<IReadOnlyList<WorkItemDto>>(async () =>
         {
             var items = await _workItems.GetChildrenAsync(parentId, spaceId, ct);
-            return items.Select(WorkItemDto.FromEntity).ToList();
+            return await _dtos.ToDtosAsync(items, ct);
         });
 
     [McpServerTool(Name = "list_all_work_items", ReadOnly = true)]
@@ -55,7 +57,7 @@ public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
         McpExceptionTranslation.TranslateAsync<IReadOnlyList<WorkItemDto>>(async () =>
         {
             var items = await _workItems.GetAllAsync(offset, limit, spaceId, ct);
-            return items.Select(WorkItemDto.FromEntity).ToList();
+            return await _dtos.ToDtosAsync(items, ct);
         });
 
     [McpServerTool(Name = "create_work_item", Destructive = false)]
@@ -75,7 +77,7 @@ public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
         {
             _caller.UseActorLabel(actorLabel);
             var item = await _workItems.CreateAsync(title, description, parentId, statusId, afterId, typeId, priorityId, spaceId, ct);
-            return WorkItemDto.FromEntity(item);
+            return await _dtos.ToDtoAsync(item, ct);
         });
 
     [McpServerTool(Name = "change_work_item_status", Destructive = false, Idempotent = true)]
@@ -197,6 +199,6 @@ public class WorkItemTools(IWorkItemService workItems, HttpCallerContext caller)
         McpExceptionTranslation.TranslateAsync(async () =>
         {
             _caller.UseActorLabel(actorLabel);
-            return WorkItemWriteResponse.FromResult(await write());
+            return await _dtos.ToWriteResponseAsync(await write());
         });
 }

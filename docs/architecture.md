@@ -322,16 +322,32 @@ Each Type defines its own fields (ticket 14,
 
 ### Comments and links
 
-- **A link is one symmetric row.** `WorkItemLink` stores
-  `WorkItemId` / `LinkedWorkItemId`, but `ListForWorkItemAsync` matches
-  either column and `WorkItemLinkDto.FromEntity(link,
-  perspectiveWorkItemId)` reports whichever side isn't the requesting
-  item, so a link created from A is listed from B with the same id.
-  Creating a duplicate in either direction (`DuplicateWorkItemLinkException`,
-  409) or a self-link (`SelfWorkItemLinkException`, 400) is rejected.
-- Links are untyped "related to" associations, added by the target's raw
-  id. Typed links, URL links and a search picker come in Milestones 16–18
+- **A link is one typed row, read from either side.** `WorkItemLink`
+  stores `WorkItemId` / `LinkedWorkItemId` and a `WorkItemLinkType`
+  (`Related`, `Blocks`, `Duplicates`); `Blocks` and `Duplicates` read
+  "`WorkItemId` blocks/duplicates `LinkedWorkItemId`". Callers speak in a
+  `WorkItemLinkRelation` seen from one item (adding `BlockedBy` and
+  `DuplicatedBy`): creating "A blocked by B" stores "B blocks A", and
+  `ListForWorkItemAsync` matches either column and reports the other side
+  and the relation from the requesting item, so a link created from A is
+  listed from B with the same id
   ([ADR-0009](adr/0009-typed-links-and-dependency-flags.md)).
+- Two items have at most one link, of any type, in either direction
+  (`DuplicateWorkItemLinkException`, 409). A blocks link against one
+  already running the other way is a cycle (`BlockingCycleException`, 409,
+  checked first so the message says why); a self-link is
+  `SelfWorkItemLinkException` (400). Links can cross Spaces. Longer cycles
+  (A blocks B blocks C blocks A) aren't checked.
+- **A URL link** (`WorkItemUrlLink`) belongs to one item: an absolute
+  http(s) `Url` and an optional `Label`. It cascades with its item like a
+  comment, so purging the item removes it; typed links are `Restrict` on
+  both ends and purge has to remove them itself (ticket 20).
+- **`whenResolved` counts a live blocker** (ADR-0003), which is another
+  row, so it's computed where items are mapped to `WorkItemDto`:
+  `WorkItemDtoMapper` asks `IWorkItemBlockers` once per response, and only
+  about items whose When has no dates. The links' Trash filter means a
+  trashed blocker stops counting without the Trash having to update
+  anything.
 - Comments cascade-delete with their work item; editing is restricted to
   the author (see [Authentication](#authentication)).
 

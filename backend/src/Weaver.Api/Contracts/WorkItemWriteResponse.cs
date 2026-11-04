@@ -9,6 +9,6 @@ namespace Weaver.Api.Contracts;
 /// </summary>
 public record WorkItemWriteResponse(WorkItemDto Item, IReadOnlyList<string> ChangedFields)
 {
-    public static WorkItemWriteResponse FromResult(WorkItemWriteResult result) =>
-        new(WorkItemDto.FromEntity(result.Item), result.ChangedFields);
+    public static WorkItemWriteResponse FromResult(WorkItemWriteResult result, WorkItemDto item) =>
+        new(item, result.ChangedFields);
 }

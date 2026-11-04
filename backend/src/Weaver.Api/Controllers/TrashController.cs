@@ -14,9 +14,10 @@ namespace Weaver.Api.Controllers;
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
-public class TrashController(IWorkItemTrashService trash) : ControllerBase
+public class TrashController(IWorkItemTrashService trash, WorkItemDtoMapper dtos) : ControllerBase
 {
     private readonly IWorkItemTrashService _trash = trash;
+    private readonly WorkItemDtoMapper _dtos = dtos;
 
     /// <summary>
     /// Moves the work item and its subtree to the Trash. An item with children needs
@@ -46,6 +47,6 @@ public class TrashController(IWorkItemTrashService trash) : ControllerBase
     public async Task<ActionResult<WorkItemDto>> Restore(Guid id)
     {
         var item = await _trash.RestoreAsync(id);
-        return Ok(WorkItemDto.FromEntity(item));
+        return Ok(await _dtos.ToDtoAsync(item));
     }
 }

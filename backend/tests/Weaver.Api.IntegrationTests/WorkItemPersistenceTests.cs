@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Weaver.Api.Contracts;
+using Weaver.Domain;
 
 namespace Weaver.Api.IntegrationTests;
 
@@ -78,7 +79,7 @@ public class WorkItemPersistenceTests
         var outsider = await _client.CreateWorkItemAsync("Outsider");
         await _client.PostJsonAsync(
             $"/api/work-items/{child.Id}/links",
-            new CreateWorkItemLinkRequest(outsider.Id));
+            new CreateWorkItemLinkRequest(outsider.Id, WorkItemLinkRelation.Related));
 
         var delete = await _client.DeleteAsync($"/api/work-items/{parent.Id}?cascade=true");
         var whileTrashed = await (await _client.GetAsync($"/api/work-items/{outsider.Id}/links"))

@@ -526,6 +526,11 @@ namespace Weaver.Infrastructure.Migrations
                     b.Property<Guid>("LinkedWorkItemId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<Guid>("WorkItemId")
                         .HasColumnType("uuid");
 
@@ -622,6 +627,34 @@ namespace Weaver.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("WorkItemTypes");
+                });
+
+            modelBuilder.Entity("Weaver.Domain.WorkItemUrlLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Label")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<Guid>("WorkItemId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkItemId");
+
+                    b.ToTable("WorkItemUrlLinks");
                 });
 
             modelBuilder.Entity("Weaver.Domain.ApiKey", b =>
@@ -819,6 +852,17 @@ namespace Weaver.Infrastructure.Migrations
                         .HasForeignKey("SpaceId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Weaver.Domain.WorkItemUrlLink", b =>
+                {
+                    b.HasOne("Weaver.Domain.WorkItem", "WorkItem")
+                        .WithMany()
+                        .HasForeignKey("WorkItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WorkItem");
                 });
 
             modelBuilder.Entity("Weaver.Domain.WorkItem", b =>

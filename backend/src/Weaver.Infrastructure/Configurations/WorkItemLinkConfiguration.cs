@@ -11,6 +11,10 @@ public class WorkItemLinkConfiguration : IEntityTypeConfiguration<WorkItemLink>
         builder.HasIndex(l => l.WorkItemId);
         builder.HasIndex(l => l.LinkedWorkItemId);
 
+        builder.Property(l => l.Type)
+            .HasConversion<string>()
+            .HasMaxLength(20);
+
         // Restrict (not Cascade) on both sides — a work item with active
         // links can't be silently orphaned by deleting the item on the
         // other end. Two Restrict FKs to the same principal table is fine;

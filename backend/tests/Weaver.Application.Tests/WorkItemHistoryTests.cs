@@ -243,26 +243,65 @@ public class WorkItemHistoryTests
     }
 
     [Test]
-    public async Task Links_RecordAddAndRemoveOnBothItems_NamingTheOtherSide()
+    public async Task Links_RecordAddAndRemoveOnBothItems_WithTheOtherSideAndTheTypeFromEachSide()
     {
         var links = new WorkItemLinkService(_db, _caller);
         var item = await CreateAsync("Item");
         var other = await CreateAsync("Other");
 
-        var link = await links.CreateAsync(item.Id, other.Id);
+        var link = await links.CreateAsync(item.Id, other.Id, WorkItemLinkRelation.Blocks);
         await links.DeleteAsync(link.Id);
 
-        var itemEntries = (await _history.ListForWorkItemAsync(item.Id)).Take(2).ToList();
-        var otherEntries = (await _history.ListForWorkItemAsync(other.Id)).Take(2).ToList();
+        var itemBlocks = $"{{\"workItemId\":\"{other.Id}\",\"type\":\"Blocks\"}}";
+        var otherBlockedBy = $"{{\"workItemId\":\"{item.Id}\",\"type\":\"BlockedBy\"}}";
+        Assert.Multiple(async () =>
+        {
+            Assert.That(await ChangesAsync(item.Id), Is.EqualTo(new[]
+            {
+                (WorkItemHistoryField.Link, (string?)itemBlocks, (string?)null),
+                (WorkItemHistoryField.Link, null, itemBlocks),
+            }));
+            Assert.That(await ChangesAsync(other.Id), Is.EqualTo(new[]
+            {
+                (WorkItemHistoryField.Link, (string?)otherBlockedBy, (string?)null),
+                (WorkItemHistoryField.Link, null, otherBlockedBy),
+            }));
+        });
+    }
+
+    [Test]
+    public async Task Links_AreNamedAfterTheOtherItem()
+    {
+        var links = new WorkItemLinkService(_db, _caller);
+        var item = await CreateAsync("Item");
+        var other = await CreateAsync("Other");
+
+        var link = await links.CreateAsync(item.Id, other.Id, WorkItemLinkRelation.Related);
+        await links.DeleteAsync(link.Id);
+
+        var entries = (await _history.ListForWorkItemAsync(item.Id)).Take(2).ToList();
         Assert.Multiple(() =>
         {
-            Assert.That(itemEntries.Select(e => e.Field), Is.All.EqualTo(WorkItemHistoryField.Link));
-            Assert.That(itemEntries[0].OldValue?.GetGuid(), Is.EqualTo(other.Id));
-            Assert.That(itemEntries[0].NewValue, Is.Null);
-            Assert.That(itemEntries[1].NewValue?.GetGuid(), Is.EqualTo(other.Id));
-            Assert.That(itemEntries[1].NewName, Is.EqualTo($"#{other.Number} Other"));
-            Assert.That(otherEntries[1].NewValue?.GetGuid(), Is.EqualTo(item.Id));
-            Assert.That(otherEntries[0].OldValue?.GetGuid(), Is.EqualTo(item.Id));
+            Assert.That(entries[0].OldName, Is.EqualTo($"#{other.Number} Other"));
+            Assert.That(entries[1].NewName, Is.EqualTo($"#{other.Number} Other"));
+        });
+    }
+
+    [Test]
+    public async Task Links_RecordedBeforeTypes_AsAPlainId_StillReadAndAreNamed()
+    {
+        var item = await CreateAsync("Item");
+        var other = await CreateAsync("Other");
+        _db.WorkItemHistory.Add(WorkItemHistoryEntry.Record(
+            item.Id, _caller.Current.HistoryActor, WorkItemHistoryField.Link, null, $"\"{other.Id}\""));
+        await _db.SaveChangesAsync();
+
+        var entry = (await _history.ListForWorkItemAsync(item.Id)).First(e => e.Field == WorkItemHistoryField.Link);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(entry.NewValue?.GetGuid(), Is.EqualTo(other.Id));
+            Assert.That(entry.NewName, Is.EqualTo($"#{other.Number} Other"));
         });
     }
 
@@ -272,11 +311,62 @@ public class WorkItemHistoryTests
         var links = new WorkItemLinkService(_db, _caller);
         var item = await CreateAsync("Item");
         var other = await CreateAsync("Other");
-        await links.CreateAsync(item.Id, other.Id);
+        await links.CreateAsync(item.Id, other.Id, WorkItemLinkRelation.Blocks);
 
-        Assert.ThrowsAsync<DuplicateWorkItemLinkException>(() => links.CreateAsync(other.Id, item.Id));
+        Assert.ThrowsAsync<BlockingCycleException>(() => links.CreateAsync(other.Id, item.Id, WorkItemLinkRelation.Blocks));
+        Assert.ThrowsAsync<DuplicateWorkItemLinkException>(() => links.CreateAsync(other.Id, item.Id, WorkItemLinkRelation.Related));
 
         Assert.That(await ChangesAsync(item.Id), Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task UrlLinks_RecordAddAndRemoveWithTheUrlAndLabel_NamedByTheLabel()
+    {
+        var urlLinks = new WorkItemUrlLinkService(_db, _caller);
+        var item = await CreateAsync("Item");
+
+        var link = await urlLinks.CreateAsync(item.Id, "https://github.com/pr/1", "The PR");
+        await urlLinks.DeleteAsync(link.Id);
+
+        const string Value = "{\"url\":\"https://github.com/pr/1\",\"label\":\"The PR\"}";
+        var entries = (await _history.ListForWorkItemAsync(item.Id)).Take(2).ToList();
+        Assert.Multiple(async () =>
+        {
+            Assert.That(await ChangesAsync(item.Id), Is.EqualTo(new[]
+            {
+                (WorkItemHistoryField.UrlLink, (string?)Value, (string?)null),
+                (WorkItemHistoryField.UrlLink, null, Value),
+            }));
+            Assert.That(entries[0].OldName, Is.EqualTo("The PR"));
+            Assert.That(entries[1].NewName, Is.EqualTo("The PR"));
+        });
+    }
+
+    [Test]
+    public async Task UrlLink_WithoutALabel_IsNamedByItsUrl()
+    {
+        var urlLinks = new WorkItemUrlLinkService(_db, _caller);
+        var item = await CreateAsync("Item");
+
+        await urlLinks.CreateAsync(item.Id, "https://example.com/quote", null);
+
+        var entry = (await _history.ListForWorkItemAsync(item.Id)).First();
+        Assert.Multiple(() =>
+        {
+            Assert.That(entry.NewValue?.GetRawText(), Is.EqualTo("{\"url\":\"https://example.com/quote\",\"label\":null}"));
+            Assert.That(entry.NewName, Is.EqualTo("https://example.com/quote"));
+        });
+    }
+
+    [Test]
+    public async Task UrlLink_ThatFails_RecordsNothing()
+    {
+        var urlLinks = new WorkItemUrlLinkService(_db, _caller);
+        var item = await CreateAsync("Item");
+
+        Assert.ThrowsAsync<DomainValidationException>(() => urlLinks.CreateAsync(item.Id, "not a url", null));
+
+        Assert.That(await ChangesAsync(item.Id), Is.Empty);
     }
 
     [Test]

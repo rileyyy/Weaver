@@ -7,6 +7,8 @@ namespace Weaver.Api.Contracts;
 /// <see cref="Fields"/> holds the values of the item's Type's custom fields by field id (see
 /// <see cref="CustomFieldDto"/>); a field with no value is left out. <see cref="TrashedAtUtc"/> is
 /// set only for an item in the Trash, which a read returns only when it asked for deleted items.
+/// <see cref="WhenResolved"/> depends on the item's blockers, so build it through
+/// <see cref="WorkItemDtoMapper"/>, which looks them up.
 /// </summary>
 public record WorkItemDto(
     Guid Id,
@@ -33,7 +35,7 @@ public record WorkItemDto(
     DateTimeOffset UpdatedAtUtc,
     uint Version)
 {
-    public static WorkItemDto FromEntity(WorkItem item) => new(
+    public static WorkItemDto FromEntity(WorkItem item, bool hasLiveBlocker) => new(
         item.Id,
         item.Number,
         item.SpaceId,
@@ -50,7 +52,7 @@ public record WorkItemDto(
         item.StartDate,
         item.EndDate,
         item.When,
-        item.IsWhenResolved,
+        item.IsWhenResolved(hasLiveBlocker),
         item.RecurrenceSourceId,
         item.RecurrenceDate,
         item.TrashedAtUtc,

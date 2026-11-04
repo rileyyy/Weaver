@@ -18,8 +18,15 @@ public static class WorkItemHistoryField
     /// <summary>A comment was added (new value only), edited (both) or deleted (old value only). Values: the body.</summary>
     public const string Comment = "comment";
 
-    /// <summary>A link was added (new value) or removed (old value). Values: the other item's id.</summary>
+    /// <summary>
+    /// A link was added (new value) or removed (old value), recorded on both items. Values:
+    /// <c>{ "workItemId", "type" }</c>, the other item and the link's type seen from this item.
+    /// Entries from before links had types hold only the other item's id.
+    /// </summary>
     public const string Link = "link";
+
+    /// <summary>A URL link was added (new value) or removed (old value). Values: <c>{ "url", "label" }</c>.</summary>
+    public const string UrlLink = "urlLink";
 
     /// <summary>The item started (new value), changed or stopped (old value) repeating. Values: the schedule.</summary>
     public const string Recurrence = "recurrence";

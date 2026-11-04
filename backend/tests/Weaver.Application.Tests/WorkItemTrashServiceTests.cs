@@ -111,7 +111,7 @@ public class WorkItemTrashServiceTests
         var comments = new CommentService(_db, _clock, _caller);
         var item = await CreateAsync("Item");
         var survivor = await CreateAsync("Survivor");
-        await links.CreateAsync(survivor.Id, item.Id);
+        await links.CreateAsync(survivor.Id, item.Id, WorkItemLinkRelation.Related);
         await comments.CreateAsync(item.Id, "Note");
 
         await _trash.MoveToTrashAsync(item.Id);
@@ -318,7 +318,7 @@ public class WorkItemTrashServiceTests
         var comments = new CommentService(_db, _clock, _caller);
         var item = await CreateAsync("Item");
         var other = await CreateAsync("Other");
-        await links.CreateAsync(other.Id, item.Id);
+        await links.CreateAsync(other.Id, item.Id, WorkItemLinkRelation.Related);
         await comments.CreateAsync(item.Id, "Note");
         await _trash.MoveToTrashAsync(item.Id);
 
@@ -337,7 +337,7 @@ public class WorkItemTrashServiceTests
         var history = new WorkItemHistoryService(_db);
         var item = await CreateAsync("Old shed");
         var survivor = await CreateAsync("Garden");
-        await new WorkItemLinkService(_db, _caller).CreateAsync(survivor.Id, item.Id);
+        await new WorkItemLinkService(_db, _caller).CreateAsync(survivor.Id, item.Id, WorkItemLinkRelation.Related);
         await _trash.MoveToTrashAsync(item.Id);
 
         var linkEntry = (await history.ListForWorkItemAsync(survivor.Id)).First(e => e.Field == WorkItemHistoryField.Link);

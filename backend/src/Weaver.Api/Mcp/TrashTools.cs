@@ -11,9 +11,10 @@ namespace Weaver.Api.Mcp;
 /// purge it (ADR-0007). A read-only key can only list.
 /// </summary>
 [McpServerToolType]
-public class TrashTools(IWorkItemTrashService trash, HttpCallerContext caller)
+public class TrashTools(IWorkItemTrashService trash, WorkItemDtoMapper dtos, HttpCallerContext caller)
 {
     private readonly IWorkItemTrashService _trash = trash;
+    private readonly WorkItemDtoMapper _dtos = dtos;
     private readonly HttpCallerContext _caller = caller;
 
     [McpServerTool(Name = "delete_work_item", Destructive = true)]
@@ -57,6 +58,6 @@ public class TrashTools(IWorkItemTrashService trash, HttpCallerContext caller)
         McpExceptionTranslation.TranslateAsync(async () =>
         {
             _caller.UseActorLabel(actorLabel);
-            return WorkItemDto.FromEntity(await _trash.RestoreAsync(id, ct));
+            return await _dtos.ToDtoAsync(await _trash.RestoreAsync(id, ct), ct);
         });
 }
