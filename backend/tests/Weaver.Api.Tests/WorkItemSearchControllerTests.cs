@@ -41,7 +41,7 @@ public class WorkItemSearchControllerTests
             .Callback<WorkItemQuery, CancellationToken>((q, _) => received = q)
             .ReturnsAsync(new WorkItemQueryPage<WorkItem>([], "next"));
 
-        var result = await new WorkItemSearchController(service.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers())).Search(parameters);
+        var result = await new WorkItemSearchController(service.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup())).Search(parameters);
 
         var page = (WorkItemPageDto)((OkObjectResult)result.Result!).Value!;
         Assert.Multiple(() =>

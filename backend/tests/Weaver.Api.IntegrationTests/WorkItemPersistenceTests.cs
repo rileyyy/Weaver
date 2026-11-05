@@ -50,6 +50,34 @@ public class WorkItemPersistenceTests
     }
 
     [Test]
+    public async Task AFetchedItem_CarriesTheNamesBehindItsIds()
+    {
+        var (client, auth) = await ApiClient.SignedInAsync();
+        var space = await ApiClient.CreateSpaceAsync("Names");
+        var task = (await (await client.GetAsync($"/api/work-item-types?spaceId={space}"))
+            .ReadAsync<List<WorkItemTypeDto>>()).Single(t => t.Name == "Task");
+        var parent = await client.CreateWorkItemAsync("Living room", spaceId: space);
+        var child = await client.CreateWorkItemAsync("Paint", parentId: parent.Id);
+        await client.PatchJsonAsync(
+            $"/api/work-items/{child.Id}/details",
+            new { typeId = task.Id, priorityId = await ApiClient.PriorityIdAsync(space, "High") });
+        await client.PutJsonAsync($"/api/work-items/{child.Id}/assignee", new AssignWorkItemRequest(auth.User.Id));
+
+        var fetched = await (await client.GetAsync($"/api/work-items/{child.Id}")).ReadAsync<WorkItemDto>();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fetched.SpaceName, Does.StartWith("Names "));
+            Assert.That(fetched.ParentNumber, Is.EqualTo(parent.Number));
+            Assert.That(fetched.ParentTitle, Is.EqualTo("Living room"));
+            Assert.That(fetched.StatusName, Is.EqualTo("To Do"));
+            Assert.That(fetched.TypeName, Is.EqualTo("Task"));
+            Assert.That(fetched.PriorityName, Is.EqualTo("High"));
+            Assert.That(fetched.AssignedToUsername, Is.EqualTo(auth.User.Username));
+        });
+    }
+
+    [Test]
     public async Task Numbers_AreAssignedByTheDatabaseInCreationOrder()
     {
         var first = await _client.CreateWorkItemAsync("First");

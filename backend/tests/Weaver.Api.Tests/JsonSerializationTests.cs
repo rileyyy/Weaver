@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Weaver.Api.Contracts;
 using Weaver.Api.Json;
+using Weaver.Application.Services;
 using Weaver.Domain;
 
 namespace Weaver.Api.Tests;
@@ -56,7 +57,7 @@ public class JsonSerializationTests
         var item = WorkItem.Create(Guid.NewGuid(), "Item", null, Guid.NewGuid(), rank: 1.0);
         item.Reschedule(new DateOnly(2026, 9, 25), new DateOnly(2026, 9, 30));
 
-        var json = JsonSerializer.Serialize(WorkItemDto.FromEntity(item, hasLiveBlocker: false), Options);
+        var json = JsonSerializer.Serialize(WorkItemDto.FromEntity(item, hasLiveBlocker: false, WorkItemNames.None), Options);
 
         Assert.That(json, Does.Contain("\"startDate\":\"2026-09-25\""));
         Assert.That(json, Does.Contain("\"endDate\":\"2026-09-30\""));

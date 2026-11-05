@@ -23,7 +23,7 @@ public class WorkItemToolsTests
     public void SetUp()
     {
         _workItems = new Mock<IWorkItemService>(MockBehavior.Strict);
-        _tools = new WorkItemTools(_workItems.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers()), new HttpCallerContext(new HttpContextAccessor()));
+        _tools = new WorkItemTools(_workItems.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup()), new HttpCallerContext(new HttpContextAccessor()));
     }
 
     private static WorkItem MakeWorkItem() => WorkItem.Create(Guid.NewGuid(), "A work item", null, Guid.NewGuid(), rank: 1.0);

@@ -18,7 +18,7 @@ public class WorkItemsControllerTests
     public void SetUp()
     {
         _workItems = new Mock<IWorkItemService>(MockBehavior.Strict);
-        _controller = new WorkItemsController(_workItems.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers()));
+        _controller = new WorkItemsController(_workItems.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup()));
     }
 
     private static WorkItem MakeWorkItem(Guid statusId = default) =>
@@ -100,7 +100,7 @@ public class WorkItemsControllerTests
         var result = await _controller.ChangeStatus(item.Id, new ChangeWorkItemStatusRequest(newStatusId, null, 7u));
 
         var response = OkValue(result);
-        Assert.That(response.Item, Is.EqualTo(WorkItemDto.FromEntity(item, hasLiveBlocker: false)));
+        Assert.That(response.Item, Is.EqualTo(WorkItemDto.FromEntity(item, hasLiveBlocker: false, WorkItemNames.None)));
         Assert.That(response.ChangedFields, Is.EqualTo(new[] { WorkItemField.StatusId }));
         _workItems.VerifyAll();
     }
@@ -180,7 +180,7 @@ public class WorkItemsControllerTests
 
         var result = await _controller.Assign(item.Id, new AssignWorkItemRequest(userId, 7u));
 
-        Assert.That(OkValue(result).Item, Is.EqualTo(WorkItemDto.FromEntity(item, hasLiveBlocker: false)));
+        Assert.That(OkValue(result).Item, Is.EqualTo(WorkItemDto.FromEntity(item, hasLiveBlocker: false, WorkItemNames.None)));
         _workItems.VerifyAll();
     }
 
@@ -198,7 +198,7 @@ public class WorkItemsControllerTests
 
         var result = await _controller.SetTags(item.Id, new SetTagsWorkItemRequest(tags, 7u));
 
-        Assert.That(OkValue(result).Item, Is.EqualTo(WorkItemDto.FromEntity(item, hasLiveBlocker: false)));
+        Assert.That(OkValue(result).Item, Is.EqualTo(WorkItemDto.FromEntity(item, hasLiveBlocker: false, WorkItemNames.None)));
         _workItems.VerifyAll();
     }
 
@@ -258,8 +258,8 @@ public class WorkItemsControllerTests
         var result = await _controller.GetSwimlanes(scopeId, spaceId);
 
         var dtos = ((result.Result as OkObjectResult)!.Value as IEnumerable<SwimlaneDto>)!.ToList();
-        Assert.That(dtos.Single().Lane, Is.EqualTo(WorkItemDto.FromEntity(lane, hasLiveBlocker: false)));
-        Assert.That(dtos.Single().Cards.Single(), Is.EqualTo(WorkItemDto.FromEntity(card, hasLiveBlocker: false)));
+        Assert.That(dtos.Single().Lane, Is.EqualTo(WorkItemDto.FromEntity(lane, hasLiveBlocker: false, WorkItemNames.None)));
+        Assert.That(dtos.Single().Cards.Single(), Is.EqualTo(WorkItemDto.FromEntity(card, hasLiveBlocker: false, WorkItemNames.None)));
     }
 
     private static WorkItemWriteResponse OkValue(ActionResult<WorkItemWriteResponse> result) =>

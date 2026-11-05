@@ -5,12 +5,13 @@ namespace Weaver.Api.Contracts;
 
 /// <summary>
 /// Builds <see cref="WorkItemDto"/>s for every read and write that returns items, looking up
-/// blockers (for <see cref="WorkItemDto.WhenResolved"/>) once per response rather than per item,
-/// and only for items whose When has no dates.
+/// blockers (for <see cref="WorkItemDto.WhenResolved"/>, and only for items whose When has no
+/// dates) and the names behind the items' ids once per response rather than per item.
 /// </summary>
-public class WorkItemDtoMapper(IWorkItemBlockers blockers)
+public class WorkItemDtoMapper(IWorkItemBlockers blockers, IWorkItemNameLookup names)
 {
     private readonly IWorkItemBlockers _blockers = blockers;
+    private readonly IWorkItemNameLookup _names = names;
 
     public async Task<WorkItemDto> ToDtoAsync(WorkItem item, CancellationToken ct = default) =>
         (await MapperForAsync([item], ct))(item);
@@ -35,10 +36,17 @@ public class WorkItemDtoMapper(IWorkItemBlockers blockers)
 
     private async Task<Func<WorkItem, WorkItemDto>> MapperForAsync(IEnumerable<WorkItem> items, CancellationToken ct)
     {
+        var batch = items.Distinct().ToList();
+        var blocked = await BlockedAmongAsync(batch, ct);
+        var names = await _names.NamesForAsync(batch, ct);
+        return item => WorkItemDto.FromEntity(item, blocked.Contains(item.Id), names);
+    }
+
+    private async Task<IReadOnlySet<Guid>> BlockedAmongAsync(IEnumerable<WorkItem> items, CancellationToken ct)
+    {
         var candidates = items.Where(i => i.WhenResolutionNeedsBlockers).Select(i => i.Id).Distinct().ToList();
-        IReadOnlySet<Guid> blocked = candidates.Count == 0
+        return candidates.Count == 0
             ? new HashSet<Guid>()
             : await _blockers.BlockedAmongAsync(candidates, ct);
-        return item => WorkItemDto.FromEntity(item, blocked.Contains(item.Id));
     }
 }
