@@ -40,6 +40,8 @@ public interface IWeaverDbContext
 
     DbSet<WorkItemUrlLink> WorkItemUrlLinks { get; }
 
+    DbSet<WorkItemAttachment> WorkItemAttachments { get; }
+
     DbSet<WorkItemRecurrence> WorkItemRecurrences { get; }
 
     DbSet<ServerSettings> ServerSettings { get; }

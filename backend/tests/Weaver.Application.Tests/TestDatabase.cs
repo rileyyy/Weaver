@@ -10,11 +10,12 @@ namespace Weaver.Application.Tests;
 /// </summary>
 public static class TestDatabase
 {
-    public static WeaverDbContext Create(TimeProvider clock)
+    public static WeaverDbContext Create(TimeProvider clock, params IInterceptor[] extraInterceptors)
     {
         var options = new DbContextOptionsBuilder<WeaverDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .AddInterceptors(new TimestampInterceptor(clock))
+            .AddInterceptors(extraInterceptors)
             // InMemory has no transactions; the services' commit/rollback is covered against Postgres.
             .ConfigureWarnings(warnings => warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;

@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Weaver.Application.Attachments;
 using Weaver.Application.Auth;
 using Weaver.Application.Persistence;
+using Weaver.Infrastructure.Attachments;
 using Weaver.Infrastructure.Auth;
 
 namespace Weaver.Infrastructure;
@@ -17,6 +19,8 @@ public static class DependencyInjection
         services.AddScoped<IWorkItemHierarchy, PostgresWorkItemHierarchy>();
         services.AddSingleton<IWorkItemSearch, PostgresWorkItemSearch>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
+        services.AddSingleton<FileSystemAttachmentStore>();
+        services.AddSingleton<IAttachmentStore>(provider => provider.GetRequiredService<FileSystemAttachmentStore>());
         return services;
     }
 }

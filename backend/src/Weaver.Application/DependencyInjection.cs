@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Weaver.Application.Attachments;
 using Weaver.Application.Auth;
 using Weaver.Application.Services;
 using Weaver.Domain;
@@ -24,6 +25,8 @@ public static class DependencyInjection
             .AddScoped<ICommentService, CommentService>()
             .AddScoped<IWorkItemLinkService, WorkItemLinkService>()
             .AddScoped<IWorkItemUrlLinkService, WorkItemUrlLinkService>()
+            .AddScoped<IWorkItemAttachmentService, WorkItemAttachmentService>()
+            .AddScoped<IAttachmentFileCleanup, AttachmentFileCleanup>()
             .AddScoped<IWorkItemBlockers, WorkItemBlockers>()
             .AddScoped<IWorkItemNameLookup, WorkItemNameLookup>()
             .AddScoped<IWorkItemHistoryService, WorkItemHistoryService>()

@@ -28,6 +28,9 @@ public static class WorkItemHistoryField
     /// <summary>A URL link was added (new value) or removed (old value). Values: <c>{ "url", "label" }</c>.</summary>
     public const string UrlLink = "urlLink";
 
+    /// <summary>A file was attached (new value) or removed (old value). Values: <c>{ "id", "fileName" }</c>.</summary>
+    public const string Attachment = "attachment";
+
     /// <summary>The item started (new value), changed or stopped (old value) repeating. Values: the schedule.</summary>
     public const string Recurrence = "recurrence";
 }

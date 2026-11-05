@@ -12,4 +12,7 @@ public enum DomainErrorKind
     Conflict,
     Unauthorized,
     Forbidden,
+
+    /// <summary>The request carries more than a configured limit allows (e.g. an attachment's size).</summary>
+    TooLarge,
 }
