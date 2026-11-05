@@ -2,9 +2,14 @@
 /// this type (and its subclasses) rather than everything, so a programming
 /// error still surfaces instead of being shown as "check your connection".
 class ApiException implements Exception {
-  const ApiException(this.message, {this.statusCode});
+  const ApiException(this.message, {this.statusCode, this.detail});
 
   final String message;
+
+  /// The server's own explanation (a problem response's `detail`), when it
+  /// sent one. Null when something in front of it, such as a proxy,
+  /// answered instead.
+  final String? detail;
 
   /// The HTTP status of the failed response, when there was one.
   final int? statusCode;

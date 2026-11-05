@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:weaver/core/network/api_endpoint.dart';
@@ -122,6 +123,30 @@ class JsonApiClient {
     decode,
   );
 
+  /// A GET of a file's content rather than JSON, such as a download.
+  Future<Uint8List> getBytes(String path, {required String failureMessage}) =>
+      _checkedResponse(
+        () => _http.get(_uri(path)),
+        failureMessage,
+      ).then((response) => response.bodyBytes);
+
+  /// A `multipart/form-data` POST carrying [files], for uploads.
+  Future<T> postMultipart<T>(
+    String path,
+    List<http.MultipartFile> files,
+    T Function(Object? json) decode, {
+    required String failureMessage,
+  }) => _send(
+    path,
+    () async {
+      final request = http.MultipartRequest('POST', _uri(path))
+        ..files.addAll(files);
+      return http.Response.fromStream(await _http.send(request));
+    },
+    failureMessage,
+    decode,
+  );
+
   /// Decodes a JSON array of objects with [fromJson].
   static List<T> listOf<T>(
     Object? json,
@@ -137,6 +162,23 @@ class JsonApiClient {
     String failureMessage,
     T Function(Object? json) decode,
   ) async {
+    final response = await _checkedResponse(request, failureMessage);
+    try {
+      return decode(response.body.isEmpty ? null : jsonDecode(response.body));
+      // A cast or format failure here means the response doesn't match the
+      // contract; report it as such instead of letting a TypeError escape.
+    } on TypeError catch (e) {
+      throw UnexpectedResponseException(path, e);
+    } on FormatException catch (e) {
+      throw UnexpectedResponseException(path, e);
+    }
+  }
+
+  /// Sends [request] and returns its response if it succeeded.
+  Future<http.Response> _checkedResponse(
+    Future<http.Response> Function() request,
+    String failureMessage,
+  ) async {
     final http.Response response;
     try {
       response = await request();
@@ -149,21 +191,14 @@ class JsonApiClient {
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      final detail = _problemDetail(response);
       throw ApiException(
-        '${_problemDetail(response) ?? failureMessage} (${response.statusCode}).',
+        '${detail ?? failureMessage} (${response.statusCode}).',
         statusCode: response.statusCode,
+        detail: detail,
       );
     }
-
-    try {
-      return decode(response.body.isEmpty ? null : jsonDecode(response.body));
-      // A cast or format failure here means the response doesn't match the
-      // contract; report it as such instead of letting a TypeError escape.
-    } on TypeError catch (e) {
-      throw UnexpectedResponseException(path, e);
-    } on FormatException catch (e) {
-      throw UnexpectedResponseException(path, e);
-    }
+    return response;
   }
 
   Uri _uri(String path, [Map<String, Object>? query]) {
