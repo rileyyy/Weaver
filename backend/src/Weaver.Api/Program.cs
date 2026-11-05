@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using Weaver.Api.Attachments;
 using Weaver.Api.Auth;
 using Weaver.Api.Contracts;
 using Weaver.Api.Background;
@@ -15,8 +16,10 @@ using Weaver.Api.Middleware;
 using Weaver.Api.RateLimiting;
 using Weaver.Api.Startup;
 using Weaver.Application;
+using Weaver.Application.Attachments;
 using Weaver.Application.Auth;
 using Weaver.Infrastructure;
+using Weaver.Infrastructure.Attachments;
 using Weaver.Infrastructure.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -58,6 +61,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<HttpCallerContext>();
 builder.Services.AddScoped<ICallerContext>(services => services.GetRequiredService<HttpCallerContext>());
 builder.Services.AddScoped<WorkItemDtoMapper>();
+builder.Services.AddSingleton<MultipartFileReader>();
 
 // A read-only API key may not write (ADR-0004). Both transports apply Caller.EnsureCanWrite to
 // every write by default, so a new endpoint or tool is covered without opting in: REST to every
@@ -80,6 +84,12 @@ builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptio
 var firstAdminOptions = builder.Configuration.GetSection(FirstAdminOptions.SectionName).Get<FirstAdminOptions>() ?? new FirstAdminOptions();
 FirstAdminPasswordPolicy.EnsureUsable(firstAdminOptions.Password, builder.Environment.IsDevelopment());
 builder.Services.Configure<FirstAdminOptions>(builder.Configuration.GetSection(FirstAdminOptions.SectionName));
+var attachmentsSection = builder.Configuration.GetSection(AttachmentOptions.SectionName);
+(attachmentsSection.Get<AttachmentOptions>() ?? new AttachmentOptions()).EnsureUsable();
+builder.Services.Configure<AttachmentOptions>(attachmentsSection);
+// A relative path (as in development) is under the app, not wherever it was started from.
+builder.Services.PostConfigure<AttachmentOptions>(options =>
+    options.Path = Path.GetFullPath(options.Path, builder.Environment.ContentRootPath));
 
 // Humans send an access token and agents an API key (ADR-0004), both as a bearer value, since
 // that's the header every MCP client can set. The key's prefix picks the scheme, so each
@@ -156,6 +166,7 @@ if (migrationMode == StartupMigrationMode.MigrateAndExit)
     return;
 }
 
+app.Services.EnsureAttachmentsDirectory();
 await app.Services.EnsureFirstAdminAsync();
 
 if (app.Environment.IsDevelopment())

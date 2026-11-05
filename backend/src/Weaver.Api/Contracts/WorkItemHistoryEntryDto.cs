@@ -7,7 +7,8 @@ namespace Weaver.Api.Contracts;
 
 /// <summary>
 /// One change to a work item. <see cref="Field"/> is a work item field name (as in its JSON)
-/// or one of created, deleted, comment, link and recurrence. The values are JSON in the shape
+/// or one of the <see cref="WorkItemHistoryField"/> names (created, deleted, restored, comment,
+/// link, urlLink, attachment and recurrence). The values are JSON in the shape
 /// that field has in the API; <see cref="OldName"/>/<see cref="NewName"/> name an id value
 /// (a status, user or other item) while it still exists. A custom field's changes go by
 /// <c>fields.&lt;fieldId&gt;</c>, with <see cref="FieldName"/> its current name (null for other

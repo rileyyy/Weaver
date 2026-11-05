@@ -113,6 +113,9 @@ UpgradeLog*.htm
 App_Data/*.mdf
 App_Data/*.ldf
 
+# Attachment files from a local development run (Attachments:Path in appsettings.Development.json).
+/src/Weaver.Api/attachments/
+
 # =========================
 # Windows detritus
 # =========================
