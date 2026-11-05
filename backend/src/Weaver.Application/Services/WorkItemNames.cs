@@ -24,11 +24,15 @@ public sealed class WorkItemNames
 
     public string? StatusName(Guid id) => Statuses.GetValueOrDefault(id);
 
-    public string? TypeName(Guid? id) => id is { } typeId ? Types.GetValueOrDefault(typeId) : null;
+    public string? TypeName(Guid? id) => Find(Types, id);
 
-    public string? PriorityName(Guid? id) => id is { } priorityId ? Priorities.GetValueOrDefault(priorityId) : null;
+    public string? PriorityName(Guid? id) => Find(Priorities, id);
 
-    public string? Username(Guid? id) => id is { } userId ? Usernames.GetValueOrDefault(userId) : null;
+    public string? Username(Guid? id) => Find(Usernames, id);
 
-    public WorkItemReference? WorkItem(Guid? id) => id is { } workItemId ? WorkItems.GetValueOrDefault(workItemId) : null;
+    public WorkItemReference? WorkItem(Guid? id) => Find(WorkItems, id);
+
+    private static T? Find<T>(IReadOnlyDictionary<Guid, T> byId, Guid? id)
+        where T : class =>
+        id is { } key ? byId.GetValueOrDefault(key) : null;
 }

@@ -23,11 +23,17 @@ public class WorkItemNameLookup(IWeaverDbContext db) : IWorkItemNameLookup
 
         return new WorkItemNames
         {
-            Spaces = await NamesAsync(_db.Spaces.Where(s => spaceIds.Contains(s.Id)).Select(s => new IdAndName(s.Id, s.Name)), spaceIds, ct),
+            Spaces = await NamesAsync(
+                _db.Spaces.Where(s => spaceIds.Contains(s.Id)).Select(s => new IdAndName(s.Id, s.Name)),
+                spaceIds,
+                ct),
             Statuses = await LookupNamesAsync(_db.Statuses, statusIds, ct),
             Types = await LookupNamesAsync(_db.WorkItemTypes, typeIds, ct),
             Priorities = await LookupNamesAsync(_db.WorkItemPriorities, priorityIds, ct),
-            Usernames = await NamesAsync(_db.Users.Where(u => userIds.Contains(u.Id)).Select(u => new IdAndName(u.Id, u.Username)), userIds, ct),
+            Usernames = await NamesAsync(
+                _db.Users.Where(u => userIds.Contains(u.Id)).Select(u => new IdAndName(u.Id, u.Username)),
+                userIds,
+                ct),
             WorkItems = await WorkItemReferencesAsync(parentIds, ct),
         };
     }

@@ -45,14 +45,21 @@ public record WorkItemDto(
     DateTimeOffset UpdatedAtUtc,
     uint Version)
 {
-    public static WorkItemDto FromEntity(WorkItem item, bool hasLiveBlocker, WorkItemNames names) => new(
+    public static WorkItemDto FromEntity(WorkItem item, bool hasLiveBlocker, WorkItemNames names) =>
+        FromEntity(item, hasLiveBlocker, names, names.WorkItem(item.ParentId));
+
+    private static WorkItemDto FromEntity(
+        WorkItem item,
+        bool hasLiveBlocker,
+        WorkItemNames names,
+        WorkItemReference? parent) => new(
         item.Id,
         item.Number,
         item.SpaceId,
         names.SpaceName(item.SpaceId),
         item.ParentId,
-        names.WorkItem(item.ParentId)?.Number,
-        names.WorkItem(item.ParentId)?.Title,
+        parent?.Number,
+        parent?.Title,
         item.Title,
         item.Description,
         item.StatusId,

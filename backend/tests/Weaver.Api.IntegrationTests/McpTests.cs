@@ -67,7 +67,7 @@ public class McpTests
     }
 
     [Test]
-    public async Task Mcp_GetWorkItem_ByNumber_ReturnsTheFullItem()
+    public async Task Mcp_GetWorkItem_ByNumber_ReturnsTheFullItemWithNames()
     {
         var (client, _) = await ApiClient.SignedInAsync();
         var item = await client.CreateWorkItemAsync($"Known as a number {Guid.NewGuid():N}");
@@ -82,6 +82,8 @@ public class McpTests
         {
             Assert.That(found.Id, Is.EqualTo(item.Id));
             Assert.That(found.StatusId, Is.EqualTo(item.StatusId));
+            Assert.That(found.StatusName, Is.Not.Null.And.EqualTo(item.StatusName));
+            Assert.That(found.SpaceName, Is.Not.Null.And.EqualTo(item.SpaceName));
             Assert.That(neither.IsError, Is.True);
         });
     }

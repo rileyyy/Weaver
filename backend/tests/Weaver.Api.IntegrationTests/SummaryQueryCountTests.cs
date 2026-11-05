@@ -81,6 +81,31 @@ public class SummaryQueryCountTests
         });
     }
 
+    // The names on REST responses: one query per kind of id held, so at most six for any batch.
+    [TestCase(1)]
+    [TestCase(6)]
+    public async Task NameLookup_IsAtMostSixQueries_HoweverManyItems(int children)
+    {
+        var parent = await CreateTreeAsync(children);
+        List<Weaver.Domain.WorkItem> items;
+        await using (var reader = CountingContext(new CommandCounter()))
+        {
+            items = await reader.WorkItems.Where(w => w.SpaceId == parent.SpaceId).ToListAsync();
+        }
+        var counter = new CommandCounter();
+        await using var db = CountingContext(counter);
+
+        var names = await new WorkItemNameLookup(db).NamesForAsync(items);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(items, Has.Count.EqualTo(1 + 2 * children));
+            Assert.That(items.Select(i => names.SpaceName(i.SpaceId)), Has.All.Not.Null);
+            Assert.That(names.Username(_userId), Is.EqualTo(_username));
+            Assert.That(counter.Count, Is.LessThanOrEqualTo(6));
+        });
+    }
+
     /// <summary>
     /// A parent in a Space of its own, with <paramref name="children"/> assigned children that
     /// each have one child, so every name and the child count are read.
