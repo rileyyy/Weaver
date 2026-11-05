@@ -28,9 +28,15 @@ services:
       # CORS_ALLOWED_ORIGIN in .env.example).
       Jwt__SigningKey: insecure-development-only-signing-key-do-not-use-in-production
       Cors__AllowedOrigins__0: http://localhost:8082
+      # Pinned to compose.yaml's attachments volume so a host-local path in
+      # appsettings.Development.json (for `dotnet run` outside Docker) can't
+      # send uploads into the bind-mounted source tree.
+      Attachments__Path: /data/attachments
     # compose.yaml keeps the API off the host; dev talks to it directly.
     ports:
       - "8080:8080"
+    # compose.yaml's attachments volume is kept: volume lists merge by
+    # mount target.
     volumes:
       - ./backend:/src
       - backend-nuget-cache:/root/.nuget/packages

@@ -38,6 +38,10 @@ the API.
 - **Tags, comments and links.** Free-text tags; comments editable by their
   author; typed links between work items (related, blocks, duplicates),
   across Spaces, and URL links to things outside Weaver.
+- **Attachments.** Files attached to a work item from its detail dialog,
+  to download or delete later. They're kept on their own storage path,
+  not in the database. Agents can list and fetch them over MCP but not
+  upload or delete them.
 - **Markdown and checklists.** Descriptions and comments render Markdown.
   `- [ ]` task lines in a description are checkboxes you can tick, for
   checklists and shopping lists.
@@ -156,7 +160,7 @@ environment and volumes below.
 
 | Image | Port | Notes |
 | ----- | ---- | ----- |
-| `ghcr.io/<owner>/weaver-backend` | 8080 | The API, including `/mcp` and `/health`. Runs as a non-root user and keeps no state of its own. |
+| `ghcr.io/<owner>/weaver-backend` | 8080 | The API, including `/mcp` and `/health`. Runs as a non-root user. Its only state is the attachment files under `Attachments__Path`; everything else is in PostgreSQL. |
 | `ghcr.io/<owner>/weaver-frontend` | 8080 | nginx (uid 101) serving the web app. It proxies `/api/` and `/mcp` to `http://backend:8080`, so the API must be reachable under the service name `backend`. Takes no configuration. |
 | `postgres:16-alpine` | 5432 | The database. Any PostgreSQL 16 works. |
 
@@ -172,6 +176,8 @@ sections.
 | `ConnectionStrings__Weaver` | Yes | — | Npgsql connection string, e.g. `Host=db;Port=5432;Database=weaver;Username=weaver;Password=…`. |
 | `Jwt__SigningKey` | Yes | — | Signs access tokens. At least 32 bytes (`openssl rand -base64 48`); the API refuses to start without one. |
 | `FirstAdmin__Username` / `FirstAdmin__Password` | On first start | none | The admin created when the backend starts on a database with no accounts; ignored once any account exists. The password needs at least 12 characters. See [The first admin](#the-first-admin). |
+| `Attachments__Path` | No | `/data/attachments` | Directory holding attachment files, created on startup if missing. Mount a volume here and back it up with the database: Postgres holds each attachment's name and size, this directory holds the file. It's separate from the database so it can live on other storage. The image's user (`$APP_UID`, 1654) must be able to write to it. |
+| `Attachments__MaxFileSizeMegabytes` | No | `25` | The largest attachment accepted, in MiB; a bigger upload gets 413. The frontend image's nginx caps `/api/` request bodies at 30 MiB, so raising this past about 29 also needs a larger `client_max_body_size` in front of the API (a replacement `/etc/nginx/conf.d/default.conf` mounted into the frontend container, or a rebuilt image). |
 | `Database__MigrateOnStartup` | No | `true` | Applies pending migrations before serving. If a migration fails, the API exits with the reason in its log instead of serving against an old schema. Set `false` to run migrations as a separate step instead: the image's `migrate` command (e.g. `command: ["migrate"]`) applies them and exits. |
 | `ASPNETCORE_ENVIRONMENT` | No | `Production` | Leave it as `Production`. `Development` maps the OpenAPI document and accepts the public development signing key and first-admin password. |
 | `Cors__AllowedOrigins__0`, `__1`, … | No | none | Web origins allowed to call the API cross-origin. The web app calls it same-origin through nginx, so this is only for some other web origin. |
@@ -202,6 +208,7 @@ publicly known secrets.
 | `WEAVER_FIRST_ADMIN_USERNAME` / `WEAVER_FIRST_ADMIN_PASSWORD` | On first start | — | Become `FirstAdmin__Username` / `FirstAdmin__Password`. |
 | `WEAVER_HTTP_PORT` / `WEAVER_HTTPS_PORT` | No | `80` / `443` | Host ports for Caddy, if those are taken. |
 | `CORS_ALLOWED_ORIGIN` | No | `https://$WEAVER_DOMAIN` | Becomes `Cors__AllowedOrigins__0`. |
+| `ATTACHMENTS_DIR` | No | `attachments` | Where the backend's attachment files live. A name is a Docker volume; a host path (`./…` or `/…`) puts them on other storage, and that directory must be owned by uid 1654. |
 | `BACKUP_DIR` | No | `./backups` | Host directory for database dumps. |
 | `BACKUP_HOUR_UTC` | No | `2` | Hour (UTC) of the nightly backup. |
 | `BACKUP_KEEP_DAYS` | No | `7` | Days of daily dumps to keep. |
@@ -217,6 +224,7 @@ five minutes after the startup dump instead of seconds after.
 | Volume (example compose) | Mounted at | Holds |
 | ------------------------ | ---------- | ----- |
 | `pgdata` | `db:/var/lib/postgresql/data` | The database. Whoever runs the images backs it up. |
+| `attachments`, or `$ATTACHMENTS_DIR` (bind mount) | `backend:/data/attachments` | Attachment files. Back it up along with the database; the `backup` service doesn't. |
 | `caddy-data` | `caddy:/data` | Caddy's local CA keys and certificates. |
 | `$BACKUP_DIR` (bind mount) | `backup:/backups` | The backup service's dumps. |
 
@@ -315,6 +323,16 @@ lost, Caddy creates a new root and every device has to trust the new one.
 
 ### Backups and restore
 
+**The `backup` service only dumps PostgreSQL.** Attachment files live in
+the `attachments` volume (or `ATTACHMENTS_DIR`), and nothing in the example
+compose copies them; the service's healthcheck only watches the database
+dumps. Back up the attachments path as well
+([ADR-0008](docs/adr/0008-images-first-deployment.md)), for example with
+the same scheduled copy that takes `BACKUP_DIR` off the server. Back both
+up around the same time: a database restored from before an upload lists
+no attachment for that file, and one restored from after an upload lists
+one whose file is missing.
+
 The `backup` service runs `pg_dump` from the official `postgres:16-alpine`
 image: once at startup, then nightly at `BACKUP_HOUR_UTC`. Dumps go to
 `$BACKUP_DIR/daily/` on the host; the Sunday dump is also copied to
@@ -340,9 +358,13 @@ docker compose exec backup pg_restore --clean --if-exists --no-owner \
 docker compose start backend
 ```
 
-Copy `BACKUP_DIR` off the server as well (e.g. a scheduled `rsync` to
-another machine). A dump on the same disk doesn't survive losing that
-disk.
+Copy `BACKUP_DIR` and the attachments off the server as well (e.g. a
+scheduled `rsync` to another machine). A dump on the same disk doesn't
+survive losing that disk. With the default named volume, the files are
+under the path `docker volume inspect <project>_attachments` reports;
+setting `ATTACHMENTS_DIR` to a host directory makes them easier to copy.
+To restore attachments, put the files back in that directory with the
+backend stopped, owned by uid 1654.
 
 ## Connecting an MCP client
 
@@ -391,8 +413,9 @@ disk.
   root certificate, see above.
 
 The tools cover work items, Spaces (`list_spaces`; agents can't change
-them), statuses, Types, priorities, users, comments, links and repeating
-items. A top-level item is created with a `spaceId`; a child joins its
+them), statuses, Types, priorities, users, comments, links, repeating
+items and attachments (`list_work_item_attachments` and
+`get_work_item_attachment`; agents can't upload or delete them). A top-level item is created with a `spaceId`; a child joins its
 parent's Space. Updates to details, schedule and tags
 change only the arguments you send: leave one out to keep it, or send
 `null` to clear it. Every work-item write accepts an optional

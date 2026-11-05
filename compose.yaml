@@ -45,6 +45,13 @@ services:
       # once any account exists.
       FirstAdmin__Username: ${WEAVER_FIRST_ADMIN_USERNAME:-}
       FirstAdmin__Password: ${WEAVER_FIRST_ADMIN_PASSWORD:-}
+    volumes:
+      # Attachment files, at the image's default Attachments__Path. A name
+      # (the default) is the `attachments` volume, which takes the image's
+      # ownership of the directory; a host path (./… or /…) puts the files on
+      # other storage, and must be owned by the image's user (uid 1654). The
+      # `backup` service doesn't copy these: back this up as well.
+      - ${ATTACHMENTS_DIR:-attachments}:/data/attachments
     healthcheck:
       # /health includes a database check.
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
@@ -99,8 +106,9 @@ services:
       - caddy-data:/data
 
   # Nightly pg_dump into $BACKUP_DIR (./backups by default) on the host,
-  # plus one at startup. Keeps BACKUP_KEEP_DAYS daily dumps and
-  # BACKUP_KEEP_WEEKS weekly (Sunday) ones. Uses the official postgres image
+  # plus one at startup. Database only: attachment files aren't dumped.
+  # Keeps BACKUP_KEEP_DAYS daily dumps and BACKUP_KEEP_WEEKS weekly
+  # (Sunday) ones. Uses the official postgres image
   # (it already has pg_dump) so the database password never goes to a
   # third-party image. A dump is written as .partial and only renamed once
   # pg_dump succeeds, so a crash can't leave a truncated "backup". Restore
@@ -176,3 +184,4 @@ services:
 volumes:
   pgdata:
   caddy-data:
+  attachments:

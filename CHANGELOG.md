@@ -33,6 +33,35 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-05 — Attachments
+
+`feature/attachments` (ticket 38 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0008](docs/adr/0008-images-first-deployment.md)). Thumbnails and
+camera upload are ticket 39.
+
+- **Files on work items**: the detail dialog attaches, downloads and
+  deletes them. Each file is stored under the attachments path named by
+  its id, never by its filename, so a name can't escape that directory;
+  its name, type and size are in Postgres.
+- **A size limit**, `Attachments__MaxFileSizeMegabytes` (25 MiB by
+  default). A bigger upload gets 413 naming the limit.
+- **Trash keeps them**: a trashed item's attachments stay until it's
+  purged, which deletes their files.
+- **History** records `attachment` added or removed, named by the file
+  name.
+- **API:** `GET`/`POST /api/work-items/{id}/attachments` (multipart, one
+  `file` part), `GET /api/work-item-attachments/{id}/content` and
+  `DELETE /api/work-item-attachments/{id}`. MCP's
+  `list_work_item_attachments` and `get_work_item_attachment` are
+  read-only: agents can't upload or delete.
+- **Deployment:** `Attachments__Path` (default `/data/attachments`) is a
+  new place the backend keeps state. The example compose mounts the
+  `attachments` volume there, or a host directory set as
+  `ATTACHMENTS_DIR`. The `backup` service still only dumps Postgres, so
+  back the attachments up too (README, Backups and restore). The frontend
+  image's nginx now accepts `/api/` request bodies up to 30 MiB.
+
 ## 2026-11-05 — Lean MCP summaries, and names in DTOs
 
 `feature/lean-mcp-summaries` (ticket 29 of
