@@ -554,6 +554,19 @@ public class WorkItemQueryServiceTests
         Assert.That(page.Items.Single().ChildCount, Is.EqualTo(1));
     }
 
+    [Test]
+    public async Task Summaries_CarryEachItemsParent_SoAFlatListRebuildsTheTree()
+    {
+        var parent = await CreateAsync("Parent");
+        var child = await CreateAsync("Child", parent.Id);
+
+        var page = await _query.QuerySummariesAsync(new WorkItemQuery());
+
+        Assert.That(
+            page.Items.Select(s => (s.Id, s.ParentId)),
+            Is.EqualTo(new (Guid, Guid?)[] { (parent.Id, null), (child.Id, parent.Id) }));
+    }
+
     private static DateOnly Nov(int day) => new(2026, 11, day);
 
     private async Task<WorkItem> CreateDatedAsync(string title, DateOnly? start, DateOnly? end, Guid? parentId = null)

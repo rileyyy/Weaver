@@ -21,7 +21,7 @@ public class TrashControllerTests
     }
 
     public static TrashedWorkItem MakeTrashed(Guid id) => new(
-        new WorkItemSummary(id, 12, "Old shed", Guid.NewGuid(), "Home", "To Do", null, null, null, null, 0,
+        new WorkItemSummary(id, 12, "Old shed", Guid.NewGuid(), "Home", null, "To Do", null, null, null, null, 0,
             new DateTimeOffset(2026, 11, 4, 9, 0, 0, TimeSpan.Zero)),
         new DateTimeOffset(2026, 11, 4, 9, 0, 0, TimeSpan.Zero),
         ItemCount: 3,

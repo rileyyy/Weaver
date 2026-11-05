@@ -5,6 +5,8 @@ namespace Weaver.Application.Services;
 /// Only <see cref="Id"/> and <see cref="Title"/> are always known: the rest is null for an item
 /// that has been purged, since only its history remains. <see cref="TrashedAtUtc"/> is set for an
 /// item in the Trash, which a read only returns when it asked for deleted items.
+/// <see cref="ParentId"/> is null for a top-level item, and for a purged one, so a reader can
+/// rebuild the tree from a flat list of summaries.
 /// </summary>
 public sealed record WorkItemSummary(
     Guid Id,
@@ -12,6 +14,7 @@ public sealed record WorkItemSummary(
     string Title,
     Guid? SpaceId,
     string? SpaceName,
+    Guid? ParentId,
     string? StatusName,
     string? TypeName,
     DateOnly? StartDate,

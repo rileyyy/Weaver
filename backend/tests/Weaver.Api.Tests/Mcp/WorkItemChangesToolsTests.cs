@@ -17,7 +17,7 @@ public class WorkItemChangesToolsTests
     public async Task ListChangesSince_PassesTheQueryThrough_AndMapsThePage()
     {
         var spaceId = Guid.NewGuid();
-        var deleted = new WorkItemSummary(Guid.NewGuid(), null, "Old shed", spaceId, "Home", null, null, null, null, null, null);
+        var deleted = new WorkItemSummary(Guid.NewGuid(), null, "Old shed", spaceId, "Home", null, null, null, null, null, null, null);
         var service = new Mock<IWorkItemChangesService>(MockBehavior.Strict);
         service
             .Setup(s => s.ListSinceAsync(new WorkItemChangesQuery(Since, spaceId, true, "abc", 10), It.IsAny<CancellationToken>()))

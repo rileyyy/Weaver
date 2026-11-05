@@ -5,7 +5,8 @@ namespace Weaver.Api.Contracts;
 /// <summary>
 /// A work item in brief, with names instead of ids. For a purged item only the id, title and
 /// last Space are known, and the rest is null. <see cref="TrashedAtUtc"/> is set for an item in
-/// the Trash. Full detail comes from <c>get_work_item</c>.
+/// the Trash. <see cref="ParentId"/> is null for a top-level item. Full detail comes from
+/// <c>get_work_item</c>.
 /// </summary>
 public record WorkItemSummaryDto(
     Guid Id,
@@ -13,6 +14,7 @@ public record WorkItemSummaryDto(
     string Title,
     Guid? SpaceId,
     string? SpaceName,
+    Guid? ParentId,
     string? StatusName,
     string? TypeName,
     DateOnly? StartDate,
@@ -27,6 +29,7 @@ public record WorkItemSummaryDto(
         summary.Title,
         summary.SpaceId,
         summary.SpaceName,
+        summary.ParentId,
         summary.StatusName,
         summary.TypeName,
         summary.StartDate,

@@ -13,12 +13,21 @@ public interface IWorkItemService
 {
     Task<WorkItem?> GetByIdAsync(Guid id, CancellationToken ct = default);
 
+    /// <summary>The live item with this <see cref="WorkItem.Number"/>, or null; the Trash is left out.</summary>
+    Task<WorkItem?> GetByNumberAsync(int number, CancellationToken ct = default);
+
     /// <summary>
     /// Direct children of <paramref name="parentId"/>, or the top-level items of
     /// <paramref name="spaceId"/> when there's no parent, ordered by board-cell rank. One of
     /// the two is required.
     /// </summary>
     Task<IReadOnlyList<WorkItem>> GetChildrenAsync(
+        Guid? parentId,
+        Guid? spaceId = null,
+        CancellationToken ct = default);
+
+    /// <summary>The same items as <see cref="GetChildrenAsync"/>, in brief, for agents.</summary>
+    Task<IReadOnlyList<WorkItemSummary>> GetChildSummariesAsync(
         Guid? parentId,
         Guid? spaceId = null,
         CancellationToken ct = default);
@@ -41,6 +50,13 @@ public interface IWorkItemService
     /// <paramref name="limit"/> is 1 to <see cref="WorkItemService.MaxPageSize"/>.
     /// </summary>
     Task<IReadOnlyList<WorkItem>> GetAllAsync(
+        int offset,
+        int limit,
+        Guid? spaceId = null,
+        CancellationToken ct = default);
+
+    /// <summary>The same page as <see cref="GetAllAsync"/>, in brief, for agents.</summary>
+    Task<IReadOnlyList<WorkItemSummary>> GetAllSummariesAsync(
         int offset,
         int limit,
         Guid? spaceId = null,

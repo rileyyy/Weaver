@@ -19,7 +19,8 @@ public class WorkItemSearchToolsTests
         var typeId = Guid.NewGuid();
         var assigneeId = Guid.NewGuid();
         var since = new DateTimeOffset(2026, 11, 2, 9, 0, 0, TimeSpan.Zero);
-        var summary = new WorkItemSummary(Guid.NewGuid(), 12, "Paint the fence", spaceId, "Home", "Doing", "Task", null, null, "alice", 0);
+        var parentId = Guid.NewGuid();
+        var summary = new WorkItemSummary(Guid.NewGuid(), 12, "Paint the fence", spaceId, "Home", parentId, "Doing", "Task", null, null, "alice", 0);
         WorkItemQuery? received = null;
         var service = new Mock<IWorkItemQueryService>(MockBehavior.Strict);
         service
@@ -47,6 +48,7 @@ public class WorkItemSearchToolsTests
         {
             Assert.That(page.Items.Single().Title, Is.EqualTo("Paint the fence"));
             Assert.That(page.Items.Single().Number, Is.EqualTo(12));
+            Assert.That(page.Items.Single().ParentId, Is.EqualTo(parentId));
             Assert.That(page.NextCursor, Is.EqualTo("next"));
             Assert.That(received!.SpaceIds, Is.EqualTo(new[] { spaceId }));
             Assert.That(received.Text, Is.EqualTo("paint"));

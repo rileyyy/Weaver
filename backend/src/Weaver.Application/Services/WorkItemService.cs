@@ -19,26 +19,27 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
     public Task<WorkItem?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
         _db.WorkItems.AsNoTracking().FirstOrDefaultAsync(w => w.Id == id, ct);
 
+    public Task<WorkItem?> GetByNumberAsync(int number, CancellationToken ct = default) =>
+        _db.WorkItems.AsNoTracking().FirstOrDefaultAsync(w => w.Number == number, ct);
+
     public async Task<IReadOnlyList<WorkItem>> GetChildrenAsync(
         Guid? parentId,
         Guid? spaceId = null,
         CancellationToken ct = default) =>
-        await ChildrenQuery(parentId, spaceId)
-            .AsNoTracking()
-            .OrderBy(w => w.Rank)
-            .ThenBy(w => w.Number)
-            .ToListAsync(ct);
+        await InRankOrder(ChildrenQuery(parentId, spaceId)).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<WorkItemSummary>> GetChildSummariesAsync(
+        Guid? parentId,
+        Guid? spaceId = null,
+        CancellationToken ct = default) =>
+        await InRankOrder(ChildrenQuery(parentId, spaceId)).Summarize().ToListAsync(ct);
 
     public async Task<IReadOnlyList<Swimlane>> GetSwimlanesAsync(
         Guid? scopeItemId,
         Guid? spaceId = null,
         CancellationToken ct = default)
     {
-        var lanes = await ChildrenQuery(scopeItemId, spaceId)
-            .AsNoTracking()
-            .OrderBy(w => w.Rank)
-            .ThenBy(w => w.Number)
-            .ToListAsync(ct);
+        var lanes = await InRankOrder(ChildrenQuery(scopeItemId, spaceId)).ToListAsync(ct);
 
         var laneIds = lanes.Select(l => l.Id).ToList();
         var cardsByLane = (await _db.WorkItems
@@ -56,7 +57,17 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
         int offset,
         int limit,
         Guid? spaceId = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default) =>
+        await AllPage(offset, limit, spaceId).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<WorkItemSummary>> GetAllSummariesAsync(
+        int offset,
+        int limit,
+        Guid? spaceId = null,
+        CancellationToken ct = default) =>
+        await AllPage(offset, limit, spaceId).Summarize().ToListAsync(ct);
+
+    private IQueryable<WorkItem> AllPage(int offset, int limit, Guid? spaceId)
     {
         if (offset < 0)
         {
@@ -69,14 +80,12 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
         }
 
         var items = spaceId is null ? _db.WorkItems : _db.WorkItems.Where(w => w.SpaceId == spaceId);
-        return await items
-            .AsNoTracking()
-            .OrderBy(w => w.Rank)
-            .ThenBy(w => w.Number)
-            .Skip(offset)
-            .Take(limit)
-            .ToListAsync(ct);
+        return InRankOrder(items).Skip(offset).Take(limit);
     }
+
+    /// <summary>Board-cell order; Number breaks ties so a page boundary is stable.</summary>
+    private static IQueryable<WorkItem> InRankOrder(IQueryable<WorkItem> items) =>
+        items.AsNoTracking().OrderBy(w => w.Rank).ThenBy(w => w.Number);
 
     public async Task<WorkItem> CreateAsync(
         string title,

@@ -12,6 +12,7 @@ internal static class WorkItemSummaries
             w.Title,
             w.SpaceId,
             w.Space!.Name,
+            w.ParentId,
             w.Status!.Name,
             w.Type == null ? null : w.Type.Name,
             w.StartDate,

@@ -14,7 +14,7 @@ public class WorkItemChangesControllerTests
     {
         var since = new DateTimeOffset(2026, 11, 2, 9, 0, 0, TimeSpan.Zero);
         var spaceId = Guid.NewGuid();
-        var summary = new WorkItemSummary(Guid.NewGuid(), 7, "Boiler", spaceId, "Home", "Doing", null, null, null, "alice", 0);
+        var summary = new WorkItemSummary(Guid.NewGuid(), 7, "Boiler", spaceId, "Home", null, "Doing", null, null, null, "alice", 0);
         var service = new Mock<IWorkItemChangesService>(MockBehavior.Strict);
         service
             .Setup(s => s.ListSinceAsync(new WorkItemChangesQuery(since, spaceId, true, "abc", 5), It.IsAny<CancellationToken>()))
