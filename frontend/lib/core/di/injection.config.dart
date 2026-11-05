@@ -72,16 +72,26 @@ import 'package:weaver/features/board/data/last_space_store.dart' as _i120;
 import 'package:weaver/features/board/data/trash_repository.dart' as _i1009;
 import 'package:weaver/features/board/repeating_items_view_model.dart' as _i87;
 import 'package:weaver/features/board/trash_view_model.dart' as _i773;
+import 'package:weaver/features/work_item_detail/data/api_work_item_attachment_repository.dart'
+    as _i907;
 import 'package:weaver/features/work_item_detail/data/api_work_item_detail_repository.dart'
     as _i335;
 import 'package:weaver/features/work_item_detail/data/api_work_item_history_repository.dart'
     as _i511;
+import 'package:weaver/features/work_item_detail/data/attachment_files.dart'
+    as _i418;
+import 'package:weaver/features/work_item_detail/data/file_picker_attachment_files.dart'
+    as _i868;
+import 'package:weaver/features/work_item_detail/data/work_item_attachment_repository.dart'
+    as _i454;
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart'
     as _i982;
 import 'package:weaver/features/work_item_detail/data/work_item_history_repository.dart'
     as _i814;
 import 'package:weaver/features/work_item_detail/repeat_settings_view_model.dart'
     as _i60;
+import 'package:weaver/features/work_item_detail/work_item_attachments_view_model.dart'
+    as _i798;
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart'
     as _i194;
 import 'package:weaver/features/work_item_detail/work_item_history_view_model.dart'
@@ -125,6 +135,9 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i519.Client>(
       () => networkModule.rawHttpClient,
       instanceName: 'rawHttpClient',
+    );
+    gh.lazySingleton<_i418.AttachmentFiles>(
+      () => _i868.FilePickerAttachmentFiles(),
     );
     gh.lazySingleton<_i577.ServerSettings>(
       () => _i577.ServerSettings(gh<_i936.ServerOriginStore>()),
@@ -190,6 +203,12 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i202.ApiEndpoint>(),
       ),
     );
+    gh.lazySingleton<_i454.WorkItemAttachmentRepository>(
+      () => _i907.ApiWorkItemAttachmentRepository(
+        gh<_i519.Client>(),
+        gh<_i202.ApiEndpoint>(),
+      ),
+    );
     gh.lazySingleton<_i1009.TrashRepository>(
       () =>
           _i797.ApiTrashRepository(gh<_i519.Client>(), gh<_i202.ApiEndpoint>()),
@@ -202,6 +221,12 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i773.TrashViewModel>(
       () => _i773.TrashViewModel(gh<_i1009.TrashRepository>()),
+    );
+    gh.factory<_i798.WorkItemAttachmentsViewModel>(
+      () => _i798.WorkItemAttachmentsViewModel(
+        gh<_i454.WorkItemAttachmentRepository>(),
+        gh<_i418.AttachmentFiles>(),
+      ),
     );
     gh.lazySingleton<_i600.SpaceRepository>(
       () =>
