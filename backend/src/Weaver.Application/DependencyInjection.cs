@@ -25,6 +25,7 @@ public static class DependencyInjection
             .AddScoped<IWorkItemLinkService, WorkItemLinkService>()
             .AddScoped<IWorkItemUrlLinkService, WorkItemUrlLinkService>()
             .AddScoped<IWorkItemBlockers, WorkItemBlockers>()
+            .AddScoped<IWorkItemNameLookup, WorkItemNameLookup>()
             .AddScoped<IWorkItemHistoryService, WorkItemHistoryService>()
             .AddScoped<IWorkItemChangesService, WorkItemChangesService>()
             .AddScoped<IWorkItemQueryService, WorkItemQueryService>()
