@@ -402,8 +402,8 @@ Each Type defines its own fields (ticket 14,
 - **"Changes since T"** (`GET /api/work-items/changes`, MCP
   `list_changes_since`, `WorkItemChangesService`) lists the work items
   with entries at or after `since`, each with those entries oldest first,
-  as a `WorkItemSummary` (number, title, Space, status, Type, dates,
-  assignee and child count, by name):
+  as a `WorkItemSummary` (number, title, Space, parent, status, Type,
+  dates, assignee and child count, by name):
   - **Pages by each item's first entry since T**, and the opaque cursor
     (`WorkItemChangesCursor`) is that entry's `Id`. An item's first entry
     never changes, so changes landing between pages don't reorder or
@@ -429,8 +429,9 @@ Each Type defines its own fields (ticket 14,
   - **Restore isn't in it yet**: Trash (ticket 19) adds a `restored`
     marker, and `deleted` then comes from the trash state rather than
     from the row being gone.
-  - Nulls are still sent; omitting them from MCP JSON is ticket 29, which
-    should reuse `WorkItemSummary` for its list tools.
+  - Over MCP, nulls are left out like everywhere else in tool results,
+    except an entry's `oldValue`/`newValue`: a null there is what the
+    entry records, so it's always written.
 - **Anything new that changes a work item must record history**: a new
   field, a new operation, Spaces and Types, custom fields, When, Trash
   restore, attachments. Return `FieldChange`s from the domain method and
@@ -899,12 +900,30 @@ store its inputs.
   caller's account and kind, and the label and scope of the key it used.
   `list_all_work_items` pages through every item like `GET
   /work-items/all` (same `offset`/`limit`, default 500, at most 1000, from
-  `WorkItemService`), so an agent can rebuild the whole tree;
-  `list_work_item_children` with `parentId` omitted returns top-level items.
+  `WorkItemService`), so an agent can rebuild the whole tree from each
+  summary's `parentId`; `list_work_item_children` with `parentId` omitted
+  returns top-level items.
   `list_changes_since` pages with a cursor instead (see
   [Change history](#change-history)). `search_work_items` runs the
   [work-item query](#work-item-query) and returns summaries; it's how an
   agent filters, searches text or looks up a `#Number`.
+- **Lists return summaries; `get_work_item` returns the full item.** Every
+  list tool that returns work items (`list_work_item_children`,
+  `list_all_work_items`, `search_work_items`, and the item in each
+  `list_trash` and `list_changes_since` entry) returns a `WorkItemSummary`,
+  loaded through the one `Summarize()` projection, so names and the child
+  count cost no query per item (`SummaryQueryCountTests` counts them on
+  Postgres). `get_work_item` takes an `id` or a `number` (an int, the `#N`
+  without the `#`, matching `search_work_items`), exactly one of the two.
+  `list_repeating_work_items` and `list_work_item_links` keep their own
+  brief references to items (number, title), which never were full items.
+- **MCP results leave nulls out**
+  (`DefaultIgnoreCondition = WhenWritingNull` in
+  `McpJsonSerializerOptions`); a missing property means null. REST keeps
+  writing nulls. A property whose null is the information opts back in
+  with `[JsonIgnore(Condition = Never)]`, as history values do. Write
+  results list only the names of changed fields, so a cleared field just
+  goes missing from the returned item.
 - **Auth is the REST API's.** `app.MapMcp("/mcp")` sits in the same
   pipeline after `UseAuthentication()` / `UseAuthorization()`, so it
   inherits the fallback policy. A request with no bearer value, or a bad
