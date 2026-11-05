@@ -14,7 +14,8 @@ public class WorkItemRecurrenceTools(IWorkItemRecurrenceService recurrences, Htt
     private readonly HttpCallerContext _caller = caller;
 
     [McpServerTool(Name = "list_repeating_work_items", ReadOnly = true)]
-    [Description("Lists every repeating work item with its schedule and next occurrence date.")]
+    [Description("Lists every repeating work item with its schedule and next occurrence date. A schedule " +
+        "with no endDate repeats indefinitely, and one with no nextOccurrence has ended.")]
     public async Task<IReadOnlyList<WorkItemRecurrenceDto>> ListRepeatingWorkItems(CancellationToken ct)
     {
         var recurrences = await _recurrences.ListAsync(ct);

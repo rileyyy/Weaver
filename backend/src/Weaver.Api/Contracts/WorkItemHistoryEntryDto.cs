@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Weaver.Application.Services;
 using Weaver.Domain;
 
@@ -12,6 +13,11 @@ namespace Weaver.Api.Contracts;
 /// <c>fields.&lt;fieldId&gt;</c>, with <see cref="FieldName"/> its current name (null for other
 /// fields, or a field since removed). A null account is Weaver itself.
 /// </summary>
+/// <remarks>
+/// The values are written even when null, including over MCP, which otherwise leaves nulls out:
+/// a null there says the field was empty before or was cleared, which is what the entry records,
+/// and a reader shouldn't have to infer it from a missing property.
+/// </remarks>
 public record WorkItemHistoryEntryDto(
     long Id,
     Guid WorkItemId,
@@ -23,8 +29,8 @@ public record WorkItemHistoryEntryDto(
     string? ApiKeyLabel,
     string? ActorLabel,
     string Field,
-    JsonElement? OldValue,
-    JsonElement? NewValue,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] JsonElement? OldValue,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] JsonElement? NewValue,
     string? OldName,
     string? NewName,
     string? FieldName)

@@ -12,11 +12,11 @@ public class WorkItemSearchTools(IWorkItemQueryService query)
     private readonly IWorkItemQueryService _query = query;
 
     [McpServerTool(Name = "search_work_items", ReadOnly = true)]
-    [Description("Finds work items, each as a brief summary with names. Every argument is optional and " +
-        "the ones given AND together; a list argument matches any of its values. Use text \"#123\" (or " +
-        "number) to look up a work item by its Number. Items come in Number order; while nextCursor is not " +
-        "null, call again with the same arguments and that cursor for the next page. Use get_work_item " +
-        "with a summary's id for full detail.")]
+    [Description("Finds work items, each as a brief summary with names; fields with no value are left out. " +
+        "Every argument is optional and the ones given AND together; a list argument matches any of its " +
+        "values. Use text \"#123\" (or number) to look up a work item by its Number. Items come in Number " +
+        "order; while a page has a nextCursor, call again with the same arguments and that cursor for the " +
+        "next page. Use get_work_item with a summary's id for full detail.")]
     public Task<WorkItemSummaryPageDto> SearchWorkItems(
         [Description("Only items in these Spaces. Use list_spaces to find valid ids. Omit for every Space.")] IReadOnlyList<Guid>? spaceIds = null,
         [Description("Words that must all appear, as words or the start of one, in the title, description or When, ignoring case (e.g. \"paint hall\"). Just \"#123\" looks up that Number instead.")] string? text = null,

@@ -15,7 +15,8 @@ public class WorkItemTools(IWorkItemService workItems, WorkItemDtoMapper dtos, H
 {
     private const string PatchDescription =
         "Only the fields you send change: leave a field out to keep it, or send null to clear it. " +
-        "Returns the item with its new version and the list of fields that changed.";
+        "Returns the item with its new version and the list of fields that changed; a field cleared to " +
+        "null is left out of the returned item, as every empty field is.";
 
     private readonly IWorkItemService _workItems = workItems;
     private readonly WorkItemDtoMapper _dtos = dtos;
@@ -23,7 +24,8 @@ public class WorkItemTools(IWorkItemService workItems, WorkItemDtoMapper dtos, H
 
     [McpServerTool(Name = "get_work_item", ReadOnly = true)]
     [Description("Gets a single work item in full detail, by id or by Number (the #N people use). Give exactly " +
-        "one of id and number. List and search tools return summaries; use this for the rest of an item.")]
+        "one of id and number. List and search tools return summaries; use this for the rest of an item. " +
+        "Fields with no value are left out.")]
     public async Task<WorkItemDto> GetWorkItem(
         [Description("The work item's id.")] Guid? id = null,
         [Description("The work item's Number, without the # (123 for #123).")] int? number = null,
@@ -36,7 +38,8 @@ public class WorkItemTools(IWorkItemService workItems, WorkItemDtoMapper dtos, H
     [McpServerTool(Name = "list_work_item_children", ReadOnly = true)]
     [Description("Lists the direct children of a work item (e.g. a swimlane's cards), or the top-level " +
         "work items of a Space when parentId is omitted (e.g. a board's swimlanes), in board order. Give " +
-        "parentId or spaceId. Each item is a brief summary with names; use get_work_item for full detail.")]
+        "parentId or spaceId. Each item is a brief summary with names, leaving out fields with no value; use " +
+        "get_work_item for full detail.")]
     public Task<IReadOnlyList<WorkItemSummaryDto>> ListWorkItemChildren(
         [Description("The parent work item's id. Omit to list a Space's top-level work items.")] Guid? parentId = null,
         [Description("The Space whose top-level work items to list when parentId is omitted. Use list_spaces to find valid ids.")] Guid? spaceId = null,
@@ -46,9 +49,9 @@ public class WorkItemTools(IWorkItemService workItems, WorkItemDtoMapper dtos, H
 
     [McpServerTool(Name = "list_all_work_items", ReadOnly = true)]
     [Description("Lists one page of every work item in a Space (or every Space), flat, ordered by rank " +
-        "then number. Each item is a brief summary with names; use get_work_item for full detail. Rebuild " +
-        "the tree from each item's parentId, which top-level items don't have. Page by increasing offset " +
-        "until a page comes back shorter than limit.")]
+        "then number. Each item is a brief summary with names, leaving out fields with no value; use " +
+        "get_work_item for full detail. Rebuild the tree from each item's parentId, which top-level items " +
+        "don't have. Page by increasing offset until a page comes back shorter than limit.")]
     public Task<IReadOnlyList<WorkItemSummaryDto>> ListAllWorkItems(
         [Description("How many items to skip. Defaults to 0.")] int offset = 0,
         [Description("Page size, 1 to 1000. Defaults to 500.")] int limit = WorkItemService.DefaultPageSize,

@@ -10,6 +10,13 @@ namespace Weaver.Api.Mcp;
 /// client sees e.g. "Human" for <see cref="Weaver.Domain.UserKind"/>, not 0.
 /// </summary>
 /// <remarks>
+/// <para>
+/// Unlike REST, null properties are left out: an agent pays for every token it reads, and a
+/// summary is mostly nulls for an undated, unassigned item. A missing property means null. A
+/// property whose null is the point (a history entry's cleared value) opts back in with
+/// <c>[JsonIgnore(Condition = JsonIgnoreCondition.Never)]</c>.
+/// </para>
+/// <para>
 /// Must be built from <see cref="JsonSerializerOptions.Default"/> (which already carries a
 /// reflection-based <see cref="JsonSerializerOptions.TypeInfoResolver"/>), not a bare
 /// <c>new JsonSerializerOptions(...)</c> — the MCP SDK marks whatever options it's given as
@@ -17,11 +24,13 @@ namespace Weaver.Api.Mcp;
 /// by an end-to-end run against the dev stack: the API failed to even start, with
 /// "JsonSerializerOptions instance must specify a TypeInfoResolver setting before being
 /// marked as read-only" thrown from deep inside MapMcp's tool discovery.
+/// </para>
 /// </remarks>
 internal static class McpJsonSerializerOptions
 {
     public static readonly JsonSerializerOptions Default = new(JsonSerializerOptions.Default)
     {
         Converters = { new JsonStringEnumConverter() },
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 }

@@ -14,8 +14,9 @@ public class WorkItemChangesTools(IWorkItemChangesService changes)
     [Description("Lists the work items changed at or after a moment (e.g. \"what changed since yesterday?\"), " +
         "each as a brief summary with who changed what since then, oldest change first. Items deleted now " +
         "(in the Trash or purged) are included with deleted: true, and items restored from the Trash since " +
-        "then with restored: true. Items come in the order each first changed; while nextCursor is " +
-        "not null, call again with the same arguments and that cursor for the next page.")]
+        "then with restored: true. Fields with no value are left out. Items come in the order each first " +
+        "changed; while a page has a nextCursor, call again with the same arguments and that cursor for the " +
+        "next page. Use get_work_item for a live item's full detail.")]
     public Task<WorkItemChangesPageDto> ListChangesSince(
         [Description("The moment to list changes from, inclusive, as an ISO 8601 timestamp with offset (e.g. 2026-11-02T09:00:00Z).")] DateTimeOffset since,
         [Description("Only list items in this Space; a deleted item counts as in the Space it was last in. Use list_spaces to find valid ids. Omit for every Space.")] Guid? spaceId = null,

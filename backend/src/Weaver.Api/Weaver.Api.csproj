@@ -21,4 +21,8 @@
     <ProjectReference Include="..\Weaver.Infrastructure\Weaver.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Weaver.Api.Tests" />
+  </ItemGroup>
+
 </Project>
