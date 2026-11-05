@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:injectable/injectable.dart';
 import 'package:weaver/features/work_item_detail/data/attachment_files.dart';
 import 'package:weaver/features/work_item_detail/models/attachment_upload.dart';
+import 'package:weaver/features/work_item_detail/models/download_file_name.dart';
 
 @LazySingleton(as: AttachmentFiles)
 class FilePickerAttachmentFiles implements AttachmentFiles {
@@ -23,7 +24,7 @@ class FilePickerAttachmentFiles implements AttachmentFiles {
     // On web this is a Blob download through an anchor, which needs no
     // token: the bytes were already fetched with one.
     await FilePicker.saveFile(
-      fileName: fileName,
+      fileName: downloadFileName(fileName, contentType),
       bytes: bytes,
       mimeType: contentType,
     );
