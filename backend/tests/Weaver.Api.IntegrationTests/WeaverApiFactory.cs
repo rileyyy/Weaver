@@ -14,9 +14,16 @@ public class WeaverApiFactory(string connectionString) : WebApplicationFactory<P
     public const string FirstAdminUsername = "first-admin";
     public const string FirstAdminPassword = "first-admin-integration-password";
 
+    /// <summary>Small, so a test can go over it without sending megabytes.</summary>
+    public const int MaxAttachmentMegabytes = 1;
+
     private readonly string _connectionString = connectionString;
 
     public string ConnectionString => _connectionString;
+
+    /// <summary>This host's own folder, so tests can look at the files and the run leaves none behind.</summary>
+    public string AttachmentsPath { get; } =
+        Path.Combine(Path.GetTempPath(), "weaver-integration-attachments-" + Guid.NewGuid().ToString("N"));
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -30,5 +37,30 @@ public class WeaverApiFactory(string connectionString) : WebApplicationFactory<P
         builder.UseSetting("FirstAdmin:Password", FirstAdminPassword);
         // Every test signs in from the same in-process "IP"; RateLimitingTests checks the limit.
         builder.UseSetting("RateLimiting:Auth:PermitLimit", "100000");
+        builder.UseSetting("Attachments:Path", AttachmentsPath);
+        builder.UseSetting("Attachments:MaxFileSizeMegabytes", MaxAttachmentMegabytes.ToString());
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        await base.DisposeAsync();
+        DeleteAttachments();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        if (disposing)
+        {
+            DeleteAttachments();
+        }
+    }
+
+    private void DeleteAttachments()
+    {
+        if (Directory.Exists(AttachmentsPath))
+        {
+            Directory.Delete(AttachmentsPath, recursive: true);
+        }
     }
 }
