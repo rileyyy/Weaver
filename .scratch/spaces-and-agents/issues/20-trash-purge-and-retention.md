@@ -37,3 +37,9 @@
 - Purge per delete: rows `WHERE TrashRootId = <root>`. Expiry can use `TrashedAtUtc`.
 - Both link FKs and the parent FK are `Restrict`. Purging therefore has to remove links touching the purged rows, and record a `link` removal on any surviving item, because trashing deliberately recorded nothing for survivors. It also has to deal with trashed children of other deletes whose `ParentId` points into the purged rows. `RestoreAsync` already handles a missing parent by moving the restored item up to the nearest live ancestor. Nulling those `ParentId`s before the delete works.
 - Purged items fall back to `DeletedItemTrace` in changes since T, which is already tested with a simulated purge.
+
+
+**2026-11-05, from ticket 38 (attachments):**
+
+- Attachment rows cascade with their work item, but the files need deleting too. Run purge's row deletion through `IAttachmentFileCleanup.PurgeAsync(workItemIds, purgeRows)`: it finds the files (ignoring the Trash filter), runs `purgeRows`, which must delete *and commit*, and only then deletes the files. A purge that fails leaves the items whole and restorable.
+- Pass every purged id (the whole subtree), not just the root. `AttachmentTests.PurgingATrashedItem_ThroughTheCleanupSeam_RemovesItsFileAndRow` simulates this; switch it to the real purge and tick ticket 38's purge criterion.

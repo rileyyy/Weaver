@@ -4,15 +4,20 @@
 
 **Blocked by:** 10
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Upload, list, download and delete over REST; files live under a configured attachments path, with metadata in Postgres
-- [ ] A maximum file size is configurable and enforced; filenames can't escape the attachments path
+- [x] Upload, list, download and delete over REST; files live under a configured attachments path, with metadata in Postgres
+  - Files are named by attachment id under `Attachments__Path`; the user's filename is display text only. Downloads are always `Content-Disposition: attachment` with `nosniff`.
+- [x] A maximum file size is configurable and enforced; filenames can't escape the attachments path
+  - `Attachments__MaxFileSizeMegabytes` (25 by default), enforced while streaming, 413 over it. nginx's `/api/` body limit is 30 MiB, so raising the setting past ~29 also means raising that.
 - [ ] Attachments on trashed items are kept, and their files deleted when the item is purged
-- [ ] Adding and removing attachments is recorded in history
+  - Kept: yes, hidden by the Trash filter and back on restore. Purge (ticket 20) isn't built, so nothing purges yet; `IAttachmentFileCleanup.PurgeAsync` is the seam it runs its row deletion through, and an integration test exercises it the way purge will. Tick this when ticket 20 uses it.
+- [x] Adding and removing attachments is recorded in history
 - [ ] MCP lists attachments and fetches one; `get_work_item_context` can include them
-- [ ] The attachments volume and env var are in the README's deployment reference and the example compose, with a note that backups must include it
-- [ ] Integration tests for upload, download, and purge removing the file
+  - `list_work_item_attachments` and `get_work_item_attachment` are done (read-only; text-like files come back as text, others as a base64 blob, capped at 5 MiB). `get_work_item_context` is ticket 30 and doesn't exist yet; the include is handed to it there.
+- [x] The attachments volume and env var are in the README's deployment reference and the example compose, with a note that backups must include it
+- [x] Integration tests for upload, download, and purge removing the file
+  - `AttachmentTests` (purge simulated through the seam). Written without Docker on the implementing machine, so CI is their first run.
 
 ## Comments
 
@@ -25,3 +30,9 @@
 **2026-11-02, from ticket 10 (change history with actor):**
 
 - Adding or removing an attachment changes a work item, so it must record history (e.g. an `attachment` name in `WorkItemHistoryField` with the file name as the value), and its MCP tools need the `actorLabel` argument (an integration test fails any write tool without it).
+
+**2026-11-05, from the implementation:**
+
+- **No MCP writes.** Agents can list and fetch, per "What to build", so there's no upload or delete tool and nothing needs `actorLabel`.
+- **Two criteria wait on other tickets.** Purge removing files waits on ticket 20 and the `get_work_item_context` include on ticket 30; both tickets have a hand-off comment.
+- **A missing file is a 500.** If a row's file is gone (e.g. a restore from a backup that skipped the attachments path), download fails as a server error rather than a 404, so it gets logged.

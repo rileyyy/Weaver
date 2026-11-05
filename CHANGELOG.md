@@ -46,8 +46,9 @@ camera upload are ticket 39.
   its name, type and size are in Postgres.
 - **A size limit**, `Attachments__MaxFileSizeMegabytes` (25 MiB by
   default). A bigger upload gets 413 naming the limit.
-- **Trash keeps them**: a trashed item's attachments stay until it's
-  purged, which deletes their files.
+- **Trash keeps them**: a trashed item's attachments stay, hidden, and
+  come back when it's restored. Purge (ticket 20) isn't built yet; it
+  will remove the files through `IAttachmentFileCleanup`.
 - **History** records `attachment` added or removed, named by the file
   name.
 - **API:** `GET`/`POST /api/work-items/{id}/attachments` (multipart, one
