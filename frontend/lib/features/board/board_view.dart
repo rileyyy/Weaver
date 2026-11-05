@@ -286,6 +286,8 @@ class _BoardViewState extends State<BoardView>
                   availableTags: _viewModel.availableTags,
                   isSelected: _viewModel.isTagFilterSelected,
                   onToggle: _viewModel.toggleTagFilter,
+                  tagMatch: _viewModel.tagMatch,
+                  onTagMatchChanged: _viewModel.setTagMatch,
                 ),
               ],
             ),
