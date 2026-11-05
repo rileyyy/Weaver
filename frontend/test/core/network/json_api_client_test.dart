@@ -40,6 +40,30 @@ void main() {
     expect(sent.toString(), '$_baseUrl/work-items?parentId=p+1');
   });
 
+  test('get repeats the key for each value of a list parameter', () async {
+    Uri? sent;
+    final api = _client((request) async {
+      sent = request.url;
+      return http.Response('[]', 200);
+    });
+
+    await api.get(
+      '/work-items/search',
+      (_) {},
+      query: {
+        'spaceIds': 's1',
+        'tags': ['a', 'b c'],
+      },
+      failureMessage: 'Failed',
+    );
+
+    expect(
+      sent.toString(),
+      '$_baseUrl/work-items/search?spaceIds=s1&tags=a&tags=b+c',
+    );
+    expect(sent!.queryParametersAll['tags'], ['a', 'b c']);
+  });
+
   test('deleteReturning decodes the response body', () async {
     http.Request? sent;
     final api = _client((request) async {

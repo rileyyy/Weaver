@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show Color;
 
 import 'package:flutter/foundation.dart';
@@ -24,6 +25,7 @@ import 'package:weaver/features/board/state/work_item_sorting.dart';
 import 'package:weaver/shared/data/work_item_conflict.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/models/space.dart';
+import 'package:weaver/shared/models/tag_match.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
@@ -33,7 +35,8 @@ Future<void> _noRetry() => Future.value();
 
 /// Orchestrates the board: which Space and scope are shown (loading,
 /// switching Space, drill-down, breadcrumbs, retry) and optimistic
-/// mutations. Filtering, sorting, tree building, lane edits and user
+/// mutations. Which items match the header's filters is asked of the
+/// server's query (ADR-0006); sorting, tree building, lane edits and user
 /// lookups live in `state/` as pure units.
 ///
 /// The items themselves live in the shared [WorkItemStore]; this keeps only
@@ -84,6 +87,13 @@ class BoardViewModel extends ViewModel {
   int _scopeGeneration = 0;
   int _hierarchyGeneration = 0;
 
+  // The ids the server matched for the header's filters; null while no
+  // filter is set, when every item matches. Bumping the generation drops a
+  // slower answer to an older question, e.g. a search typed further since.
+  Set<String>? _matchingIds;
+  int _matchGeneration = 0;
+  bool _matchRefreshScheduled = false;
+
   // Derived values the views read many times per frame. Every state change
   // notifies, so they're cached until the next notification.
   List<HierarchyNode>? _hierarchyRootsCache;
@@ -118,6 +128,7 @@ class BoardViewModel extends ViewModel {
     _clearItemCaches();
     _setSwimlanes(_drawnFromStore(_swimlanes));
     _itemRevision.value++;
+    _scheduleMatchRefresh();
   }
 
   /// Shows [lanes], notifying only the lanes that changed. Adding, removing,
@@ -277,12 +288,12 @@ class BoardViewModel extends ViewModel {
   /// the board) know whether refreshing the Hierarchy view is worthwhile.
   bool get hierarchyLoaded => _hierarchyLoaded;
 
-  /// The Hierarchy (and Roadmap) view's root nodes, filtered and sorted with
-  /// the same filters as the board — see [buildHierarchyTree].
+  /// The Hierarchy (and Roadmap) view's root nodes, showing the same matches
+  /// as the board plus their ancestors, sorted — see [buildHierarchyTree].
   List<HierarchyNode> get hierarchyRoots =>
       _hierarchyRootsCache ??= buildHierarchyTree(
         _hierarchyItems,
-        isVisible: _filters.hierarchyItemVisible,
+        isVisible: hierarchyItemVisible,
         comparator: hierarchyComparator,
       );
 
@@ -447,6 +458,7 @@ class BoardViewModel extends ViewModel {
     }, errorMessage: 'Could not open "${space.name}". Try again.');
     if (isDisposed || _currentSpace?.id != space.id) return;
 
+    _scheduleMatchRefresh();
     await _lastSpace.writeSpaceId(space.id);
     if (hierarchyWanted) await loadHierarchy();
   }
@@ -725,37 +737,32 @@ class BoardViewModel extends ViewModel {
 
   void clearTimeFilter() => setTimeFilter();
 
-  /// True if [card]'s schedule overlaps the time-frame filter; a missing
-  /// bound on either side is open-ended.
-  bool matchesTimeFilter(WorkItemCard card) =>
-      _filters.matchesTimeWindow(card.startDate, card.endDate);
-
   void setSearchQuery(String query) =>
       _setFilters(_filters.withSearchQuery(query));
 
   void clearSearchQuery() => setSearchQuery('');
 
-  /// True if [card]'s title, description, or any tag contains [searchQuery]
-  /// (case-insensitive). Always true when the query is empty.
-  bool matchesSearch(WorkItemCard card) =>
-      _filters.matchesSearchText(card.title, card.description, card.tags);
-
   /// Shows or hides [tag] from the current tag filter. An empty selection
   /// means no tag filter is applied.
   void toggleTagFilter(String tag) => _setFilters(_filters.withTagToggled(tag));
 
-  /// True if no tag filter is selected, or [tags] contains at least one
-  /// selected tag, ignoring case.
-  bool matchesTagFilter(List<String> tags) => _filters.matchesTags(tags);
+  /// Whether the selected tags match an item with any of them or only one
+  /// with all of them.
+  TagMatch get tagMatch => _filters.tagMatch;
 
-  /// Whether [card] should be shown on the board under the current
-  /// time-frame filter, search query, and tag filter together.
-  bool cardVisible(WorkItemCard card) => _filters.cardVisible(card);
+  void setTagMatch(TagMatch match) => _setFilters(_filters.withTagMatch(match));
+
+  bool _matches(String itemId) => _matchingIds?.contains(itemId) ?? true;
+
+  /// Whether [card] is one the server matched for the header's time range,
+  /// search and tags. Hidden statuses aren't checked here: the board only
+  /// draws visible columns.
+  bool cardVisible(WorkItemCard card) => _matches(card.id);
 
   /// Whether [item] should be shown in the Hierarchy view; unlike
   /// [cardVisible] this also checks [hiddenStatusIds].
   bool hierarchyItemVisible(HierarchyItem item) =>
-      _filters.hierarchyItemVisible(item);
+      !_filters.hiddenStatusIds.contains(item.statusId) && _matches(item.id);
 
   /// Shows or hides [statusId]'s column. Purely a display toggle.
   void toggleStatusVisibility(String statusId) =>
@@ -782,7 +789,51 @@ class BoardViewModel extends ViewModel {
   );
 
   void _setFilters(BoardFilters filters) {
+    final requery = filters.queriesDifferentlyFrom(_filters);
     _filters = filters;
+    notifyIfActive();
+    if (requery) unawaited(_refreshMatches());
+  }
+
+  /// Asks again once the current burst of item changes settles, since an
+  /// edit (here, in the detail dialog or a reload) can change what matches.
+  void _scheduleMatchRefresh() {
+    if (_matchRefreshScheduled || !_isFiltering) return;
+    _matchRefreshScheduled = true;
+    scheduleMicrotask(() {
+      _matchRefreshScheduled = false;
+      if (!isDisposed) unawaited(_refreshMatches());
+    });
+  }
+
+  bool get _isFiltering => switch (_currentSpace) {
+    final space? => !_filters.toQuery(space.id).isUnfiltered,
+    null => false,
+  };
+
+  /// Asks the server which items of the current Space match the header's
+  /// filters (ADR-0006). With no filter set every item matches, so nothing
+  /// is asked. A failure keeps the last answer and reports it once.
+  Future<void> _refreshMatches() async {
+    final generation = ++_matchGeneration;
+    final space = _currentSpace;
+    final query = space == null ? null : _filters.toQuery(space.id);
+    if (query == null || query.isUnfiltered) {
+      if (_matchingIds == null) return;
+      _matchingIds = null;
+      notifyIfActive();
+      return;
+    }
+
+    try {
+      final matched = await _repository.queryItems(query);
+      if (generation != _matchGeneration || isDisposed) return;
+      _matchingIds = {for (final item in matched) item.id};
+    } on ApiException {
+      if (generation != _matchGeneration || isDisposed) return;
+      _moveError =
+          'Could not apply the filters. Check your connection and try again.';
+    }
     notifyIfActive();
   }
 

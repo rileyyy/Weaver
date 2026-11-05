@@ -3,6 +3,7 @@ import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
+import 'package:weaver/shared/models/work_item_query.dart';
 
 /// Source of board data and the operations [BoardViewModel] can perform on
 /// it. [BoardViewModel] depends on this interface, not a concrete source.
@@ -22,6 +23,10 @@ abstract class BoardRepository {
   /// Every work item in [spaceId], flat — used by the Hierarchy and Roadmap
   /// views to build the Space's full parent/child tree client-side.
   Future<List<WorkItem>> loadAllItems(String spaceId);
+
+  /// Every work item matching [query], across all of the server's pages.
+  /// The board shows only these while a header filter is set.
+  Future<List<WorkItem>> queryItems(WorkItemQuery query);
 
   /// One work item as it is now, e.g. after a write was rejected as stale.
   Future<WorkItem> getItem(String id);

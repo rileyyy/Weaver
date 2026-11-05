@@ -137,8 +137,7 @@ class RoadmapRowTile extends StatelessWidget {
   }
 
   /// The item's schedule as a positioned bar, clipped to the visible
-  /// window — an open start/end (see [BoardViewModel.matchesTimeFilter]'s
-  /// same convention) is drawn as running off the window's edge rather than
+  /// window — an open start/end is drawn as running off the window's edge rather than
   /// being treated as unscheduled. Returns no widgets for an item with
   /// neither date set, or one whose schedule falls entirely outside the
   /// visible window.

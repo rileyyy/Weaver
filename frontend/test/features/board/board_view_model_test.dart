@@ -13,9 +13,11 @@ import 'package:weaver/features/board/models/swimlane_items.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/models/space.dart';
+import 'package:weaver/shared/models/tag_match.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item.dart';
+import 'package:weaver/shared/models/work_item_query.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 import 'package:weaver/shared/models/work_item_type.dart';
 
@@ -230,6 +232,33 @@ class _TestBoardRepository implements BoardRepository {
     return [for (final item in hierarchyItems) server[item.id]!];
   }
 
+  /// Every query sent, in order.
+  final List<WorkItemQuery> queries = [];
+
+  /// Which items the "server" says match any query.
+  Set<String> matchingIds = const {};
+
+  /// When set, every query fails with it.
+  Exception? queryError;
+
+  /// When non-null, each [queryItems] call parks a completer here instead
+  /// of answering at once, so a test can finish them in any order.
+  List<Completer<List<WorkItem>>>? pendingQueries;
+
+  @override
+  Future<List<WorkItem>> queryItems(WorkItemQuery query) async {
+    queries.add(query);
+    final pending = pendingQueries;
+    if (pending != null) {
+      final answer = Completer<List<WorkItem>>();
+      pending.add(answer);
+      return answer.future;
+    }
+    final error = queryError;
+    if (error != null) throw error;
+    return [for (final id in matchingIds) server[id]!];
+  }
+
   @override
   Future<WorkItem> getItem(String id) async {
     itemLoads.add(id);
@@ -360,6 +389,9 @@ class _FailingLoadRepository implements BoardRepository {
 
   @override
   Future<List<WorkItem>> loadAllItems(String spaceId) => Future.error(_down);
+
+  @override
+  Future<List<WorkItem>> queryItems(WorkItemQuery query) => Future.error(_down);
 
   @override
   Future<WorkItem> getItem(String id) => Future.error(_down);
@@ -1033,94 +1065,6 @@ void main() {
     },
   );
 
-  test('matchesTimeFilter is true for every card when no filter is set', () {
-    const card = WorkItemCard(
-      id: 'x',
-      number: 4,
-      title: 'X',
-      parentId: 'lane-a',
-      statusId: 'todo',
-    );
-
-    expect(viewModel.matchesTimeFilter(card), isTrue);
-  });
-
-  test(
-    "matchesTimeFilter is true when the card's window overlaps the filter",
-    () {
-      viewModel.setTimeFilter(
-        start: DateTime(2026, 1, 10),
-        end: DateTime(2026, 1, 20),
-      );
-      final card = WorkItemCard(
-        id: 'x',
-        number: 5,
-        title: 'X',
-        parentId: 'lane-a',
-        statusId: 'todo',
-        startDate: DateTime(2026, 1, 15),
-        endDate: DateTime(2026, 1, 16),
-      );
-
-      expect(viewModel.matchesTimeFilter(card), isTrue);
-    },
-  );
-
-  test(
-    "matchesTimeFilter is false when the card's window is entirely before the filter",
-    () {
-      viewModel.setTimeFilter(
-        start: DateTime(2026, 1, 10),
-        end: DateTime(2026, 1, 20),
-      );
-      final card = WorkItemCard(
-        id: 'x',
-        number: 6,
-        title: 'X',
-        parentId: 'lane-a',
-        statusId: 'todo',
-        startDate: DateTime(2026, 1, 1),
-        endDate: DateTime(2026, 1, 5),
-      );
-
-      expect(viewModel.matchesTimeFilter(card), isFalse);
-    },
-  );
-
-  test('matchesTimeFilter treats a missing start as open toward the past', () {
-    viewModel.setTimeFilter(
-      start: DateTime(2026, 1, 1),
-      end: DateTime(2026, 1, 5),
-    );
-    final card = WorkItemCard(
-      id: 'x',
-      number: 7,
-      title: 'X',
-      parentId: 'lane-a',
-      statusId: 'todo',
-      endDate: DateTime(2026, 1, 3),
-    );
-
-    expect(viewModel.matchesTimeFilter(card), isTrue);
-  });
-
-  test('matchesTimeFilter treats a missing end as open toward the future', () {
-    viewModel.setTimeFilter(
-      start: DateTime(2026, 1, 10),
-      end: DateTime(2026, 1, 20),
-    );
-    final card = WorkItemCard(
-      id: 'x',
-      number: 8,
-      title: 'X',
-      parentId: 'lane-a',
-      statusId: 'todo',
-      startDate: DateTime(2026, 1, 12),
-    );
-
-    expect(viewModel.matchesTimeFilter(card), isTrue);
-  });
-
   test('clearTimeFilter removes both filter bounds', () {
     viewModel
       ..setTimeFilter(start: DateTime(2026, 1, 1), end: DateTime(2026, 1, 5))
@@ -1130,77 +1074,6 @@ void main() {
     expect(viewModel.filterEnd, isNull);
   });
 
-  test('matchesSearch is true for every card when the query is empty', () {
-    const card = WorkItemCard(
-      id: 'x',
-      number: 9,
-      title: 'Anything',
-      parentId: 'lane-a',
-      statusId: 'todo',
-    );
-
-    expect(viewModel.matchesSearch(card), isTrue);
-  });
-
-  test('matchesSearch matches the title case-insensitively', () {
-    viewModel.setSearchQuery('rEd');
-    const card = WorkItemCard(
-      id: 'x',
-      number: 10,
-      title: 'Fix red button',
-      parentId: 'lane-a',
-      statusId: 'todo',
-    );
-
-    expect(viewModel.matchesSearch(card), isTrue);
-  });
-
-  test('matchesSearch matches the description when the title does not', () {
-    viewModel.setSearchQuery('migration');
-    const card = WorkItemCard(
-      id: 'x',
-      number: 11,
-      title: 'Backend work',
-      description: 'Write the database migration',
-      parentId: 'lane-a',
-      statusId: 'todo',
-    );
-
-    expect(viewModel.matchesSearch(card), isTrue);
-  });
-
-  test('matchesSearch is false when neither title nor description match', () {
-    viewModel.setSearchQuery('migration');
-    const card = WorkItemCard(
-      id: 'x',
-      number: 12,
-      title: 'Fix red button',
-      description: 'Unrelated',
-      parentId: 'lane-a',
-      statusId: 'todo',
-    );
-
-    expect(viewModel.matchesSearch(card), isFalse);
-  });
-
-  test(
-    'matchesSearch matches a tag when neither title nor description match',
-    () {
-      viewModel.setSearchQuery('urgent');
-      const card = WorkItemCard(
-        id: 'x',
-        number: 15,
-        title: 'Fix red button',
-        description: 'Unrelated',
-        parentId: 'lane-a',
-        statusId: 'todo',
-        tags: ['Urgent', 'design'],
-      );
-
-      expect(viewModel.matchesSearch(card), isTrue);
-    },
-  );
-
   test('clearSearchQuery resets the query', () {
     viewModel
       ..setSearchQuery('red')
@@ -1208,39 +1081,6 @@ void main() {
 
     expect(viewModel.searchQuery, isEmpty);
   });
-
-  test(
-    'cardVisible requires both the time filter and the search query to match',
-    () {
-      viewModel
-        ..setTimeFilter(
-          start: DateTime(2026, 1, 10),
-          end: DateTime(2026, 1, 20),
-        )
-        ..setSearchQuery('red');
-      const inWindowWrongTitle = WorkItemCard(
-        id: 'a',
-        number: 13,
-        title: 'Blue button',
-        parentId: 'lane-a',
-        statusId: 'todo',
-        startDate: null,
-        endDate: null,
-      );
-      const outOfWindowRightTitle = WorkItemCard(
-        id: 'b',
-        number: 14,
-        title: 'Red button',
-        parentId: 'lane-a',
-        statusId: 'todo',
-        startDate: null,
-        endDate: null,
-      );
-
-      expect(viewModel.cardVisible(inWindowWrongTitle), isFalse);
-      expect(viewModel.cardVisible(outOfWindowRightTitle), isTrue);
-    },
-  );
 
   test('statusColorFor returns the matching status color', () {
     expect(viewModel.statusColorFor('todo'), _todoColor);
@@ -1284,47 +1124,6 @@ void main() {
     viewModel.toggleStatusVisibility('done');
     expect(viewModel.visibleStatuses.map((s) => s.id), ['todo', 'done']);
     expect(viewModel.hiddenStatusIds, isEmpty);
-  });
-
-  test('matchesTagFilter is true for everything when no tag is selected', () {
-    expect(viewModel.matchesTagFilter(const []), isTrue);
-    expect(viewModel.matchesTagFilter(const ['urgent']), isTrue);
-  });
-
-  test(
-    'toggleTagFilter narrows matchesTagFilter to items with a selected tag',
-    () {
-      viewModel.toggleTagFilter('urgent');
-
-      expect(viewModel.matchesTagFilter(const ['urgent', 'design']), isTrue);
-      expect(viewModel.matchesTagFilter(const ['design']), isFalse);
-      expect(viewModel.isTagFilterSelected('urgent'), isTrue);
-
-      viewModel.toggleTagFilter('urgent');
-      expect(viewModel.matchesTagFilter(const ['design']), isTrue);
-    },
-  );
-
-  test('cardVisible respects the tag filter', () {
-    viewModel.toggleTagFilter('urgent');
-    const tagged = WorkItemCard(
-      id: 'a',
-      number: 16,
-      title: 'Tagged',
-      parentId: 'lane-a',
-      statusId: 'todo',
-      tags: ['urgent'],
-    );
-    const untagged = WorkItemCard(
-      id: 'b',
-      number: 17,
-      title: 'Untagged',
-      parentId: 'lane-a',
-      statusId: 'todo',
-    );
-
-    expect(viewModel.cardVisible(tagged), isTrue);
-    expect(viewModel.cardVisible(untagged), isFalse);
   });
 
   test(
@@ -1484,73 +1283,6 @@ void main() {
     },
   );
 
-  test(
-    'hierarchyRoots keeps an ancestor visible when only a descendant matches the search',
-    () async {
-      final repository = _TestBoardRepository(
-        hierarchyItems: [
-          workItem(
-            'root-1',
-            number: 1,
-            parentId: null,
-            title: 'Unrelated root',
-            statusId: 'todo',
-          ),
-          workItem(
-            'child-1',
-            number: 2,
-            parentId: 'root-1',
-            title: 'Fix red button',
-            statusId: 'todo',
-          ),
-        ],
-      );
-      final hierarchyViewModel = BoardViewModel(
-        repository,
-        WorkItemStore(),
-        MemoryLastSpaceStore(),
-      );
-      await hierarchyViewModel.load();
-      await hierarchyViewModel.loadHierarchy();
-      hierarchyViewModel.setSearchQuery('red');
-
-      final root = hierarchyViewModel.hierarchyRoots.single;
-      expect(root.item.id, 'root-1');
-      expect(root.children.single.item.id, 'child-1');
-    },
-  );
-
-  test('hierarchyRoots excludes a subtree with no matching item', () async {
-    final repository = _TestBoardRepository(
-      hierarchyItems: [
-        workItem(
-          'root-1',
-          number: 1,
-          parentId: null,
-          title: 'Matches',
-          statusId: 'todo',
-        ),
-        workItem(
-          'root-2',
-          number: 2,
-          parentId: null,
-          title: 'Does not',
-          statusId: 'todo',
-        ),
-      ],
-    );
-    final hierarchyViewModel = BoardViewModel(
-      repository,
-      WorkItemStore(),
-      MemoryLastSpaceStore(),
-    );
-    await hierarchyViewModel.load();
-    await hierarchyViewModel.loadHierarchy();
-    hierarchyViewModel.setSearchQuery('matches');
-
-    expect(hierarchyViewModel.hierarchyRoots.map((n) => n.item.id), ['root-1']);
-  });
-
   test('hierarchyRoots excludes items in a hidden status column', () async {
     final repository = _TestBoardRepository(
       hierarchyItems: [
@@ -1578,38 +1310,6 @@ void main() {
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
     hierarchyViewModel.toggleStatusVisibility('done');
-
-    expect(hierarchyViewModel.hierarchyRoots.map((n) => n.item.id), ['root-1']);
-  });
-
-  test('hierarchyRoots excludes items not matching the tag filter', () async {
-    final repository = _TestBoardRepository(
-      hierarchyItems: [
-        workItem(
-          'root-1',
-          number: 1,
-          parentId: null,
-          title: 'Tagged',
-          statusId: 'todo',
-          tags: ['urgent'],
-        ),
-        workItem(
-          'root-2',
-          number: 2,
-          parentId: null,
-          title: 'Untagged',
-          statusId: 'todo',
-        ),
-      ],
-    );
-    final hierarchyViewModel = BoardViewModel(
-      repository,
-      WorkItemStore(),
-      MemoryLastSpaceStore(),
-    );
-    await hierarchyViewModel.load();
-    await hierarchyViewModel.loadHierarchy();
-    hierarchyViewModel.toggleTagFilter('urgent');
 
     expect(hierarchyViewModel.hierarchyRoots.map((n) => n.item.id), ['root-1']);
   });
@@ -2026,71 +1726,176 @@ void main() {
     });
   });
 
-  test('the tag filter ignores casing, like the merged tag chips', () {
-    viewModel.toggleTagFilter('Urgent');
+  group('header filters drive the server query', () {
+    late _TestBoardRepository queried;
+    late BoardViewModel filtered;
 
-    expect(viewModel.matchesTagFilter(const ['urgent']), isTrue);
-    expect(viewModel.matchesTagFilter(const ['URGENT', 'design']), isTrue);
-    expect(viewModel.isTagFilterSelected('urgent'), isTrue);
-
-    viewModel.toggleTagFilter('urgent');
-
-    expect(viewModel.isTagFilterSelected('Urgent'), isFalse);
-  });
-
-  group('time filter bounds', () {
-    WorkItemCard card({DateTime? start, DateTime? end}) => WorkItemCard(
-      id: 'x',
-      number: 1,
-      title: 'X',
-      parentId: 'lane-a',
-      statusId: 'todo',
-      startDate: start,
-      endDate: end,
-    );
-
-    test('the "to" bound includes its whole day', () {
-      viewModel.setTimeFilter(end: DateTime(2026, 9, 25));
-
-      expect(
-        viewModel.matchesTimeFilter(card(start: DateTime(2026, 9, 25))),
-        isTrue,
+    setUp(() async {
+      queried = _TestBoardRepository(
+        hierarchyItems: [
+          workItem('root-1', number: 1, parentId: null, statusId: 'todo'),
+          workItem('child-1', number: 2, parentId: 'root-1', statusId: 'todo'),
+          workItem('root-2', number: 3, parentId: null, statusId: 'done'),
+        ],
       );
-      expect(
-        viewModel.matchesTimeFilter(card(start: DateTime(2026, 9, 25, 18))),
-        isTrue,
+      filtered = BoardViewModel(
+        queried,
+        WorkItemStore(),
+        MemoryLastSpaceStore(),
       );
-      expect(
-        viewModel.matchesTimeFilter(card(start: DateTime(2026, 9, 26))),
-        isFalse,
-      );
+      await filtered.load();
+      await filtered.loadHierarchy();
     });
 
-    test('the "from" bound includes its whole day', () {
-      viewModel.setTimeFilter(start: DateTime(2026, 9, 25, 12));
+    test('nothing is asked while no filter is set', () async {
+      filtered
+        ..toggleStatusVisibility('done')
+        ..setSortOption(CardSortOption.title);
+      await pumpEventQueue();
 
-      expect(
-        viewModel.matchesTimeFilter(card(end: DateTime(2026, 9, 25))),
-        isTrue,
-      );
-      expect(
-        viewModel.matchesTimeFilter(card(end: DateTime(2026, 9, 24))),
-        isFalse,
-      );
+      expect(queried.queries, isEmpty);
+      expect(filtered.cardVisible(filtered.swimlanes[0].cards.single), isTrue);
     });
 
-    test('an inverted range is swapped rather than matching nothing', () {
-      viewModel.setTimeFilter(
+    test('the search, time range and tags are sent together', () async {
+      filtered
+        ..setSearchQuery('  red  ')
+        ..setTimeFilter(start: DateTime(2026, 9, 1), end: DateTime(2026, 9, 30))
+        ..toggleTagFilter('Urgent');
+      await pumpEventQueue();
+
+      final query = queried.queries.last;
+      expect(query.spaceId, 'home');
+      expect(query.text, 'red');
+      expect(query.from, DateTime(2026, 9, 1));
+      expect(query.to, DateTime(2026, 9, 30));
+      expect(query.tags, {'urgent'});
+      expect(query.tagMatch, TagMatch.any);
+    });
+
+    test('choosing All sends it with the selected tags', () async {
+      filtered
+        ..toggleTagFilter('urgent')
+        ..toggleTagFilter('design')
+        ..setTagMatch(TagMatch.all);
+      await pumpEventQueue();
+
+      expect(queried.queries.last.tags, {'urgent', 'design'});
+      expect(queried.queries.last.tagMatch, TagMatch.all);
+    });
+
+    test('an inverted range is sent swapped', () async {
+      filtered.setTimeFilter(
         start: DateTime(2026, 9, 30),
         end: DateTime(2026, 9, 1),
       );
+      await pumpEventQueue();
 
-      expect(viewModel.filterStart, DateTime(2026, 9, 1));
-      expect(viewModel.filterEnd, DateTime(2026, 9, 30));
-      expect(
-        viewModel.matchesTimeFilter(card(start: DateTime(2026, 9, 15))),
-        isTrue,
-      );
+      expect(queried.queries.last.from, DateTime(2026, 9, 1));
+      expect(queried.queries.last.to, DateTime(2026, 9, 30));
+    });
+
+    test('the board shows only the cards the server matched', () async {
+      queried.matchingIds = {'card-2'};
+      filtered.setSearchQuery('two');
+      await pumpEventQueue();
+
+      final card1 = filtered.swimlanes[0].cards.single;
+      final card2 = filtered.swimlanes[1].cards.single;
+      expect(filtered.cardVisible(card1), isFalse);
+      expect(filtered.cardVisible(card2), isTrue);
+    });
+
+    test('clearing the filters shows everything without asking', () async {
+      queried.matchingIds = {'card-2'};
+      filtered.setSearchQuery('two');
+      await pumpEventQueue();
+      final asked = queried.queries.length;
+
+      filtered.clearSearchQuery();
+      await pumpEventQueue();
+
+      expect(queried.queries, hasLength(asked));
+      expect(filtered.cardVisible(filtered.swimlanes[0].cards.single), isTrue);
+    });
+
+    test(
+      "the Hierarchy keeps a match's ancestors and drops the rest",
+      () async {
+        queried.matchingIds = {'child-1'};
+        filtered.setSearchQuery('child');
+        await pumpEventQueue();
+
+        final root = filtered.hierarchyRoots.single;
+        expect(root.item.id, 'root-1');
+        expect(root.children.single.item.id, 'child-1');
+      },
+    );
+
+    test('a hidden status still hides a matched item', () async {
+      queried.matchingIds = {'root-1', 'root-2'};
+      filtered
+        ..setSearchQuery('root')
+        ..toggleStatusVisibility('done');
+      await pumpEventQueue();
+
+      expect(filtered.hierarchyRoots.map((n) => n.item.id), ['root-1']);
+    });
+
+    test("a late response can't overwrite a newer one", () async {
+      final pending = queried.pendingQueries = [];
+      filtered.setSearchQuery('old');
+      await pumpEventQueue();
+      filtered.setSearchQuery('new');
+      await pumpEventQueue();
+
+      pending[1].complete([queried.server['card-2']!]);
+      await pumpEventQueue();
+      pending[0].complete([queried.server['card-1']!]);
+      await pumpEventQueue();
+
+      expect(filtered.cardVisible(filtered.swimlanes[0].cards.single), isFalse);
+      expect(filtered.cardVisible(filtered.swimlanes[1].cards.single), isTrue);
+    });
+
+    test('a response for filters since cleared is ignored', () async {
+      final pending = queried.pendingQueries = [];
+      filtered.setSearchQuery('old');
+      await pumpEventQueue();
+      filtered.clearSearchQuery();
+
+      pending.single.complete(const []);
+      await pumpEventQueue();
+
+      expect(filtered.cardVisible(filtered.swimlanes[0].cards.single), isTrue);
+    });
+
+    test('a failed query keeps the board and reports it', () async {
+      queried.matchingIds = {'card-2'};
+      filtered.setSearchQuery('two');
+      await pumpEventQueue();
+      queried.queryError = const ApiException('down');
+
+      filtered.setSearchQuery('three');
+      await pumpEventQueue();
+
+      expect(filtered.moveError, isNotNull);
+      expect(filtered.cardVisible(filtered.swimlanes[1].cards.single), isTrue);
+    });
+
+    test('an edit while filtering asks again, since it may change what '
+        'matches', () async {
+      queried.matchingIds = {'card-2'};
+      filtered.setSearchQuery('two');
+      await pumpEventQueue();
+      final asked = queried.queries.length;
+
+      queried.matchingIds = {'card-1', 'card-2'};
+      await filtered.setTags('card-1', ['two']);
+      await pumpEventQueue();
+
+      expect(queried.queries.length, greaterThan(asked));
+      expect(filtered.cardVisible(filtered.swimlanes[0].cards.single), isTrue);
     });
   });
 

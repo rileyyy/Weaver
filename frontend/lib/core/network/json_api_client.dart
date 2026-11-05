@@ -22,10 +22,13 @@ class JsonApiClient {
     'Content-Type': 'application/json',
   };
 
+  /// Each [query] value is a `String`, or an `Iterable<String>` to repeat
+  /// its key once per value (`?tags=a&tags=b`), which is how the server
+  /// binds a list input.
   Future<T> get<T>(
     String path,
     T Function(Object? json) decode, {
-    Map<String, String>? query,
+    Map<String, Object>? query,
     required String failureMessage,
   }) => _send(path, () => _http.get(_uri(path, query)), failureMessage, decode);
 
@@ -163,7 +166,7 @@ class JsonApiClient {
     }
   }
 
-  Uri _uri(String path, [Map<String, String>? query]) {
+  Uri _uri(String path, [Map<String, Object>? query]) {
     final uri = Uri.parse('${_endpoint.baseUrl}$path');
     return query == null ? uri : uri.replace(queryParameters: query);
   }

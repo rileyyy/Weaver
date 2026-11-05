@@ -11,6 +11,8 @@ import 'package:weaver/shared/data/api_status_repository.dart';
 import 'package:weaver/shared/data/api_type_repository.dart';
 import 'package:weaver/shared/data/api_user_directory_repository.dart';
 import 'package:weaver/shared/models/space.dart';
+import 'package:weaver/shared/models/tag_match.dart';
+import 'package:weaver/shared/models/work_item_query.dart';
 
 import '../../../core/network/fakes/fixed_api_endpoint.dart';
 
@@ -35,12 +37,19 @@ Map<String, dynamic> _itemJson(
   'title': id,
   'parentId': parentId,
   'statusId': 'status-todo',
+  'rank': number.toDouble(),
   'tags': <String>[],
   'createdAtUtc': '2026-01-01T00:00:00Z',
   'updatedAtUtc': '2026-01-01T00:00:00Z',
   'version': 1,
   ...fields,
 };
+
+/// A `WorkItemPageDto`: one page of `/work-items/search`.
+Map<String, dynamic> _pageJson(
+  List<Map<String, dynamic>> items, {
+  String? nextCursor,
+}) => {'items': items, 'nextCursor': nextCursor};
 
 /// The body every work-item write answers with.
 Map<String, dynamic> _writeJson(Map<String, dynamic> item) => {
@@ -422,19 +431,21 @@ void main() {
     'loadAllItems parses the flat item list, including top-level items',
     () async {
       final client = MockClient((request) async {
-        if (request.url.path == '/api/work-items/all') {
-          return _jsonResponse([
-            _itemJson('root-1', fields: {'version': 4}),
-            _itemJson(
-              'child-1',
-              number: 2,
-              parentId: 'root-1',
-              fields: {
-                'assignedToUserId': 'user-1',
-                'tags': ['urgent'],
-              },
-            ),
-          ]);
+        if (request.url.path == '/api/work-items/search') {
+          return _jsonResponse(
+            _pageJson([
+              _itemJson('root-1', fields: {'version': 4}),
+              _itemJson(
+                'child-1',
+                number: 2,
+                parentId: 'root-1',
+                fields: {
+                  'assignedToUserId': 'user-1',
+                  'tags': ['urgent'],
+                },
+              ),
+            ]),
+          );
         }
         throw StateError('Unexpected request: ${request.url}');
       });
@@ -453,25 +464,42 @@ void main() {
     },
   );
 
-  test('loadAllItems pages until a short page comes back', () async {
-    final offsets = <String?>[];
-    final spaces = <String?>{};
+  test('loadAllItems asks the search for only the Space', () async {
+    final sent = <Uri>[];
     final client = MockClient((request) async {
-      offsets.add(request.url.queryParameters['offset']);
-      spaces.add(request.url.queryParameters['spaceId']);
-      final offset = int.parse(request.url.queryParameters['offset']!);
-      final count = offset == 0 ? allItemsPageSize : 1;
-      return _jsonResponse([
-        for (var i = 0; i < count; i++)
-          _itemJson('item-${offset + i}', number: offset + i),
-      ]);
+      sent.add(request.url);
+      return _jsonResponse(_pageJson([]));
+    });
+
+    await repositoryFor(client).loadAllItems('space-home');
+
+    expect(sent.single.path, '/api/work-items/search');
+    expect(sent.single.queryParametersAll, {
+      'spaceIds': ['space-home'],
+      'limit': ['$searchPageSize'],
+    });
+  });
+
+  test('loadAllItems follows the cursor until it runs out', () async {
+    final cursors = <String?>[];
+    final client = MockClient((request) async {
+      final cursor = request.url.queryParameters['cursor'];
+      cursors.add(cursor);
+      return switch (cursor) {
+        null => _jsonResponse(
+          _pageJson([_itemJson('item-1')], nextCursor: 'after-1'),
+        ),
+        'after-1' => _jsonResponse(
+          _pageJson([_itemJson('item-2', number: 2)], nextCursor: 'after-2'),
+        ),
+        _ => _jsonResponse(_pageJson([_itemJson('item-3', number: 3)])),
+      };
     });
 
     final items = await repositoryFor(client).loadAllItems('space-home');
 
-    expect(offsets, ['0', '$allItemsPageSize']);
-    expect(spaces, {'space-home'});
-    expect(items, hasLength(allItemsPageSize + 1));
+    expect(cursors, [null, 'after-1', 'after-2']);
+    expect(items.map((i) => i.id), ['item-1', 'item-2', 'item-3']);
   });
 
   test('loadAllItems throws an ApiException on failure', () async {
@@ -485,6 +513,193 @@ void main() {
       repositoryFor(client).loadAllItems('space-home'),
       throwsA(isA<ApiException>()),
     );
+  });
+
+  group('queryItems', () {
+    /// The query string [query] sends on its first (only) request.
+    Future<Map<String, List<String>>> sentParameters(
+      WorkItemQuery query,
+    ) async {
+      late Uri sent;
+      final client = MockClient((request) async {
+        sent = request.url;
+        return _jsonResponse(_pageJson([]));
+      });
+      await repositoryFor(client).queryItems(query);
+      expect(sent.path, '/api/work-items/search');
+      return sent.queryParametersAll;
+    }
+
+    test('sends only the Space and page size when unfiltered', () async {
+      final parameters = await sentParameters(
+        const WorkItemQuery(spaceId: 'space-home'),
+      );
+
+      expect(parameters, {
+        'spaceIds': ['space-home'],
+        'limit': ['$searchPageSize'],
+      });
+    });
+
+    test('sends the text, trimmed', () async {
+      final parameters = await sentParameters(
+        const WorkItemQuery(spaceId: 'space-home', text: '  fence post '),
+      );
+
+      expect(parameters['text'], ['fence post']);
+    });
+
+    test('leaves out blank text', () async {
+      final parameters = await sentParameters(
+        const WorkItemQuery(spaceId: 'space-home', text: '   '),
+      );
+
+      expect(parameters.containsKey('text'), isFalse);
+    });
+
+    test('repeats the tags key once per tag', () async {
+      final parameters = await sentParameters(
+        const WorkItemQuery(spaceId: 'space-home', tags: {'urgent', 'home'}),
+      );
+
+      expect(parameters['tags'], unorderedEquals(['urgent', 'home']));
+    });
+
+    test('leaves tagMatch out for Any, the server default', () async {
+      final parameters = await sentParameters(
+        const WorkItemQuery(spaceId: 'space-home', tags: {'urgent', 'home'}),
+      );
+
+      expect(parameters.containsKey('tagMatch'), isFalse);
+    });
+
+    test('sends tagMatch=All for All with several tags', () async {
+      final parameters = await sentParameters(
+        const WorkItemQuery(
+          spaceId: 'space-home',
+          tags: {'urgent', 'home'},
+          tagMatch: TagMatch.all,
+        ),
+      );
+
+      expect(parameters['tagMatch'], ['All']);
+    });
+
+    test('leaves tagMatch out for All with one tag', () async {
+      final parameters = await sentParameters(
+        const WorkItemQuery(
+          spaceId: 'space-home',
+          tags: {'urgent'},
+          tagMatch: TagMatch.all,
+        ),
+      );
+
+      expect(parameters['tags'], ['urgent']);
+      expect(parameters.containsKey('tagMatch'), isFalse);
+    });
+
+    test('sends the date window as calendar days', () async {
+      // Local midnight, as the date picker gives it; converting to UTC
+      // would send the previous day east of UTC.
+      final parameters = await sentParameters(
+        WorkItemQuery(
+          spaceId: 'space-home',
+          from: DateTime(2026, 3, 1),
+          to: DateTime(2026, 3, 31),
+        ),
+      );
+
+      expect(parameters['from'], ['2026-03-01']);
+      expect(parameters['to'], ['2026-03-31']);
+    });
+
+    test('leaves out an open side of the date window', () async {
+      final parameters = await sentParameters(
+        WorkItemQuery(spaceId: 'space-home', to: DateTime(2026, 3, 31)),
+      );
+
+      expect(parameters.containsKey('from'), isFalse);
+      expect(parameters['to'], ['2026-03-31']);
+    });
+
+    test("repeats the same query with each page's cursor", () async {
+      final sent = <Map<String, List<String>>>[];
+      final client = MockClient((request) async {
+        sent.add(request.url.queryParametersAll);
+        return request.url.queryParameters['cursor'] == null
+            ? _jsonResponse(
+                _pageJson([_itemJson('item-1')], nextCursor: 'after-1'),
+              )
+            : _jsonResponse(_pageJson([_itemJson('item-2', number: 2)]));
+      });
+
+      final items = await repositoryFor(
+        client,
+      ).queryItems(const WorkItemQuery(spaceId: 'space-home', text: 'fence'));
+
+      expect(items.map((i) => i.id), ['item-1', 'item-2']);
+      expect(sent, hasLength(2));
+      expect(sent.last, {
+        ...sent.first,
+        'cursor': ['after-1'],
+      });
+    });
+
+    test('returns the items in Rank order, then Number', () async {
+      final client = MockClient((request) async {
+        return request.url.queryParameters['cursor'] == null
+            ? _jsonResponse(
+                _pageJson([
+                  _itemJson('number-1', fields: {'rank': 3.0}),
+                  _itemJson('number-2', number: 2, fields: {'rank': 1.0}),
+                ], nextCursor: 'after-2'),
+              )
+            : _jsonResponse(
+                _pageJson([
+                  _itemJson('number-3', number: 3, fields: {'rank': 3.0}),
+                  _itemJson('number-4', number: 4, fields: {'rank': 2.5}),
+                ]),
+              );
+      });
+
+      final items = await repositoryFor(
+        client,
+      ).queryItems(const WorkItemQuery(spaceId: 'space-home'));
+
+      expect(items.map((i) => i.id), [
+        'number-2',
+        'number-4',
+        'number-1',
+        'number-3',
+      ]);
+    });
+
+    test('throws an ApiException with the status code on failure', () async {
+      final client = MockClient((request) async {
+        return _jsonResponse({
+          'detail': "The date window can't end before it starts.",
+        }, statusCode: 400);
+      });
+
+      await expectLater(
+        repositoryFor(client).queryItems(
+          WorkItemQuery(
+            spaceId: 'space-home',
+            from: DateTime(2026, 3, 31),
+            to: DateTime(2026, 3, 1),
+          ),
+        ),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.statusCode, 'statusCode', 400)
+              .having(
+                (e) => e.message,
+                'message',
+                contains("can't end before it starts"),
+              ),
+        ),
+      );
+    });
   });
 
   test('rescheduleItem patches the new dates and expected version', () async {

@@ -1,11 +1,14 @@
-import 'package:weaver/core/dates/calendar_days.dart';
 import 'package:weaver/features/board/models/card_sort_option.dart';
-import 'package:weaver/features/board/models/hierarchy_item.dart';
-import 'package:weaver/features/board/models/work_item_card.dart';
+import 'package:weaver/shared/models/tag_match.dart';
+import 'package:weaver/shared/models/work_item_query.dart';
 
 /// Everything the board's header controls: time range, search, hidden
 /// status columns, selected tags and sort. Immutable; each change returns a
-/// new value. All filtering is client-side over data already loaded.
+/// new value.
+///
+/// Which items match the time range, search and tags is the server's
+/// decision (ADR-0006): [toQuery] says what to ask for. Hidden statuses and
+/// sort only change how the result is laid out, so they stay here.
 class BoardFilters {
   const BoardFilters({
     this.start,
@@ -13,6 +16,7 @@ class BoardFilters {
     this.searchQuery = '',
     this.hiddenStatusIds = const {},
     this.selectedTags = const {},
+    this.tagMatch = TagMatch.any,
     this.sortOption = CardSortOption.manual,
   });
 
@@ -21,9 +25,10 @@ class BoardFilters {
   final String searchQuery;
   final Set<String> hiddenStatusIds;
 
-  /// Lower-cased: tags match case-insensitively, the same way the tag chip
-  /// list merges "Urgent" and "urgent".
+  /// Lower-cased, so "Urgent" and "urgent" are one selection, the same way
+  /// the tag chip list merges them.
   final Set<String> selectedTags;
+  final TagMatch tagMatch;
   final CardSortOption sortOption;
 
   /// Either bound may be null (open on that side). An inverted range is
@@ -42,56 +47,36 @@ class BoardFilters {
   BoardFilters withTagToggled(String tag) =>
       _copy(selectedTags: _toggled(selectedTags, tag.toLowerCase()));
 
+  BoardFilters withTagMatch(TagMatch match) => _copy(tagMatch: match);
+
   BoardFilters withSortOption(CardSortOption option) =>
       _copy(sortOption: option);
 
   bool isTagSelected(String tag) => selectedTags.contains(tag.toLowerCase());
 
-  /// Interval overlap, not containment: a missing bound on either side (the
-  /// item's or the filter's) is open-ended. Compared by calendar day, so
-  /// both bounds include their whole day.
-  bool matchesTimeWindow(DateTime? itemStart, DateTime? itemEnd) {
-    final filterStart = start;
-    final filterEnd = end;
-    final startsInTime =
-        filterEnd == null ||
-        itemStart == null ||
-        daysBetween(filterEnd, itemStart) <= 0;
-    final endsInTime =
-        filterStart == null ||
-        itemEnd == null ||
-        daysBetween(filterStart, itemEnd) >= 0;
-    return startsInTime && endsInTime;
-  }
+  /// The server query for [spaceId] with this header's time range, search
+  /// and tags.
+  WorkItemQuery toQuery(String spaceId) => WorkItemQuery(
+    spaceId: spaceId,
+    text: searchQuery.trim(),
+    tags: selectedTags,
+    tagMatch: tagMatch,
+    from: start,
+    to: end,
+  );
 
-  /// Title, description or any tag contains the query, ignoring case.
-  bool matchesSearchText(String title, String? description, List<String> tags) {
-    final query = searchQuery.trim().toLowerCase();
-    if (query.isEmpty) return true;
-    return title.toLowerCase().contains(query) ||
-        (description?.toLowerCase().contains(query) ?? false) ||
-        tags.any((tag) => tag.toLowerCase().contains(query));
-  }
+  /// Whether [other] asks the server a different question. Hiding a status
+  /// or changing the sort doesn't, so it needs no new request.
+  bool queriesDifferentlyFrom(BoardFilters other) =>
+      start != other.start ||
+      end != other.end ||
+      searchQuery.trim() != other.searchQuery.trim() ||
+      !_sameSet(selectedTags, other.selectedTags) ||
+      // With fewer than two tags, Any and All return the same items.
+      (selectedTags.length > 1 && tagMatch != other.tagMatch);
 
-  /// Any selected tag matches (OR); no selection applies no tag filter.
-  bool matchesTags(List<String> tags) =>
-      selectedTags.isEmpty ||
-      tags.any((tag) => selectedTags.contains(tag.toLowerCase()));
-
-  /// Hidden statuses aren't checked here: the board only iterates visible
-  /// columns, so a card in a hidden one is never asked about.
-  bool cardVisible(WorkItemCard card) =>
-      matchesTimeWindow(card.startDate, card.endDate) &&
-      matchesSearchText(card.title, card.description, card.tags) &&
-      matchesTags(card.tags);
-
-  /// The Hierarchy isn't organised by column, so it checks hidden statuses
-  /// itself.
-  bool hierarchyItemVisible(HierarchyItem item) =>
-      !hiddenStatusIds.contains(item.statusId) &&
-      matchesTimeWindow(item.startDate, item.endDate) &&
-      matchesSearchText(item.title, item.description, item.tags) &&
-      matchesTags(item.tags);
+  static bool _sameSet(Set<String> a, Set<String> b) =>
+      a.length == b.length && a.containsAll(b);
 
   static Set<String> _toggled(Set<String> set, String value) =>
       Set.unmodifiable(
@@ -104,6 +89,7 @@ class BoardFilters {
     String? searchQuery,
     Set<String>? hiddenStatusIds,
     Set<String>? selectedTags,
+    TagMatch? tagMatch,
     CardSortOption? sortOption,
   }) => BoardFilters(
     start: identical(start, _unchanged) ? this.start : start as DateTime?,
@@ -111,6 +97,7 @@ class BoardFilters {
     searchQuery: searchQuery ?? this.searchQuery,
     hiddenStatusIds: hiddenStatusIds ?? this.hiddenStatusIds,
     selectedTags: selectedTags ?? this.selectedTags,
+    tagMatch: tagMatch ?? this.tagMatch,
     sortOption: sortOption ?? this.sortOption,
   );
 

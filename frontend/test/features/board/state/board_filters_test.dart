@@ -1,33 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/features/board/models/card_sort_option.dart';
-import 'package:weaver/features/board/models/hierarchy_item.dart';
-import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/state/board_filters.dart';
-
-WorkItemCard _card({
-  String title = 'Card',
-  String? description,
-  List<String> tags = const [],
-  DateTime? start,
-  DateTime? end,
-}) => WorkItemCard(
-  id: 'c',
-  number: 1,
-  title: title,
-  parentId: 'lane',
-  statusId: 'todo',
-  description: description,
-  tags: tags,
-  startDate: start,
-  endDate: end,
-);
+import 'package:weaver/shared/models/tag_match.dart';
 
 void main() {
   const none = BoardFilters();
 
-  test('an empty filter shows everything', () {
-    expect(none.cardVisible(_card()), isTrue);
-    expect(none.matchesTimeWindow(null, null), isTrue);
+  test('an empty filter asks for every item', () {
+    expect(none.toQuery('home').isUnfiltered, isTrue);
   });
 
   test('changes return new values and leave the original untouched', () {
@@ -35,12 +15,15 @@ void main() {
         .withSearchQuery('x')
         .withStatusToggled('done')
         .withTagToggled('Urgent')
+        .withTagMatch(TagMatch.all)
         .withSortOption(CardSortOption.title);
 
     expect(none.searchQuery, isEmpty);
     expect(none.hiddenStatusIds, isEmpty);
+    expect(none.tagMatch, TagMatch.any);
     expect(filtered.hiddenStatusIds, {'done'});
     expect(filtered.isTagSelected('urgent'), isTrue);
+    expect(filtered.tagMatch, TagMatch.all);
     expect(filtered.sortOption, CardSortOption.title);
   });
 
@@ -58,22 +41,6 @@ void main() {
     expect(() => filtered.hiddenStatusIds.add('todo'), throwsUnsupportedError);
   });
 
-  test(
-    'time bounds overlap by calendar day and missing dates are open-ended',
-    () {
-      final filter = none.withTimeRange(
-        start: DateTime(2026, 9, 10),
-        end: DateTime(2026, 9, 20, 9),
-      );
-
-      expect(filter.matchesTimeWindow(DateTime(2026, 9, 20, 23), null), isTrue);
-      expect(filter.matchesTimeWindow(DateTime(2026, 9, 21), null), isFalse);
-      expect(filter.matchesTimeWindow(null, DateTime(2026, 9, 10)), isTrue);
-      expect(filter.matchesTimeWindow(null, DateTime(2026, 9, 9)), isFalse);
-      expect(filter.matchesTimeWindow(null, null), isTrue);
-    },
-  );
-
   test('clearing one bound keeps the other', () {
     final filter = none
         .withTimeRange(start: DateTime(2026, 9, 1), end: DateTime(2026, 9, 30))
@@ -83,26 +50,78 @@ void main() {
     expect(filter.end, isNull);
   });
 
-  test('search matches title, description or tags, ignoring case', () {
-    final filter = none.withSearchQuery('  DESIGN ');
-
-    expect(filter.cardVisible(_card(title: 'Design review')), isTrue);
-    expect(filter.cardVisible(_card(description: 'needs design')), isTrue);
-    expect(filter.cardVisible(_card(tags: ['designers'])), isTrue);
-    expect(filter.cardVisible(_card(title: 'Build')), isFalse);
-  });
-
-  test('only the Hierarchy check looks at hidden statuses', () {
-    final filter = none.withStatusToggled('todo');
-    const item = HierarchyItem(
-      id: 'i',
-      number: 1,
-      parentId: null,
-      title: 'Item',
-      statusId: 'todo',
+  test('an inverted range is swapped, since the server rejects one', () {
+    final filter = none.withTimeRange(
+      start: DateTime(2026, 9, 30),
+      end: DateTime(2026, 9, 1),
     );
 
-    expect(filter.hierarchyItemVisible(item), isFalse);
-    expect(filter.cardVisible(_card()), isTrue);
+    expect(filter.start, DateTime(2026, 9, 1));
+    expect(filter.end, DateTime(2026, 9, 30));
+  });
+
+  test('the query carries the trimmed search, tags and time range', () {
+    final query = none
+        .withSearchQuery('  design ')
+        .withTagToggled('Urgent')
+        .withTimeRange(start: DateTime(2026, 9, 1), end: DateTime(2026, 9, 30))
+        .toQuery('home');
+
+    expect(query.spaceId, 'home');
+    expect(query.text, 'design');
+    expect(query.tags, {'urgent'});
+    expect(query.from, DateTime(2026, 9, 1));
+    expect(query.to, DateTime(2026, 9, 30));
+    expect(query.isUnfiltered, isFalse);
+  });
+
+  test('a blank search alone leaves the query unfiltered', () {
+    expect(none.withSearchQuery('   ').toQuery('home').isUnfiltered, isTrue);
+  });
+
+  group('queriesDifferentlyFrom', () {
+    test('hiding a status or changing the sort asks nothing new', () {
+      expect(
+        none
+            .withStatusToggled('done')
+            .withSortOption(CardSortOption.title)
+            .queriesDifferentlyFrom(none),
+        isFalse,
+      );
+    });
+
+    test('a change of search, tags or time range asks again', () {
+      expect(none.withSearchQuery('x').queriesDifferentlyFrom(none), isTrue);
+      expect(none.withTagToggled('x').queriesDifferentlyFrom(none), isTrue);
+      expect(
+        none
+            .withTimeRange(start: DateTime(2026, 9, 1))
+            .queriesDifferentlyFrom(none),
+        isTrue,
+      );
+    });
+
+    test('only spaces around the search ask nothing new', () {
+      final typed = none.withSearchQuery('x');
+
+      expect(
+        typed.withSearchQuery(' x ').queriesDifferentlyFrom(typed),
+        isFalse,
+      );
+    });
+
+    test('Any or All matters only with two or more tags', () {
+      final one = none.withTagToggled('a');
+      final two = one.withTagToggled('b');
+
+      expect(
+        one.withTagMatch(TagMatch.all).queriesDifferentlyFrom(one),
+        isFalse,
+      );
+      expect(
+        two.withTagMatch(TagMatch.all).queriesDifferentlyFrom(two),
+        isTrue,
+      );
+    });
   });
 }

@@ -10,6 +10,7 @@ import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
+import 'package:weaver/shared/models/work_item_query.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
 import '../../shared/fakes/memory_last_space_store.dart';
@@ -25,6 +26,7 @@ class _SpacesRepository implements BoardRepository {
   final List<String> boardLoads = [];
   final List<String> allItemLoads = [];
   final List<String> creates = [];
+  final List<String> querySpaces = [];
 
   /// Item loads for these Space ids wait on their completer.
   final Map<String, Completer<void>> allItemGates = {};
@@ -51,6 +53,12 @@ class _SpacesRepository implements BoardRepository {
     allItemLoads.add(spaceId);
     await allItemGates[spaceId]?.future;
     return [workItem('$spaceId-item', spaceId: spaceId)];
+  }
+
+  @override
+  Future<List<WorkItem>> queryItems(WorkItemQuery query) async {
+    querySpaces.add(query.spaceId);
+    return const [];
   }
 
   @override
@@ -220,6 +228,18 @@ void main() {
         expect(viewModel.hierarchyRoots.single.item.id, 'village-item');
       },
     );
+
+    test('asks the new Space which items match the filters', () async {
+      final viewModel = viewModelWith();
+      await viewModel.load();
+      viewModel.setSearchQuery('fence');
+      await pumpEventQueue();
+
+      await viewModel.switchSpace(_village);
+      await pumpEventQueue();
+
+      expect(repository.querySpaces, ['home', 'village']);
+    });
   });
 
   group('switching Space never shows the old Space in the hierarchy', () {

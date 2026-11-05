@@ -11,11 +11,15 @@ import 'package:weaver/shared/data/status_repository.dart';
 import 'package:weaver/shared/data/type_repository.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
 import 'package:weaver/shared/models/space.dart';
+import 'package:weaver/shared/models/tag_match.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
+import 'package:weaver/shared/models/work_item_query.dart';
 
-/// Items per `/work-items/all` request; the server allows up to 1000.
-const int allItemsPageSize = 500;
+/// Items per `/work-items/search` request; the server allows up to 1000.
+const int searchPageSize = 500;
+
+typedef _RankedItem = ({double rank, WorkItem item});
 
 /// Board data backed by the REST API. Swimlanes are the direct children of
 /// whichever scope item [loadBoard] is asked for (or the Space's top-level
@@ -65,23 +69,31 @@ class ApiBoardRepository implements BoardRepository {
   }
 
   @override
-  Future<List<WorkItem>> loadAllItems(String spaceId) async {
-    final items = <WorkItem>[];
-    while (true) {
+  Future<List<WorkItem>> loadAllItems(String spaceId) =>
+      queryItems(WorkItemQuery(spaceId: spaceId));
+
+  /// Pages by the server's cursor, which unlike an offset over Rank can't
+  /// skip or repeat items that move mid-load (ADR-0006). The cursor walks
+  /// Number order, so Rank order is restored afterwards: a view left on
+  /// manual sort shows siblings in the order it's given.
+  @override
+  Future<List<WorkItem>> queryItems(WorkItemQuery query) async {
+    final parameters = _searchParameters(query);
+    final ranked = <_RankedItem>[];
+    String? cursor;
+    do {
       final page = await _api.get(
-        '/work-items/all',
-        (json) => JsonApiClient.listOf(json, WorkItem.fromJson),
-        query: {
-          'spaceId': spaceId,
-          'offset': '${items.length}',
-          'limit': '$allItemsPageSize',
-        },
+        '/work-items/search',
+        _toSearchPage,
+        query: {...parameters, 'cursor': ?cursor},
         failureMessage: 'Failed to load work items',
       );
-      items.addAll(page);
-      // The server caps each page, so a short page is the only end signal.
-      if (page.length < allItemsPageSize) return items;
-    }
+      ranked.addAll(page.items);
+      cursor = page.nextCursor;
+    } while (cursor != null);
+
+    ranked.sort(_byRankThenNumber);
+    return [for (final entry in ranked) entry.item];
   }
 
   @override
@@ -179,6 +191,44 @@ class ApiBoardRepository implements BoardRepository {
     _writtenItem,
     failureMessage: 'Failed to set tags',
   );
+
+  /// Leaves out every input that filters nothing, so an unfiltered query
+  /// asks only for the Space.
+  static Map<String, Object> _searchParameters(WorkItemQuery query) {
+    final text = query.text.trim();
+    return {
+      'spaceIds': query.spaceId,
+      if (text.isNotEmpty) 'text': text,
+      if (query.tags.isNotEmpty) 'tags': query.tags.toList(),
+      // The server's default is Any, and with one tag Any and All agree.
+      if (query.tagMatch == TagMatch.all && query.tags.length > 1)
+        'tagMatch': 'All',
+      'from': ?formatCalendarDate(query.from),
+      'to': ?formatCalendarDate(query.to),
+      'limit': '$searchPageSize',
+    };
+  }
+
+  static ({List<_RankedItem> items, String? nextCursor}) _toSearchPage(
+    Object? json,
+  ) {
+    final page = json as Map<String, dynamic>;
+    return (
+      items: JsonApiClient.listOf(
+        page['items'],
+        (item) => (
+          rank: (item['rank'] as num).toDouble(),
+          item: WorkItem.fromJson(item),
+        ),
+      ),
+      nextCursor: page['nextCursor'] as String?,
+    );
+  }
+
+  static int _byRankThenNumber(_RankedItem a, _RankedItem b) {
+    final byRank = a.rank.compareTo(b.rank);
+    return byRank != 0 ? byRank : a.item.number.compareTo(b.item.number);
+  }
 
   static SwimlaneItems _toSwimlane(Map<String, dynamic> json) => SwimlaneItems(
     lane: _item(json['lane']),
