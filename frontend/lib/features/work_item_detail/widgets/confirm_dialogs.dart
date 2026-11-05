@@ -50,3 +50,33 @@ Future<bool> confirmDiscardChanges(BuildContext context) async =>
       ),
     ) ??
     false;
+
+/// Asks before deleting an attachment, which, unlike a work item, doesn't
+/// go to the Trash. True means delete.
+Future<bool> confirmDeleteAttachment(
+  BuildContext context,
+  String fileName,
+) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete attachment?'),
+        content: Text(
+          "$fileName will be deleted for good. This can't be undone.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    ) ??
+    false;

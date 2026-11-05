@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_detail_repository.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_history_repository.dart';
+import 'package:weaver/features/work_item_detail/models/attachment_upload.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_child_summary.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_history_entry.dart';
@@ -11,6 +12,7 @@ import 'package:weaver/features/work_item_detail/models/work_item_link_relation.
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_url_link.dart';
 import 'package:weaver/features/work_item_detail/repeat_settings_view_model.dart';
+import 'package:weaver/features/work_item_detail/work_item_attachments_view_model.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
 import 'package:weaver/features/work_item_detail/work_item_history_view_model.dart';
@@ -25,6 +27,8 @@ import 'package:weaver/shared/widgets/user_name_label.dart';
 
 import '../../shared/fakes/work_items.dart';
 import '../../shared/recurrence/fake_recurrence_repository.dart';
+import 'fakes/fake_attachment_files.dart';
+import 'fakes/fake_attachment_repository.dart';
 
 class _NoUser implements CurrentUser {
   @override
@@ -278,6 +282,8 @@ Future<void> _openDetails(
   FakeRecurrenceRepository? recurrences,
   WorkItemHistoryRepository? history,
   _FakeRepository? repository,
+  FakeAttachmentRepository? attachments,
+  FakeAttachmentFiles? files,
   VoidCallback? onChanged,
 }) async {
   tester.view.physicalSize = const Size(1200, 1600);
@@ -302,6 +308,10 @@ Future<void> _openDetails(
                 ),
                 historyViewModel: WorkItemHistoryViewModel(
                   history ?? _FakeHistoryRepository(const []),
+                ),
+                attachmentsViewModel: WorkItemAttachmentsViewModel(
+                  attachments ?? FakeAttachmentRepository(),
+                  files ?? FakeAttachmentFiles(),
                 ),
               ),
             ),
@@ -791,6 +801,56 @@ void main() {
 
       expect(repository.urlLinkSaves, [('https://example.com/pr/7', 'PR 7')]);
       expect(find.text('PR 7'), findsOneWidget);
+    });
+  });
+
+  group('attachments', () {
+    testWidgets("lists the item's attachments", (tester) async {
+      await _openDetails(
+        tester,
+        attachments: FakeAttachmentRepository([attachment(sizeBytes: 2048)]),
+      );
+
+      expect(find.text('report.pdf'), findsOneWidget);
+      expect(find.text('2 KB'), findsOneWidget);
+    });
+
+    testWidgets('attaching a file uploads it and lists it', (tester) async {
+      final attachments = FakeAttachmentRepository();
+      await _openDetails(
+        tester,
+        attachments: attachments,
+        files: FakeAttachmentFiles(
+          picked: const AttachmentUpload(
+            fileName: 'quote.pdf',
+            bytes: [1, 2, 3],
+            contentType: 'application/pdf',
+          ),
+        ),
+      );
+
+      final attach = find.widgetWithText(TextButton, 'Attach file');
+      await tester.ensureVisible(attach);
+      await tester.tap(attach);
+      await tester.pumpAndSettle();
+
+      expect(attachments.uploads.map((u) => u.fileName), ['quote.pdf']);
+      expect(find.text('quote.pdf'), findsOneWidget);
+    });
+
+    testWidgets('a confirmed delete removes the attachment', (tester) async {
+      final attachments = FakeAttachmentRepository([attachment()]);
+      await _openDetails(tester, attachments: attachments);
+
+      final delete = find.byTooltip('Delete attachment');
+      await tester.ensureVisible(delete);
+      await tester.tap(delete);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+      await tester.pumpAndSettle();
+
+      expect(attachments.deleted, ['att-1']);
+      expect(find.text('report.pdf'), findsNothing);
     });
   });
 }

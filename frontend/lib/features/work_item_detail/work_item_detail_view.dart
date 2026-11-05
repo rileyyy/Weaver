@@ -6,6 +6,7 @@ import 'package:weaver/core/dates/date_format.dart';
 import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link_relation.dart';
 import 'package:weaver/features/work_item_detail/repeat_settings_view_model.dart';
+import 'package:weaver/features/work_item_detail/widgets/attachments_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/comments_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/confirm_dialogs.dart';
 import 'package:weaver/features/work_item_detail/widgets/custom_fields_section.dart';
@@ -19,6 +20,7 @@ import 'package:weaver/features/work_item_detail/widgets/sub_items_section.dart'
 import 'package:weaver/features/work_item_detail/widgets/tags_editor.dart';
 import 'package:weaver/features/work_item_detail/widgets/url_links_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/when_field.dart';
+import 'package:weaver/features/work_item_detail/work_item_attachments_view_model.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
 import 'package:weaver/features/work_item_detail/work_item_history_view_model.dart';
 import 'package:weaver/shared/models/work_item.dart';
@@ -82,6 +84,7 @@ class WorkItemDetailView extends StatefulWidget {
     this.viewModel,
     this.repeatViewModel,
     this.historyViewModel,
+    this.attachmentsViewModel,
     super.key,
   });
 
@@ -107,6 +110,9 @@ class WorkItemDetailView extends StatefulWidget {
   /// pass one in.
   final WorkItemHistoryViewModel? historyViewModel;
 
+  /// Normally resolved from DI; tests pass one in.
+  final WorkItemAttachmentsViewModel? attachmentsViewModel;
+
   @override
   State<WorkItemDetailView> createState() => _WorkItemDetailViewState();
 }
@@ -120,6 +126,8 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
   late final RepeatSettingsViewModel _repeat =
       widget.repeatViewModel ?? getIt<RepeatSettingsViewModel>();
   bool _repeatLoadStarted = false;
+  late final WorkItemAttachmentsViewModel _attachments =
+      widget.attachmentsViewModel ?? getIt<WorkItemAttachmentsViewModel>();
 
   late final TabController _tabs = TabController(length: 2, vsync: this)
     ..addListener(_onTabChanged);
@@ -145,9 +153,11 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
     super.initState();
     _viewModel.addListener(_onViewModelChanged);
     _repeat.addListener(_onRepeatChanged);
+    _attachments.addListener(_onAttachmentsChanged);
     _titleController.addListener(_onFormEdited);
     _descriptionController.addListener(_onFormEdited);
     unawaited(_viewModel.load(widget.workItemId));
+    unawaited(_attachments.load(widget.workItemId));
   }
 
   void _onFormEdited() => setState(() {});
@@ -191,6 +201,8 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
     setState(() {});
   }
 
+  void _onAttachmentsChanged() => setState(() {});
+
   void _seedFrom(WorkItem item) {
     _titleController.text = item.title;
     _descriptionController.text = item.description ?? '';
@@ -226,6 +238,9 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
       ..dispose();
     _repeat
       ..removeListener(_onRepeatChanged)
+      ..dispose();
+    _attachments
+      ..removeListener(_onAttachmentsChanged)
       ..dispose();
     _history?.dispose();
     _tabs.dispose();
@@ -500,6 +515,18 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
           links: _viewModel.urlLinks,
           onAdd: (url, label) => _viewModel.addUrlLink(url, label: label),
           onRemove: (id) => unawaited(_viewModel.deleteUrlLink(id)),
+        ),
+        const SizedBox(height: 20),
+        AttachmentsSection(
+          attachments: _attachments.attachments,
+          isLoading: _attachments.isLoading,
+          loadError: _attachments.loadError,
+          isUploading: _attachments.isUploading,
+          error: _attachments.error,
+          onUpload: () => unawaited(_attachments.upload()),
+          onDownload: (attachment) =>
+              unawaited(_attachments.download(attachment)),
+          onDelete: (attachment) => unawaited(_attachments.delete(attachment)),
         ),
       ],
     );

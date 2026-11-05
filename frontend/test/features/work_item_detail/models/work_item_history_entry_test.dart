@@ -256,6 +256,28 @@ void main() {
       );
     });
 
+    test('attachments read as added or removed, by file name', () {
+      expect(
+        _change(
+          _entryJson(
+            field: 'attachment',
+            newValue: {'id': 'att-1', 'fileName': 'report.pdf'},
+            newName: 'report.pdf',
+          ),
+        ),
+        'Added attachment report.pdf',
+      );
+      expect(
+        _change(
+          _entryJson(
+            field: 'attachment',
+            oldValue: {'id': 'att-1', 'fileName': 'old quote.pdf'},
+          ),
+        ),
+        'Removed attachment old quote.pdf',
+      );
+    });
+
     test('untyped links from before link types name the other item', () {
       expect(
         _change(_entryJson(field: 'link', newValue: 'x', newName: '#4 Other')),
