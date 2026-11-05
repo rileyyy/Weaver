@@ -138,6 +138,31 @@ public class WorkItemQueryServiceTests
     }
 
     [Test]
+    public async Task Text_MatchesTitleOrDescription_IgnoringCaseAndSurroundingSpace()
+    {
+        var byTitle = await CreateAsync("Design review");
+        var byDescription = await CreateAsync("Kitchen");
+        await _workItems.UpdateDetailsAsync(byDescription.Id, new WorkItemDetailsPatch { Description = "needs design" });
+        await CreateAsync("Build");
+
+        var page = await _query.QueryAsync(new WorkItemQuery(Text: "  DESIGN "));
+
+        Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { byTitle.Id, byDescription.Id }));
+    }
+
+    [TestCase("")]
+    [TestCase("   ")]
+    public async Task BlankText_AppliesNoFilter(string text)
+    {
+        var first = await CreateAsync("Paint the hall");
+        var second = await CreateAsync("Fix the gate");
+
+        var page = await _query.QueryAsync(new WorkItemQuery(Text: text));
+
+        Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { first.Id, second.Id }));
+    }
+
+    [Test]
     public async Task Number_FindsThatItem()
     {
         await CreateAsync("One");
@@ -212,6 +237,22 @@ public class WorkItemQueryServiceTests
         var page = await _query.QueryAsync(new WorkItemQuery(Tags: ["outside", "summer"], TagMatch: TagMatch.All));
 
         Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { both.Id }));
+    }
+
+    [Test]
+    public async Task NoTagsOrOnlyBlankOnes_ApplyNoTagFilter()
+    {
+        var tagged = await CreateWithTagsAsync("Tagged", "outside");
+        var untagged = await CreateAsync("Untagged");
+
+        var none = await _query.QueryAsync(new WorkItemQuery(Tags: []));
+        var blank = await _query.QueryAsync(new WorkItemQuery(Tags: [" ", ""]));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(none.Items.Select(i => i.Id), Is.EqualTo(new[] { tagged.Id, untagged.Id }));
+            Assert.That(blank.Items.Select(i => i.Id), Is.EqualTo(new[] { tagged.Id, untagged.Id }));
+        });
     }
 
     [Test]
@@ -304,6 +345,19 @@ public class WorkItemQueryServiceTests
     }
 
     [Test]
+    public async Task DateWindow_IncludesBothBoundaryDays()
+    {
+        var startsOnLastDay = await CreateDatedAsync("Starts on the last day", Nov(20), null);
+        await CreateDatedAsync("Starts the day after", Nov(21), null);
+        var endsOnFirstDay = await CreateDatedAsync("Ends on the first day", null, Nov(10));
+        await CreateDatedAsync("Ends the day before", null, Nov(9));
+
+        var page = await _query.QueryAsync(new WorkItemQuery(From: Nov(10), To: Nov(20)));
+
+        Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { startsOnLastDay.Id, endsOnFirstDay.Id }));
+    }
+
+    [Test]
     public async Task DateWindow_WithOneBound_IsOpenOnTheOtherSide()
     {
         await CreateDatedAsync("Long ago", new DateOnly(2020, 1, 1), new DateOnly(2020, 1, 2));
@@ -313,6 +367,18 @@ public class WorkItemQueryServiceTests
         var page = await _query.QueryAsync(new WorkItemQuery(From: Nov(9)));
 
         Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { later.Id }));
+    }
+
+    [Test]
+    public async Task DateWindow_WithOnlyAnEnd_IsOpenBeforeIt()
+    {
+        var longAgo = await CreateDatedAsync("Long ago", new DateOnly(2020, 1, 1), new DateOnly(2020, 1, 2));
+        await CreateDatedAsync("Later", Nov(20), Nov(21));
+        await CreateAsync("Someday");
+
+        var page = await _query.QueryAsync(new WorkItemQuery(To: Nov(9)));
+
+        Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { longAgo.Id }));
     }
 
     [Test]
