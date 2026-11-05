@@ -22,43 +22,40 @@ public class WorkItemTools(IWorkItemService workItems, WorkItemDtoMapper dtos, H
     private readonly HttpCallerContext _caller = caller;
 
     [McpServerTool(Name = "get_work_item", ReadOnly = true)]
-    [Description("Gets a single work item by id.")]
+    [Description("Gets a single work item in full detail, by id or by Number (the #N people use). Give exactly " +
+        "one of id and number. List and search tools return summaries; use this for the rest of an item.")]
     public async Task<WorkItemDto> GetWorkItem(
-        [Description("The work item's id.")] Guid id,
-        CancellationToken ct)
+        [Description("The work item's id.")] Guid? id = null,
+        [Description("The work item's Number, without the # (123 for #123).")] int? number = null,
+        CancellationToken ct = default)
     {
-        var item = await _workItems.GetByIdAsync(id, ct)
-            ?? throw new McpException($"Work item {id} was not found.");
+        var item = await FindByIdOrNumberAsync(id, number, ct);
         return await _dtos.ToDtoAsync(item, ct);
     }
 
     [McpServerTool(Name = "list_work_item_children", ReadOnly = true)]
     [Description("Lists the direct children of a work item (e.g. a swimlane's cards), or the top-level " +
-        "work items of a Space when parentId is omitted (e.g. a board's swimlanes). Give parentId or spaceId.")]
-    public Task<IReadOnlyList<WorkItemDto>> ListWorkItemChildren(
+        "work items of a Space when parentId is omitted (e.g. a board's swimlanes), in board order. Give " +
+        "parentId or spaceId. Each item is a brief summary with names; use get_work_item for full detail.")]
+    public Task<IReadOnlyList<WorkItemSummaryDto>> ListWorkItemChildren(
         [Description("The parent work item's id. Omit to list a Space's top-level work items.")] Guid? parentId = null,
         [Description("The Space whose top-level work items to list when parentId is omitted. Use list_spaces to find valid ids.")] Guid? spaceId = null,
         CancellationToken ct = default) =>
-        McpExceptionTranslation.TranslateAsync<IReadOnlyList<WorkItemDto>>(async () =>
-        {
-            var items = await _workItems.GetChildrenAsync(parentId, spaceId, ct);
-            return await _dtos.ToDtosAsync(items, ct);
-        });
+        McpExceptionTranslation.TranslateAsync(async () =>
+            ToSummaryDtos(await _workItems.GetChildSummariesAsync(parentId, spaceId, ct)));
 
     [McpServerTool(Name = "list_all_work_items", ReadOnly = true)]
     [Description("Lists one page of every work item in a Space (or every Space), flat, ordered by rank " +
-        "then number. Rebuild the tree from each item's parentId. Page by increasing offset until a page " +
-        "comes back shorter than limit.")]
-    public Task<IReadOnlyList<WorkItemDto>> ListAllWorkItems(
+        "then number. Each item is a brief summary with names; use get_work_item for full detail. Rebuild " +
+        "the tree from each item's parentId, which top-level items don't have. Page by increasing offset " +
+        "until a page comes back shorter than limit.")]
+    public Task<IReadOnlyList<WorkItemSummaryDto>> ListAllWorkItems(
         [Description("How many items to skip. Defaults to 0.")] int offset = 0,
         [Description("Page size, 1 to 1000. Defaults to 500.")] int limit = WorkItemService.DefaultPageSize,
         [Description("Only list items in this Space. Omit for every Space.")] Guid? spaceId = null,
         CancellationToken ct = default) =>
-        McpExceptionTranslation.TranslateAsync<IReadOnlyList<WorkItemDto>>(async () =>
-        {
-            var items = await _workItems.GetAllAsync(offset, limit, spaceId, ct);
-            return await _dtos.ToDtosAsync(items, ct);
-        });
+        McpExceptionTranslation.TranslateAsync(async () =>
+            ToSummaryDtos(await _workItems.GetAllSummariesAsync(offset, limit, spaceId, ct)));
 
     [McpServerTool(Name = "create_work_item", Destructive = false)]
     [Description("Creates a new work item.")]
@@ -194,6 +191,19 @@ public class WorkItemTools(IWorkItemService workItems, WorkItemDtoMapper dtos, H
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
         TranslateWriteAsync(actorLabel, () => _workItems.SetCustomFieldsAsync(id, values, expectedVersion, ct));
+
+    private async Task<WorkItem> FindByIdOrNumberAsync(Guid? id, int? number, CancellationToken ct) =>
+        (id, number) switch
+        {
+            ({ } byId, null) => await _workItems.GetByIdAsync(byId, ct)
+                ?? throw new McpException($"Work item {byId} was not found."),
+            (null, { } byNumber) => await _workItems.GetByNumberAsync(byNumber, ct)
+                ?? throw new McpException($"Work item #{byNumber} was not found."),
+            _ => throw new McpException("Give exactly one of id and number."),
+        };
+
+    private static IReadOnlyList<WorkItemSummaryDto> ToSummaryDtos(IReadOnlyList<WorkItemSummary> summaries) =>
+        summaries.Select(WorkItemSummaryDto.FromSummary).ToList();
 
     private Task<WorkItemWriteResponse> TranslateWriteAsync(string? actorLabel, Func<Task<WorkItemWriteResult>> write) =>
         McpExceptionTranslation.TranslateAsync(async () =>

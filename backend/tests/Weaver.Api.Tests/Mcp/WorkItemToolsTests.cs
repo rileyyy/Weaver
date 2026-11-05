@@ -28,44 +28,85 @@ public class WorkItemToolsTests
 
     private static WorkItem MakeWorkItem() => WorkItem.Create(Guid.NewGuid(), "A work item", null, Guid.NewGuid(), rank: 1.0);
 
+    private static WorkItemSummary MakeSummary(Guid? parentId = null) =>
+        new(Guid.NewGuid(), 7, "A work item", Guid.NewGuid(), "Home", parentId, "To Do", "Task", null, null, "alice", 2);
+
     [Test]
-    public async Task GetWorkItem_WhenFound_ReturnsDto()
+    public async Task GetWorkItem_ById_WhenFound_ReturnsDto()
     {
         var item = MakeWorkItem();
         _workItems.Setup(w => w.GetByIdAsync(item.Id, It.IsAny<CancellationToken>())).ReturnsAsync(item);
 
-        var result = await _tools.GetWorkItem(item.Id, CancellationToken.None);
+        var result = await _tools.GetWorkItem(item.Id, ct: CancellationToken.None);
 
         Assert.That(result.Id, Is.EqualTo(item.Id));
     }
 
     [Test]
-    public void GetWorkItem_WhenNotFound_ThrowsMcpException()
+    public void GetWorkItem_ById_WhenNotFound_ThrowsMcpException()
     {
         var id = Guid.NewGuid();
         _workItems.Setup(w => w.GetByIdAsync(id, It.IsAny<CancellationToken>())).ReturnsAsync((WorkItem?)null);
 
-        Assert.ThrowsAsync<McpException>(() => _tools.GetWorkItem(id, CancellationToken.None));
+        Assert.ThrowsAsync<McpException>(() => _tools.GetWorkItem(id, ct: CancellationToken.None));
     }
 
     [Test]
-    public async Task ListWorkItemChildren_DelegatesToServiceAndMapsResults()
+    public async Task GetWorkItem_ByNumber_WhenFound_ReturnsDto()
+    {
+        var item = MakeWorkItem();
+        _workItems.Setup(w => w.GetByNumberAsync(123, It.IsAny<CancellationToken>())).ReturnsAsync(item);
+
+        var result = await _tools.GetWorkItem(number: 123, ct: CancellationToken.None);
+
+        Assert.That(result.Id, Is.EqualTo(item.Id));
+    }
+
+    [Test]
+    public void GetWorkItem_ByNumber_WhenNotFound_NamesTheNumber()
+    {
+        _workItems.Setup(w => w.GetByNumberAsync(123, It.IsAny<CancellationToken>())).ReturnsAsync((WorkItem?)null);
+
+        var ex = Assert.ThrowsAsync<McpException>(() => _tools.GetWorkItem(number: 123, ct: CancellationToken.None));
+
+        Assert.That(ex!.Message, Does.Contain("#123"));
+    }
+
+    [Test]
+    public void GetWorkItem_WithNeitherIdNorNumber_ThrowsMcpException()
+    {
+        var ex = Assert.ThrowsAsync<McpException>(() => _tools.GetWorkItem(ct: CancellationToken.None));
+
+        Assert.That(ex!.Message, Does.Contain("id").And.Contain("number"));
+    }
+
+    [Test]
+    public void GetWorkItem_WithBothIdAndNumber_ThrowsMcpException()
+    {
+        var ex = Assert.ThrowsAsync<McpException>(() =>
+            _tools.GetWorkItem(Guid.NewGuid(), 123, CancellationToken.None));
+
+        Assert.That(ex!.Message, Does.Contain("id").And.Contain("number"));
+    }
+
+    [Test]
+    public async Task ListWorkItemChildren_ReturnsTheServicesSummaries()
     {
         var parentId = Guid.NewGuid();
-        var child = MakeWorkItem();
-        _workItems.Setup(w => w.GetChildrenAsync(parentId, null, It.IsAny<CancellationToken>())).ReturnsAsync([child]);
+        var child = MakeSummary(parentId);
+        _workItems.Setup(w => w.GetChildSummariesAsync(parentId, null, It.IsAny<CancellationToken>())).ReturnsAsync([child]);
 
         var result = await _tools.ListWorkItemChildren(parentId, ct: CancellationToken.None);
 
-        Assert.That(result.Single().Id, Is.EqualTo(child.Id));
+        Assert.That(result.Single(), Is.EqualTo(WorkItemSummaryDto.FromSummary(child)));
     }
 
     [Test]
     public async Task ListWorkItemChildren_WithOnlyASpace_ListsItsTopLevelItems()
     {
         var spaceId = Guid.NewGuid();
-        var top = MakeWorkItem();
-        _workItems.Setup(w => w.GetChildrenAsync(null, spaceId, It.IsAny<CancellationToken>())).ReturnsAsync([top]);
+        var top = MakeSummary();
+        _workItems.Setup(w => w.GetChildSummariesAsync(null, spaceId, It.IsAny<CancellationToken>())).ReturnsAsync([top]);
 
         var result = await _tools.ListWorkItemChildren(spaceId: spaceId, ct: CancellationToken.None);
 
@@ -75,7 +116,7 @@ public class WorkItemToolsTests
     [Test]
     public void ListWorkItemChildren_WithNeitherParentNorSpace_ThrowsMcpExceptionWithTheServiceMessage()
     {
-        _workItems.Setup(w => w.GetChildrenAsync(null, null, It.IsAny<CancellationToken>()))
+        _workItems.Setup(w => w.GetChildSummariesAsync(null, null, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new DomainValidationException("Give a parent, or a Space."));
 
         var ex = Assert.ThrowsAsync<McpException>(() => _tools.ListWorkItemChildren());
@@ -84,22 +125,30 @@ public class WorkItemToolsTests
     }
 
     [Test]
-    public async Task ListAllWorkItems_DelegatesTheRequestedPageAndMapsResults()
+    public async Task ListAllWorkItems_ReturnsTheRequestedPageOfSummaries()
     {
-        var items = new[] { MakeWorkItem(), MakeWorkItem() };
+        var parentId = Guid.NewGuid();
+        var summaries = new[] { MakeSummary(), MakeSummary(parentId) };
         var spaceId = Guid.NewGuid();
-        _workItems.Setup(w => w.GetAllAsync(500, 2, spaceId, It.IsAny<CancellationToken>())).ReturnsAsync(items);
+        _workItems.Setup(w => w.GetAllSummariesAsync(500, 2, spaceId, It.IsAny<CancellationToken>())).ReturnsAsync(summaries);
 
         var result = await _tools.ListAllWorkItems(offset: 500, limit: 2, spaceId, CancellationToken.None);
 
-        Assert.That(result.Select(d => d.Id), Is.EqualTo(items.Select(i => i.Id)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Select(d => d.Id), Is.EqualTo(summaries.Select(s => s.Id)));
+            Assert.That(result[1].ParentId, Is.EqualTo(parentId));
+            Assert.That(result[1].StatusName, Is.EqualTo("To Do"));
+            Assert.That(result[1].AssigneeName, Is.EqualTo("alice"));
+            Assert.That(result[1].ChildCount, Is.EqualTo(2));
+        });
     }
 
     [Test]
     public async Task ListAllWorkItems_DefaultsToTheFirstPageOfTheDefaultSize()
     {
         _workItems
-            .Setup(w => w.GetAllAsync(0, WorkItemService.DefaultPageSize, null, It.IsAny<CancellationToken>()))
+            .Setup(w => w.GetAllSummariesAsync(0, WorkItemService.DefaultPageSize, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
 
         var result = await _tools.ListAllWorkItems();
@@ -112,7 +161,7 @@ public class WorkItemToolsTests
     public void ListAllWorkItems_WhenThePageIsInvalid_ThrowsMcpExceptionWithTheServiceMessage()
     {
         _workItems
-            .Setup(w => w.GetAllAsync(0, 0, null, It.IsAny<CancellationToken>()))
+            .Setup(w => w.GetAllSummariesAsync(0, 0, null, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new DomainValidationException("Limit must be between 1 and 1000."));
 
         var ex = Assert.ThrowsAsync<McpException>(() => _tools.ListAllWorkItems(offset: 0, limit: 0));
