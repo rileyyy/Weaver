@@ -194,20 +194,16 @@ class ApiBoardRepository implements BoardRepository {
 
   /// Leaves out every input that filters nothing, so an unfiltered query
   /// asks only for the Space.
-  static Map<String, Object> _searchParameters(WorkItemQuery query) {
-    final text = query.text.trim();
-    return {
-      'spaceIds': query.spaceId,
-      if (text.isNotEmpty) 'text': text,
-      if (query.tags.isNotEmpty) 'tags': query.tags.toList(),
-      // The server's default is Any, and with one tag Any and All agree.
-      if (query.tagMatch == TagMatch.all && query.tags.length > 1)
-        'tagMatch': 'All',
-      'from': ?formatCalendarDate(query.from),
-      'to': ?formatCalendarDate(query.to),
-      'limit': '$searchPageSize',
-    };
-  }
+  static Map<String, Object> _searchParameters(WorkItemQuery query) => {
+    'spaceIds': query.spaceId,
+    if (query.text.isNotEmpty) 'text': query.text,
+    if (query.tags.isNotEmpty) 'tags': query.tags.toList(),
+    // Any is the server's default.
+    if (query.tagMatch == TagMatch.all) 'tagMatch': 'All',
+    'from': ?formatCalendarDate(query.from),
+    'to': ?formatCalendarDate(query.to),
+    'limit': '$searchPageSize',
+  };
 
   static ({List<_RankedItem> items, String? nextCursor}) _toSearchPage(
     Object? json,

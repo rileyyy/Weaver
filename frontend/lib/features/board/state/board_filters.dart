@@ -55,28 +55,16 @@ class BoardFilters {
   bool isTagSelected(String tag) => selectedTags.contains(tag.toLowerCase());
 
   /// The server query for [spaceId] with this header's time range, search
-  /// and tags.
+  /// and tags. Hiding a status or changing the sort leaves it equal, as
+  /// neither needs a new request.
   WorkItemQuery toQuery(String spaceId) => WorkItemQuery(
     spaceId: spaceId,
-    text: searchQuery.trim(),
+    text: searchQuery,
     tags: selectedTags,
     tagMatch: tagMatch,
     from: start,
     to: end,
   );
-
-  /// Whether [other] asks the server a different question. Hiding a status
-  /// or changing the sort doesn't, so it needs no new request.
-  bool queriesDifferentlyFrom(BoardFilters other) =>
-      start != other.start ||
-      end != other.end ||
-      searchQuery.trim() != other.searchQuery.trim() ||
-      !_sameSet(selectedTags, other.selectedTags) ||
-      // With fewer than two tags, Any and All return the same items.
-      (selectedTags.length > 1 && tagMatch != other.tagMatch);
-
-  static bool _sameSet(Set<String> a, Set<String> b) =>
-      a.length == b.length && a.containsAll(b);
 
   static Set<String> _toggled(Set<String> set, String value) =>
       Set.unmodifiable(

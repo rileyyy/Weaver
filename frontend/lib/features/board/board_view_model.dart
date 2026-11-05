@@ -28,6 +28,7 @@ import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/tag_match.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
+import 'package:weaver/shared/models/work_item_query.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 import 'package:weaver/shared/models/work_item_type.dart';
 
@@ -451,6 +452,7 @@ class BoardViewModel extends ViewModel {
       final data = await _repository.loadBoard(space.id, null);
       return () {
         _currentSpace = space;
+        _forgetMatches();
         _applyScope(data, asOf);
         _breadcrumbs = [_rootCrumb(space)];
         hierarchyWanted = _clearHierarchy();
@@ -789,16 +791,24 @@ class BoardViewModel extends ViewModel {
   );
 
   void _setFilters(BoardFilters filters) {
-    final requery = filters.queriesDifferentlyFrom(_filters);
+    final before = _activeQuery;
     _filters = filters;
     notifyIfActive();
-    if (requery) unawaited(_refreshMatches());
+    if (_activeQuery != before) unawaited(_refreshMatches());
   }
+
+  /// The question the header's filters put to the server for the current
+  /// Space; null while no Space is shown.
+  WorkItemQuery? get _activeQuery => switch (_currentSpace) {
+    final space? => _filters.toQuery(space.id),
+    null => null,
+  };
 
   /// Asks again once the current burst of item changes settles, since an
   /// edit (here, in the detail dialog or a reload) can change what matches.
   void _scheduleMatchRefresh() {
-    if (_matchRefreshScheduled || !_isFiltering) return;
+    final filtering = _activeQuery?.isUnfiltered == false;
+    if (_matchRefreshScheduled || !filtering) return;
     _matchRefreshScheduled = true;
     scheduleMicrotask(() {
       _matchRefreshScheduled = false;
@@ -806,18 +816,19 @@ class BoardViewModel extends ViewModel {
     });
   }
 
-  bool get _isFiltering => switch (_currentSpace) {
-    final space? => !_filters.toQuery(space.id).isUnfiltered,
-    null => false,
-  };
+  /// Drops the matches for the Space being left, and any answer still on
+  /// its way for it, so they can't hide the new Space's items.
+  void _forgetMatches() {
+    _matchGeneration++;
+    _matchingIds = null;
+  }
 
   /// Asks the server which items of the current Space match the header's
   /// filters (ADR-0006). With no filter set every item matches, so nothing
   /// is asked. A failure keeps the last answer and reports it once.
   Future<void> _refreshMatches() async {
     final generation = ++_matchGeneration;
-    final space = _currentSpace;
-    final query = space == null ? null : _filters.toQuery(space.id);
+    final query = _activeQuery;
     if (query == null || query.isUnfiltered) {
       if (_matchingIds == null) return;
       _matchingIds = null;

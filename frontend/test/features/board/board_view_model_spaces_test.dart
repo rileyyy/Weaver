@@ -28,6 +28,9 @@ class _SpacesRepository implements BoardRepository {
   final List<String> creates = [];
   final List<String> querySpaces = [];
 
+  /// Queries for these Space ids wait on their completer.
+  final Map<String, Completer<void>> queryGates = {};
+
   /// Item loads for these Space ids wait on their completer.
   final Map<String, Completer<void>> allItemGates = {};
 
@@ -42,7 +45,14 @@ class _SpacesRepository implements BoardRepository {
       swimlanes: [
         SwimlaneItems(
           lane: workItem('$spaceId-lane', spaceId: spaceId),
-          cards: const [],
+          cards: [
+            workItem(
+              '$spaceId-card',
+              spaceId: spaceId,
+              parentId: '$spaceId-lane',
+              statusId: '$spaceId-todo',
+            ),
+          ],
         ),
       ],
     );
@@ -58,7 +68,12 @@ class _SpacesRepository implements BoardRepository {
   @override
   Future<List<WorkItem>> queryItems(WorkItemQuery query) async {
     querySpaces.add(query.spaceId);
-    return const [];
+    await queryGates[query.spaceId]?.future;
+    // Every item of the asked Space matches.
+    return [
+      workItem('${query.spaceId}-card', spaceId: query.spaceId),
+      workItem('${query.spaceId}-item', spaceId: query.spaceId),
+    ];
   }
 
   @override
@@ -240,6 +255,24 @@ void main() {
 
       expect(repository.querySpaces, ['home', 'village']);
     });
+
+    test(
+      "a late answer for the old Space can't hide the new one's items",
+      () async {
+        final viewModel = viewModelWith();
+        await viewModel.load();
+        final homeAnswer = repository.queryGates['home'] = Completer();
+        viewModel.setSearchQuery('fence');
+        await pumpEventQueue();
+
+        await viewModel.switchSpace(_village);
+        homeAnswer.complete();
+        await pumpEventQueue();
+
+        final villageCard = viewModel.swimlanes.single.cards.single;
+        expect(viewModel.cardVisible(villageCard), isTrue);
+      },
+    );
   });
 
   group('switching Space never shows the old Space in the hierarchy', () {

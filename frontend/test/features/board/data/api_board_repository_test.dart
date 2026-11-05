@@ -532,7 +532,7 @@ void main() {
 
     test('sends only the Space and page size when unfiltered', () async {
       final parameters = await sentParameters(
-        const WorkItemQuery(spaceId: 'space-home'),
+        WorkItemQuery(spaceId: 'space-home'),
       );
 
       expect(parameters, {
@@ -543,7 +543,7 @@ void main() {
 
     test('sends the text, trimmed', () async {
       final parameters = await sentParameters(
-        const WorkItemQuery(spaceId: 'space-home', text: '  fence post '),
+        WorkItemQuery(spaceId: 'space-home', text: '  fence post '),
       );
 
       expect(parameters['text'], ['fence post']);
@@ -551,7 +551,7 @@ void main() {
 
     test('leaves out blank text', () async {
       final parameters = await sentParameters(
-        const WorkItemQuery(spaceId: 'space-home', text: '   '),
+        WorkItemQuery(spaceId: 'space-home', text: '   '),
       );
 
       expect(parameters.containsKey('text'), isFalse);
@@ -559,7 +559,7 @@ void main() {
 
     test('repeats the tags key once per tag', () async {
       final parameters = await sentParameters(
-        const WorkItemQuery(spaceId: 'space-home', tags: {'urgent', 'home'}),
+        WorkItemQuery(spaceId: 'space-home', tags: {'urgent', 'home'}),
       );
 
       expect(parameters['tags'], unorderedEquals(['urgent', 'home']));
@@ -567,7 +567,7 @@ void main() {
 
     test('leaves tagMatch out for Any, the server default', () async {
       final parameters = await sentParameters(
-        const WorkItemQuery(spaceId: 'space-home', tags: {'urgent', 'home'}),
+        WorkItemQuery(spaceId: 'space-home', tags: {'urgent', 'home'}),
       );
 
       expect(parameters.containsKey('tagMatch'), isFalse);
@@ -575,7 +575,7 @@ void main() {
 
     test('sends tagMatch=All for All with several tags', () async {
       final parameters = await sentParameters(
-        const WorkItemQuery(
+        WorkItemQuery(
           spaceId: 'space-home',
           tags: {'urgent', 'home'},
           tagMatch: TagMatch.all,
@@ -587,7 +587,7 @@ void main() {
 
     test('leaves tagMatch out for All with one tag', () async {
       final parameters = await sentParameters(
-        const WorkItemQuery(
+        WorkItemQuery(
           spaceId: 'space-home',
           tags: {'urgent'},
           tagMatch: TagMatch.all,
@@ -635,7 +635,7 @@ void main() {
 
       final items = await repositoryFor(
         client,
-      ).queryItems(const WorkItemQuery(spaceId: 'space-home', text: 'fence'));
+      ).queryItems(WorkItemQuery(spaceId: 'space-home', text: 'fence'));
 
       expect(items.map((i) => i.id), ['item-1', 'item-2']);
       expect(sent, hasLength(2));
@@ -664,7 +664,7 @@ void main() {
 
       final items = await repositoryFor(
         client,
-      ).queryItems(const WorkItemQuery(spaceId: 'space-home'));
+      ).queryItems(WorkItemQuery(spaceId: 'space-home'));
 
       expect(items.map((i) => i.id), [
         'number-2',

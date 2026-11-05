@@ -3,6 +3,9 @@ import 'package:weaver/features/board/models/card_sort_option.dart';
 import 'package:weaver/features/board/state/board_filters.dart';
 import 'package:weaver/shared/models/tag_match.dart';
 
+bool _asksDifferently(BoardFilters a, BoardFilters b) =>
+    a.toQuery('home') != b.toQuery('home');
+
 void main() {
   const none = BoardFilters();
 
@@ -79,24 +82,22 @@ void main() {
     expect(none.withSearchQuery('   ').toQuery('home').isUnfiltered, isTrue);
   });
 
-  group('queriesDifferentlyFrom', () {
+  group('whether a change needs a new request', () {
     test('hiding a status or changing the sort asks nothing new', () {
       expect(
-        none
-            .withStatusToggled('done')
-            .withSortOption(CardSortOption.title)
-            .queriesDifferentlyFrom(none),
+        _asksDifferently(
+          none.withStatusToggled('done').withSortOption(CardSortOption.title),
+          none,
+        ),
         isFalse,
       );
     });
 
     test('a change of search, tags or time range asks again', () {
-      expect(none.withSearchQuery('x').queriesDifferentlyFrom(none), isTrue);
-      expect(none.withTagToggled('x').queriesDifferentlyFrom(none), isTrue);
+      expect(_asksDifferently(none.withSearchQuery('x'), none), isTrue);
+      expect(_asksDifferently(none.withTagToggled('x'), none), isTrue);
       expect(
-        none
-            .withTimeRange(start: DateTime(2026, 9, 1))
-            .queriesDifferentlyFrom(none),
+        _asksDifferently(none.withTimeRange(start: DateTime(2026, 9, 1)), none),
         isTrue,
       );
     });
@@ -104,24 +105,15 @@ void main() {
     test('only spaces around the search ask nothing new', () {
       final typed = none.withSearchQuery('x');
 
-      expect(
-        typed.withSearchQuery(' x ').queriesDifferentlyFrom(typed),
-        isFalse,
-      );
+      expect(_asksDifferently(typed.withSearchQuery(' x '), typed), isFalse);
     });
 
     test('Any or All matters only with two or more tags', () {
       final one = none.withTagToggled('a');
       final two = one.withTagToggled('b');
 
-      expect(
-        one.withTagMatch(TagMatch.all).queriesDifferentlyFrom(one),
-        isFalse,
-      );
-      expect(
-        two.withTagMatch(TagMatch.all).queriesDifferentlyFrom(two),
-        isTrue,
-      );
+      expect(_asksDifferently(one.withTagMatch(TagMatch.all), one), isFalse);
+      expect(_asksDifferently(two.withTagMatch(TagMatch.all), two), isTrue);
     });
   });
 }
