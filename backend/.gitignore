@@ -114,7 +114,8 @@ App_Data/*.mdf
 App_Data/*.ldf
 
 # Attachment files from a local development run (Attachments:Path in appsettings.Development.json).
-/src/Weaver.Api/attachments/
+# Kept outside src/ so they can't land among, or be confused with, the Attachments source folder.
+/.dev-attachments/
 
 # =========================
 # Windows detritus
