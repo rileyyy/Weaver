@@ -17,10 +17,10 @@ class AttachmentUpload {
         fileName: fileName,
         bytes: bytes,
         contentType:
-            lookupMimeType(fileName, headerBytes: bytes) ?? _genericBinary,
+            lookupMimeType(fileName, headerBytes: bytes) ?? genericBinary,
       );
 
-  static const String _genericBinary = 'application/octet-stream';
+  static const String genericBinary = 'application/octet-stream';
 
   final String fileName;
   final List<int> bytes;

@@ -24,7 +24,7 @@ public class WorkItemAttachmentTools(IWorkItemAttachmentService attachments)
     private readonly IWorkItemAttachmentService _attachments = attachments;
 
     [McpServerTool(Name = "list_work_item_attachments", ReadOnly = true)]
-    [Description("Lists the files attached to a work item, oldest first, each with its file name, content " +
+    [Description("Lists a work item's attachments, oldest first, each with its file name, content " +
         "type and size in bytes. Use get_work_item_attachment to read one.")]
     public async Task<IReadOnlyList<AttachmentDto>> ListWorkItemAttachments(
         [Description("The work item's id.")] Guid workItemId,

@@ -94,7 +94,8 @@ apart from the database, so it can live on other storage and must be
 backed up separately. An item's attachments are kept while it is in the
 Trash and removed when it is purged. Agents can list and fetch them but
 not upload or delete them.
-_Avoid:_ file, upload, document.
+_Avoid:_ "upload" or "document" as a name for the attachment itself. "File"
+is fine for the bytes it holds ("Attach file").
 
 **Dependency conflict** *(planned)*
 : A blocked item scheduled to start before its blocker ends. Weaver flags it
