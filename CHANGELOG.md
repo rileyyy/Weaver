@@ -33,6 +33,28 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-05 — Lean MCP summaries, and names in DTOs
+
+`feature/lean-mcp-summaries` (ticket 29 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md)).
+
+- **MCP lists return summaries**: `list_work_item_children` and
+  `list_all_work_items` now return the same brief shape as
+  `search_work_items`, `list_trash` and `list_changes_since`: Number,
+  title, Space, parent id, status and Type names, dates, assignee name
+  and child count, loaded in one query. Use `get_work_item` for full
+  detail.
+- **Nulls are left out of MCP results**, so an absent field means "no
+  value", and `nextCursor` is absent on the last page. History entries
+  keep a null old or new value, since there it records a cleared field.
+  REST JSON still writes nulls.
+- **`get_work_item` takes `number`** as well as `id`; give exactly one.
+- **REST and detail responses carry names next to ids**: `spaceName`,
+  `parentNumber`, `parentTitle`, `statusName`, `typeName`,
+  `priorityName` and `assignedToUsername` on every work item, looked up
+  in at most six queries per response however many items it holds.
+  Summaries also gained `parentId`.
+
 ## 2026-11-05 — Flutter uses the server query
 
 `feature/flutter-uses-server-query` (ticket 18 of
