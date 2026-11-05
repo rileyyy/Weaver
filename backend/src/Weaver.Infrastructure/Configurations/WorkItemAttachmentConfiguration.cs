@@ -16,7 +16,7 @@ public class WorkItemAttachmentConfiguration : IEntityTypeConfiguration<WorkItem
         builder.HasIndex(a => a.WorkItemId);
 
         // Cascade like URL links: purging the item (ticket 20) takes its attachment rows with
-        // it. Its files are removed through IAttachmentFileCleanup, which purge calls first.
+        // it. Its files are removed through IAttachmentFileCleanup, which purge runs through.
         builder.HasOne(a => a.WorkItem)
             .WithMany()
             .HasForeignKey(a => a.WorkItemId)

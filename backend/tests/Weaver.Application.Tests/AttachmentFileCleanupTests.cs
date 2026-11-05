@@ -33,20 +33,44 @@ public class AttachmentFileCleanupTests
     public void TearDown() => _db.Dispose();
 
     [Test]
-    public async Task DeleteFilesForWorkItemsAsync_DeletesTheFilesOfTrashedItems_AndLeavesOtherItemsFiles()
+    public async Task PurgeAsync_DeletesTheFilesOfTrashedItems_AfterTheirRowsAreGone_AndLeavesOtherItemsFiles()
     {
         var purged = await CreateAsync("Purged");
         var kept = await CreateAsync("Kept");
         var purgedFile = await AttachAsync(purged.Id);
         var secondPurgedFile = await AttachAsync(purged.Id);
         var keptFile = await AttachAsync(kept.Id);
-        await new WorkItemTrashService(_db, new IterativeWorkItemHierarchy(_db), _caller, _clock).MoveToTrashAsync(purged.Id);
+        await TrashAsync(purged.Id);
+        var filesWhenRowsWerePurged = new List<Guid>();
 
-        await new AttachmentFileCleanup(_db, _store).DeleteFilesForWorkItemsAsync([purged.Id]);
+        await new AttachmentFileCleanup(_db, _store).PurgeAsync([purged.Id], _ =>
+        {
+            filesWhenRowsWerePurged.AddRange(_store.Files.Keys);
+            return Task.CompletedTask;
+        });
 
-        Assert.That(_store.Files.Keys, Is.EquivalentTo(new[] { keptFile }));
-        Assert.That(_store.Files.Keys, Does.Not.Contain(purgedFile).And.Not.Contain(secondPurgedFile));
+        Assert.Multiple(() =>
+        {
+            Assert.That(filesWhenRowsWerePurged, Is.EquivalentTo(new[] { purgedFile, secondPurgedFile, keptFile }));
+            Assert.That(_store.Files.Keys, Is.EquivalentTo(new[] { keptFile }));
+        });
     }
+
+    [Test]
+    public async Task PurgeAsync_KeepsTheFiles_WhenPurgingTheRowsFails()
+    {
+        var purged = await CreateAsync("Purged");
+        var file = await AttachAsync(purged.Id);
+        await TrashAsync(purged.Id);
+
+        Assert.ThrowsAsync<InvalidOperationException>(() => new AttachmentFileCleanup(_db, _store)
+            .PurgeAsync([purged.Id], _ => throw new InvalidOperationException("purge failed")));
+
+        Assert.That(_store.Files.Keys, Does.Contain(file));
+    }
+
+    private Task TrashAsync(Guid id) =>
+        new WorkItemTrashService(_db, new IterativeWorkItemHierarchy(_db), _caller, _clock).MoveToTrashAsync(id);
 
     private async Task<Guid> AttachAsync(Guid workItemId) =>
         (await _attachments.AddAsync(workItemId, "a.txt", "text/plain", new MemoryStream([1]))).Id;

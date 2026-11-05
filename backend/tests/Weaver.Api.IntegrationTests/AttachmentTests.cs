@@ -183,8 +183,8 @@ public class AttachmentTests
         });
     }
 
-    // Purge (ticket 20) isn't built; this does what it will: clean up the files through the
-    // seam, then delete the trashed item, whose attachment rows go by FK cascade.
+    // Purge (ticket 20) isn't built; this does what it will: delete the trashed item through the
+    // cleanup seam, so its attachment rows go by FK cascade and then its files.
     [Test]
     public async Task PurgingATrashedItem_ThroughTheCleanupSeam_RemovesItsFileAndRow()
     {
@@ -194,11 +194,10 @@ public class AttachmentTests
 
         using (var scope = IntegrationTestEnvironment.Factory.Services.CreateScope())
         {
-            await scope.ServiceProvider.GetRequiredService<IAttachmentFileCleanup>().DeleteFilesForWorkItemsAsync([item.Id]);
-            await scope.ServiceProvider.GetRequiredService<WeaverDbContext>().WorkItems
-                .IgnoreQueryFilters()
-                .Where(w => w.Id == item.Id)
-                .ExecuteDeleteAsync();
+            var db = scope.ServiceProvider.GetRequiredService<WeaverDbContext>();
+            await scope.ServiceProvider.GetRequiredService<IAttachmentFileCleanup>().PurgeAsync(
+                [item.Id],
+                ct => db.WorkItems.IgnoreQueryFilters().Where(w => w.Id == item.Id).ExecuteDeleteAsync(ct));
         }
 
         using var check = IntegrationTestEnvironment.Factory.Services.CreateScope();

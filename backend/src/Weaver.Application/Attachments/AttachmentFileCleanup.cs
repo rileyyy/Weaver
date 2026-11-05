@@ -8,7 +8,10 @@ public class AttachmentFileCleanup(IWeaverDbContext db, IAttachmentStore store) 
     private readonly IWeaverDbContext _db = db;
     private readonly IAttachmentStore _store = store;
 
-    public async Task DeleteFilesForWorkItemsAsync(IReadOnlyCollection<Guid> workItemIds, CancellationToken ct = default)
+    public async Task PurgeAsync(
+        IReadOnlyCollection<Guid> workItemIds,
+        Func<CancellationToken, Task> purgeRows,
+        CancellationToken ct = default)
     {
         // Purge only ever takes trashed items, which the Trash query filter hides.
         var attachmentIds = await _db.WorkItemAttachments
@@ -17,9 +20,12 @@ public class AttachmentFileCleanup(IWeaverDbContext db, IAttachmentStore store) 
             .Select(a => a.Id)
             .ToListAsync(ct);
 
+        await purgeRows(ct);
+
+        // The rows are already gone, so a cancelled request mustn't strand the files.
         foreach (var id in attachmentIds)
         {
-            await _store.DeleteAsync(id, ct);
+            await _store.DeleteAsync(id, CancellationToken.None);
         }
     }
 }
