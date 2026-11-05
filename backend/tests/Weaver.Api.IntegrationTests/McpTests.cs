@@ -38,6 +38,54 @@ public class McpTests
         });
     }
 
+    [Test]
+    public async Task Mcp_ListWorkItemChildren_ReturnsSummaries_WithoutNulls_WhileRestKeepsThem()
+    {
+        var (client, _) = await ApiClient.SignedInAsync();
+        var parent = await client.CreateWorkItemAsync($"Parent {Guid.NewGuid():N}");
+        var child = await client.CreateWorkItemAsync("Undated child", parent.Id);
+        await using var mcp = await ConnectAsync(client);
+
+        var result = await mcp.CallToolAsync(
+            "list_work_item_children",
+            new Dictionary<string, object?> { ["parentId"] = parent.Id });
+        var rest = await (await client.GetAsync($"/api/work-items/{child.Id}")).Content.ReadAsStringAsync();
+
+        Assert.That(result.IsError, Is.Not.True, () => TextOf(result));
+        var summary = JsonDocument.Parse(TextOf(result)).RootElement.EnumerateArray().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(PropertyOf(summary, "id")?.GetGuid(), Is.EqualTo(child.Id));
+            Assert.That(PropertyOf(summary, "parentId")?.GetGuid(), Is.EqualTo(parent.Id));
+            Assert.That(PropertyOf(summary, "statusName")?.GetString(), Is.EqualTo("To Do"));
+            Assert.That(PropertyOf(summary, "childCount")?.GetInt32(), Is.EqualTo(0));
+            Assert.That(PropertyOf(summary, "statusId"), Is.Null, "a summary names the status instead");
+            Assert.That(PropertyOf(summary, "startDate"), Is.Null, "nulls are left out over MCP");
+            Assert.That(PropertyOf(summary, "assigneeName"), Is.Null, "nulls are left out over MCP");
+            Assert.That(rest, Does.Contain("\"startDate\":null"), "REST JSON still writes nulls");
+        });
+    }
+
+    [Test]
+    public async Task Mcp_GetWorkItem_ByNumber_ReturnsTheFullItem()
+    {
+        var (client, _) = await ApiClient.SignedInAsync();
+        var item = await client.CreateWorkItemAsync($"Known as a number {Guid.NewGuid():N}");
+        await using var mcp = await ConnectAsync(client);
+
+        var result = await mcp.CallToolAsync("get_work_item", new Dictionary<string, object?> { ["number"] = item.Number });
+        var neither = await mcp.CallToolAsync("get_work_item", new Dictionary<string, object?>());
+
+        Assert.That(result.IsError, Is.Not.True, () => TextOf(result));
+        var found = JsonSerializer.Deserialize<WorkItemDto>(TextOf(result), ApiClient.Json)!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(found.Id, Is.EqualTo(item.Id));
+            Assert.That(found.StatusId, Is.EqualTo(item.StatusId));
+            Assert.That(neither.IsError, Is.True);
+        });
+    }
+
     // Agents may read the server settings but never change them (ADR-0004).
     [Test]
     public async Task Mcp_ServerSettings_AreReadableButNotWritable()
@@ -252,6 +300,13 @@ public class McpTests
 
     private static string TextOf(CallToolResult result) =>
         string.Join("\n", result.Content.OfType<TextContentBlock>().Select(c => c.Text));
+
+    /// <summary>Ignores case, since the casing of tool results is the MCP serializer's, not REST's.</summary>
+    private static JsonElement? PropertyOf(JsonElement obj, string name) =>
+        obj.EnumerateObject()
+            .Where(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))
+            .Select(p => (JsonElement?)p.Value)
+            .FirstOrDefault();
 
     private static async Task<T> CallAsync<T>(McpClient mcp, string tool)
     {
