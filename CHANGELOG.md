@@ -33,6 +33,24 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-05 — Flutter uses the server query
+
+`feature/flutter-uses-server-query` (ticket 18 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0006](docs/adr/0006-server-side-query-and-views.md)).
+
+- **The server decides what matches** the header's search, tags and time
+  window. While a filter is set, the board, Hierarchy and Roadmap show
+  only the items the query returned for the Space. The client-side
+  filter logic is gone.
+- **Tag filter: Any or All**, offered once two or more tags are selected.
+- **Behaviour changes:** search no longer matches tags (use the tag
+  filter), matches whole words or word prefixes rather than any substring,
+  and a time window hides undated items (ADR-0003).
+- **Hierarchy and Roadmap** load through the query's stable cursor instead
+  of an offset over Rank, so an item moved mid-load is neither skipped nor
+  repeated. Flutter no longer calls `GET /api/work-items/all`.
+
 ## 2026-11-04 — Typed links, URL links, and the link picker
 
 `feature/typed-links-url-links-and-picker` (ticket 26 of
