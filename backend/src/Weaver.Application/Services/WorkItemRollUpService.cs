@@ -22,13 +22,14 @@ public class WorkItemRollUpService(IWeaverDbContext db, IWorkItemHierarchy hiera
 
         var descendants = await _db.WorkItems.AsNoTracking().Where(w => descendantIds.Contains(w.Id)).ToListAsync(ct);
         var typeIds = descendants.Select(d => d.TypeId).OfType<Guid>().Distinct().ToList();
-        var fields = await _db.CustomFields.AsNoTracking()
-            .Where(f => f.RollsUp && typeIds.Contains(f.TypeId))
+        var fields = await (
+                from field in _db.CustomFields.AsNoTracking()
+                join type in _db.WorkItemTypes on field.TypeId equals type.Id
+                where field.RollsUp && typeIds.Contains(field.TypeId)
+                orderby type.Order, field.Order
+                select field)
             .ToListAsync(ct);
-        var ordered = fields
-            .OrderBy(f => f.TypeId != item.TypeId)
-            .ThenBy(f => f.TypeId)
-            .ThenBy(f => f.Order);
-        return RollUp.Sum(descendants, ordered);
+        // OrderBy is stable, so the other Types keep their own order behind the item's.
+        return RollUp.Sum(descendants, fields.OrderBy(f => f.TypeId != item.TypeId));
     }
 }

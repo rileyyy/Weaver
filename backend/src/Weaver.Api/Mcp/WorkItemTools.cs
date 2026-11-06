@@ -33,14 +33,14 @@ public class WorkItemTools(
         "Fields with no value are left out. rollUps sums each roll-up number or currency field over the " +
         "item's live descendants, not counting the item's own value (which is in fields); a currency total " +
         "is in that field's one currency.")]
-    public async Task<WorkItemDto> GetWorkItem(
+    public async Task<WorkItemDetailDto> GetWorkItem(
         [Description("The work item's id.")] Guid? id = null,
         [Description("The work item's Number, without the # (123 for #123).")] int? number = null,
         CancellationToken ct = default)
     {
         var item = await FindByIdOrNumberAsync(id, number, ct);
         var rollUps = await _rollUps.GetAsync(item.Id, ct);
-        return await _dtos.ToDtoAsync(item, ct) with { RollUps = rollUps.Select(RollUpDto.FromTotal).ToList() };
+        return new WorkItemDetailDto(await _dtos.ToDtoAsync(item, ct), rollUps.Select(RollUpDto.FromTotal).ToList());
     }
 
     [McpServerTool(Name = "list_work_item_children", ReadOnly = true)]

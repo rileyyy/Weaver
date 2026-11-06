@@ -84,6 +84,19 @@ void main() {
     expect(rollUps.isEmpty, isFalse);
   });
 
+  test('adds decimals exactly, as the server does, not as doubles', () {
+    final decimals = HierarchyRollUps(
+      [
+        _item('root', null),
+        _item('a', 'root', {'field-hours': 0.1}),
+        _item('b', 'root', {'field-hours': 0.2}),
+      ],
+      const [_hours],
+    );
+
+    expect(decimals.forItem('root').single.total, 0.3);
+  });
+
   test('ends on a corrupt tree with a cycle', () {
     final cyclic = HierarchyRollUps(
       [

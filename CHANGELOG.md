@@ -51,7 +51,7 @@ because Milestone 9's "assigned to" field needs Milestone 10's users.
   Hierarchy** gets a Totals column when the Space has a field that rolls
   up.
 - **API:** `GET /api/work-items/{id}/roll-ups`,
-  `GET /api/spaces/{id}/custom-fields`, and `rollsUp` on custom field
+  `GET /api/custom-fields?spaceId=`, and `rollsUp` on custom field
   definitions. MCP's `get_work_item` returns `rollUps`.
 - **Migration:** `AddCustomFieldRollUp` adds the `RollsUp` column, off for
   every existing field. No reset needed.

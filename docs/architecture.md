@@ -275,11 +275,14 @@ A number or currency field can roll up (ticket 15,
 - **`WorkItemRollUpService`** finds the descendants with
   `IWorkItemHierarchy.GetDescendantIdsAsync` (one recursive query that
   already leaves trashed subtrees out), then loads them and their Types'
-  roll-up fields. The item's own Type's fields come first.
+  roll-up fields. The item's own Type's fields come first, then the other
+  Types' in Type order.
 - **Endpoints:** `GET /api/work-items/{id}/roll-ups` (one total per field
   with a value, with its name, Type and kind) and
-  `GET /api/spaces/{id}/custom-fields` (every Type's fields in a Space).
-  Over MCP, `get_work_item` adds `rollUps`; list and search results don't,
+  `GET /api/custom-fields?spaceId=` (every Type's fields in a Space, Types in
+  their order).
+  Over MCP, `get_work_item` returns a `WorkItemDetailDto`: the item plus
+  `rollUps`. List and search results don't carry them,
   since that would walk every listed item's subtree.
 - **The detail dialog** loads the roll-ups with the item and again when a
   sub-item's dialog closes. A total of one of the item's own fields shows
@@ -288,7 +291,10 @@ A number or currency field can roll up (ticket 15,
 - **The Hierarchy sums its own tree** (`HierarchyRollUps`), from the items
   in the shared store and the Space's fields, rather than asking the server
   per row. It holds the whole Space, so the totals match the server's, and
-  they follow every edit without a reload. A Totals column, shown only when
+  they follow every edit without a reload. Dart adds doubles where the
+  server adds decimals, so each total is rounded to the most decimals any
+  of the field's values has (0.1 + 0.2 shows 0.3). The rule is written
+  twice, in C# and Dart, so a change to it needs both. A Totals column, shown only when
   the Space has a field that rolls up, gives each row's own value and its
   sub-items' total.
 

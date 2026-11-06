@@ -99,7 +99,8 @@ void main() {
 
   test("loadCustomFields asks for every Type's fields in the Space", () async {
     final client = MockClient((request) async {
-      if (request.url.path == '/api/spaces/space-home/custom-fields') {
+      if (request.url.path == '/api/custom-fields' &&
+          request.url.queryParameters['spaceId'] == 'space-home') {
         return _jsonResponse([
           {
             'id': 'field-hours',

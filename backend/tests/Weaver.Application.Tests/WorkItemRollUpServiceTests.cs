@@ -66,6 +66,22 @@ public class WorkItemRollUpServiceTests
     }
 
     [Test]
+    public async Task GetAsync_ListsOtherTypesFieldsInTypeOrder()
+    {
+        var goalCost = AddField(_home.Goal, "Cost", CustomFieldKind.Currency, rollsUp: true);
+        var plan = await CreateAsync(null, _home.Goal);
+        await CreateAsync(plan, _home.Task, (_taskHours, "1"));
+        await CreateAsync(plan, _home.Goal, (goalCost, "2"));
+        await CreateAsync(plan, _home.Project, (_projectBudget, "3"));
+
+        var totals = await _rollUps.GetAsync(plan.Id);
+
+        Assert.That(
+            totals.Select(t => t.Field.Id),
+            Is.EqualTo(new[] { goalCost.Id, _projectBudget.Id, _taskHours.Id }));
+    }
+
+    [Test]
     public async Task GetAsync_IgnoresTrashedDescendants_AndWhatsUnderThem()
     {
         var house = await CreateAsync(null, _home.Project);

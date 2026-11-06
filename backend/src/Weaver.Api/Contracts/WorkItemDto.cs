@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Weaver.Application.Services;
 using Weaver.Domain;
 
@@ -46,14 +45,6 @@ public record WorkItemDto(
     DateTimeOffset UpdatedAtUtc,
     uint Version)
 {
-    /// <summary>
-    /// The item's roll-ups, only on MCP's <c>get_work_item</c>: summing descendants for every item
-    /// of a listing would cost a tree walk each. Left out of the JSON everywhere else; REST
-    /// readers get them from <c>GET /api/work-items/{id}/roll-ups</c>.
-    /// </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public IReadOnlyList<RollUpDto>? RollUps { get; init; }
-
     public static WorkItemDto FromEntity(WorkItem item, bool hasLiveBlocker, WorkItemNames names) =>
         FromEntity(item, hasLiveBlocker, names, names.WorkItem(item.ParentId));
 

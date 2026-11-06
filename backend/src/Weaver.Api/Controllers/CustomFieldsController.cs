@@ -4,6 +4,7 @@ using Weaver.Api.Auth;
 using Weaver.Api.Contracts;
 using Weaver.Application.Services;
 using Weaver.Domain;
+using Weaver.Domain.Exceptions;
 
 namespace Weaver.Api.Controllers;
 
@@ -23,18 +24,22 @@ public class CustomFieldsController(ICustomFieldService fields) : ControllerBase
 {
     private readonly ICustomFieldService _fields = fields;
 
+    /// <summary>
+    /// The fields of <paramref name="typeId"/> in order, or of every Type of
+    /// <paramref name="spaceId"/> (Types in their order) for showing a Space's whole tree. Give
+    /// exactly one. An unknown Type or Space has none.
+    /// </summary>
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<CustomFieldDto>>> GetAll([FromQuery, BindRequired] Guid typeId)
+    public async Task<ActionResult<IReadOnlyList<CustomFieldDto>>> GetAll(
+        [FromQuery] Guid? typeId,
+        [FromQuery] Guid? spaceId)
     {
-        var fields = await _fields.GetAllAsync(typeId);
-        return Ok(fields.Select(CustomFieldDto.FromEntity));
-    }
-
-    /// <summary>Every Type's fields in the Space, in each Type's order, for showing the Space's whole tree.</summary>
-    [HttpGet("/api/spaces/{spaceId:guid}/custom-fields")]
-    public async Task<ActionResult<IReadOnlyList<CustomFieldDto>>> GetAllInSpace(Guid spaceId)
-    {
-        var fields = await _fields.GetAllInSpaceAsync(spaceId);
+        var fields = (typeId, spaceId) switch
+        {
+            ({ } type, null) => await _fields.GetAllAsync(type),
+            (null, { } space) => await _fields.GetAllInSpaceAsync(space),
+            _ => throw new DomainValidationException("Give exactly one of typeId and spaceId."),
+        };
         return Ok(fields.Select(CustomFieldDto.FromEntity));
     }
 

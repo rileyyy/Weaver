@@ -30,10 +30,12 @@ public class CustomFieldService(IWeaverDbContext db, IAdminAuthorizer admins, IC
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<CustomFieldDefinition>> GetAllInSpaceAsync(Guid spaceId, CancellationToken ct = default) =>
-        await Values.AsNoTracking()
-            .Where(f => Db.WorkItemTypes.Any(t => t.Id == f.TypeId && t.SpaceId == spaceId))
-            .OrderBy(f => f.TypeId)
-            .ThenBy(f => f.Order)
+        await (
+                from field in Values.AsNoTracking()
+                join type in Db.WorkItemTypes on field.TypeId equals type.Id
+                where type.SpaceId == spaceId
+                orderby type.Order, field.Order
+                select field)
             .ToListAsync(ct);
 
     public async Task<CustomFieldDefinition> CreateAsync(

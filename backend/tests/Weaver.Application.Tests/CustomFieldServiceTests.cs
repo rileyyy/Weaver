@@ -174,16 +174,16 @@ public class CustomFieldServiceTests
     }
 
     [Test]
-    public async Task GetAllInSpaceAsync_ListsEveryTypesFieldsInThatSpaceOnly()
+    public async Task GetAllInSpaceAsync_ListsEveryTypesFieldsInThatSpaceOnly_InTypeOrder()
     {
         var garden = TestSpaces.Add(_db, "Garden");
-        await _fields.CreateAsync(_admin.Id, _home.Project, "Budget", CustomFieldKind.Currency, []);
         await _fields.CreateAsync(_admin.Id, _home.Task, "Hours", CustomFieldKind.Number, []);
         await _fields.CreateAsync(_admin.Id, garden.Task, "Seeds", CustomFieldKind.Number, []);
+        await _fields.CreateAsync(_admin.Id, _home.Project, "Budget", CustomFieldKind.Currency, []);
 
         var fields = await _fields.GetAllInSpaceAsync(_home.Id);
 
-        Assert.That(fields.Select(f => f.Name), Is.EquivalentTo(new[] { "Budget", "Hours" }));
+        Assert.That(fields.Select(f => f.Name), Is.EqualTo(new[] { "Budget", "Hours" }));
     }
 
     [Test]

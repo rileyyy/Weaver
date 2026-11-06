@@ -75,8 +75,9 @@ class ApiBoardRepository implements BoardRepository {
 
   @override
   Future<List<CustomField>> loadCustomFields(String spaceId) => _api.get(
-    '/spaces/$spaceId/custom-fields',
+    '/custom-fields',
     (json) => JsonApiClient.listOf(json, CustomField.fromJson),
+    query: {'spaceId': spaceId},
     failureMessage: "Failed to load the Space's fields",
   );
 

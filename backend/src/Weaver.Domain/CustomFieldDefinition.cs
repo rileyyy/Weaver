@@ -82,9 +82,6 @@ public class CustomFieldDefinition : LookupValue
         RollsUp = rollsUp;
     }
 
-    /// <summary>The amount a stored value of a number or currency field holds.</summary>
-    public static decimal AmountOf(JsonElement stored) => stored.GetDecimal();
-
     /// <summary>
     /// Replaces the option list: <paramref name="options"/> is the whole new list, in order.
     /// An option left out is removed; items that chose it lose that choice (see <see cref="Prune"/>).

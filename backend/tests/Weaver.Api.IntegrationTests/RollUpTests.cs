@@ -33,7 +33,7 @@ public class RollUpTests
     {
         var budget = await CreateBudgetAsync();
 
-        var fields = await (await _admin.GetAsync($"/api/spaces/{_space}/custom-fields"))
+        var fields = await (await _admin.GetAsync($"/api/custom-fields?spaceId={_space}"))
             .ReadAsync<IReadOnlyList<CustomFieldDto>>();
 
         Assert.That(fields.Single(f => f.Id == budget.Id).RollsUp, Is.True);
@@ -55,12 +55,13 @@ public class RollUpTests
             .ReadAsync<IReadOnlyList<RollUpDto>>();
         var detail = await mcp.CallToolAsync("get_work_item", new Dictionary<string, object?> { ["id"] = house.Id });
 
-        var mcpItem = JsonSerializer.Deserialize<WorkItemDto>(TextOf(detail), ApiClient.Json)!;
+        var mcpRollUps = JsonDocument.Parse(TextOf(detail)).RootElement.GetProperty("rollUps")
+            .Deserialize<List<RollUpDto>>(ApiClient.Json)!;
         Assert.Multiple(() =>
         {
             Assert.That(rest.Single().Total, Is.EqualTo(250.25m));
-            Assert.That(mcpItem.RollUps!.Single().Total, Is.EqualTo(250.25m));
-            Assert.That(mcpItem.RollUps!.Single().FieldId, Is.EqualTo(budget.Id));
+            Assert.That(mcpRollUps.Single().Total, Is.EqualTo(250.25m));
+            Assert.That(mcpRollUps.Single().FieldId, Is.EqualTo(budget.Id));
         });
     }
 

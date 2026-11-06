@@ -80,13 +80,9 @@ class WorkItemDetailViewModel extends ViewModel {
   /// The sub-items' total of [fieldId] when it's one of [customFields], to
   /// show next to the item's own value; null when no sub-item has a value
   /// for it, it doesn't roll up, or it's another Type's field.
-  RollUp? rollUpFor(String fieldId) {
-    if (!_isOwnField(fieldId)) return null;
-    for (final rollUp in _rollUps) {
-      if (rollUp.fieldId == fieldId) return rollUp;
-    }
-    return null;
-  }
+  RollUp? rollUpFor(String fieldId) => _isOwnField(fieldId)
+      ? _rollUps.where((rollUp) => rollUp.fieldId == fieldId).firstOrNull
+      : null;
 
   /// Totals of fields the item's own Type doesn't have, which only its
   /// sub-items of other Types hold.
@@ -99,12 +95,8 @@ class WorkItemDetailViewModel extends ViewModel {
       _customFields.any((field) => field.id == fieldId);
 
   /// The name of the Type [typeId] among the Space's [types], if loaded.
-  String? typeNameFor(String typeId) {
-    for (final type in _types) {
-      if (type.id == typeId) return type.name;
-    }
-    return null;
-  }
+  String? typeNameFor(String typeId) =>
+      _types.where((type) => type.id == typeId).firstOrNull?.name;
 
   /// The item's parent, for its number and title; null for a top-level
   /// item.
@@ -140,40 +132,6 @@ class WorkItemDetailViewModel extends ViewModel {
     }
     return null;
   }
-
-  static List<AsyncError?> _asyncErrors(Object? errors) => switch (errors) {
-    (final AsyncError? a, final AsyncError? b) => [a, b],
-    (final AsyncError? a, final AsyncError? b, final AsyncError? c) => [
-      a,
-      b,
-      c,
-    ],
-    (
-      final AsyncError? a,
-      final AsyncError? b,
-      final AsyncError? c,
-      final AsyncError? d,
-    ) =>
-      [a, b, c, d],
-    (
-      final AsyncError? a,
-      final AsyncError? b,
-      final AsyncError? c,
-      final AsyncError? d,
-      final AsyncError? e,
-    ) =>
-      [a, b, c, d, e],
-    (
-      final AsyncError? a,
-      final AsyncError? b,
-      final AsyncError? c,
-      final AsyncError? d,
-      final AsyncError? e,
-      final AsyncError? f,
-    ) =>
-      [a, b, c, d, e, f],
-    _ => throw StateError('Unexpected parallel wait errors: $errors'),
-  };
 
   Future<void> load(String id) async {
     _isLoading = true;
@@ -222,7 +180,7 @@ class WorkItemDetailViewModel extends ViewModel {
       _rollUps = rollUps;
       _parent = parent;
     } on ParallelWaitError<Object?, Object?> catch (e) {
-      rethrowNonApiErrors(_asyncErrors(e.errors));
+      rethrowNonApiErrors(e);
       _loadError =
           'Could not load this work item. Check your connection and try again.';
     } finally {
@@ -582,7 +540,7 @@ class WorkItemDetailViewModel extends ViewModel {
       _children = children;
       _rollUps = rollUps;
     } on ParallelWaitError<Object?, Object?> catch (e) {
-      rethrowNonApiErrors(_asyncErrors(e.errors));
+      rethrowNonApiErrors(e);
       // Keep the current lists; they only go stale.
     }
     notifyIfActive();

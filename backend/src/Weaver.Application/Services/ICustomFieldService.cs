@@ -18,15 +18,17 @@ public interface ICustomFieldService
     Task<IReadOnlyList<CustomFieldDefinition>> GetAllAsync(IReadOnlyCollection<Guid> typeIds, CancellationToken ct = default);
 
     /// <summary>
-    /// The fields of every Type of the Space, in each Type's order, for a reader that shows the
-    /// Space's whole tree (the Hierarchy's roll-ups). Empty for an unknown Space.
+    /// The fields of every Type of the Space, Types in their order and each Type's fields in
+    /// theirs, for a reader that shows the Space's whole tree (the Hierarchy's roll-ups). Empty
+    /// for an unknown Space.
     /// </summary>
     Task<IReadOnlyList<CustomFieldDefinition>> GetAllInSpaceAsync(Guid spaceId, CancellationToken ct = default);
 
     /// <summary>
     /// Appends a field after the Type's last. <paramref name="optionNames"/> are a select field's
     /// options, in order; other kinds take none. The kind can't be changed later.
-    /// <paramref name="rollsUp"/> can only be set on a number or currency field.
+    /// <paramref name="rollsUp"/> can only be set on a number or currency field. Unlike
+    /// <see cref="UpdateAsync"/>'s, it may be left out: a new field has no roll-up to lose.
     /// </summary>
     Task<CustomFieldDefinition> CreateAsync(
         Guid actorUserId,

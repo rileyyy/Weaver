@@ -4,6 +4,7 @@ using Weaver.Api.Contracts;
 using Weaver.Api.Controllers;
 using Weaver.Application.Services;
 using Weaver.Domain;
+using Weaver.Domain.Exceptions;
 
 namespace Weaver.Api.Tests;
 
@@ -101,16 +102,24 @@ public class CustomFieldsControllerTests
     }
 
     [Test]
-    public async Task GetAllInSpace_ListsTheSpacesFields()
+    public async Task GetAll_ForASpace_ListsEveryTypesFieldsInIt()
     {
         var spaceId = Guid.NewGuid();
         var field = CustomFieldDefinition.Create(_typeId, "Hours", CustomFieldKind.Number, 0);
         _fields.Setup(f => f.GetAllInSpaceAsync(spaceId, It.IsAny<CancellationToken>())).ReturnsAsync([field]);
 
-        var result = await _controller.GetAllInSpace(spaceId);
+        var result = await _controller.GetAll(typeId: null, spaceId: spaceId);
 
         var dtos = (result.Result as OkObjectResult)!.Value as IEnumerable<CustomFieldDto>;
         Assert.That(dtos!.Single().Id, Is.EqualTo(field.Id));
+    }
+
+    [TestCase(false, false)]
+    [TestCase(true, true)]
+    public void GetAll_WithoutExactlyOneOfTypeAndSpace_IsRejected(bool withType, bool withSpace)
+    {
+        Assert.ThrowsAsync<DomainValidationException>(() => _controller.GetAll(
+            withType ? _typeId : null, withSpace ? Guid.NewGuid() : null));
     }
 
     [Test]

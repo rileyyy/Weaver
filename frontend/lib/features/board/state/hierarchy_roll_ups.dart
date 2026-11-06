@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/hierarchy_roll_up.dart';
 import 'package:weaver/shared/models/custom_field.dart';
@@ -23,9 +25,11 @@ class HierarchyRollUps {
     if (rollUpFields.isEmpty) return empty;
     final byId = {for (final item in items) item.id: item};
     final totals = <String, Map<String, num>>{};
+    final decimals = <String, int>{};
     for (final item in byId.values) {
       for (final field in rollUpFields) {
         if (item.fields[field.id] case final num value) {
+          decimals[field.id] = max(decimals[field.id] ?? 0, _decimalsOf(value));
           for (final ancestorId in _ancestorIds(item, byId)) {
             final ancestorTotals = totals.putIfAbsent(ancestorId, () => {});
             ancestorTotals[field.id] = (ancestorTotals[field.id] ?? 0) + value;
@@ -33,7 +37,24 @@ class HierarchyRollUps {
         }
       }
     }
+    // Doubles drift (0.1 + 0.2 is 0.30000000000000004) where the server's
+    // decimals don't; a sum never has more decimals than its widest value.
+    for (final ancestorTotals in totals.values) {
+      ancestorTotals.updateAll(
+        (fieldId, total) =>
+            num.parse(total.toStringAsFixed(decimals[fieldId] ?? 0)),
+      );
+    }
     return HierarchyRollUps._(byId, rollUpFields, totals);
+  }
+
+  /// How many decimals [value] was written with; a value only exponent
+  /// notation can show keeps the most a double can hold.
+  static int _decimalsOf(num value) {
+    final text = value.toString();
+    if (text.contains('e')) return 15;
+    final point = text.indexOf('.');
+    return point < 0 ? 0 : text.length - point - 1;
   }
 
   const HierarchyRollUps._(this._items, this._fields, this._totals);

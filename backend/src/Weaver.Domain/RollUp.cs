@@ -4,7 +4,8 @@ namespace Weaver.Domain;
 /// Roll-ups (ADR-0002): a parent shows, for each number or currency field that rolls up, the
 /// sum of that field over its descendants. Computed when read, never stored, so it can't go
 /// stale. Each field is summed on its own, by id: a currency field has one currency, so adding
-/// up only one field's values never mixes currencies.
+/// up only one field's values never mixes currencies. The Flutter Hierarchy sums its own tree
+/// by the same rule (<c>HierarchyRollUps</c>), so a change to the rule here needs making there too.
 /// </summary>
 public static class RollUp
 {
@@ -21,7 +22,7 @@ public static class RollUp
         var values = descendants.SelectMany(d => d.CustomFields).ToLookup(v => v.Key, v => v.Value);
         return fields
             .Where(f => f.RollsUp && values.Contains(f.Id))
-            .Select(f => new RollUpTotal(f, values[f.Id].Sum(CustomFieldDefinition.AmountOf)))
+            .Select(f => new RollUpTotal(f, values[f.Id].Sum(v => v.GetDecimal())))
             .ToList();
     }
 }
