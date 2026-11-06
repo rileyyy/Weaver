@@ -272,6 +272,46 @@ Each Type defines its own fields (ticket 14,
   each Type with its fields and `set_work_item_fields` sets values; no tool
   changes a definition, and a test keeps it so.
 
+### Roll-ups
+
+A number or currency field can roll up (ticket 15,
+[ADR-0002](adr/0002-types-and-custom-fields.md) and its amendment).
+
+- **The flag is `CustomFields.RollsUp`**, set by an admin when adding or
+  editing the field. The domain refuses it on any other kind. The field
+  update takes it as a required argument: a `PUT` replaces the definition,
+  so leaving it out turns the roll-up off.
+- **Totals are summed when read, never stored** (`RollUp.Sum`): each field
+  on its own, by id, over every live descendant at any depth, through items
+  of any Type. The item's own value isn't counted; it's shown beside the
+  total. Because a currency field fixes one currency and fields are never
+  summed together, a total can't mix currencies.
+- **`WorkItemRollUpService`** finds the descendants with
+  `IWorkItemHierarchy.GetDescendantIdsAsync` (one recursive query that
+  already leaves trashed subtrees out), then loads them and their Types'
+  roll-up fields. The item's own Type's fields come first, then the other
+  Types' in Type order.
+- **Endpoints:** `GET /api/work-items/{id}/roll-ups` (one total per field
+  with a value, with its name, Type and kind) and
+  `GET /api/custom-fields?spaceId=` (every Type's fields in a Space, Types in
+  their order).
+  Over MCP, `get_work_item` returns a `WorkItemDetailDto`: the item plus
+  `rollUps`. List and search results don't carry them,
+  since that would walk every listed item's subtree.
+- **The detail dialog** loads the roll-ups with the item and again when a
+  sub-item's dialog closes. A total of one of the item's own fields shows
+  under that field's editor; totals of fields only other Types have get a
+  "Totals of sub-items" section, named with their Type.
+- **The Hierarchy sums its own tree** (`HierarchyRollUps`), from the items
+  in the shared store and the Space's fields, rather than asking the server
+  per row. It holds the whole Space, so the totals match the server's, and
+  they follow every edit without a reload. Dart adds doubles where the
+  server adds decimals, so each total is rounded to the most decimals any
+  of the field's values has (0.1 + 0.2 shows 0.3). The rule is written
+  twice, in C# and Dart, so a change to it needs both. A Totals column, shown only when
+  the Space has a field that rolls up, gives each row's own value and its
+  sub-items' total.
+
 ### Lookup management
 
 - **Statuses, Types and priorities share `LookupValue`** (`Id`, `Name`,

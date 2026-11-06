@@ -19,6 +19,17 @@ enum CustomFieldKind {
 
   bool get isSelect => this == singleSelect || this == multiSelect;
 
+  /// Whether a field of this kind can roll up into its parents as a sum.
+  bool get canRollUp => this == number || this == currency;
+
+  /// [amount] as a number or currency field shows it: a currency always
+  /// with two decimals, a whole number without any.
+  String formatAmount(num amount) => switch (amount) {
+    _ when this == currency => amount.toStringAsFixed(2),
+    _ when amount == amount.roundToDouble() => amount.toInt().toString(),
+    _ => '$amount',
+  };
+
   /// The name the API uses, e.g. `SingleSelect`.
   String get apiName => name[0].toUpperCase() + name.substring(1);
 

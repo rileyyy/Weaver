@@ -19,7 +19,8 @@ const _floor = CustomField(
 );
 
 void main() {
-  late List<(String, CustomFieldKind, List<CustomFieldOptionDraft>)> saved;
+  late List<(String, CustomFieldKind, List<CustomFieldOptionDraft>, bool)>
+  saved;
 
   Future<void> open(WidgetTester tester, {CustomField? initial}) async {
     saved = [];
@@ -30,8 +31,8 @@ void main() {
             onPressed: () => showCustomFieldDialog(
               context,
               initial: initial,
-              onSave: (name, kind, options) async {
-                saved.add((name, kind, options));
+              onSave: (name, kind, options, {required rollsUp}) async {
+                saved.add((name, kind, options, rollsUp));
                 return null;
               },
             ),
@@ -62,6 +63,43 @@ void main() {
     expect(saved.single.$1, 'Wood');
     expect(saved.single.$2, CustomFieldKind.multiSelect);
     expect(saved.single.$3.map((o) => o.name), ['Oak']);
+  });
+
+  testWidgets('a number field can be set to roll up', (tester) async {
+    await open(tester);
+
+    expect(find.text('Roll up into parents'), findsNothing);
+    await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Hours');
+    await tester.tap(find.byType(DropdownButtonFormField<CustomFieldKind>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Number').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Roll up into parents'));
+    await tester.pump();
+    await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
+
+    expect(saved.single.$2, CustomFieldKind.number);
+    expect(saved.single.$4, isTrue);
+  });
+
+  testWidgets('editing a field that rolls up keeps it on', (tester) async {
+    await open(
+      tester,
+      initial: const CustomField(
+        id: 'field-budget',
+        typeId: 'type-room',
+        name: 'Budget',
+        kind: CustomFieldKind.currency,
+        order: 0,
+        rollsUp: true,
+      ),
+    );
+
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(saved.single.$4, isTrue);
   });
 
   testWidgets('a select field with a blank option cannot be saved', (

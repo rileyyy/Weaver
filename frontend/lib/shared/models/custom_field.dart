@@ -11,6 +11,7 @@ class CustomField {
     required this.kind,
     required this.order,
     this.options = const [],
+    this.rollsUp = false,
   });
 
   factory CustomField.fromJson(Map<String, dynamic> json) => CustomField(
@@ -23,6 +24,7 @@ class CustomField {
       for (final option in json['options'] as List<dynamic>? ?? const [])
         CustomFieldOption.fromJson(option as Map<String, dynamic>),
     ],
+    rollsUp: json['rollsUp'] as bool? ?? false,
   );
 
   final String id;
@@ -33,6 +35,10 @@ class CustomField {
 
   /// A select field's choices, in order; empty for every other kind.
   final List<CustomFieldOption> options;
+
+  /// Whether a parent shows this field's sum over its descendants. Only a
+  /// number or currency field can roll up.
+  final bool rollsUp;
 
   /// The name of [optionId], or null if the field no longer has it.
   String? optionName(String optionId) {

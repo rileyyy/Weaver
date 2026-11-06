@@ -4,6 +4,7 @@ using Weaver.Api.Auth;
 using Weaver.Api.Contracts;
 using Weaver.Application.Services;
 using Weaver.Domain;
+using Weaver.Domain.Exceptions;
 
 namespace Weaver.Api.Controllers;
 
@@ -23,10 +24,22 @@ public class CustomFieldsController(ICustomFieldService fields) : ControllerBase
 {
     private readonly ICustomFieldService _fields = fields;
 
+    /// <summary>
+    /// The fields of <paramref name="typeId"/> in order, or of every Type of
+    /// <paramref name="spaceId"/> (Types in their order) for showing a Space's whole tree. Give
+    /// exactly one. An unknown Type or Space has none.
+    /// </summary>
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<CustomFieldDto>>> GetAll([FromQuery, BindRequired] Guid typeId)
+    public async Task<ActionResult<IReadOnlyList<CustomFieldDto>>> GetAll(
+        [FromQuery] Guid? typeId,
+        [FromQuery] Guid? spaceId)
     {
-        var fields = await _fields.GetAllAsync(typeId);
+        var fields = (typeId, spaceId) switch
+        {
+            ({ } type, null) => await _fields.GetAllAsync(type),
+            (null, { } space) => await _fields.GetAllInSpaceAsync(space),
+            _ => throw new DomainValidationException("Give exactly one of typeId and spaceId."),
+        };
         return Ok(fields.Select(CustomFieldDto.FromEntity));
     }
 
@@ -36,7 +49,7 @@ public class CustomFieldsController(ICustomFieldService fields) : ControllerBase
     public async Task<ActionResult<CustomFieldDto>> Create(CreateCustomFieldRequest request)
     {
         var created = await _fields.CreateAsync(
-            User.GetUserId(), request.TypeId, request.Name, request.Kind, request.Options ?? []);
+            User.GetUserId(), request.TypeId, request.Name, request.Kind, request.Options ?? [], request.RollsUp);
         return CreatedAtAction(nameof(GetAll), new { typeId = created.TypeId }, CustomFieldDto.FromEntity(created));
     }
 
@@ -44,7 +57,7 @@ public class CustomFieldsController(ICustomFieldService fields) : ControllerBase
     public async Task<ActionResult<CustomFieldDto>> Update(Guid id, UpdateCustomFieldRequest request)
     {
         var options = (request.Options ?? []).Select(o => new CustomFieldOptionRevision(o.Id, o.Name)).ToList();
-        var updated = await _fields.UpdateAsync(User.GetUserId(), id, request.Name, options);
+        var updated = await _fields.UpdateAsync(User.GetUserId(), id, request.Name, options, request.RollsUp);
         return Ok(CustomFieldDto.FromEntity(updated));
     }
 

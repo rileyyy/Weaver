@@ -39,9 +39,12 @@ item's values belong to its Type's fields, so changing the item's Type
 clears them (history keeps them).
 _Avoid:_ attribute, property.
 
-**Roll-up** *(planned)*
-: An optional setting on a number or currency field. It shows on a parent
-the sum of that field over the parent's descendants.
+**Roll-up**
+: An optional setting on a number or currency field. A parent then shows
+the sum of that field over its live descendants, next to its own value and
+never including it. Computed when read, never stored. A currency field has
+one currency, so a total is in that currency.
+_Avoid:_ aggregate, subtotal.
 
 **Status category**
 : To Do, Doing or Done. Every status has one. From Milestone 16,
