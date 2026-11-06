@@ -22,6 +22,12 @@ public interface IWorkItemHierarchy
     Task<IReadOnlyList<Guid>> GetDescendantIdsAsync(Guid rootId, CancellationToken ct = default);
 
     /// <summary>
+    /// Every descendant of <paramref name="rootId"/>, at any depth, whether live or in the
+    /// Trash, for an operation that has to take trashed sub-items along too.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> GetDescendantIdsIncludingTrashAsync(Guid rootId, CancellationToken ct = default);
+
+    /// <summary>
     /// <paramref name="itemIds"/> that exist, and every ancestor of each, at any depth, each id
     /// once, trashed or not. Ends even on a corrupt tree with a cycle.
     /// </summary>

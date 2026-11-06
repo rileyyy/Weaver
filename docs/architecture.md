@@ -63,9 +63,23 @@ and it is what allows MCP tools to reuse the same business logic (see
 - **Reparenting never crosses a Space.** `WorkItem.MoveToParent` (through
   `EnsureCanMoveUnder`) rejects a parent in another Space with
   `CrossSpaceParentException` (409), next to the "own parent" check; the
-  service checks it before working out a rank. Moving an item to another
-  Space will be its own operation, because it has to remap the item's
-  configuration (ticket 16). Making an item top-level keeps its Space.
+  service checks it before working out a rank. Making an item top-level
+  keeps its Space.
+- **Moving between Spaces is its own operation** (ticket 16),
+  `WorkItemSpaceMoveService`. The root takes the target Space, parent and
+  rank through `WorkItem.MoveToSpace`; each descendant follows its parent
+  through `FollowParentToSpace`, parents first, so children keep sharing
+  their parent's Space. Every status, Type and priority maps as the caller
+  says or to a stated default (`SpaceValueMapper`): a status to the one
+  with the same name, else the first of its category, else the first
+  status; a Type or priority to its namesake, else cleared. The Type
+  changes through `ChangeType`, so custom field values are cleared and
+  recorded as on any change of Type. Sub-items in the Trash move too
+  (`GetDescendantIdsIncludingTrashAsync`), so a restore never puts one in
+  another Space from its parent. It's one save; a sub-item created under a
+  moving item mid-move is the open race in ticket 48. The plan
+  (`GET /work-items/{id}/space-move-plan`, `plan_work_item_space_move`)
+  shows the defaults first; the dialog sends every mapping it showed.
 - **"Top level" only means something within a Space.** Listing children
   (`GET /work-items`, `list_work_item_children`) and swimlanes
   (`GET /work-items/swimlanes`) takes a parent or scope item, or else a

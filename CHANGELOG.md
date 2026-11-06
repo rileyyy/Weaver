@@ -33,6 +33,34 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-06 — Move a work item between Spaces
+
+`feature/move-item-between-spaces` (ticket 16 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0001](docs/adr/0001-spaces.md)).
+
+- **Move to Space…** in the detail dialog moves an item and its whole
+  subtree to another Space, under a chosen parent there or at its top
+  level. It shows how many items move and how many custom field values are
+  cleared, and each status, Type and priority they use next to the one it
+  becomes, which can be changed before confirming.
+- **Defaults:** a status maps to the target's status with the same name
+  (ignoring case), else its first status of the same category, else its
+  first status. A Type or priority maps to its namesake, else it's cleared.
+  Custom field values are always cleared, as with any change of Type.
+- **Kept:** links (they may cross Spaces), comments, attachments, tags,
+  dates and the assignee. Sub-items in the Trash move too.
+- **History** records the Space, status, Type, priority and cleared values
+  on every moved item, attributed to whoever moved it. Reparenting still
+  can't cross Spaces.
+- **API:** `GET /api/work-items/{id}/space-move-plan?targetSpaceId=` and
+  `POST /api/work-items/{id}/space-move` (`targetSpaceId`, `parentId`,
+  `statusMap`, `typeMap`, `priorityMap`, `expectedVersion`). MCP adds
+  `plan_work_item_space_move` (read-only keys too) and
+  `move_work_item_to_space` (read-write keys only).
+- **Known gap:** a sub-item created under a moving item during the move
+  stays behind (ticket 48). No migration.
+
 ## 2026-11-05 — Attachments
 
 `feature/attachments` (ticket 38 of

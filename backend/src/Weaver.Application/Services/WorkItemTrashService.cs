@@ -42,7 +42,7 @@ public class WorkItemTrashService(
             _history.Record(trashed.Id, WorkItemHistoryField.Deleted, trashed.Title, null);
         }
 
-        await SaveAsync(id, ct);
+        await _db.SaveWorkItemChangesAsync(id, ct);
     }
 
     public async Task<IReadOnlyList<TrashedWorkItem>> ListAsync(Guid? spaceId = null, CancellationToken ct = default)
@@ -116,7 +116,7 @@ public class WorkItemTrashService(
 
         await PlaceUnderNearestLiveAncestorAsync(item, ct);
         await RestartRecurrencesAsync(trashedWith.Select(w => w.Id).ToList(), ct);
-        await SaveAsync(id, ct);
+        await _db.SaveWorkItemChangesAsync(id, ct);
         return item;
     }
 
@@ -170,16 +170,4 @@ public class WorkItemTrashService(
     }
 
     private IQueryable<WorkItem> Trash() => _db.WorkItems.IgnoreQueryFilters().Where(w => w.TrashedAtUtc != null);
-
-    private async Task SaveAsync(Guid id, CancellationToken ct)
-    {
-        try
-        {
-            await _db.SaveChangesAsync(ct);
-        }
-        catch (DbUpdateConcurrencyException ex)
-        {
-            throw new WorkItemVersionConflictException(id, ex);
-        }
-    }
 }

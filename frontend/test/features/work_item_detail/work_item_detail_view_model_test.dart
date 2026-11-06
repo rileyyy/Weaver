@@ -1947,6 +1947,30 @@ void main() {
       expect(viewModel.hasChanges, isTrue);
     });
 
+    test("onMovedToSpace reloads the new Space's lookups, re-seeds the "
+        'form and marks the dialog changed', () async {
+      final repository = _FakeRepository();
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
+      await viewModel.load('item-1');
+      final generation = viewModel.reloadGeneration;
+      repository.item = workItem('item-1', spaceId: 'workshop', version: 2);
+
+      await viewModel.onMovedToSpace();
+
+      expect(repository.lookupSpaceIds.skip(3), [
+        'workshop',
+        'workshop',
+        'workshop',
+      ]);
+      expect(viewModel.item!.spaceId, 'workshop');
+      expect(viewModel.reloadGeneration, greaterThan(generation));
+      expect(viewModel.hasChanges, isTrue);
+    });
+
     test('saveParent with no item makes it top-level', () async {
       final repository = _FakeRepository()
         ..item = _item(parentId: 'kitchen')
