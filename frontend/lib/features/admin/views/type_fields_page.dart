@@ -58,9 +58,12 @@ class _TypeFieldsPageState extends State<TypeFieldsPage> {
     super.dispose();
   }
 
-  static String _subtitle(CustomField field) => field.kind.isSelect
-      ? '${field.kind.label} · ${field.options.map((o) => o.name).join(', ')}'
-      : field.kind.label;
+  static String _subtitle(CustomField field) => switch (field) {
+    CustomField(kind: final kind) when kind.isSelect =>
+      '${kind.label} · ${field.options.map((o) => o.name).join(', ')}',
+    CustomField(rollsUp: true) => '${field.kind.label} · rolls up',
+    _ => field.kind.label,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -100,16 +103,20 @@ class _TypeFieldsPageState extends State<TypeFieldsPage> {
 
   Future<bool> _add(BuildContext context) => showCustomFieldDialog(
     context,
-    onSave: (name, kind, options) =>
-        _viewModel.create(name, kind, [for (final o in options) o.name]),
+    onSave: (name, kind, options, {required rollsUp}) => _viewModel.create(
+      name,
+      kind,
+      [for (final o in options) o.name],
+      rollsUp: rollsUp,
+    ),
   );
 
   Future<bool> _edit(BuildContext context, CustomField field) =>
       showCustomFieldDialog(
         context,
         initial: field,
-        onSave: (name, _, options) =>
-            _viewModel.update(field.id, name, options),
+        onSave: (name, _, options, {required rollsUp}) =>
+            _viewModel.update(field.id, name, options, rollsUp: rollsUp),
       );
 
   Future<void> _delete(BuildContext context, CustomField field) async {

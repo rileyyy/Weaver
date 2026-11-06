@@ -21,6 +21,14 @@ void main() {
         order: 0,
       ),
       CustomField(
+        id: 'field-hours',
+        typeId: 'type-room',
+        name: 'Hours',
+        kind: CustomFieldKind.number,
+        order: 2,
+        rollsUp: true,
+      ),
+      CustomField(
         id: 'field-floor',
         typeId: 'type-room',
         name: 'Floor',
@@ -50,6 +58,7 @@ void main() {
     expect(find.text('Room fields'), findsOneWidget);
     expect(find.text('Currency'), findsOneWidget);
     expect(find.text('Single select · Oak, Tiles'), findsOneWidget);
+    expect(find.text('Number · rolls up'), findsOneWidget);
   });
 
   testWidgets('removing a field asks first, then removes it', (tester) async {

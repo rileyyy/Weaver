@@ -19,6 +19,9 @@ enum CustomFieldKind {
 
   bool get isSelect => this == singleSelect || this == multiSelect;
 
+  /// Whether a field of this kind can roll up into its parents as a sum.
+  bool get canRollUp => this == number || this == currency;
+
   /// The name the API uses, e.g. `SingleSelect`.
   String get apiName => name[0].toUpperCase() + name.substring(1);
 
