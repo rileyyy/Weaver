@@ -15,6 +15,12 @@ public static class WorkItemHistoryField
     /// <summary>The item was restored from the Trash. New value: its title.</summary>
     public const string Restored = "restored";
 
+    /// <summary>
+    /// The item was purged from the Trash, for good. Old value: its title. The item's history
+    /// outlives it; this is always its last entry.
+    /// </summary>
+    public const string Purged = "purged";
+
     /// <summary>A comment was added (new value only), edited (both) or deleted (old value only). Values: the body.</summary>
     public const string Comment = "comment";
 

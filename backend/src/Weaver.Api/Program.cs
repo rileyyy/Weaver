@@ -54,6 +54,7 @@ builder.Services
 builder.Services.AddHealthChecks().AddDbContextCheck<WeaverDbContext>();
 
 builder.Services.AddHostedService<RecurrenceGenerationWorker>();
+builder.Services.AddHostedService<TrashPurgeWorker>();
 
 // The services read who is calling from ICallerContext. MCP write tools also resolve the
 // concrete HttpCallerContext, to hand it the actor label they take as an argument.

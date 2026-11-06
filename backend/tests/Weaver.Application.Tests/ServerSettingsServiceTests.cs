@@ -91,4 +91,48 @@ public class ServerSettingsServiceTests
         Assert.ThrowsAsync<DomainValidationException>(
             () => _service.SetTimeZoneAsync(_admin.Id, "W. Europe Standard Time"));
     }
+
+    [Test]
+    public async Task GetAsync_OnAFreshServer_KeepsTrashForThirtyDays()
+    {
+        var settings = await _service.GetAsync();
+
+        Assert.That(settings.TrashRetentionDays, Is.EqualTo(30));
+    }
+
+    [Test]
+    public async Task SetTrashRetentionAsync_ByAnAdmin_IsStored()
+    {
+        await _service.SetTrashRetentionAsync(_admin.Id, 7);
+
+        var settings = await _service.GetAsync();
+        Assert.That(settings.TrashRetentionDays, Is.EqualTo(7));
+    }
+
+    [Test]
+    public async Task SetTrashRetentionAsync_ByANonAdmin_IsForbiddenAndChangesNothing()
+    {
+        Assert.ThrowsAsync<AdminRequiredException>(() => _service.SetTrashRetentionAsync(_member.Id, 7));
+
+        var settings = await _service.GetAsync();
+        Assert.That(settings.TrashRetentionDays, Is.EqualTo(30));
+    }
+
+    [Test]
+    public void SetTrashRetentionAsync_ByAnAgent_IsForbidden()
+    {
+        var agent = TestUsers.AddAgentFlaggedAsAdmin(_db, "Nightly triage");
+
+        Assert.ThrowsAsync<AgentAdministrationException>(() => _service.SetTrashRetentionAsync(agent.Id, 7));
+    }
+
+    [TestCase(0)]
+    [TestCase(3651)]
+    public async Task SetTrashRetentionAsync_OutOfRange_IsAValidationErrorAndChangesNothing(int days)
+    {
+        Assert.ThrowsAsync<DomainValidationException>(() => _service.SetTrashRetentionAsync(_admin.Id, days));
+
+        var settings = await _service.GetAsync();
+        Assert.That(settings.TrashRetentionDays, Is.EqualTo(30));
+    }
 }

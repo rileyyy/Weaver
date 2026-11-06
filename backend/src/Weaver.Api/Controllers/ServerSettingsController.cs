@@ -23,4 +23,8 @@ public class ServerSettingsController(IServerSettingsService settings) : Control
     [HttpPut("time-zone")]
     public async Task<ActionResult<ServerSettingsDto>> SetTimeZone(SetTimeZoneRequest request) =>
         Ok(ServerSettingsDto.FromEntity(await _settings.SetTimeZoneAsync(User.GetUserId(), request.TimeZoneId)));
+
+    [HttpPut("trash-retention")]
+    public async Task<ActionResult<ServerSettingsDto>> SetTrashRetention(SetTrashRetentionRequest request) =>
+        Ok(ServerSettingsDto.FromEntity(await _settings.SetTrashRetentionAsync(User.GetUserId(), request.Days)));
 }

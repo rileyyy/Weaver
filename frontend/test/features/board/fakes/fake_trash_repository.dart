@@ -33,6 +33,8 @@ class FakeTrashRepository implements TrashRepository {
   final List<TrashedWorkItem> items;
   ApiException? error;
   final List<String> restoreCalls = [];
+  final List<String> purgeCalls = [];
+  int emptyCalls = 0;
 
   @override
   Future<List<TrashedWorkItem>> list() async {
@@ -45,5 +47,19 @@ class FakeTrashRepository implements TrashRepository {
     restoreCalls.add(workItemId);
     if (error case final e?) throw e;
     items.removeWhere((i) => i.workItemId == workItemId);
+  }
+
+  @override
+  Future<void> purge(String workItemId) async {
+    purgeCalls.add(workItemId);
+    if (error case final e?) throw e;
+    items.removeWhere((i) => i.workItemId == workItemId);
+  }
+
+  @override
+  Future<void> empty() async {
+    emptyCalls++;
+    if (error case final e?) throw e;
+    items.clear();
   }
 }

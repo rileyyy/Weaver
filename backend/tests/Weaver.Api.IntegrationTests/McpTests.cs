@@ -98,7 +98,7 @@ public class McpTests
         var tools = await mcp.ListToolsAsync();
         var result = await mcp.CallToolAsync("get_server_settings", new Dictionary<string, object?>());
 
-        var settingsTools = tools.Select(t => t.Name).Where(n => n.Contains("setting") || n.Contains("time_zone"));
+        var settingsTools = tools.Select(t => t.Name).Where(n => n.Contains("setting") || n.Contains("time_zone") || n.Contains("retention"));
         Assert.Multiple(() =>
         {
             Assert.That(result.IsError, Is.Not.True);
@@ -297,6 +297,22 @@ public class McpTests
             Assert.That(
                 writes,
                 Has.All.Matches<string>(n => n.Contains("work_item") || n.EndsWith("_comment")));
+        });
+    }
+
+    // Agents can't purge (ADR-0007); over MCP there's simply no tool for it.
+    [Test]
+    public async Task Mcp_OffersAReadWriteAgentNoWayToPurgeTheTrash()
+    {
+        var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadWrite);
+        await using var mcp = await ConnectAsync(agent);
+
+        var names = (await mcp.ListToolsAsync()).Select(t => t.Name).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(names, Does.Contain("restore_work_item"));
+            Assert.That(names, Has.None.Contains("purge").And.None.Contains("empty"));
         });
     }
 

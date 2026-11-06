@@ -32,7 +32,7 @@ public class ServerSettingsControllerTests
 
         var result = await _controller.Get();
 
-        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(new ServerSettingsDto("UTC")));
+        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(new ServerSettingsDto("UTC", 30)));
     }
 
     [Test]
@@ -45,6 +45,19 @@ public class ServerSettingsControllerTests
 
         var result = await _controller.SetTimeZone(new SetTimeZoneRequest("Europe/Berlin"));
 
-        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(new ServerSettingsDto("Europe/Berlin")));
+        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(new ServerSettingsDto("Europe/Berlin", 30)));
+    }
+
+    [Test]
+    public async Task SetTrashRetention_PassesTheCallerAndReturnsTheUpdatedSettings()
+    {
+        var updated = ServerSettings.CreateDefault();
+        updated.SetTrashRetention(7);
+        _settings.Setup(s => s.SetTrashRetentionAsync(_userId, 7, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(updated);
+
+        var result = await _controller.SetTrashRetention(new SetTrashRetentionRequest(7));
+
+        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(new ServerSettingsDto("UTC", 7)));
     }
 }

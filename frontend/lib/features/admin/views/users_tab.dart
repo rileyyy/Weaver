@@ -5,12 +5,12 @@ import 'package:weaver/features/admin/models/admin_user.dart';
 import 'package:weaver/features/admin/models/user_action.dart';
 import 'package:weaver/features/admin/user_admin_view_model.dart';
 import 'package:weaver/features/admin/widgets/admin_list_frame.dart';
-import 'package:weaver/features/admin/widgets/confirm_admin_action.dart';
 import 'package:weaver/features/admin/widgets/create_user_dialog.dart';
 import 'package:weaver/features/admin/widgets/name_dialog.dart';
 import 'package:weaver/features/admin/widgets/reset_password_dialog.dart';
 import 'package:weaver/features/admin/widgets/show_admin_error.dart';
 import 'package:weaver/features/admin/widgets/user_tile.dart';
+import 'package:weaver/shared/widgets/confirm_action.dart';
 
 class UsersTab extends StatelessWidget {
   const UsersTab({super.key, required this.viewModel});
@@ -90,7 +90,7 @@ class UsersTab extends StatelessWidget {
           await viewModel.setActive(user.id, isActive: true),
         );
       case UserAction.deactivate:
-        final confirmed = await confirmAdminAction(
+        final confirmed = await confirmAction(
           context,
           title: 'Deactivate ${user.username}?',
           message:
@@ -106,7 +106,7 @@ class UsersTab extends StatelessWidget {
           await viewModel.setActive(user.id, isActive: false),
         );
       case UserAction.delete:
-        final confirmed = await confirmAdminAction(
+        final confirmed = await confirmAction(
           context,
           title: 'Delete ${user.username}?',
           message:

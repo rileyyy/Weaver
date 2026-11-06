@@ -11,6 +11,9 @@ public class ServerSettings
     public const int SingletonId = 1;
     public const string DefaultTimeZoneId = "UTC";
     public const int TimeZoneIdMaxLength = 64;
+    public const int DefaultTrashRetentionDays = 30;
+    public const int MinTrashRetentionDays = 1;
+    public const int MaxTrashRetentionDays = 3650;
 
     /// <summary>For EF Core.</summary>
     private ServerSettings()
@@ -24,6 +27,12 @@ public class ServerSettings
     /// dates, such as when a repeating item's next occurrence is due.
     /// </summary>
     public string TimeZoneId { get; private set; } = DefaultTimeZoneId;
+
+    /// <summary>
+    /// How long a delete stays in the Trash before it's purged (ADR-0007), counted as elapsed
+    /// time since the delete rather than calendar days in <see cref="TimeZoneId"/>.
+    /// </summary>
+    public int TrashRetentionDays { get; private set; } = DefaultTrashRetentionDays;
 
     public static ServerSettings CreateDefault() => new() { Id = SingletonId };
 
@@ -50,5 +59,19 @@ public class ServerSettings
         }
 
         TimeZoneId = zone.Id;
+    }
+
+    /// <summary>A delete made at or before this instant has been in the Trash past its retention.</summary>
+    public DateTimeOffset TrashExpiryCutoff(DateTimeOffset now) => now - TimeSpan.FromDays(TrashRetentionDays);
+
+    public void SetTrashRetention(int days)
+    {
+        if (days is < MinTrashRetentionDays or > MaxTrashRetentionDays)
+        {
+            throw new DomainValidationException(
+                $"Trash retention must be between {MinTrashRetentionDays} and {MaxTrashRetentionDays} days.");
+        }
+
+        TrashRetentionDays = days;
     }
 }

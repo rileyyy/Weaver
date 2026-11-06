@@ -8,4 +8,7 @@ abstract class ServerSettingsAdminRepository {
 
   /// Refused (400) for anything that isn't an IANA time zone id.
   Future<AdminServerSettings> setTimeZone(String timeZoneId);
+
+  /// Refused (400) outside 1 to 3650 days.
+  Future<AdminServerSettings> setTrashRetention(int days);
 }

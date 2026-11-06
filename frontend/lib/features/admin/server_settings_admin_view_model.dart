@@ -21,6 +21,9 @@ class ServerSettingsAdminViewModel extends ViewModel {
   /// Null until the first load succeeds.
   String? get timeZoneId => _settings?.timeZoneId;
 
+  /// Null until the first load succeeds.
+  int? get trashRetentionDays => _settings?.trashRetentionDays;
+
   /// Only true for the first load; later refreshes keep showing the values.
   bool get isLoading => _isLoading && _settings == null;
   String? get loadError => _loadError;
@@ -56,4 +59,29 @@ class ServerSettingsAdminViewModel extends ViewModel {
       return adminErrorMessage(e, 'Could not change the time zone. Try again.');
     }
   }
+
+  /// [days] is the text the admin typed, checked here so a typo doesn't need
+  /// a round trip.
+  Future<String?> setTrashRetention(String days) async {
+    final parsed = int.tryParse(days.trim());
+    if (parsed == null || !_isValidRetention(parsed)) {
+      return 'Enter a whole number of days from '
+          '${AdminServerSettings.minTrashRetentionDays} to '
+          '${AdminServerSettings.maxTrashRetentionDays}.';
+    }
+    try {
+      _settings = await _repository.setTrashRetention(parsed);
+      notifyIfActive();
+      return null;
+    } on ApiException catch (e) {
+      return adminErrorMessage(
+        e,
+        'Could not change the Trash retention. Try again.',
+      );
+    }
+  }
+
+  static bool _isValidRetention(int days) =>
+      days >= AdminServerSettings.minTrashRetentionDays &&
+      days <= AdminServerSettings.maxTrashRetentionDays;
 }

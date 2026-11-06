@@ -4,14 +4,16 @@
 
 **Blocked by:** 01, 19
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Retention is a server setting (default stated in the deployment reference), editable by admins only
-- [ ] A background job purges expired items and their subtrees, including their links and comments (attachment files join this in ticket 38)
-- [ ] Humans can purge one item, or empty the Trash, from the Trash page, with confirmation
-- [ ] Agents get forbidden on purge over REST and MCP
-- [ ] Purges are recorded in history
-- [ ] Tests cover expiry, manual purge, and agent rejection
+- [x] Retention is a server setting (default stated in the deployment reference), editable by admins only
+- [x] A background job purges expired items and their subtrees, including their links and comments (attachment files join this in ticket 38)
+- [x] Humans can purge one item, or empty the Trash, from the Trash page, with confirmation
+- [x] Agents get forbidden on purge over REST and MCP
+  - REST: 403 for any agent account, whatever its key's scope. MCP has no purge tool at all, so an agent has nothing to call; `McpTests` and a unit test over every tool type keep it that way.
+- [x] Purges are recorded in history
+- [x] Tests cover expiry, manual purge, and agent rejection
+  - Covered by the InMemory service tests, controller and worker tests. The Postgres integration tests added to `TrashTests`, `ServerSettingsTests`, `AttachmentTests`, `AgentAdminRestrictionTests` and `McpTests` compile but haven't run: the machine that built this has no Docker, so CI is their first run.
 
 ## Comments
 
@@ -43,3 +45,15 @@
 
 - Attachment rows cascade with their work item, but the files need deleting too. Run purge's row deletion through `IAttachmentFileCleanup.PurgeAsync(workItemIds, purgeRows)`: it finds the files (ignoring the Trash filter), runs `purgeRows`, which must delete *and commit*, and only then deletes the files. A purge that fails leaves the items whole and restorable.
 - Pass every purged id (the whole subtree), not just the root. `AttachmentTests.PurgingATrashedItem_ThroughTheCleanupSeam_RemovesItsFileAndRow` simulates this; switch it to the real purge and tick ticket 38's purge criterion.
+
+**2026-11-06, implementation (`feature/trash-purge-and-retention`):**
+
+- Rules decided here:
+  - **Expiry counts elapsed time since the delete** (`TrashedAtUtc <= now - days`), not whole days in the server time zone, so changing the time zone never moves an expiry. Retention is 30 days by default, 1 to 3650 allowed.
+  - **Purge works per delete**, like restore: purging an item that went with an ancestor is a 400 naming the ancestor. Emptying the Trash purges every delete in every Space.
+  - **Purged items' history is kept.** Each purged item gets a `purged` entry (old value: its title). A surviving item that loses a link records a `link` removal; a link between two purged items records nothing extra.
+  - **Separately deleted children survive their parent's purge** as roots of their Space (with a `parentId` change in their history), still in the Trash and restorable.
+  - **Human-only** is checked in `WorkItemPurgeService` on the caller's account kind (`AgentPurgeException`, 403). The expiry job records as the system actor and never reads the caller.
+  - In the app, a 404 on purging one item counts as done, since the expiry job may have got there first.
+- `TrashPurgeWorker` runs at startup and hourly, like `RecurrenceGenerationWorker`.
+- Left as follow-ups from code review: `TrashPurgeWorker` and `RecurrenceGenerationWorker` could share an hourly-worker base; purge and restore repeat the same trash-root guard; the 1 to 3650 range is repeated in the Flutter model; and `showNameDialog` now also edits a number, so it deserves a more general name.

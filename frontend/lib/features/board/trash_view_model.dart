@@ -4,7 +4,7 @@ import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/board/data/trash_repository.dart';
 import 'package:weaver/features/board/models/trashed_work_item.dart';
 
-/// The board's Trash tab: each delete, with restore. Separate from
+/// The board's Trash tab: each delete, with restore and purge. Separate from
 /// `BoardViewModel` because it shares none of the board's scope or filters.
 @injectable
 class TrashViewModel extends ViewModel {
@@ -25,7 +25,7 @@ class TrashViewModel extends ViewModel {
   bool get isLoading => _isLoading && !_hasLoaded;
   String? get loadError => _loadError;
 
-  /// Why the last restore failed, for a snackbar; cleared by
+  /// Why the last restore or purge failed, for a snackbar; cleared by
   /// [clearActionError].
   String? get actionError => _actionError;
 
@@ -54,11 +54,7 @@ class TrashViewModel extends ViewModel {
   Future<bool> restore(String workItemId) async {
     try {
       await _repository.restore(workItemId);
-      _items = [
-        for (final item in _items)
-          if (item.workItemId != workItemId) item,
-      ];
-      notifyIfActive();
+      _removeItem(workItemId);
       return true;
     } on ApiException catch (e) {
       // A 400 says which item to restore instead, which the user needs.
@@ -70,5 +66,56 @@ class TrashViewModel extends ViewModel {
     }
   }
 
+  /// True when the item, and everything deleted with it, is gone for good.
+  Future<bool> purge(String workItemId) async {
+    try {
+      await _repository.purge(workItemId);
+      _removeItem(workItemId);
+      return true;
+    } on ApiException catch (e) {
+      // Already purged, e.g. by retention, so the row is just stale.
+      if (e.statusCode == 404) {
+        _removeItem(workItemId);
+        return true;
+      }
+      _reportActionError(
+        e,
+        'Could not delete this item permanently. Try again.',
+      );
+      return false;
+    }
+  }
+
+  /// True when the Trash, in every Space, is empty.
+  Future<bool> emptyTrash() async {
+    try {
+      await _repository.empty();
+      _items = const [];
+      notifyIfActive();
+      return true;
+    } on ApiException catch (e) {
+      _reportActionError(e, 'Could not empty the Trash. Try again.');
+      return false;
+    }
+  }
+
   void clearActionError() => _actionError = null;
+
+  void _removeItem(String workItemId) {
+    _items = [
+      for (final item in _items)
+        if (item.workItemId != workItemId) item,
+    ];
+    notifyIfActive();
+  }
+
+  /// A 400 says which item to purge instead and a 403 that this account
+  /// may not purge, both of which the user needs.
+  void _reportActionError(ApiException error, String fallback) {
+    _actionError = switch (error.statusCode) {
+      400 || 403 => error.message,
+      _ => fallback,
+    };
+    notifyIfActive();
+  }
 }

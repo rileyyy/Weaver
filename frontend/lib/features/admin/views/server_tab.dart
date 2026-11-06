@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:weaver/features/admin/server_settings_admin_view_model.dart';
 import 'package:weaver/features/admin/widgets/admin_list_frame.dart';
 import 'package:weaver/features/admin/widgets/name_dialog.dart';
+import 'package:weaver/features/admin/widgets/trash_retention_tile.dart';
 import 'package:weaver/shared/widgets/load_error_view.dart';
 
 /// Settings that apply to the whole server, one row each.
@@ -31,7 +32,14 @@ class ServerTab extends StatelessWidget {
             ),
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              children: [_timeZoneTile(context)],
+              children: [
+                _timeZoneTile(context),
+                if (viewModel.trashRetentionDays case final days?)
+                  TrashRetentionTile(
+                    days: days,
+                    onSave: viewModel.setTrashRetention,
+                  ),
+              ],
             ),
           ),
         );

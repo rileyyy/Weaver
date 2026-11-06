@@ -45,6 +45,11 @@ the API.
 - **Markdown and checklists.** Descriptions and comments render Markdown.
   `- [ ]` task lines in a description are checkboxes you can tick, for
   checklists and shopping lists.
+- **Trash.** Deleting a work item moves it and its sub-items to the
+  Trash, from which they can be restored. Items are purged for good once
+  they've been there longer than the retention period (30 days unless an
+  admin changes it), and a person can purge one or empty the Trash by
+  hand. Agents can list and restore the Trash but not purge it.
 - **Change history.** Every change to a work item is recorded: who made it
   (agents are marked, with the key and actor label they used), when, and
   the old and new value. The detail dialog's History tab lists it, and it
@@ -191,6 +196,14 @@ sections.
 
 The image sets `ASPNETCORE_HTTP_PORTS=8080` and
 `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true`; don't override them.
+
+**Server settings.** Some settings live in the database rather than the
+environment, and an admin changes them on the Admin page's Server tab:
+
+| Setting | Default | Purpose |
+| ------- | ------- | ------- |
+| Time zone | `UTC` | The IANA time zone that defines "today", e.g. when a repeating item's next occurrence is due. |
+| Trash retention | 30 days | How long a deleted work item stays in the Trash before it's purged for good, with its comments, links and attachment files. Counted from the moment it was deleted. A background job checks hourly. |
 
 **Example compose (`.env`).** `compose.yaml` builds the services'
 environment from these. The required ones ship empty in `.env.example` on

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// Asks before an account change that is hard to undo. True means go ahead.
-Future<bool> confirmAdminAction(
+/// Asks before a change that is hard or impossible to undo. True means go
+/// ahead.
+Future<bool> confirmAction(
   BuildContext context, {
   required String title,
   required String message,

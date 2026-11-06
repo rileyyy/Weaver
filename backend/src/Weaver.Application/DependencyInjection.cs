@@ -14,6 +14,7 @@ public static class DependencyInjection
         services
             .AddScoped<IWorkItemService, WorkItemService>()
             .AddScoped<IWorkItemTrashService, WorkItemTrashService>()
+            .AddScoped<IWorkItemPurgeService, WorkItemPurgeService>()
             .AddScoped<IAuthService, AuthService>()
             .AddScoped<IUserService, UserService>()
             .AddScoped<IAdminAuthorizer, AdminAuthorizer>()

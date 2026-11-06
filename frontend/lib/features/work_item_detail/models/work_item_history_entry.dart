@@ -77,6 +77,7 @@ class WorkItemHistoryEntry {
       'created' => 'Created "$newText"',
       'deleted' => 'Deleted "$oldText"',
       'restored' => 'Restored "$newText" from the Trash',
+      'purged' => 'Permanently deleted "$oldText" from the Trash',
       'comment' => _verbed('a comment', 'Added', 'Edited', 'Deleted'),
       'link' when oldValue == null => 'Linked${_link(newValue, newName)}',
       'link' => 'Unlinked${_link(oldValue, oldName)}',

@@ -63,4 +63,49 @@ void main() {
     expect(find.byType(AlertDialog), findsOneWidget);
     expect(find.text('Not a known IANA time zone.'), findsOneWidget);
   });
+
+  testWidgets('shows the Trash retention and what it does', (tester) async {
+    await tester.pumpWidget(_host(ServerTab(viewModel: viewModel)));
+
+    expect(find.text('Trash retention'), findsOneWidget);
+    expect(find.text('30 days'), findsOneWidget);
+    expect(find.textContaining('permanently deleted after'), findsOneWidget);
+  });
+
+  testWidgets('changing the Trash retention saves it and shows the new one', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host(ServerTab(viewModel: viewModel)));
+
+    await tester.tap(find.byTooltip('Change Trash retention'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '90');
+    await tester.pump();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(repository.calls.last, 'setTrashRetention 90');
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('90 days'), findsOneWidget);
+  });
+
+  testWidgets('an out-of-range retention keeps the dialog open with why', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host(ServerTab(viewModel: viewModel)));
+    await tester.tap(find.byTooltip('Change Trash retention'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '0');
+    await tester.pump();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(
+      find.text('Enter a whole number of days from 1 to 3650.'),
+      findsOneWidget,
+    );
+    expect(repository.calls, ['get']);
+  });
 }
