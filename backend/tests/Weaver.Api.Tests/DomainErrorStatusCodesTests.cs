@@ -21,6 +21,7 @@ public class DomainErrorStatusCodesTests
     [TestCase(DomainErrorKind.Conflict, StatusCodes.Status409Conflict)]
     [TestCase(DomainErrorKind.Unauthorized, StatusCodes.Status401Unauthorized)]
     [TestCase(DomainErrorKind.Forbidden, StatusCodes.Status403Forbidden)]
+    [TestCase(DomainErrorKind.TooLarge, StatusCodes.Status413PayloadTooLarge)]
     public void Kind_MapsToItsStatus(DomainErrorKind kind, int expected)
     {
         Assert.That(DomainErrorStatusCodes.For(kind), Is.EqualTo(expected));

@@ -16,3 +16,8 @@
 **2026-11-02, from ticket 10 (change history with actor):**
 
 - `IWorkItemHistoryService.ListForWorkItemAsync` already returns an item's history newest first with account name and kind, key label, actor label, raw JSON values and names for id values; the `history` include can reuse it (and `WorkItemHistoryEntryDto`).
+
+
+**2026-11-05, from ticket 38 (attachments):**
+
+- Ticket 38 asks that `get_work_item_context` can include attachments. `IWorkItemAttachmentService.ListForWorkItemAsync` returns the metadata (`AttachmentDto` over MCP); include metadata only and let the agent fetch content with `get_work_item_attachment`, which caps a fetch at 5 MiB. Tick ticket 38's MCP criterion once it's in.

@@ -466,6 +466,42 @@ namespace Weaver.Infrastructure.Migrations
                     b.ToTable("WorkItems");
                 });
 
+            modelBuilder.Entity("Weaver.Domain.WorkItemAttachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("UploadedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WorkItemId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UploadedByUserId");
+
+                    b.HasIndex("WorkItemId");
+
+                    b.ToTable("WorkItemAttachments");
+                });
+
             modelBuilder.Entity("Weaver.Domain.WorkItemHistoryEntry", b =>
                 {
                     b.Property<long>("Id")
@@ -787,6 +823,24 @@ namespace Weaver.Infrastructure.Migrations
                     b.Navigation("Status");
 
                     b.Navigation("Type");
+                });
+
+            modelBuilder.Entity("Weaver.Domain.WorkItemAttachment", b =>
+                {
+                    b.HasOne("Weaver.Domain.User", "UploadedByUser")
+                        .WithMany()
+                        .HasForeignKey("UploadedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Weaver.Domain.WorkItem", "WorkItem")
+                        .WithMany()
+                        .HasForeignKey("WorkItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("UploadedByUser");
+
+                    b.Navigation("WorkItem");
                 });
 
             modelBuilder.Entity("Weaver.Domain.WorkItemHistoryEntry", b =>

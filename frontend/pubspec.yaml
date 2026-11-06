@@ -9,6 +9,7 @@ environment:
 
 dependencies:
   cupertino_icons: ^1.0.8
+  file_picker: ^13.3.2
   flutter:
     sdk: flutter
   # The maintained fork of flutter_markdown, which Google discontinued.
@@ -20,8 +21,11 @@ dependencies:
   flutter_secure_storage: ^10.3.4
   get_it: ^9.2.1
   http: ^1.6.0
+  http_parser: ^4.1.2
   injectable: ^2.5.0
   markdown: ^7.3.1
+  mime: ^2.1.0
+  path: ^1.9.1
   url_launcher: ^6.3.3
 
 dev_dependencies:

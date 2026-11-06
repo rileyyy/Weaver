@@ -38,6 +38,11 @@ RUN apk add --no-cache tzdata
 
 COPY --from=build /app .
 
+# The default Attachments__Path. An empty named volume mounted here copies
+# this directory's ownership, so the non-root user below can write to it;
+# without it the volume would be root-owned and every upload would fail.
+RUN mkdir -p /data/attachments && chown "$APP_UID" /data/attachments
+
 # $APP_UID is defined by the base image; running as that non-root user is
 # the current officially recommended pattern for .NET container images.
 USER $APP_UID

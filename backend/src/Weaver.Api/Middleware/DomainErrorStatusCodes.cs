@@ -12,6 +12,7 @@ public static class DomainErrorStatusCodes
         DomainErrorKind.Conflict => StatusCodes.Status409Conflict,
         DomainErrorKind.Unauthorized => StatusCodes.Status401Unauthorized,
         DomainErrorKind.Forbidden => StatusCodes.Status403Forbidden,
+        DomainErrorKind.TooLarge => StatusCodes.Status413PayloadTooLarge,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "No HTTP status for this kind."),
     };
 }

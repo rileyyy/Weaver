@@ -127,7 +127,8 @@ void main() {
         throwsA(
           isA<ApiException>()
               .having((e) => e.statusCode, 'statusCode', 400)
-              .having((e) => e.message, 'message', 'Title is required. (400).'),
+              .having((e) => e.message, 'message', 'Title is required. (400).')
+              .having((e) => e.detail, 'detail', 'Title is required.'),
         ),
       );
     },
@@ -139,11 +140,9 @@ void main() {
     await expectLater(
       api.delete('/x', failureMessage: 'Failed to delete'),
       throwsA(
-        isA<ApiException>().having(
-          (e) => e.message,
-          'message',
-          'Failed to delete (502).',
-        ),
+        isA<ApiException>()
+            .having((e) => e.message, 'message', 'Failed to delete (502).')
+            .having((e) => e.detail, 'detail', isNull),
       ),
     );
   });
@@ -192,6 +191,29 @@ void main() {
     await expectLater(
       api.get('/x', (json) => json, failureMessage: 'Failed'),
       throwsA(isA<UnexpectedResponseException>()),
+    );
+  });
+
+  test('an upload to an unreachable server throws NetworkException', () async {
+    final api = _client((_) async => throw http.ClientException('refused'));
+
+    await expectLater(
+      api.postMultipart(
+        '/x',
+        [http.MultipartFile.fromString('file', 'hi', filename: 'a.txt')],
+        (json) => json,
+        failureMessage: 'Failed',
+      ),
+      throwsA(isA<NetworkException>()),
+    );
+  });
+
+  test('a download to an unreachable server throws NetworkException', () async {
+    final api = _client((_) async => throw http.ClientException('refused'));
+
+    await expectLater(
+      api.getBytes('/x', failureMessage: 'Failed'),
+      throwsA(isA<NetworkException>()),
     );
   });
 }

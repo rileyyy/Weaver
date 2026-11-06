@@ -88,6 +88,15 @@ by*. A blocks link is stored once and each side reads it from its own view
 most one link. A **URL link** points outside Weaver instead (a PR, a quote,
 a product page), with an optional label.
 
+**Attachment**
+: A file on a work item. The file is stored under the attachments path,
+apart from the database, so it can live on other storage and must be
+backed up separately. An item's attachments are kept while it is in the
+Trash and removed when it is purged. Agents can list and fetch them but
+not upload or delete them.
+_Avoid:_ "upload" or "document" as a name for the attachment itself. "File"
+is fine for the bytes it holds ("Attach file").
+
 **Dependency conflict** *(planned)*
 : A blocked item scheduled to start before its blocker ends. Weaver flags it
 and never reschedules anything automatically.
@@ -109,7 +118,8 @@ from the item itself.
 
 **Trash**
 : Where deleted work items wait until the retention period ends. Every
-normal read leaves them out. Humans and read-write agents can restore from
+normal read leaves them out. Their comments, links and attachments are
+kept until they're purged. Humans and read-write agents can restore from
 it; only humans can purge it (retention and purge are planned).
 
 **Agent account**

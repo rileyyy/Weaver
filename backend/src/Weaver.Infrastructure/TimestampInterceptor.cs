@@ -8,6 +8,10 @@ namespace Weaver.Infrastructure;
 /// Sets <see cref="IHasCreatedAt.CreatedAtUtc"/> on insert and <see cref="IHasUpdatedAt.UpdatedAtUtc"/>
 /// on insert and update, from one clock, just before each save.
 /// </summary>
+/// <remarks>
+/// The time is cut to whole microseconds, the precision Postgres keeps, so the value an entity
+/// holds after saving (and returns to the client that made it) is the one every later read sees.
+/// </remarks>
 public class TimestampInterceptor(TimeProvider clock) : SaveChangesInterceptor
 {
     private readonly TimeProvider _clock = clock;
@@ -34,7 +38,7 @@ public class TimestampInterceptor(TimeProvider clock) : SaveChangesInterceptor
             return;
         }
 
-        var now = _clock.GetUtcNow();
+        var now = ToMicroseconds(_clock.GetUtcNow());
         foreach (var entry in context.ChangeTracker.Entries<IHasCreatedAt>())
         {
             if (entry.State == EntityState.Added)
@@ -48,4 +52,7 @@ public class TimestampInterceptor(TimeProvider clock) : SaveChangesInterceptor
             }
         }
     }
+
+    private static DateTimeOffset ToMicroseconds(DateTimeOffset time) =>
+        time.AddTicks(-(time.Ticks % TimeSpan.TicksPerMicrosecond));
 }

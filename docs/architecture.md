@@ -1456,6 +1456,11 @@ from tsdproxy ([ADR-0008](adr/0008-images-first-deployment.md)).
   names across releases), so long-caching any of it could mix versions
   after a deploy. Revalidation is a cheap 304 via ETag. `/api` and `/mcp`
   responses keep their own headers.
+- **`/api/` accepts request bodies up to 30 MiB**, up from nginx's 1 MB
+  default, to fit the 25 MiB default attachment limit plus multipart
+  overhead. Raising `Attachments__MaxFileSizeMegabytes` past about 29
+  needs this raised too. Other paths keep the 1 MB default, so nginx
+  doesn't buffer large bodies to disk where nothing takes them.
 - Unknown paths fall back to `index.html` for client-side routing.
 
 ### Backend image
@@ -1466,6 +1471,12 @@ from tsdproxy ([ADR-0008](adr/0008-images-first-deployment.md)).
   keeps the image small; it's a JSON API with no locale-aware formatting
   (that's the client's job). Revisit if the backend ever formats for
   locales itself, e.g. exports.
+- **Its only state is the attachments path** (`Attachments__Path`,
+  default `/data/attachments`). The image creates that directory owned by
+  `$APP_UID`, because an empty named volume copies the ownership of the
+  directory it's mounted over; otherwise the volume would be root-owned
+  and the non-root API couldn't write to it. A host bind mount gets no
+  such copy, so its directory must be owned by that uid (1654).
 
 ### Startup, health and backups
 
@@ -1482,7 +1493,14 @@ from tsdproxy ([ADR-0008](adr/0008-images-first-deployment.md)).
   `postgres:16-alpine`, which already has `pg_dump`. A third-party backup
   image would need the database password, and inline configuration keeps
   the server at `compose.yaml` + `.env`. Schedule, retention and restore
-  are in the README.
+  are in the README. It only dumps Postgres: attachment files aren't in
+  the database, and the deployment must back up the attachments path too
+  (ADR-0008).
+- **Attachments default to a named volume, not a `./attachments` bind
+  like `BACKUP_DIR`.** Docker creates a missing bind directory as root,
+  which the non-root backend can't write to, while a named volume takes
+  the image's ownership. `ATTACHMENTS_DIR` accepts a host path for
+  deployments that want the files on other storage.
 - **A stale backup makes the `backup` service unhealthy.** A failed dump
   only logs and the loop carries on, so the container would otherwise look
   fine indefinitely. Its healthcheck fails once the newest daily dump is

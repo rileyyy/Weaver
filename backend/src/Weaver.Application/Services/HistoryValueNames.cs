@@ -7,8 +7,8 @@ namespace Weaver.Application.Services;
 
 /// <summary>
 /// Names for the ids history values hold (a Space, status, type, priority, user or another
-/// work item, or a custom field's option or user), for URL links (the label, or the URL), and
-/// for the custom fields themselves, so readers don't each have to look them up. Looked up
+/// work item, or a custom field's option or user), for URL links (the label, or the URL), for
+/// attachments (the file name), and for the custom fields themselves, so readers don't each have to look them up. Looked up
 /// when read, so an id whose row is gone since has no name and readers fall back to the raw
 /// value.
 /// </summary>
@@ -92,7 +92,12 @@ internal sealed class HistoryValueNames
 
         if (field == WorkItemHistoryField.UrlLink)
         {
-            return UrlLinkName(valueJson);
+            return NameInObject(valueJson, "label", "url");
+        }
+
+        if (field == WorkItemHistoryField.Attachment)
+        {
+            return NameInObject(valueJson, "fileName");
         }
 
         return KindByField.TryGetValue(field, out var kind) && IdIn(valueJson) is { } id
@@ -159,7 +164,8 @@ internal sealed class HistoryValueNames
         return value.ValueKind == JsonValueKind.String && value.TryGetGuid(out var id) ? id : null;
     }
 
-    private static string? UrlLinkName(string? valueJson)
+    /// <summary>The first of <paramref name="properties"/> that holds text, in an object value.</summary>
+    private static string? NameInObject(string? valueJson, params string[] properties)
     {
         if (valueJson is null)
         {
@@ -172,7 +178,7 @@ internal sealed class HistoryValueNames
             return null;
         }
 
-        return TextProperty(value, "label") ?? TextProperty(value, "url");
+        return properties.Select(name => TextProperty(value, name)).FirstOrDefault(name => name is not null);
     }
 
     private static string? TextProperty(JsonElement value, string name) =>

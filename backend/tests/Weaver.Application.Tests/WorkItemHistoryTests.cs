@@ -1,5 +1,7 @@
 using static Weaver.Application.Tests.Patches;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Weaver.Application.Attachments;
 using Weaver.Application.Auth;
 using Weaver.Application.Services;
 using Weaver.Domain;
@@ -370,6 +372,41 @@ public class WorkItemHistoryTests
     }
 
     [Test]
+    public async Task Attachments_RecordAddAndRemoveWithTheIdAndFileName_NamedByTheFileName()
+    {
+        var attachments = AttachmentService();
+        var item = await CreateAsync("Item");
+
+        var added = await attachments.AddAsync(item.Id, "report.pdf", "application/pdf", new MemoryStream([1, 2, 3]));
+        await attachments.DeleteAsync(added.Id);
+
+        var value = $"{{\"id\":\"{added.Id}\",\"fileName\":\"report.pdf\"}}";
+        var entries = (await _history.ListForWorkItemAsync(item.Id)).Take(2).ToList();
+        Assert.Multiple(async () =>
+        {
+            Assert.That(await ChangesAsync(item.Id), Is.EqualTo(new[]
+            {
+                (WorkItemHistoryField.Attachment, (string?)value, (string?)null),
+                (WorkItemHistoryField.Attachment, null, value),
+            }));
+            Assert.That(entries[0].OldName, Is.EqualTo("report.pdf"));
+            Assert.That(entries[1].NewName, Is.EqualTo("report.pdf"));
+        });
+    }
+
+    [Test]
+    public async Task Attachment_ThatFails_RecordsNothing()
+    {
+        var attachments = AttachmentService();
+        var item = await CreateAsync("Item");
+
+        Assert.ThrowsAsync<DomainValidationException>(() =>
+            attachments.AddAsync(item.Id, "empty.txt", "text/plain", new MemoryStream()));
+
+        Assert.That(await ChangesAsync(item.Id), Is.Empty);
+    }
+
+    [Test]
     public async Task Recurrence_RecordsStartingChangingAndStoppingWithTheSchedule()
     {
         var recurrences = RecurrenceService();
@@ -498,6 +535,9 @@ public class WorkItemHistoryTests
 
     private UserAdministrationService UserAdministration() =>
         new(_db, new AdminAuthorizer(_db), new CountingPasswordHasher(), _clock, _caller);
+
+    private WorkItemAttachmentService AttachmentService() =>
+        new(_db, _caller, new InMemoryAttachmentStore(), Options.Create(new AttachmentOptions()));
 
     private WorkItemRecurrenceService RecurrenceService() => new(
         _db,

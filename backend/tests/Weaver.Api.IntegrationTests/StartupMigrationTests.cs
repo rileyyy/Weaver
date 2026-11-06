@@ -18,6 +18,19 @@ namespace Weaver.Api.IntegrationTests;
 [TestFixture]
 public class StartupMigrationTests
 {
+    // Not the production default (/data/attachments), which a CI runner can't create.
+    private static readonly string AttachmentsPath =
+        Path.Combine(Path.GetTempPath(), "weaver-startup-attachments-" + Guid.NewGuid().ToString("N"));
+
+    [OneTimeTearDown]
+    public void DeleteAttachments()
+    {
+        if (Directory.Exists(AttachmentsPath))
+        {
+            Directory.Delete(AttachmentsPath, recursive: true);
+        }
+    }
+
     [Test]
     public async Task ByDefault_StartupAppliesEveryMigration()
     {
@@ -71,6 +84,7 @@ public class StartupMigrationTests
             builder.UseEnvironment("Production");
             builder.UseSetting("ConnectionStrings:Weaver", connectionString);
             builder.UseSetting("Jwt:SigningKey", "integration-test-signing-key-that-is-long-enough");
+            builder.UseSetting("Attachments:Path", AttachmentsPath);
             if (migrateOnStartup is not null)
             {
                 builder.UseSetting(DatabaseMigrations.MigrateOnStartupSetting, migrateOnStartup);

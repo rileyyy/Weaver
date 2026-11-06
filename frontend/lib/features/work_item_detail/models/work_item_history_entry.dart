@@ -83,6 +83,9 @@ class WorkItemHistoryEntry {
       'urlLink' when oldValue == null =>
         'Added URL link ${_urlLink(newValue, newName)}',
       'urlLink' => 'Removed URL link ${_urlLink(oldValue, oldName)}',
+      'attachment' when oldValue == null =>
+        'Added attachment ${_attachment(newValue, newName)}',
+      'attachment' => 'Removed attachment ${_attachment(oldValue, oldName)}',
       // Recorded alongside 'created', saying where the item started.
       'spaceId' when oldValue == null => 'In Space $newText',
       'recurrence' => _verbed(
@@ -121,6 +124,13 @@ class WorkItemHistoryEntry {
     if (name != null) return name;
     if (value is! Map) return _text(value, null);
     return '${value['label'] ?? value['url']}';
+  }
+
+  /// Attachments record `{ id, fileName }`.
+  static String _attachment(Object? value, String? name) {
+    if (name != null) return name;
+    if (value is! Map) return _text(value, null);
+    return '${value['fileName']}';
   }
 
   /// Mirrors the backend's `WorkItemField.CustomFieldPrefix`.
