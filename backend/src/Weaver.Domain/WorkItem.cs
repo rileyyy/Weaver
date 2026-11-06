@@ -395,6 +395,21 @@ public class WorkItem : IHasUpdatedAt
     /// </summary>
     public IReadOnlyList<FieldChange> MoveToSpace(Guid spaceId, WorkItem? parent, double rank, SpaceMoveValues values)
     {
+        EnsureCanMoveToSpace(spaceId, parent);
+
+        var changed = new ChangedFields();
+        SpaceId = changed.Set(WorkItemField.SpaceId, SpaceId, spaceId);
+        ParentId = changed.Set(WorkItemField.ParentId, ParentId, parent?.Id);
+        Rank = changed.Set(WorkItemField.Rank, Rank, rank);
+        return [.. changed.Changes, .. TakeSpaceValues(values)];
+    }
+
+    /// <summary>
+    /// The checks <see cref="MoveToSpace"/> makes, for a caller that wants to reject a move
+    /// before loading the subtree and working out its mapping.
+    /// </summary>
+    public void EnsureCanMoveToSpace(Guid spaceId, WorkItem? parent)
+    {
         if (spaceId == SpaceId)
         {
             throw new DomainValidationException(
@@ -405,12 +420,6 @@ public class WorkItem : IHasUpdatedAt
         {
             throw new CrossSpaceParentException(Id, parent.Id);
         }
-
-        var changed = new ChangedFields();
-        SpaceId = changed.Set(WorkItemField.SpaceId, SpaceId, spaceId);
-        ParentId = changed.Set(WorkItemField.ParentId, ParentId, parent?.Id);
-        Rank = changed.Set(WorkItemField.Rank, Rank, rank);
-        return [.. changed.Changes, .. TakeSpaceValues(values)];
     }
 
     /// <summary>

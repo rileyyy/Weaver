@@ -28,7 +28,7 @@ public class WorkItemTrashService(
             throw new WorkItemVersionConflictException(item.Id);
         }
 
-        var descendantIds = await _hierarchy.GetDescendantIdsAsync(id, ct);
+        var descendantIds = await _hierarchy.GetDescendantIdsAsync(id, ct: ct);
         var descendants = await _db.WorkItems.Where(w => descendantIds.Contains(w.Id)).ToListAsync(ct);
         if (descendants.Count > 0 && !cascade)
         {
