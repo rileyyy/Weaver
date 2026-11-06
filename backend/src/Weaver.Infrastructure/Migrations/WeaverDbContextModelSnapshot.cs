@@ -118,6 +118,9 @@ namespace Weaver.Infrastructure.Migrations
                     b.Property<int>("Order")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("RollsUp")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid>("TypeId")
                         .HasColumnType("uuid");
 
