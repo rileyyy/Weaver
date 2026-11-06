@@ -16,4 +16,11 @@ public sealed record SpaceMoveMaps(
         new Dictionary<Guid, Guid>(),
         new Dictionary<Guid, Guid?>(),
         new Dictionary<Guid, Guid?>());
+
+    /// <summary>Maps as REST and MCP receive them, where a map left out means none.</summary>
+    public static SpaceMoveMaps From(
+        IReadOnlyDictionary<Guid, Guid>? statuses,
+        IReadOnlyDictionary<Guid, Guid?>? types,
+        IReadOnlyDictionary<Guid, Guid?>? priorities) =>
+        new(statuses ?? None.Statuses, types ?? None.Types, priorities ?? None.Priorities);
 }
