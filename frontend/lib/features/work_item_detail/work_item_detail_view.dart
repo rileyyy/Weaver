@@ -15,6 +15,7 @@ import 'package:weaver/features/work_item_detail/widgets/history_tab.dart';
 import 'package:weaver/features/work_item_detail/widgets/links_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/parent_field.dart';
 import 'package:weaver/features/work_item_detail/widgets/repeat_section.dart';
+import 'package:weaver/features/work_item_detail/widgets/roll_ups_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/schedule_fields.dart';
 import 'package:weaver/features/work_item_detail/widgets/sub_items_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/tags_editor.dart';
@@ -496,7 +497,12 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
           fields: _viewModel.customFields,
           values: item.fields,
           users: _viewModel.users,
+          rollUpFor: _viewModel.rollUpFor,
           onSave: _viewModel.saveCustomField,
+        ),
+        RollUpsSection(
+          rollUps: _viewModel.otherRollUps,
+          typeNameFor: _viewModel.typeNameFor,
         ),
         Text(
           'Created ${formatDate(item.createdAt)} · '

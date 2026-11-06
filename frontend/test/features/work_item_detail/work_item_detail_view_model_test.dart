@@ -17,6 +17,7 @@ import 'package:weaver/shared/data/current_user.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/models/custom_field.dart';
 import 'package:weaver/shared/models/custom_field_kind.dart';
+import 'package:weaver/shared/models/roll_up.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item.dart';
@@ -94,6 +95,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   final List<(String, String?)> addUrlLinkCalls = [];
   final List<String> allSpacesSearchCalls = [];
   List<WorkItemChildSummary> childrenList = [];
+  List<RollUp> rollUpsList = [];
   int loadCommentsCalls = 0;
   int getItemCalls = 0;
   int loadLinksCalls = 0;
@@ -136,6 +138,9 @@ class _FakeRepository implements WorkItemDetailRepository {
   @override
   Future<List<WorkItemChildSummary>> loadChildren(String parentId) async =>
       List.of(childrenList);
+
+  @override
+  Future<List<RollUp>> loadRollUps(String id) async => List.of(rollUpsList);
 
   @override
   Future<void> deleteItem(
@@ -811,6 +816,61 @@ void main() {
       expect(viewModel.isSaving, isFalse);
     },
   );
+
+  group('roll-ups', () {
+    const budgetTotal = RollUp(
+      fieldId: 'field-budget',
+      fieldName: 'Budget',
+      typeId: 'type-room',
+      kind: CustomFieldKind.currency,
+      total: 450,
+    );
+    const effortTotal = RollUp(
+      fieldId: 'field-effort',
+      fieldName: 'Effort',
+      typeId: 'type-task',
+      kind: CustomFieldKind.number,
+      total: 7.5,
+    );
+
+    Future<WorkItemDetailViewModel> loadedRoom(
+      _FakeRepository repository,
+    ) async {
+      repository
+        ..item = _item(typeId: 'type-room')
+        ..fieldsByType = {
+          'type-room': [_budget],
+        }
+        ..rollUpsList = [budgetTotal, effortTotal];
+      final viewModel = WorkItemDetailViewModel(
+        repository,
+        _currentUser,
+        WorkItemStore(),
+      );
+      await viewModel.load('item-1');
+      return viewModel;
+    }
+
+    test("puts the item's own fields' totals next to those fields, and "
+        "other Types' totals apart", () async {
+      final viewModel = await loadedRoom(_FakeRepository());
+
+      expect(viewModel.rollUpFor('field-budget'), budgetTotal);
+      expect(viewModel.rollUpFor('field-effort'), isNull);
+      expect(viewModel.otherRollUps, [effortTotal]);
+    });
+
+    test('a nested dialog closing reloads the totals', () async {
+      final repository = _FakeRepository();
+      final viewModel = await loadedRoom(repository);
+      repository.rollUpsList = [];
+
+      await viewModel.onNestedDialogClosed(changed: false);
+
+      expect(viewModel.rollUpFor('field-budget'), isNull);
+      expect(viewModel.otherRollUps, isEmpty);
+    });
+  });
 
   group('custom fields', () {
     _FakeRepository roomRepository({

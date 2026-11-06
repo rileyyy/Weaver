@@ -18,6 +18,7 @@ import 'package:weaver/shared/data/work_item_conflict.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/markdown/task_list.dart';
 import 'package:weaver/shared/models/custom_field.dart';
+import 'package:weaver/shared/models/roll_up.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
@@ -45,6 +46,7 @@ class WorkItemDetailViewModel extends ViewModel {
   List<WorkItemLink> _links = const [];
   List<WorkItemUrlLink> _urlLinks = const [];
   List<WorkItemChildSummary> _children = const [];
+  List<RollUp> _rollUps = const [];
   WorkItem? _parent;
   bool _isLoading = true;
   String? _loadError;
@@ -74,6 +76,35 @@ class WorkItemDetailViewModel extends ViewModel {
   List<WorkItemLink> get links => _links;
   List<WorkItemUrlLink> get urlLinks => _urlLinks;
   List<WorkItemChildSummary> get children => _children;
+
+  /// The sub-items' total of [fieldId] when it's one of [customFields], to
+  /// show next to the item's own value; null when no sub-item has a value
+  /// for it, it doesn't roll up, or it's another Type's field.
+  RollUp? rollUpFor(String fieldId) {
+    if (!_isOwnField(fieldId)) return null;
+    for (final rollUp in _rollUps) {
+      if (rollUp.fieldId == fieldId) return rollUp;
+    }
+    return null;
+  }
+
+  /// Totals of fields the item's own Type doesn't have, which only its
+  /// sub-items of other Types hold.
+  List<RollUp> get otherRollUps => [
+    for (final rollUp in _rollUps)
+      if (!_isOwnField(rollUp.fieldId)) rollUp,
+  ];
+
+  bool _isOwnField(String fieldId) =>
+      _customFields.any((field) => field.id == fieldId);
+
+  /// The name of the Type [typeId] among the Space's [types], if loaded.
+  String? typeNameFor(String typeId) {
+    for (final type in _types) {
+      if (type.id == typeId) return type.name;
+    }
+    return null;
+  }
 
   /// The item's parent, for its number and title; null for a top-level
   /// item.
@@ -111,6 +142,7 @@ class WorkItemDetailViewModel extends ViewModel {
   }
 
   static List<AsyncError?> _asyncErrors(Object? errors) => switch (errors) {
+    (final AsyncError? a, final AsyncError? b) => [a, b],
     (final AsyncError? a, final AsyncError? b, final AsyncError? c) => [
       a,
       b,
@@ -160,12 +192,20 @@ class WorkItemDetailViewModel extends ViewModel {
       ).wait;
       // Only the item says which Space's statuses, Types and priorities it
       // can take.
-      final (statuses, types, priorities, customFields, parent) = await (
+      final (
+        statuses,
+        types,
+        priorities,
+        customFields,
+        parent,
+        rollUps,
+      ) = await (
         _repository.loadStatuses(item.spaceId),
         _repository.loadTypes(item.spaceId),
         _repository.loadPriorities(item.spaceId),
         _loadCustomFields(item.typeId),
         _loadParent(item.parentId),
+        _repository.loadRollUps(id),
       ).wait;
       _items.putAll([item], asOf: asOf);
       _itemId = id;
@@ -179,6 +219,7 @@ class WorkItemDetailViewModel extends ViewModel {
       _links = links;
       _urlLinks = urlLinks;
       _children = children;
+      _rollUps = rollUps;
       _parent = parent;
     } on ParallelWaitError<Object?, Object?> catch (e) {
       rethrowNonApiErrors(_asyncErrors(e.errors));
@@ -527,15 +568,22 @@ class WorkItemDetailViewModel extends ViewModel {
   }
 
   /// Called when a nested dialog (a sub-item, or the repeating item that
-  /// created this one) closes. The Sub-Items list is reloaded either way,
-  /// since its titles and statuses may have been edited there; [changed]
-  /// (the nested dialog's own result) marks this dialog as changed too.
+  /// created this one) closes. The Sub-Items list and the roll-ups are
+  /// reloaded either way, since titles, statuses and field values may have
+  /// been edited there; [changed] (the nested dialog's own result) marks
+  /// this dialog as changed too.
   Future<void> onNestedDialogClosed({required bool changed}) async {
     if (changed) _hasChanges = true;
     try {
-      _children = await _repository.loadChildren(_id);
-    } on Exception {
-      // Keep the current list; it only goes stale.
+      final (children, rollUps) = await (
+        _repository.loadChildren(_id),
+        _repository.loadRollUps(_id),
+      ).wait;
+      _children = children;
+      _rollUps = rollUps;
+    } on ParallelWaitError<Object?, Object?> catch (e) {
+      rethrowNonApiErrors(_asyncErrors(e.errors));
+      // Keep the current lists; they only go stale.
     }
     notifyIfActive();
   }

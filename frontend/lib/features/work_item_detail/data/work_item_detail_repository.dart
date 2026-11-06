@@ -7,6 +7,7 @@ import 'package:weaver/features/work_item_detail/models/work_item_link_relation.
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_url_link.dart';
 import 'package:weaver/shared/models/custom_field.dart';
+import 'package:weaver/shared/models/roll_up.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
@@ -19,6 +20,10 @@ abstract class WorkItemDetailRepository {
   /// section — the same `parentId`-scoped `/work-items` query the board
   /// uses for a swimlane's cards.
   Future<List<WorkItemChildSummary>> loadChildren(String parentId);
+
+  /// The item's roll-ups: each rolled-up field's sum over its live
+  /// sub-items, its own Type's fields first.
+  Future<List<RollUp>> loadRollUps(String id);
 
   /// Deletes the work item identified by [id]. If it has children,
   /// [cascade] must be true or the backend rejects the delete — a subtree
