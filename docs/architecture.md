@@ -143,9 +143,17 @@ and it is what allows MCP tools to reuse the same business logic (see
   - **Who deleted it** comes from the latest `deleted` history entry, not a
     column: an account with history can't be hard-deleted, so it's always
     there to name.
-  - Purging, and retention, are ticket 20. Both `WorkItemLink` FKs and the
-    parent FK are `Restrict`, so a purge has to remove links and deal with
-    trashed children of other deletes itself.
+  - **Purge works per delete**, like restore, and only humans can do it:
+    `WorkItemPurgeService` checks the caller's account kind, since a
+    read-write agent passes every write check. Both `WorkItemLink` FKs and
+    the parent FK are `Restrict`, so purge removes links itself (recording
+    a `link` removal on the surviving side) and detaches trashed children
+    of other deletes, which stay restorable as roots. Rows go through
+    `IAttachmentFileCleanup`, so files are deleted only after the rows
+    commit. Each purged item records `purged`; its history is kept.
+  - **Retention** is a `ServerSettings` column (30 days by default),
+    counted as elapsed time since the delete. `TrashPurgeWorker` purges
+    expired deletes hourly as the system actor.
 - **Rank is a fractional `double` scoped to `(SpaceId, ParentId, StatusId)`**
   (the Space so each Space's top-level items rank among themselves), not
   globally unique. Drag-and-drop can insert between two siblings without
@@ -341,7 +349,7 @@ Each Type defines its own fields (ticket 14,
 - **A URL link** (`WorkItemUrlLink`) belongs to one item: an absolute
   http(s) `Url` and an optional `Label`. It cascades with its item like a
   comment, so purging the item removes it; typed links are `Restrict` on
-  both ends and purge has to remove them itself (ticket 20).
+  both ends and purge removes them itself.
 - **`whenResolved` counts a live blocker** (ADR-0003), which is another
   row, so it's computed where items are mapped to `WorkItemDto`:
   `WorkItemDtoMapper` asks `IWorkItemBlockers` once per response, and only

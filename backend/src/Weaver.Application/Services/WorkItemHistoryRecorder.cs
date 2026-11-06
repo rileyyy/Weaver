@@ -23,21 +23,23 @@ internal sealed class WorkItemHistoryRecorder(IWeaverDbContext db, ICallerContex
     /// </summary>
     public void RecordChanges(Guid workItemId, IEnumerable<FieldChange> changes)
     {
-        var actor = (HistoryActor?)null;
-        foreach (var change in changes.Where(c => c.Field != WorkItemField.Rank))
+        var recorded = Recordable(changes).ToList();
+        if (recorded.Count > 0)
         {
-            actor ??= CurrentActor;
-            Add(workItemId, actor, change.Field, change.OldValue, change.NewValue);
+            RecordChanges(workItemId, CurrentActor, recorded);
         }
     }
 
     public void RecordChanges(Guid workItemId, HistoryActor actor, IEnumerable<FieldChange> changes)
     {
-        foreach (var change in changes.Where(c => c.Field != WorkItemField.Rank))
+        foreach (var change in Recordable(changes))
         {
             Add(workItemId, actor, change.Field, change.OldValue, change.NewValue);
         }
     }
+
+    private static IEnumerable<FieldChange> Recordable(IEnumerable<FieldChange> changes) =>
+        changes.Where(c => c.Field != WorkItemField.Rank);
 
     /// <summary>
     /// A new item records its creation (with its title) and the Space it was created in, so

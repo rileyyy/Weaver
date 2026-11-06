@@ -14,7 +14,7 @@ public class WorkItemUrlLinkConfiguration : IEntityTypeConfiguration<WorkItemUrl
         builder.HasIndex(l => l.WorkItemId);
 
         // Cascade like comments: a URL link belongs to its one item, so purging the item
-        // (ticket 20) takes its URL links with it.
+        // takes its URL links with it.
         builder.HasOne(l => l.WorkItem)
             .WithMany()
             .HasForeignKey(l => l.WorkItemId)

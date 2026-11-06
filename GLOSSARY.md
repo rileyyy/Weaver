@@ -120,7 +120,8 @@ from the item itself.
 : Where deleted work items wait until the retention period ends. Every
 normal read leaves them out. Their comments, links and attachments are
 kept until they're purged. Humans and read-write agents can restore from
-it; only humans can purge it (retention and purge are planned).
+it; only humans can purge it, and anything left past the retention period
+is purged automatically.
 
 **Agent account**
 : A user account for one agent runtime (e.g. "Claude Code (desktop)"). It
