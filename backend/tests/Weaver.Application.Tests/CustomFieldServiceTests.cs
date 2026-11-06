@@ -115,7 +115,7 @@ public class CustomFieldServiceTests
         var floor = await _fields.CreateAsync(_admin.Id, _home.Project, "Floor", CustomFieldKind.SingleSelect, ["Oak", "Tiles"]);
         var tiles = floor.Options[1].Id;
 
-        await _fields.UpdateAsync(_admin.Id, floor.Id, "Flooring", [new(tiles, "Stone tiles"), new(null, "Pine")]);
+        await _fields.UpdateAsync(_admin.Id, floor.Id, "Flooring", [new(tiles, "Stone tiles"), new(null, "Pine")], rollsUp: false);
 
         var updated = (await _fields.GetAllAsync(_home.Project)).Single();
         Assert.Multiple(() =>
@@ -136,7 +136,7 @@ public class CustomFieldServiceTests
         await SetAsync(oakRoom, floor, $"\"{oak}\"");
         await SetAsync(tiledRoom, floor, $"\"{tiles}\"");
 
-        await _fields.UpdateAsync(_admin.Id, floor.Id, "Floor", [new(tiles, "Tiles")]);
+        await _fields.UpdateAsync(_admin.Id, floor.Id, "Floor", [new(tiles, "Tiles")], rollsUp: false);
 
         var cleared = (await _history.ListForWorkItemAsync(oakRoom.Id)).First();
         Assert.Multiple(async () =>
@@ -147,6 +147,43 @@ public class CustomFieldServiceTests
             Assert.That(cleared.NewValue, Is.Null);
             Assert.That(cleared.AccountId, Is.EqualTo(_admin.Id));
         });
+    }
+
+    [Test]
+    public async Task CreateAndUpdate_SetWhetherTheFieldRollsUp()
+    {
+        var hours = await _fields.CreateAsync(_admin.Id, _home.Task, "Hours", CustomFieldKind.Number, [], rollsUp: true);
+        var created = (await _fields.GetAllAsync(_home.Task)).Single().RollsUp;
+
+        await _fields.UpdateAsync(_admin.Id, hours.Id, "Hours", [], rollsUp: false);
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That(created, Is.True);
+            Assert.That((await _fields.GetAllAsync(_home.Task)).Single().RollsUp, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task UpdateAsync_TurningOnRollUpForAFieldThatIsntANumber_IsRejected()
+    {
+        var notes = await _fields.CreateAsync(_admin.Id, _home.Task, "Notes", CustomFieldKind.Text, []);
+
+        Assert.ThrowsAsync<DomainValidationException>(() =>
+            _fields.UpdateAsync(_admin.Id, notes.Id, "Notes", [], rollsUp: true));
+    }
+
+    [Test]
+    public async Task GetAllInSpaceAsync_ListsEveryTypesFieldsInThatSpaceOnly()
+    {
+        var garden = TestSpaces.Add(_db, "Garden");
+        await _fields.CreateAsync(_admin.Id, _home.Project, "Budget", CustomFieldKind.Currency, []);
+        await _fields.CreateAsync(_admin.Id, _home.Task, "Hours", CustomFieldKind.Number, []);
+        await _fields.CreateAsync(_admin.Id, garden.Task, "Seeds", CustomFieldKind.Number, []);
+
+        var fields = await _fields.GetAllInSpaceAsync(_home.Id);
+
+        Assert.That(fields.Select(f => f.Name), Is.EquivalentTo(new[] { "Budget", "Hours" }));
     }
 
     [Test]

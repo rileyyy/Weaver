@@ -11,7 +11,11 @@ using Weaver.Domain;
 namespace Weaver.Api.Mcp;
 
 [McpServerToolType]
-public class WorkItemTools(IWorkItemService workItems, WorkItemDtoMapper dtos, HttpCallerContext caller)
+public class WorkItemTools(
+    IWorkItemService workItems,
+    IWorkItemRollUpService rollUps,
+    WorkItemDtoMapper dtos,
+    HttpCallerContext caller)
 {
     private const string PatchDescription =
         "Only the fields you send change: leave a field out to keep it, or send null to clear it. " +
@@ -19,20 +23,24 @@ public class WorkItemTools(IWorkItemService workItems, WorkItemDtoMapper dtos, H
         "null is left out of the returned item, as every empty field is.";
 
     private readonly IWorkItemService _workItems = workItems;
+    private readonly IWorkItemRollUpService _rollUps = rollUps;
     private readonly WorkItemDtoMapper _dtos = dtos;
     private readonly HttpCallerContext _caller = caller;
 
     [McpServerTool(Name = "get_work_item", ReadOnly = true)]
     [Description("Gets a single work item in full detail, by id or by Number (the #N people use). Give exactly " +
         "one of id and number. List and search tools return summaries; use this for the rest of an item. " +
-        "Fields with no value are left out.")]
+        "Fields with no value are left out. rollUps sums each roll-up number or currency field over the " +
+        "item's live descendants, not counting the item's own value (which is in fields); a currency total " +
+        "is in that field's one currency.")]
     public async Task<WorkItemDto> GetWorkItem(
         [Description("The work item's id.")] Guid? id = null,
         [Description("The work item's Number, without the # (123 for #123).")] int? number = null,
         CancellationToken ct = default)
     {
         var item = await FindByIdOrNumberAsync(id, number, ct);
-        return await _dtos.ToDtoAsync(item, ct);
+        var rollUps = await _rollUps.GetAsync(item.Id, ct);
+        return await _dtos.ToDtoAsync(item, ct) with { RollUps = rollUps.Select(RollUpDto.FromTotal).ToList() };
     }
 
     [McpServerTool(Name = "list_work_item_children", ReadOnly = true)]

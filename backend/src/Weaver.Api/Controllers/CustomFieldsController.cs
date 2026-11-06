@@ -30,13 +30,21 @@ public class CustomFieldsController(ICustomFieldService fields) : ControllerBase
         return Ok(fields.Select(CustomFieldDto.FromEntity));
     }
 
+    /// <summary>Every Type's fields in the Space, in each Type's order, for showing the Space's whole tree.</summary>
+    [HttpGet("/api/spaces/{spaceId:guid}/custom-fields")]
+    public async Task<ActionResult<IReadOnlyList<CustomFieldDto>>> GetAllInSpace(Guid spaceId)
+    {
+        var fields = await _fields.GetAllInSpaceAsync(spaceId);
+        return Ok(fields.Select(CustomFieldDto.FromEntity));
+    }
+
     /// <summary>A field has no view of its own, so the Location header points at the list.</summary>
     [HttpPost]
     [ProducesResponseType<CustomFieldDto>(StatusCodes.Status201Created)]
     public async Task<ActionResult<CustomFieldDto>> Create(CreateCustomFieldRequest request)
     {
         var created = await _fields.CreateAsync(
-            User.GetUserId(), request.TypeId, request.Name, request.Kind, request.Options ?? []);
+            User.GetUserId(), request.TypeId, request.Name, request.Kind, request.Options ?? [], request.RollsUp);
         return CreatedAtAction(nameof(GetAll), new { typeId = created.TypeId }, CustomFieldDto.FromEntity(created));
     }
 
@@ -44,7 +52,7 @@ public class CustomFieldsController(ICustomFieldService fields) : ControllerBase
     public async Task<ActionResult<CustomFieldDto>> Update(Guid id, UpdateCustomFieldRequest request)
     {
         var options = (request.Options ?? []).Select(o => new CustomFieldOptionRevision(o.Id, o.Name)).ToList();
-        var updated = await _fields.UpdateAsync(User.GetUserId(), id, request.Name, options);
+        var updated = await _fields.UpdateAsync(User.GetUserId(), id, request.Name, options, request.RollsUp);
         return Ok(CustomFieldDto.FromEntity(updated));
     }
 
