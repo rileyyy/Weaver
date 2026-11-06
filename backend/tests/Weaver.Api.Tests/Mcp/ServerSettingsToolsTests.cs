@@ -22,7 +22,7 @@ public class ServerSettingsToolsTests
 
         var result = await tools.GetServerSettings(CancellationToken.None);
 
-        Assert.That(result, Is.EqualTo(new ServerSettingsDto("Asia/Tokyo")));
+        Assert.That(result, Is.EqualTo(new ServerSettingsDto("Asia/Tokyo", 30)));
     }
 
     // Agents may read admin settings but never change them (ADR-0004).

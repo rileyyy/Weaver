@@ -19,6 +19,7 @@ public class AgentAdminRestrictionTests
         var responses = new Dictionary<string, HttpResponseMessage>
         {
             ["time zone"] = await agent.PutJsonAsync("/api/server-settings/time-zone", new SetTimeZoneRequest("Europe/Berlin")),
+            ["trash retention"] = await agent.PutJsonAsync("/api/server-settings/trash-retention", new SetTrashRetentionRequest(1)),
             ["status"] = await agent.PostJsonAsync("/api/statuses", new CreateStatusRequest(space, "Agent's", StatusCategory.ToDo, "#336699")),
             ["priority"] = await agent.PostJsonAsync("/api/work-item-priorities", new CreatePriorityRequest(space, "Agent's")),
             ["account"] = await agent.PostJsonAsync(

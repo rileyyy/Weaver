@@ -181,6 +181,11 @@ namespace Weaver.Infrastructure.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<int>("TrashRetentionDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(30);
+
                     b.HasKey("Id");
 
                     b.ToTable("ServerSettings", t =>
@@ -192,7 +197,8 @@ namespace Weaver.Infrastructure.Migrations
                         new
                         {
                             Id = 1,
-                            TimeZoneId = "UTC"
+                            TimeZoneId = "UTC",
+                            TrashRetentionDays = 30
                         });
                 });
 

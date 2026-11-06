@@ -15,7 +15,8 @@ public class ServerSettingsTools(IServerSettingsService settings)
     [Description(
         "Gets the server-wide settings. timeZoneId is the IANA time zone (e.g. \"Europe/Berlin\") that " +
         "defines \"today\" for the server, such as when a repeating item's next occurrence is due; " +
-        "use it to interpret relative dates. Only an admin can change these settings, in the app.")]
+        "use it to interpret relative dates. trashRetentionDays is how many days a deleted item stays in the " +
+        "Trash, where it can be restored, before it's purged for good. Only an admin can change these settings, in the app.")]
     public async Task<ServerSettingsDto> GetServerSettings(CancellationToken ct) =>
         ServerSettingsDto.FromEntity(await _settings.GetAsync(ct));
 }

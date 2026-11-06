@@ -12,12 +12,18 @@ public class ServerSettingsService(IWeaverDbContext db, IAdminAuthorizer admins)
     public Task<ServerSettings> GetAsync(CancellationToken ct = default) =>
         _db.ServerSettings.AsNoTracking().SingleAsync(ct);
 
-    public async Task<ServerSettings> SetTimeZoneAsync(Guid actorUserId, string timeZoneId, CancellationToken ct = default)
+    public Task<ServerSettings> SetTimeZoneAsync(Guid actorUserId, string timeZoneId, CancellationToken ct = default) =>
+        ChangeAsync(actorUserId, settings => settings.SetTimeZone(timeZoneId), ct);
+
+    public Task<ServerSettings> SetTrashRetentionAsync(Guid actorUserId, int days, CancellationToken ct = default) =>
+        ChangeAsync(actorUserId, settings => settings.SetTrashRetention(days), ct);
+
+    private async Task<ServerSettings> ChangeAsync(Guid actorUserId, Action<ServerSettings> change, CancellationToken ct)
     {
         await _admins.EnsureAdminAsync(actorUserId, ct);
 
         var settings = await _db.ServerSettings.SingleAsync(ct);
-        settings.SetTimeZone(timeZoneId);
+        change(settings);
         await _db.SaveChangesAsync(ct);
         return settings;
     }
