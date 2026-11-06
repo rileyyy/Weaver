@@ -10,8 +10,8 @@
   - Files are named by attachment id under `Attachments__Path`; the user's filename is display text only. Downloads are always `Content-Disposition: attachment` with `nosniff`.
 - [x] A maximum file size is configurable and enforced; filenames can't escape the attachments path
   - `Attachments__MaxFileSizeMegabytes` (25 by default), enforced while streaming, 413 over it. nginx's `/api/` body limit is 30 MiB, so raising the setting past ~29 also means raising that.
-- [ ] Attachments on trashed items are kept, and their files deleted when the item is purged
-  - Kept: yes, hidden by the Trash filter and back on restore. Purge (ticket 20) isn't built, so nothing purges yet; `IAttachmentFileCleanup.PurgeAsync` is the seam it runs its row deletion through, and an integration test exercises it the way purge will. Tick this when ticket 20 uses it.
+- [x] Attachments on trashed items are kept, and their files deleted when the item is purged
+  - Kept: yes, hidden by the Trash filter and back on restore. Ticket 20's purge runs its row deletion through `IAttachmentFileCleanup.PurgeAsync` with every purged id; `AttachmentTests.PurgingATrashedItem_RemovesItsAndItsSubtreesFilesAndRows` uses the real endpoint (not yet run, no Docker on the implementing machine).
 - [x] Adding and removing attachments is recorded in history
 - [ ] MCP lists attachments and fetches one; `get_work_item_context` can include them
   - `list_work_item_attachments` and `get_work_item_attachment` are done (read-only; text-like files come back as text, others as a base64 blob, capped at 5 MiB). `get_work_item_context` is ticket 30 and doesn't exist yet; the include is handed to it there.
