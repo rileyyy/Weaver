@@ -97,6 +97,30 @@ void main() {
     ]);
   });
 
+  test("loadCustomFields asks for every Type's fields in the Space", () async {
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/spaces/space-home/custom-fields') {
+        return _jsonResponse([
+          {
+            'id': 'field-hours',
+            'typeId': 'type-task',
+            'name': 'Hours',
+            'kind': 'Number',
+            'order': 0,
+            'options': <Object>[],
+            'rollsUp': true,
+          },
+        ]);
+      }
+      throw StateError('Unexpected request: ${request.url}');
+    });
+
+    final fields = await repositoryFor(client).loadCustomFields('space-home');
+
+    expect(fields.single.name, 'Hours');
+    expect(fields.single.rollsUp, isTrue);
+  });
+
   group('createWorkItem', () {
     Future<Map<String, dynamic>> sentBody({required String? parentId}) async {
       late Map<String, dynamic> body;

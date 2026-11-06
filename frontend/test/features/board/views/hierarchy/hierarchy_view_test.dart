@@ -6,6 +6,8 @@ import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/views/hierarchy/hierarchy_layout.dart';
 import 'package:weaver/features/board/views/hierarchy/hierarchy_view.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
+import 'package:weaver/shared/models/custom_field.dart';
+import 'package:weaver/shared/models/custom_field_kind.dart';
 import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
@@ -18,6 +20,19 @@ import '../../../../shared/fakes/work_items.dart';
 const _projectColor = Color(0xFFD81B60);
 
 class _HierarchyOnlyRepository implements BoardRepository {
+  _HierarchyOnlyRepository({this.customFields = const []});
+
+  /// The Space's fields; when there are any, the root and child hold a
+  /// budget.
+  final List<CustomField> customFields;
+
+  @override
+  Future<List<CustomField>> loadCustomFields(String spaceId) async =>
+      customFields;
+
+  Map<String, Object?> _budget(num amount) =>
+      customFields.isEmpty ? const {} : {'field-budget': amount};
+
   @override
   Future<List<Space>> loadSpaces() async => const [
     Space(id: 'home', name: 'Home'),
@@ -48,6 +63,7 @@ class _HierarchyOnlyRepository implements BoardRepository {
       statusId: 'todo',
       typeId: 'project',
       tags: ['urgent', 'design'],
+      fields: _budget(1000),
     ),
     workItem(
       'child',
@@ -55,6 +71,7 @@ class _HierarchyOnlyRepository implements BoardRepository {
       parentId: 'root',
       title: 'Child',
       statusId: 'todo',
+      fields: _budget(250),
     ),
   ];
 
@@ -65,7 +82,66 @@ class _HierarchyOnlyRepository implements BoardRepository {
   dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }
 
+Future<void> _pumpHierarchy(
+  WidgetTester tester,
+  _HierarchyOnlyRepository repository,
+) async {
+  tester.view.physicalSize = const Size(1600, 800);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  final viewModel = BoardViewModel(
+    repository,
+    WorkItemStore(),
+    MemoryLastSpaceStore(),
+  );
+  await viewModel.load();
+  await viewModel.loadHierarchy();
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: HierarchyView(
+          viewModel: viewModel,
+          onItemOpened: (_) {},
+          onAssignRequested: (_, _) {},
+          onAddTagsRequested: (_, _) {},
+        ),
+      ),
+    ),
+  );
+}
+
 void main() {
+  testWidgets("a Totals column shows each item's own value and its "
+      "sub-items' total apart", (tester) async {
+    await _pumpHierarchy(
+      tester,
+      _HierarchyOnlyRepository(
+        customFields: const [
+          CustomField(
+            id: 'field-budget',
+            typeId: 'project',
+            name: 'Budget',
+            kind: CustomFieldKind.currency,
+            order: 0,
+            rollsUp: true,
+          ),
+        ],
+      ),
+    );
+
+    expect(find.text('Totals'), findsOneWidget);
+    expect(find.text('Budget 1000.00 · sub-items 250.00'), findsOneWidget);
+    expect(find.text('Budget 250.00'), findsOneWidget);
+  });
+
+  testWidgets('without a roll-up field there is no Totals column', (
+    tester,
+  ) async {
+    await _pumpHierarchy(tester, _HierarchyOnlyRepository());
+
+    expect(find.text('Totals'), findsNothing);
+  });
+
   testWidgets("a title is underlined in its type's colour", (tester) async {
     final viewModel = BoardViewModel(
       _HierarchyOnlyRepository(),

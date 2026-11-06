@@ -10,6 +10,7 @@ import 'package:weaver/shared/data/space_repository.dart';
 import 'package:weaver/shared/data/status_repository.dart';
 import 'package:weaver/shared/data/type_repository.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
+import 'package:weaver/shared/models/custom_field.dart';
 import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/tag_match.dart';
 import 'package:weaver/shared/models/user.dart';
@@ -71,6 +72,13 @@ class ApiBoardRepository implements BoardRepository {
   @override
   Future<List<WorkItem>> loadAllItems(String spaceId) =>
       queryItems(WorkItemQuery(spaceId: spaceId));
+
+  @override
+  Future<List<CustomField>> loadCustomFields(String spaceId) => _api.get(
+    '/spaces/$spaceId/custom-fields',
+    (json) => JsonApiClient.listOf(json, CustomField.fromJson),
+    failureMessage: "Failed to load the Space's fields",
+  );
 
   /// Pages by the server's cursor, which unlike an offset over Rank can't
   /// skip or repeat items that move mid-load (ADR-0006). The cursor walks

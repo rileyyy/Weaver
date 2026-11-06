@@ -1,5 +1,6 @@
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/board/models/board_data.dart';
+import 'package:weaver/shared/models/custom_field.dart';
 import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
@@ -23,6 +24,10 @@ abstract class BoardRepository {
   /// Every work item in [spaceId], flat — used by the Hierarchy and Roadmap
   /// views to build the Space's full parent/child tree client-side.
   Future<List<WorkItem>> loadAllItems(String spaceId);
+
+  /// Every Type's custom fields in [spaceId]. The Hierarchy sums those that
+  /// roll up over the tree [loadAllItems] gives it.
+  Future<List<CustomField>> loadCustomFields(String spaceId);
 
   /// Every work item matching [query], across all of the server's pages.
   /// The board shows only these while a header filter is set.
