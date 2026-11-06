@@ -3,16 +3,19 @@ import 'package:weaver/core/dates/date_format.dart';
 import 'package:weaver/features/board/models/trashed_work_item.dart';
 import 'package:weaver/shared/models/user_kind.dart';
 
-/// One delete in the Trash tab, with its Restore button.
+/// One delete in the Trash tab, with its Restore and Delete permanently
+/// buttons.
 class TrashedItemTile extends StatelessWidget {
   const TrashedItemTile({
     super.key,
     required this.item,
     required this.onRestore,
+    required this.onPurge,
   });
 
   final TrashedWorkItem item;
   final ValueChanged<TrashedWorkItem> onRestore;
+  final ValueChanged<TrashedWorkItem> onPurge;
 
   @override
   Widget build(BuildContext context) {
@@ -28,10 +31,20 @@ class TrashedItemTile extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(details),
-      trailing: TextButton.icon(
-        icon: const Icon(Icons.restore_from_trash_outlined),
-        label: const Text('Restore'),
-        onPressed: () => onRestore(item),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextButton.icon(
+            icon: const Icon(Icons.restore_from_trash_outlined),
+            label: const Text('Restore'),
+            onPressed: () => onRestore(item),
+          ),
+          IconButton(
+            tooltip: 'Delete permanently',
+            icon: const Icon(Icons.delete_forever_outlined),
+            onPressed: () => onPurge(item),
+          ),
+        ],
       ),
     );
   }

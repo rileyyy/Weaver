@@ -117,4 +117,58 @@ void main() {
       ),
     );
   });
+
+  test('purge deletes the item from the Trash', () async {
+    late http.Request sent;
+    final repository = ApiTrashRepository(
+      MockClient((request) async {
+        sent = request;
+        return http.Response('', 204);
+      }),
+      endpoint,
+    );
+
+    await repository.purge('item-1');
+
+    expect(sent.method, 'DELETE');
+    expect(sent.url.path, '/api/trash/item-1');
+  });
+
+  test("a refused purge surfaces the server's message", () async {
+    final repository = ApiTrashRepository(
+      MockClient(
+        (_) async => http.Response(
+          jsonEncode({'detail': 'Purge its parent instead.'}),
+          400,
+          headers: {'content-type': 'application/problem+json'},
+        ),
+      ),
+      endpoint,
+    );
+
+    await expectLater(
+      () => repository.purge('item-1'),
+      throwsA(
+        isA<ApiException>()
+            .having((e) => e.statusCode, 'statusCode', 400)
+            .having((e) => e.message, 'message', contains('Purge its parent')),
+      ),
+    );
+  });
+
+  test('empty deletes the whole Trash', () async {
+    late http.Request sent;
+    final repository = ApiTrashRepository(
+      MockClient((request) async {
+        sent = request;
+        return http.Response('', 204);
+      }),
+      endpoint,
+    );
+
+    await repository.empty();
+
+    expect(sent.method, 'DELETE');
+    expect(sent.url.path, '/api/trash');
+  });
 }

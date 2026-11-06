@@ -25,4 +25,14 @@ class ApiTrashRepository implements TrashRepository {
     null,
     failureMessage: 'Failed to restore the work item',
   );
+
+  @override
+  Future<void> purge(String workItemId) => _api.delete(
+    '/trash/$workItemId',
+    failureMessage: 'Failed to delete the work item permanently',
+  );
+
+  @override
+  Future<void> empty() =>
+      _api.delete('/trash', failureMessage: 'Failed to empty the Trash');
 }

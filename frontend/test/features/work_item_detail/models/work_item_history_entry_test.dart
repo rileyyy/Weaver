@@ -161,6 +161,13 @@ void main() {
       );
     });
 
+    test('a purge names the item it deleted permanently', () {
+      expect(
+        _change(_entryJson(field: 'purged', oldValue: 'Task')),
+        'Permanently deleted "Task" from the Trash',
+      );
+    });
+
     test('comments read as added, edited or deleted', () {
       expect(
         _change(_entryJson(field: 'comment', newValue: 'Looks good')),
