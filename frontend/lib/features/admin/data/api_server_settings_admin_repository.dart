@@ -30,4 +30,12 @@ class ApiServerSettingsAdminRepository
     _settings,
     failureMessage: 'Failed to change the time zone',
   );
+
+  @override
+  Future<AdminServerSettings> setTrashRetention(int days) => _api.put(
+    '/server-settings/trash-retention',
+    {'days': days},
+    _settings,
+    failureMessage: 'Failed to change the Trash retention',
+  );
 }

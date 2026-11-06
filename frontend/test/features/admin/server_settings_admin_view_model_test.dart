@@ -16,8 +16,9 @@ void main() {
 
   tearDown(() => viewModel.dispose());
 
-  test('load shows the stored time zone', () {
+  test('load shows the stored settings', () {
     expect(viewModel.timeZoneId, 'UTC');
+    expect(viewModel.trashRetentionDays, 30);
     expect(viewModel.isLoading, isFalse);
     expect(viewModel.loadError, isNull);
   });
@@ -66,4 +67,50 @@ void main() {
 
     expect(error, 'Could not change the time zone. Try again.');
   });
+
+  test('setTrashRetention saves the days and shows them', () async {
+    final error = await viewModel.setTrashRetention(' 90 ');
+
+    expect(error, isNull);
+    expect(repository.calls.last, 'setTrashRetention 90');
+    expect(viewModel.trashRetentionDays, 90);
+  });
+
+  test('setTrashRetention accepts both ends of the range', () async {
+    expect(await viewModel.setTrashRetention('1'), isNull);
+    expect(await viewModel.setTrashRetention('3650'), isNull);
+    expect(viewModel.trashRetentionDays, 3650);
+  });
+
+  for (final input in ['', 'abc', '0', '3651', '-5', '1.5']) {
+    test('setTrashRetention refuses "$input" without a request', () async {
+      final error = await viewModel.setTrashRetention(input);
+
+      expect(error, 'Enter a whole number of days from 1 to 3650.');
+      expect(repository.calls, ['get']);
+    });
+  }
+
+  test('setTrashRetention reports the server validation message', () async {
+    repository.error = const ApiException(
+      'Only admins can change this.',
+      statusCode: 403,
+    );
+
+    final error = await viewModel.setTrashRetention('90');
+
+    expect(error, 'Only admins can change this.');
+    expect(viewModel.trashRetentionDays, 30);
+  });
+
+  test(
+    'setTrashRetention falls back to a generic message when offline',
+    () async {
+      repository.error = const ApiException('offline', statusCode: 503);
+
+      final error = await viewModel.setTrashRetention('90');
+
+      expect(error, 'Could not change the Trash retention. Try again.');
+    },
+  );
 }

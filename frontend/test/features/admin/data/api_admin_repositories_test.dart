@@ -457,10 +457,16 @@ void main() {
       requests = [];
       final client = MockClient((request) async {
         requests.add(request);
-        final timeZoneId = request.method == 'PUT'
-            ? (jsonDecode(request.body) as Map<String, dynamic>)['timeZoneId']
-            : 'UTC';
-        return http.Response(jsonEncode({'timeZoneId': timeZoneId}), 200);
+        final sent = request.method == 'PUT'
+            ? jsonDecode(request.body) as Map<String, dynamic>
+            : const <String, dynamic>{};
+        return http.Response(
+          jsonEncode({
+            'timeZoneId': sent['timeZoneId'] ?? 'UTC',
+            'trashRetentionDays': sent['days'] ?? 30,
+          }),
+          200,
+        );
       });
       repository = ApiServerSettingsAdminRepository(client, _endpoint);
     });
@@ -471,6 +477,7 @@ void main() {
       expect(requests.single.method, 'GET');
       expect(requests.single.url.path, '/api/server-settings');
       expect(settings.timeZoneId, 'UTC');
+      expect(settings.trashRetentionDays, 30);
     });
 
     test('setTimeZone puts the id to its own sub-resource', () async {
@@ -480,6 +487,15 @@ void main() {
       expect(requests.single.url.path, '/api/server-settings/time-zone');
       expect(jsonDecode(requests.single.body), {'timeZoneId': 'Europe/Berlin'});
       expect(settings.timeZoneId, 'Europe/Berlin');
+    });
+
+    test('setTrashRetention puts the days to its own sub-resource', () async {
+      final settings = await repository.setTrashRetention(90);
+
+      expect(requests.single.method, 'PUT');
+      expect(requests.single.url.path, '/api/server-settings/trash-retention');
+      expect(jsonDecode(requests.single.body), {'days': 90});
+      expect(settings.trashRetentionDays, 90);
     });
   });
 }
