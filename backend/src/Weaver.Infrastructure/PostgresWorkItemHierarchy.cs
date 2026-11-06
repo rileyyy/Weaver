@@ -39,7 +39,13 @@ public class PostgresWorkItemHierarchy(WeaverDbContext db) : IWorkItemHierarchy
                 $"The work item hierarchy contains a cycle through work item {cycle.Id}.");
     }
 
-    public async Task<IReadOnlyList<Guid>> GetDescendantIdsAsync(Guid rootId, bool includeTrashed = false, CancellationToken ct = default) =>
+    public Task<IReadOnlyList<Guid>> GetDescendantIdsAsync(Guid rootId, CancellationToken ct = default) =>
+        DescendantIdsAsync(rootId, includeTrashed: false, ct);
+
+    public Task<IReadOnlyList<Guid>> GetDescendantIdsIncludingTrashAsync(Guid rootId, CancellationToken ct = default) =>
+        DescendantIdsAsync(rootId, includeTrashed: true, ct);
+
+    private async Task<IReadOnlyList<Guid>> DescendantIdsAsync(Guid rootId, bool includeTrashed, CancellationToken ct) =>
         // UNION (not UNION ALL) drops rows already seen, so this terminates even on a corrupt tree.
         // Raw SQL skips EF's Trash filter, so it's repeated here: a subtree trashed on its own
         // earlier isn't part of this one, unless the caller asks for trashed items too.

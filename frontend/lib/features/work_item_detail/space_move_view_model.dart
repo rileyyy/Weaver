@@ -39,6 +39,9 @@ class SpaceMoveViewModel extends ViewModel {
   final Map<String, String?> _priorities = {};
   WorkItem? _parent;
   bool _isLoading = false;
+  // Bumped by each load, so one overtaken by a newer load (the user picked
+  // another Space meanwhile) leaves the state alone.
+  int _loadGeneration = 0;
   bool _isMoving = false;
   String? _error;
 
@@ -63,14 +66,16 @@ class SpaceMoveViewModel extends ViewModel {
   String? typeChoice(String sourceId) => _types[sourceId];
   String? priorityChoice(String sourceId) => _priorities[sourceId];
 
-  Future<void> start(WorkItem item) => _load(() async {
+  Future<void> start(WorkItem item) {
     _item = item;
-    final spaces = await _repository.loadSpaces();
-    _spaces = [
-      for (final space in spaces)
-        if (space.id != item.spaceId) space,
-    ];
-  });
+    return _load(() async {
+      final spaces = await _repository.loadSpaces();
+      return () => _spaces = [
+        for (final space in spaces)
+          if (space.id != item.spaceId) space,
+      ];
+    });
+  }
 
   /// Loads the plan for [spaceId] and starts the choices from its defaults.
   /// A parent picked in another Space doesn't carry over.
@@ -85,22 +90,29 @@ class SpaceMoveViewModel extends ViewModel {
         _repository.loadTypes(spaceId),
         _repository.loadPriorities(spaceId),
       ).wait;
-      // The user may have picked another Space while this one loaded.
-      if (spaceId != _targetSpaceId) return;
-      _plan = plan;
-      _targetStatuses = statuses;
-      _targetTypes = types;
-      _targetPriorities = priorities;
-      _statuses
-        ..clear()
-        ..addAll({for (final m in plan.statuses) m.sourceId: m.targetId!});
-      _types
-        ..clear()
-        ..addAll({for (final m in plan.types) m.sourceId: m.targetId});
-      _priorities
-        ..clear()
-        ..addAll({for (final m in plan.priorities) m.sourceId: m.targetId});
+      return () => _apply(plan, statuses, types, priorities);
     });
+  }
+
+  void _apply(
+    SpaceMovePlan plan,
+    List<WorkItemStatus> statuses,
+    List<WorkItemType> types,
+    List<WorkItemPriority> priorities,
+  ) {
+    _plan = plan;
+    _targetStatuses = statuses;
+    _targetTypes = types;
+    _targetPriorities = priorities;
+    _statuses
+      ..clear()
+      ..addAll({for (final m in plan.statuses) m.sourceId: m.targetId!});
+    _types
+      ..clear()
+      ..addAll({for (final m in plan.types) m.sourceId: m.targetId});
+    _priorities
+      ..clear()
+      ..addAll({for (final m in plan.priorities) m.sourceId: m.targetId});
   }
 
   void chooseStatus(String sourceId, String targetId) =>
@@ -172,29 +184,27 @@ class SpaceMoveViewModel extends ViewModel {
     }
   }
 
-  Future<void> _load(Future<void> Function() load) async {
+  /// [load] fetches and returns how to apply what it fetched, which is
+  /// skipped if a newer load started meanwhile.
+  Future<void> _load(Future<void Function()> Function() load) async {
+    final generation = ++_loadGeneration;
     _isLoading = true;
     _error = null;
     notifyIfActive();
+    String? error;
+    void Function()? apply;
     try {
-      await load();
+      apply = await load();
     } on ApiException {
-      _error = 'Could not load what the move needs. Try again.';
+      error = 'Could not load what the move needs. Try again.';
     } on ParallelWaitError<Object?, Object?> catch (e) {
-      rethrowNonApiErrors(switch (e.errors) {
-        (
-          final AsyncError? a,
-          final AsyncError? b,
-          final AsyncError? c,
-          final AsyncError? d,
-        ) =>
-          [a, b, c, d],
-        _ => const [],
-      });
-      _error = 'Could not load what the move needs. Try again.';
-    } finally {
-      _isLoading = false;
-      notifyIfActive();
+      rethrowNonApiErrors(asyncErrorsOf(e.errors));
+      error = 'Could not load what the move needs. Try again.';
     }
+    if (generation != _loadGeneration) return;
+    apply?.call();
+    _error = error;
+    _isLoading = false;
+    notifyIfActive();
   }
 }

@@ -110,39 +110,6 @@ class WorkItemDetailViewModel extends ViewModel {
     return null;
   }
 
-  static List<AsyncError?> _asyncErrors(Object? errors) => switch (errors) {
-    (final AsyncError? a, final AsyncError? b, final AsyncError? c) => [
-      a,
-      b,
-      c,
-    ],
-    (
-      final AsyncError? a,
-      final AsyncError? b,
-      final AsyncError? c,
-      final AsyncError? d,
-    ) =>
-      [a, b, c, d],
-    (
-      final AsyncError? a,
-      final AsyncError? b,
-      final AsyncError? c,
-      final AsyncError? d,
-      final AsyncError? e,
-    ) =>
-      [a, b, c, d, e],
-    (
-      final AsyncError? a,
-      final AsyncError? b,
-      final AsyncError? c,
-      final AsyncError? d,
-      final AsyncError? e,
-      final AsyncError? f,
-    ) =>
-      [a, b, c, d, e, f],
-    _ => throw StateError('Unexpected parallel wait errors: $errors'),
-  };
-
   Future<void> load(String id) async {
     _isLoading = true;
     _loadError = null;
@@ -181,7 +148,7 @@ class WorkItemDetailViewModel extends ViewModel {
       _children = children;
       _parent = parent;
     } on ParallelWaitError<Object?, Object?> catch (e) {
-      rethrowNonApiErrors(_asyncErrors(e.errors));
+      rethrowNonApiErrors(asyncErrorsOf(e.errors));
       _loadError =
           'Could not load this work item. Check your connection and try again.';
     } finally {

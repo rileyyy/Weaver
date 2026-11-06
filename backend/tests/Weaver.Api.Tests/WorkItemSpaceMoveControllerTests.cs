@@ -25,6 +25,7 @@ public class WorkItemSpaceMoveControllerTests
         id,
         targetSpaceId,
         ItemCount: 3,
+        TrashedItemCount: 1,
         ClearedFieldValueCount: 2,
         Statuses: [new SpaceMoveMapping(Guid.NewGuid(), "To Do", Guid.NewGuid(), "Quoted", 3)],
         Types: [new SpaceMoveMapping(Guid.NewGuid(), "Room", null, null, 1)],

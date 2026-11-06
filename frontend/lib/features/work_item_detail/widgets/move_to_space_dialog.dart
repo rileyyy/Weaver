@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/features/work_item_detail/models/space_move_mapping.dart';
+import 'package:weaver/features/work_item_detail/models/space_move_plan.dart';
 import 'package:weaver/features/work_item_detail/space_move_view_model.dart';
 import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/work_item_picker/work_item_picker_dialog.dart';
@@ -116,7 +117,7 @@ class _MoveToSpaceDialogState extends State<MoveToSpaceDialog> {
     final textTheme = Theme.of(context).textTheme;
     return [
       const SizedBox(height: 12),
-      Text(_summary(plan.itemCount, plan.clearedFieldValueCount)),
+      Text(_summary(plan)),
       _parentRow(),
       if (plan.statuses.isNotEmpty) ...[
         Text('Statuses', style: textTheme.titleSmall),
@@ -157,11 +158,18 @@ class _MoveToSpaceDialogState extends State<MoveToSpaceDialog> {
     ];
   }
 
-  static String _summary(int itemCount, int clearedValues) {
-    final items = itemCount == 1
+  /// Sub-items in the Trash move too, so a restore keeps them with their
+  /// parent; saying so explains values in the mapping nobody can see.
+  static String _summary(SpaceMovePlan plan) {
+    final subItems = plan.itemCount - 1;
+    final trashed = plan.trashedItemCount == 0
+        ? ''
+        : ' (${plan.trashedItemCount} of them in the Trash)';
+    final items = subItems == 0
         ? 'This work item moves.'
-        : 'This work item and ${itemCount - 1} '
-              '${itemCount == 2 ? 'sub-item' : 'sub-items'} move.';
+        : 'This work item and $subItems '
+              '${subItems == 1 ? 'sub-item' : 'sub-items'}$trashed move.';
+    final clearedValues = plan.clearedFieldValueCount;
     if (clearedValues == 0) return items;
     final values = clearedValues == 1 ? 'value is' : 'values are';
     return '$items $clearedValues custom field $values cleared, since each '

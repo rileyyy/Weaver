@@ -13,7 +13,7 @@ namespace Weaver.Api.Mcp;
 [McpServerToolType]
 public class WorkItemSpaceMoveTools(IWorkItemSpaceMoveService moves, WorkItemDtoMapper dtos, HttpCallerContext caller)
 {
-    private const string Defaults =
+    private const string DefaultMappingDescription =
         "A status without a mapping goes to the target status with the same name (ignoring case), else the " +
         "target Space's first status in the same category, else its first status. A Type or priority without " +
         "a mapping goes to the one with the same name, else it's cleared. Custom field values are always " +
@@ -25,8 +25,8 @@ public class WorkItemSpaceMoveTools(IWorkItemSpaceMoveService moves, WorkItemDto
 
     [McpServerTool(Name = "plan_work_item_space_move", ReadOnly = true)]
     [Description("Shows what move_work_item_to_space would do, without changing anything: how many items move " +
-        "(the item and its descendants), how many custom field values are cleared, and for each status, Type and " +
-        "priority they use, its default in the target Space (targetId absent: cleared). " + Defaults)]
+        "(the item and its descendants, trashedItemCount of them in the Trash, which move too), how many custom field values are cleared, and for each status, Type and " +
+        "priority they use, its default in the target Space (targetId absent: cleared). " + DefaultMappingDescription)]
     public Task<SpaceMovePlanDto> PlanWorkItemSpaceMove(
         [Description("The work item's id.")] Guid id,
         [Description("The Space to move it to. Use list_spaces to find valid ids.")] Guid targetSpaceId,
@@ -37,7 +37,7 @@ public class WorkItemSpaceMoveTools(IWorkItemSpaceMoveService moves, WorkItemDto
     [McpServerTool(Name = "move_work_item_to_space", Destructive = true)]
     [Description("Moves a work item, with its whole subtree, into another Space in one step; reparent_work_item " +
         "can't cross Spaces. Each item takes the target Space's statuses, Types and priorities: map them " +
-        "yourself, or leave them to the defaults. " + Defaults + " Links, comments, attachments, tags, dates " +
+        "yourself, or leave them to the defaults. " + DefaultMappingDescription + " Links, comments, attachments, tags, dates " +
         "and assignee are kept. Call plan_work_item_space_move first to see the mapping. Returns the moved item " +
         "with its new version and changed fields.")]
     public Task<WorkItemWriteResponse> MoveWorkItemToSpace(

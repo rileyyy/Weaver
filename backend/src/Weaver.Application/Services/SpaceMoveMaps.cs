@@ -12,7 +12,7 @@ public sealed record SpaceMoveMaps(
     IReadOnlyDictionary<Guid, Guid?> Priorities)
 {
     /// <summary>Every value takes its default.</summary>
-    public static SpaceMoveMaps None { get; } = new(
+    public static SpaceMoveMaps AllDefaults { get; } = new(
         new Dictionary<Guid, Guid>(),
         new Dictionary<Guid, Guid?>(),
         new Dictionary<Guid, Guid?>());
@@ -22,5 +22,5 @@ public sealed record SpaceMoveMaps(
         IReadOnlyDictionary<Guid, Guid>? statuses,
         IReadOnlyDictionary<Guid, Guid?>? types,
         IReadOnlyDictionary<Guid, Guid?>? priorities) =>
-        new(statuses ?? None.Statuses, types ?? None.Types, priorities ?? None.Priorities);
+        new(statuses ?? AllDefaults.Statuses, types ?? AllDefaults.Types, priorities ?? AllDefaults.Priorities);
 }

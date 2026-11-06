@@ -58,6 +58,7 @@ void main() {
         'workItemId': 'item-1',
         'targetSpaceId': 'workshop',
         'itemCount': 3,
+        'trashedItemCount': 1,
         'clearedFieldValueCount': 2,
         'statuses': [
           {
@@ -84,6 +85,7 @@ void main() {
     final plan = await _repository(client).planMove('item-1', 'workshop');
 
     expect(plan.itemCount, 3);
+    expect(plan.trashedItemCount, 1);
     expect(plan.clearedFieldValueCount, 2);
     expect(plan.statuses.single.sourceName, 'To Do');
     expect(plan.statuses.single.targetId, 'quoted');

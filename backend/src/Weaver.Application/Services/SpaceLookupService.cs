@@ -27,11 +27,7 @@ public abstract class SpaceLookupService<T>(IWeaverDbContext db, IAdminAuthorize
 
     protected async Task<T> AddAsync(Guid actorUserId, Guid spaceId, Func<int, T> create, CancellationToken ct)
     {
-        if (!await Db.Spaces.AnyAsync(s => s.Id == spaceId, ct))
-        {
-            throw new EntityNotFoundException(nameof(Space), spaceId);
-        }
-
+        await Db.EnsureSpaceExistsAsync(spaceId, ct);
         return await AddWithinAsync(actorUserId, InSpace(spaceId), create, ct);
     }
 

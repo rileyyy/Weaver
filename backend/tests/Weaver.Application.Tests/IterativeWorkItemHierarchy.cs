@@ -42,7 +42,13 @@ public class IterativeWorkItemHierarchy(WeaverDbContext db) : IWorkItemHierarchy
         return false;
     }
 
-    public async Task<IReadOnlyList<Guid>> GetDescendantIdsAsync(Guid rootId, bool includeTrashed = false, CancellationToken ct = default)
+    public Task<IReadOnlyList<Guid>> GetDescendantIdsAsync(Guid rootId, CancellationToken ct = default) =>
+        DescendantIdsAsync(rootId, includeTrashed: false, ct);
+
+    public Task<IReadOnlyList<Guid>> GetDescendantIdsIncludingTrashAsync(Guid rootId, CancellationToken ct = default) =>
+        DescendantIdsAsync(rootId, includeTrashed: true, ct);
+
+    private async Task<IReadOnlyList<Guid>> DescendantIdsAsync(Guid rootId, bool includeTrashed, CancellationToken ct)
     {
         var descendants = new HashSet<Guid>();
         var frontier = new List<Guid> { rootId };

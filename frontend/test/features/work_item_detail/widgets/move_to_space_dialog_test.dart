@@ -49,7 +49,8 @@ class _FakeRepository implements SpaceMoveRepository {
   @override
   Future<SpaceMovePlan> planMove(String id, String targetSpaceId) async =>
       const SpaceMovePlan(
-        itemCount: 2,
+        itemCount: 3,
+        trashedItemCount: 1,
         clearedFieldValueCount: 1,
         statuses: [
           SpaceMoveMapping(
@@ -112,7 +113,10 @@ void main() {
     await tester.tap(find.text('Workshop').last);
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('1 sub-item move'), findsOneWidget);
+    expect(
+      find.textContaining('2 sub-items (1 of them in the Trash) move'),
+      findsOneWidget,
+    );
     expect(
       find.textContaining('1 custom field value is cleared'),
       findsOneWidget,

@@ -2,11 +2,13 @@ import 'package:weaver/core/network/json_api_client.dart';
 import 'package:weaver/features/work_item_detail/models/space_move_mapping.dart';
 
 /// What moving a work item to another Space would do (`SpaceMovePlanDto`):
-/// how many items go (it and its sub-items), how many custom field values
-/// are cleared, and each status, Type and priority's default in the target.
+/// how many items go (it and its sub-items, [trashedItemCount] of them in the
+/// Trash), how many custom field values are cleared, and each status, Type
+/// and priority's default in the target.
 class SpaceMovePlan {
   const SpaceMovePlan({
     required this.itemCount,
+    required this.trashedItemCount,
     required this.clearedFieldValueCount,
     required this.statuses,
     required this.types,
@@ -15,6 +17,7 @@ class SpaceMovePlan {
 
   factory SpaceMovePlan.fromJson(Map<String, dynamic> json) => SpaceMovePlan(
     itemCount: json['itemCount'] as int,
+    trashedItemCount: json['trashedItemCount'] as int,
     clearedFieldValueCount: json['clearedFieldValueCount'] as int,
     statuses: JsonApiClient.listOf(json['statuses'], SpaceMoveMapping.fromJson),
     types: JsonApiClient.listOf(json['types'], SpaceMoveMapping.fromJson),
@@ -25,6 +28,7 @@ class SpaceMovePlan {
   );
 
   final int itemCount;
+  final int trashedItemCount;
   final int clearedFieldValueCount;
   final List<SpaceMoveMapping> statuses;
   final List<SpaceMoveMapping> types;

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/work_item_detail/data/space_move_repository.dart';
@@ -16,6 +18,7 @@ import '../../shared/fakes/work_items.dart';
 
 const _plan = SpaceMovePlan(
   itemCount: 3,
+  trashedItemCount: 0,
   clearedFieldValueCount: 1,
   statuses: [
     SpaceMoveMapping(
@@ -45,6 +48,9 @@ const _plan = SpaceMovePlan(
 class _FakeRepository implements SpaceMoveRepository {
   final List<(String, SpaceMoveChoices, int)> moves = [];
   final List<String> plannedSpaces = [];
+
+  /// When set for a Space, its plan waits on it and then fails.
+  final Map<String, Completer<void>> failingPlans = {};
   ApiException? moveError;
   WorkItem? movedItem;
 
@@ -81,6 +87,10 @@ class _FakeRepository implements SpaceMoveRepository {
   @override
   Future<SpaceMovePlan> planMove(String id, String targetSpaceId) async {
     plannedSpaces.add(targetSpaceId);
+    if (failingPlans[targetSpaceId] case final gate?) {
+      await gate.future;
+      throw const ApiException('Failed to work out the move');
+    }
     return _plan;
   }
 
@@ -184,4 +194,19 @@ void main() {
       expect(store['shed']!.spaceId, 'home');
     },
   );
+
+  test('a load overtaken by picking another Space leaves no trace', () async {
+    final slow = Completer<void>();
+    repository.failingPlans['village'] = slow;
+    final first = viewModel.selectSpace('village');
+
+    await viewModel.selectSpace('workshop');
+    slow.complete();
+    await first;
+
+    expect(viewModel.targetSpaceId, 'workshop');
+    expect(viewModel.plan, same(_plan));
+    expect(viewModel.error, isNull);
+    expect(viewModel.isLoading, isFalse);
+  });
 }

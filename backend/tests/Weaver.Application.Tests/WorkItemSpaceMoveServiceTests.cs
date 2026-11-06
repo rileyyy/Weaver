@@ -88,6 +88,35 @@ public class WorkItemSpaceMoveServiceTests
     }
 
     [Test]
+    public async Task PlanAsync_IncludesSubItemsInTheTrash_SinceTheyMoveToo()
+    {
+        var root = await CreateAsync("Shed", null, _home.ToDo, null, null);
+        var trashed = await CreateAsync("Roof", root.Id, _home.Doing, null, null);
+        await new WorkItemTrashService(
+                _db, new IterativeWorkItemHierarchy(_db), new FakeCallerContext(_alice.Id), TimeProvider.System)
+            .MoveToTrashAsync(trashed.Id);
+
+        var plan = await _moves.PlanAsync(root.Id, _workshop.Id);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((plan.ItemCount, plan.TrashedItemCount), Is.EqualTo((2, 1)));
+            Assert.That(plan.Statuses.Select(m => m.SourceName), Is.EquivalentTo(new[] { "To Do", "Doing" }));
+        });
+    }
+
+    [Test]
+    public async Task MoveAsync_IntoASpaceWithNoStatuses_IsRejected()
+    {
+        var root = await CreateAsync("Shed", null, _home.ToDo, null, null);
+        _db.Statuses.RemoveRange(_db.Statuses.Where(s => s.SpaceId == _workshop.Id));
+        await _db.SaveChangesAsync();
+
+        Assert.ThrowsAsync<DomainValidationException>(() =>
+            _moves.MoveAsync(root.Id, _workshop.Id, null, SpaceMoveMaps.AllDefaults));
+    }
+
+    [Test]
     public async Task PlanAsync_CountsTheCustomFieldValuesTheMoveClears()
     {
         var root = await CreateAsync("Shed", null, _home.ToDo, _home.Project, null);
@@ -106,7 +135,7 @@ public class WorkItemSpaceMoveServiceTests
         var child = await CreateAsync("Roof", root.Id, _home.Doing, _home.Project, _home.Low);
         var grandchild = await CreateAsync("Tiles", child.Id, _home.Done, null, null);
 
-        await _moves.MoveAsync(root.Id, _workshop.Id, targetParentId: null, SpaceMoveMaps.None);
+        await _moves.MoveAsync(root.Id, _workshop.Id, targetParentId: null, SpaceMoveMaps.AllDefaults);
 
         var (movedRoot, movedChild, movedGrandchild) = (await ReloadAsync(root), await ReloadAsync(child), await ReloadAsync(grandchild));
         Assert.Multiple(() =>
@@ -143,7 +172,7 @@ public class WorkItemSpaceMoveServiceTests
         var root = await CreateAsync("Shed", null, _home.ToDo, null, null);
         var bench = await _workItems.CreateAsync("Bench", null, null, _workshop.Quoted, spaceId: _workshop.Id);
 
-        var result = await _moves.MoveAsync(root.Id, _workshop.Id, bench.Id, SpaceMoveMaps.None);
+        var result = await _moves.MoveAsync(root.Id, _workshop.Id, bench.Id, SpaceMoveMaps.AllDefaults);
 
         Assert.Multiple(() =>
         {
@@ -159,7 +188,7 @@ public class WorkItemSpaceMoveServiceTests
         var homeItem = await CreateAsync("Kitchen", null, _home.ToDo, null, null);
 
         Assert.ThrowsAsync<CrossSpaceParentException>(() =>
-            _moves.MoveAsync(root.Id, _workshop.Id, homeItem.Id, SpaceMoveMaps.None));
+            _moves.MoveAsync(root.Id, _workshop.Id, homeItem.Id, SpaceMoveMaps.AllDefaults));
         Assert.That((await ReloadAsync(root)).SpaceId, Is.EqualTo(_home.Id));
     }
 
@@ -169,7 +198,7 @@ public class WorkItemSpaceMoveServiceTests
         var root = await CreateAsync("Shed", null, _home.ToDo, null, null);
 
         Assert.ThrowsAsync<DomainValidationException>(() =>
-            _moves.MoveAsync(root.Id, _home.Id, null, SpaceMoveMaps.None));
+            _moves.MoveAsync(root.Id, _home.Id, null, SpaceMoveMaps.AllDefaults));
     }
 
     [Test]
@@ -178,7 +207,7 @@ public class WorkItemSpaceMoveServiceTests
         Assert.ThrowsAsync<EntityNotFoundException>(async () =>
         {
             var root = await CreateAsync("Shed", null, _home.ToDo, null, null);
-            await _moves.MoveAsync(root.Id, Guid.NewGuid(), null, SpaceMoveMaps.None);
+            await _moves.MoveAsync(root.Id, Guid.NewGuid(), null, SpaceMoveMaps.AllDefaults);
         });
     }
 
@@ -186,7 +215,7 @@ public class WorkItemSpaceMoveServiceTests
     public async Task MoveAsync_MappingToAnotherSpacesStatus_IsRejectedAndChangesNothing()
     {
         var root = await CreateAsync("Shed", null, _home.ToDo, null, null);
-        var maps = SpaceMoveMaps.None with { Statuses = new Dictionary<Guid, Guid> { [_home.ToDo] = _home.Doing } };
+        var maps = SpaceMoveMaps.AllDefaults with { Statuses = new Dictionary<Guid, Guid> { [_home.ToDo] = _home.Doing } };
 
         Assert.ThrowsAsync<DomainValidationException>(() => _moves.MoveAsync(root.Id, _workshop.Id, null, maps));
         Assert.That((await ReloadAsync(root)).SpaceId, Is.EqualTo(_home.Id));
@@ -196,7 +225,7 @@ public class WorkItemSpaceMoveServiceTests
     public async Task MoveAsync_MappingFromAValueOutsideTheItemsSpace_IsRejected()
     {
         var root = await CreateAsync("Shed", null, _home.ToDo, null, null);
-        var maps = SpaceMoveMaps.None with { Types = new Dictionary<Guid, Guid?> { [_workshop.Task] = _workshop.Chore } };
+        var maps = SpaceMoveMaps.AllDefaults with { Types = new Dictionary<Guid, Guid?> { [_workshop.Task] = _workshop.Chore } };
 
         Assert.ThrowsAsync<DomainValidationException>(() => _moves.MoveAsync(root.Id, _workshop.Id, null, maps));
     }
@@ -207,7 +236,7 @@ public class WorkItemSpaceMoveServiceTests
         var root = await CreateAsync("Shed", null, _home.ToDo, null, null);
 
         Assert.ThrowsAsync<WorkItemVersionConflictException>(() =>
-            _moves.MoveAsync(root.Id, _workshop.Id, null, SpaceMoveMaps.None, expectedVersion: root.Version + 1));
+            _moves.MoveAsync(root.Id, _workshop.Id, null, SpaceMoveMaps.AllDefaults, expectedVersion: root.Version + 1));
     }
 
     [Test]
@@ -216,7 +245,7 @@ public class WorkItemSpaceMoveServiceTests
         var root = await CreateAsync("Shed", null, _home.ToDo, null, null);
         var child = await CreateAsync("Roof", root.Id, _home.ToDo, null, null);
 
-        await _moves.MoveAsync(root.Id, _workshop.Id, null, SpaceMoveMaps.None);
+        await _moves.MoveAsync(root.Id, _workshop.Id, null, SpaceMoveMaps.AllDefaults);
 
         foreach (var item in new[] { root, child })
         {
@@ -239,7 +268,7 @@ public class WorkItemSpaceMoveServiceTests
         var budget = AddField(_home.Project, "Budget");
         await _workItems.SetCustomFieldsAsync(root.Id, Values((budget, "100")));
 
-        await _moves.MoveAsync(root.Id, _workshop.Id, null, SpaceMoveMaps.None);
+        await _moves.MoveAsync(root.Id, _workshop.Id, null, SpaceMoveMaps.AllDefaults);
 
         var cleared = (await _history.ListForWorkItemAsync(root.Id)).First(e => e.Field == budget.ChangeName);
         Assert.Multiple(async () =>
@@ -257,7 +286,7 @@ public class WorkItemSpaceMoveServiceTests
         await new WorkItemLinkService(_db, new FakeCallerContext(_alice.Id))
             .CreateAsync(root.Id, kitchen.Id, WorkItemLinkRelation.Blocks);
 
-        await _moves.MoveAsync(root.Id, _workshop.Id, null, SpaceMoveMaps.None);
+        await _moves.MoveAsync(root.Id, _workshop.Id, null, SpaceMoveMaps.AllDefaults);
 
         Assert.That(
             _db.WorkItemLinks.Count(l => l.WorkItemId == root.Id || l.LinkedWorkItemId == root.Id),
@@ -273,7 +302,7 @@ public class WorkItemSpaceMoveServiceTests
             _db, new IterativeWorkItemHierarchy(_db), new FakeCallerContext(_alice.Id), TimeProvider.System);
         await trash.MoveToTrashAsync(trashedChild.Id);
 
-        await _moves.MoveAsync(root.Id, _workshop.Id, null, SpaceMoveMaps.None);
+        await _moves.MoveAsync(root.Id, _workshop.Id, null, SpaceMoveMaps.AllDefaults);
 
         var moved = await _db.WorkItems.IgnoreQueryFilters().AsNoTracking().SingleAsync(w => w.Id == trashedChild.Id);
         Assert.Multiple(() =>
@@ -291,7 +320,7 @@ public class WorkItemSpaceMoveServiceTests
         var moved = await CreateAsync("Shed", parent.Id, _home.ToDo, null, null);
         var sibling = await CreateAsync("Garage", parent.Id, _home.ToDo, null, null);
 
-        await _moves.MoveAsync(moved.Id, _workshop.Id, null, SpaceMoveMaps.None);
+        await _moves.MoveAsync(moved.Id, _workshop.Id, null, SpaceMoveMaps.AllDefaults);
 
         Assert.Multiple(async () =>
         {

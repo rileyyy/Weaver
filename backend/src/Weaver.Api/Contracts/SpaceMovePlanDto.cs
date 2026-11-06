@@ -3,13 +3,15 @@ using Weaver.Application.Services;
 namespace Weaver.Api.Contracts;
 
 /// <summary>
-/// What moving a work item to another Space would do: how many items go, how many custom field
-/// values are cleared, and each value's default in the target Space.
+/// What moving a work item to another Space would do: how many items go (sub-items in the Trash
+/// included, and counted apart), how many custom field values are cleared, and each value's
+/// default in the target Space.
 /// </summary>
 public record SpaceMovePlanDto(
     Guid WorkItemId,
     Guid TargetSpaceId,
     int ItemCount,
+    int TrashedItemCount,
     int ClearedFieldValueCount,
     IReadOnlyList<SpaceMoveMappingDto> Statuses,
     IReadOnlyList<SpaceMoveMappingDto> Types,
@@ -19,6 +21,7 @@ public record SpaceMovePlanDto(
         plan.WorkItemId,
         plan.TargetSpaceId,
         plan.ItemCount,
+        plan.TrashedItemCount,
         plan.ClearedFieldValueCount,
         plan.Statuses.Select(SpaceMoveMappingDto.FromModel).ToList(),
         plan.Types.Select(SpaceMoveMappingDto.FromModel).ToList(),

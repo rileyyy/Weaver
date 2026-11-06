@@ -7,8 +7,8 @@ namespace Weaver.Application.Services;
 /// <summary>
 /// Works out, for every status, Type and priority of one Space, which of another Space's it
 /// becomes in a move: the caller's choice, else the default <see cref="IWorkItemSpaceMoveService"/>
-/// states. Every source value is resolved up front, so items no plan listed (in the Trash, say)
-/// still get one.
+/// states. Every source value is resolved up front, so the mapping doesn't depend on which
+/// items happen to be moving.
 /// </summary>
 internal sealed class SpaceValueMapper
 {
@@ -20,6 +20,11 @@ internal sealed class SpaceValueMapper
 
     private SpaceValueMapper(SpaceLookups source, SpaceLookups target, SpaceMoveMaps maps)
     {
+        if (target.Statuses.Count == 0)
+        {
+            throw new DomainValidationException("The target Space has no statuses to move work items into.");
+        }
+
         _source = source;
         _target = target;
         _statuses = Resolve(source.Statuses, target.Statuses, maps.Statuses.ToDictionary(m => m.Key, m => (Guid?)m.Value), "Status", DefaultStatus)
@@ -45,6 +50,7 @@ internal sealed class SpaceValueMapper
         workItemId,
         targetSpaceId,
         items.Count,
+        items.Count(i => i.IsTrashed),
         items.Sum(i => i.CustomFields.Count),
         Mappings(items.Select(i => (Guid?)i.StatusId), _source.Statuses, _target.Statuses, id => _statuses[id]),
         Mappings(items.Select(i => i.TypeId), _source.Types, _target.Types, id => _types[id]),
@@ -54,7 +60,7 @@ internal sealed class SpaceValueMapper
     private Guid? DefaultStatus(Status source) =>
         (NamedLike(_target.Statuses, source)
             ?? _target.Statuses.FirstOrDefault(t => t.Category == source.Category)
-            ?? _target.Statuses.FirstOrDefault())?.Id;
+            ?? _target.Statuses[0]).Id;
 
     private static T? NamedLike<T>(IReadOnlyList<T> targets, LookupValue source) where T : LookupValue =>
         targets.FirstOrDefault(t => string.Equals(t.Name, source.Name, StringComparison.OrdinalIgnoreCase));
@@ -80,14 +86,12 @@ internal sealed class SpaceValueMapper
         IReadOnlyList<T> targets,
         string kind) where T : LookupValue
     {
-        var unknownKey = chosen.Keys.FirstOrDefault(key => sources.All(s => s.Id != key));
-        if (unknownKey != Guid.Empty)
+        if (chosen.Keys.Where(key => sources.All(s => s.Id != key)).Select(key => (Guid?)key).FirstOrDefault() is { } unknownKey)
         {
             throw new DomainValidationException($"{kind} {unknownKey} isn't one of the moving item's Space's; map from those.");
         }
 
-        var unknownValue = chosen.Values.OfType<Guid>().FirstOrDefault(value => targets.All(t => t.Id != value));
-        if (unknownValue != Guid.Empty)
+        if (chosen.Values.Where(value => value is { } id && targets.All(t => t.Id != id)).FirstOrDefault() is { } unknownValue)
         {
             throw new DomainValidationException($"{kind} {unknownValue} isn't one of the target Space's; map to those.");
         }
