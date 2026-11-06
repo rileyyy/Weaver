@@ -7,9 +7,9 @@ import 'package:weaver/features/admin/models/agent_action.dart';
 import 'package:weaver/features/admin/views/agent_keys_page.dart';
 import 'package:weaver/features/admin/widgets/admin_list_frame.dart';
 import 'package:weaver/features/admin/widgets/agent_tile.dart';
-import 'package:weaver/features/admin/widgets/confirm_admin_action.dart';
 import 'package:weaver/features/admin/widgets/create_agent_dialog.dart';
 import 'package:weaver/features/admin/widgets/show_admin_error.dart';
+import 'package:weaver/shared/widgets/confirm_action.dart';
 
 /// Agent accounts, apart from the people on the Users tab: they have no
 /// password and sign in with API keys.
@@ -65,7 +65,7 @@ class AgentsTab extends StatelessWidget {
           await viewModel.setActive(agent.id, isActive: true),
         );
       case AgentAction.deactivate:
-        final confirmed = await confirmAdminAction(
+        final confirmed = await confirmAction(
           context,
           title: 'Deactivate ${agent.name}?',
           message:

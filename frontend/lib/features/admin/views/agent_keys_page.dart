@@ -7,9 +7,9 @@ import 'package:weaver/features/admin/models/agent_account.dart';
 import 'package:weaver/features/admin/models/api_key.dart';
 import 'package:weaver/features/admin/widgets/admin_list_frame.dart';
 import 'package:weaver/features/admin/widgets/api_key_tile.dart';
-import 'package:weaver/features/admin/widgets/confirm_admin_action.dart';
 import 'package:weaver/features/admin/widgets/issue_key_dialog.dart';
 import 'package:weaver/features/admin/widgets/show_admin_error.dart';
+import 'package:weaver/shared/widgets/confirm_action.dart';
 
 /// Opens [agent]'s keys; completes when the page is closed.
 Future<void> showAgentKeysPage(BuildContext context, AgentAccount agent) =>
@@ -93,7 +93,7 @@ class _AgentKeysPageState extends State<AgentKeysPage> {
 
   Future<void> _revoke(BuildContext context, ApiKey key) async {
     final messenger = ScaffoldMessenger.of(context);
-    final confirmed = await confirmAdminAction(
+    final confirmed = await confirmAction(
       context,
       title: 'Revoke ${key.label}?',
       message:

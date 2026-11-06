@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/features/admin/custom_field_admin_view_model.dart';
 import 'package:weaver/features/admin/widgets/admin_list_frame.dart';
-import 'package:weaver/features/admin/widgets/confirm_admin_action.dart';
 import 'package:weaver/features/admin/widgets/custom_field_dialog.dart';
 import 'package:weaver/features/admin/widgets/reorderable_lookup_list.dart';
 import 'package:weaver/features/admin/widgets/show_admin_error.dart';
 import 'package:weaver/shared/models/custom_field.dart';
+import 'package:weaver/shared/widgets/confirm_action.dart';
 
 /// Opens the custom fields of the Type [typeId] (named [typeName]).
 Future<void> showTypeFieldsPage(
@@ -114,7 +114,7 @@ class _TypeFieldsPageState extends State<TypeFieldsPage> {
 
   Future<void> _delete(BuildContext context, CustomField field) async {
     final messenger = ScaffoldMessenger.of(context);
-    final confirmed = await confirmAdminAction(
+    final confirmed = await confirmAction(
       context,
       title: 'Remove ${field.name}?',
       message:
