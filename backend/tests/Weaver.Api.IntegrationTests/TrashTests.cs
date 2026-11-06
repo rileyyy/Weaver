@@ -5,8 +5,8 @@ using Weaver.Domain;
 namespace Weaver.Api.IntegrationTests;
 
 /// <summary>
-/// The Trash against Postgres (ADR-0007): the query filter, include-deleted, restore's placement
-/// and the constraints a trashed row still takes part in.
+/// The Trash against Postgres (ADR-0007): the query filter, include-deleted, restore's placement,
+/// purge, and the constraints a trashed row still takes part in.
 /// </summary>
 [TestFixture]
 public class TrashTests
@@ -22,6 +22,18 @@ public class TrashTests
     private static string Unique(string title) => $"{title} {Guid.NewGuid():N}";
 
     private Task<HttpResponseMessage> RestoreAsync(Guid id) => _client.PostAsync($"/api/trash/{id}/restore", null);
+
+    private Task<HttpResponseMessage> PurgeAsync(Guid id) => _client.DeleteAsync($"/api/trash/{id}");
+
+    private async Task<bool> ExistsAsync(Guid id, Guid spaceId)
+    {
+        var page = await (await _client.GetAsync($"/api/work-items/search?spaceIds={spaceId}&includeDeleted=true&limit=1000"))
+            .ReadAsync<WorkItemPageDto>();
+        return page.Items.Any(w => w.Id == id);
+    }
+
+    private async Task<List<WorkItemHistoryEntryDto>> HistoryAsync(Guid id) =>
+        await (await _client.GetAsync($"/api/work-items/{id}/history")).ReadAsync<List<WorkItemHistoryEntryDto>>();
 
     [Test]
     public async Task ADeletedItem_IsListedInTheTrash_AndOnlyIncludeDeletedFindsIt()
@@ -103,6 +115,116 @@ public class TrashTests
         var restore = await agent.PostAsync($"/api/trash/{item.Id}/restore", null);
 
         Assert.That(restore.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+    }
+
+    // Both link FKs and the parent FK are Restrict, so this fails against Postgres unless purge
+    // clears the links and the separately deleted child's parent first.
+    [Test]
+    public async Task Purge_RemovesTheDeleteWithItsLinksAndComments_AndKeepsASeparatelyDeletedChildInTheTrash()
+    {
+        var space = await ApiClient.CreateSpaceAsync("Trash purge");
+        var kitchen = await _client.CreateWorkItemAsync(Unique("Kitchen"), spaceId: space);
+        var tiles = await _client.CreateWorkItemAsync("Tiles", kitchen.Id);
+        var sink = await _client.CreateWorkItemAsync("Sink", kitchen.Id);
+        var garden = await _client.CreateWorkItemAsync(Unique("Garden"), spaceId: space);
+        (await _client.PostJsonAsync($"/api/work-items/{garden.Id}/links", new CreateWorkItemLinkRequest(tiles.Id, WorkItemLinkRelation.Blocks)))
+            .EnsureSuccessStatusCode();
+        (await _client.PostJsonAsync($"/api/work-items/{tiles.Id}/comments", new CreateCommentRequest("Grey grout")))
+            .EnsureSuccessStatusCode();
+        (await _client.DeleteAsync($"/api/work-items/{sink.Id}")).EnsureSuccessStatusCode();
+        (await _client.DeleteAsync($"/api/work-items/{kitchen.Id}?cascade=true")).EnsureSuccessStatusCode();
+
+        var purge = await PurgeAsync(kitchen.Id);
+
+        var trash = await (await _client.GetAsync($"/api/trash?spaceId={space}")).ReadAsync<List<TrashedWorkItemDto>>();
+        var gardenLinks = await (await _client.GetAsync($"/api/work-items/{garden.Id}/links")).ReadAsync<List<WorkItemLinkDto>>();
+        var gardenLatest = (await HistoryAsync(garden.Id))[0];
+        var tilesLatest = (await HistoryAsync(tiles.Id))[0];
+        var restoredSink = await (await RestoreAsync(sink.Id)).ReadAsync<WorkItemDto>();
+        Assert.Multiple(async () =>
+        {
+            Assert.That(purge.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+            Assert.That(await ExistsAsync(kitchen.Id, space), Is.False);
+            Assert.That(await ExistsAsync(tiles.Id, space), Is.False);
+            Assert.That(trash.Select(t => t.Item.Id), Is.EqualTo(new[] { sink.Id }));
+            Assert.That(gardenLinks, Is.Empty);
+            Assert.That(gardenLatest.Field, Is.EqualTo(WorkItemHistoryField.Link));
+            Assert.That(gardenLatest.NewValue, Is.Null);
+            Assert.That(tilesLatest.Field, Is.EqualTo(WorkItemHistoryField.Purged));
+            Assert.That(restoredSink.ParentId, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task Purge_AnItemDeletedWithItsParent_Returns400()
+    {
+        var kitchen = await _client.CreateWorkItemAsync(Unique("Kitchen"));
+        var tiles = await _client.CreateWorkItemAsync("Tiles", kitchen.Id);
+        await _client.DeleteAsync($"/api/work-items/{kitchen.Id}?cascade=true");
+
+        var response = await PurgeAsync(tiles.Id);
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+            Assert.That(await response.Content.ReadAsStringAsync(), Does.Contain(kitchen.Id.ToString()));
+        });
+    }
+
+    [Test]
+    public async Task Purge_ALiveItem_Returns400_AndAnUnknownOne404()
+    {
+        var item = await _client.CreateWorkItemAsync(Unique("Shed"));
+
+        var live = await PurgeAsync(item.Id);
+        var unknown = await PurgeAsync(Guid.NewGuid());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(live.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+            Assert.That(unknown.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+        });
+    }
+
+    // Read-write agents can delete and restore, but not purge (ADR-0007).
+    [Test]
+    public async Task AReadWriteKey_CantPurgeOrEmptyTheTrash()
+    {
+        var space = await ApiClient.CreateSpaceAsync("Trash agent purge");
+        var item = await _client.CreateWorkItemAsync(Unique("Old shed"), spaceId: space);
+        await _client.DeleteAsync($"/api/work-items/{item.Id}");
+        var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadWrite);
+
+        var purge = await agent.DeleteAsync($"/api/trash/{item.Id}");
+        var empty = await agent.DeleteAsync("/api/trash");
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That(purge.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+            Assert.That(purge.Content.Headers.ContentType?.MediaType, Is.EqualTo("application/problem+json"));
+            Assert.That(empty.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+            Assert.That(await ExistsAsync(item.Id, space), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task EmptyingTheTrash_PurgesEveryDelete_AndLeavesLiveItems()
+    {
+        var space = await ApiClient.CreateSpaceAsync("Trash empty");
+        var shed = await _client.CreateWorkItemAsync(Unique("Old shed"), spaceId: space);
+        var garden = await _client.CreateWorkItemAsync(Unique("Garden"), spaceId: space);
+        await _client.DeleteAsync($"/api/work-items/{shed.Id}");
+
+        var response = await _client.DeleteAsync("/api/trash");
+
+        var trash = await (await _client.GetAsync("/api/trash")).ReadAsync<List<TrashedWorkItemDto>>();
+        Assert.Multiple(async () =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+            Assert.That(trash, Is.Empty);
+            Assert.That(await ExistsAsync(shed.Id, space), Is.False);
+            Assert.That(await ExistsAsync(garden.Id, space), Is.True);
+        });
     }
 
     // A trashed row still holds its status's foreign key, so the status delete has to move it.

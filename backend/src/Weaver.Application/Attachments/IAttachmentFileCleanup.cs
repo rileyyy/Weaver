@@ -1,8 +1,8 @@
 namespace Weaver.Application.Attachments;
 
 /// <summary>
-/// The seam purging (ticket 20) goes through so purged items don't leave their files behind. The
-/// attachment rows go with the items by FK cascade; only the files need this.
+/// The seam <see cref="Services.IWorkItemPurgeService"/> runs through so purged items don't leave
+/// their files behind. The attachment rows go with the items; only the files need this.
 /// </summary>
 public interface IAttachmentFileCleanup
 {

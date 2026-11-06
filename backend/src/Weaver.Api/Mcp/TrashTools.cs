@@ -8,7 +8,7 @@ namespace Weaver.Api.Mcp;
 
 /// <summary>
 /// Deleting moves work items to the Trash; agents can list it and restore from it, but not
-/// purge it (ADR-0007). A read-only key can only list.
+/// purge it (ADR-0007), so there's deliberately no purge tool. A read-only key can only list.
 /// </summary>
 [McpServerToolType]
 public class TrashTools(IWorkItemTrashService trash, WorkItemDtoMapper dtos, HttpCallerContext caller)
@@ -19,8 +19,9 @@ public class TrashTools(IWorkItemTrashService trash, WorkItemDtoMapper dtos, Htt
 
     [McpServerTool(Name = "delete_work_item", Destructive = true)]
     [Description("Deletes a work item by moving it, and its whole subtree, to the Trash, where it can be " +
-        "restored with restore_work_item. If it has children, cascade must be true or the delete is " +
-        "rejected. Its links and comments are kept, but hidden while it's in the Trash.")]
+        "restored with restore_work_item until it's purged, trashRetentionDays (see get_server_settings) " +
+        "after the delete. If it has children, cascade must be true or the delete is rejected. Its links " +
+        "and comments are kept, but hidden while it's in the Trash.")]
     public Task DeleteWorkItem(
         [Description("The work item's id.")] Guid id,
         [Description("Must be true to delete a work item that has children; this also deletes the entire subtree.")] bool cascade = false,

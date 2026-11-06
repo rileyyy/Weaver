@@ -11,13 +11,15 @@ namespace Weaver.Api.Tests;
 public class TrashControllerTests
 {
     private Mock<IWorkItemTrashService> _trash = null!;
+    private Mock<IWorkItemPurgeService> _purge = null!;
     private TrashController _controller = null!;
 
     [SetUp]
     public void SetUp()
     {
         _trash = new Mock<IWorkItemTrashService>(MockBehavior.Strict);
-        _controller = new TrashController(_trash.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup()));
+        _purge = new Mock<IWorkItemPurgeService>(MockBehavior.Strict);
+        _controller = new TrashController(_trash.Object, _purge.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup()));
     }
 
     public static TrashedWorkItem MakeTrashed(Guid id) => new(
@@ -71,5 +73,28 @@ public class TrashControllerTests
         var result = await _controller.Restore(item.Id);
 
         Assert.That(((WorkItemDto)((OkObjectResult)result.Result!).Value!).Id, Is.EqualTo(item.Id));
+    }
+
+    [Test]
+    public async Task Purge_PurgesThatDelete_AndReturnsNoContent()
+    {
+        var id = Guid.NewGuid();
+        _purge.Setup(s => s.PurgeAsync(id, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        var result = await _controller.Purge(id);
+
+        Assert.That(result, Is.TypeOf<NoContentResult>());
+        _purge.VerifyAll();
+    }
+
+    [Test]
+    public async Task EmptyTrash_EmptiesTheWholeTrash_AndReturnsNoContent()
+    {
+        _purge.Setup(s => s.EmptyTrashAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        var result = await _controller.EmptyTrash();
+
+        Assert.That(result, Is.TypeOf<NoContentResult>());
+        _purge.VerifyAll();
     }
 }

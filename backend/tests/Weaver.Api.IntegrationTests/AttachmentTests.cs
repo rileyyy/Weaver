@@ -7,7 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using Weaver.Api.Contracts;
-using Weaver.Application.Attachments;
 using Weaver.Domain;
 using Weaver.Infrastructure;
 
@@ -183,30 +182,28 @@ public class AttachmentTests
         });
     }
 
-    // Purge (ticket 20) isn't built; this does what it will: delete the trashed item through the
-    // cleanup seam, so its attachment rows go by FK cascade and then its files.
+    // The rows go in the purge's commit and the files only after it, for the whole subtree.
     [Test]
-    public async Task PurgingATrashedItem_ThroughTheCleanupSeam_RemovesItsFileAndRow()
+    public async Task PurgingATrashedItem_RemovesItsAndItsSubtreesFilesAndRows()
     {
         var item = await _client.CreateWorkItemAsync("Kitchen");
+        var child = await _client.CreateWorkItemAsync("Tiles", item.Id);
         var attachment = await (await UploadAsync(item.Id, "a.txt", "text/plain", "x"u8.ToArray())).ReadAsync<AttachmentDto>();
-        (await _client.DeleteAsync($"/api/work-items/{item.Id}")).EnsureSuccessStatusCode();
+        var childAttachment = await (await UploadAsync(child.Id, "b.txt", "text/plain", "y"u8.ToArray())).ReadAsync<AttachmentDto>();
+        (await _client.DeleteAsync($"/api/work-items/{item.Id}?cascade=true")).EnsureSuccessStatusCode();
 
-        using (var scope = IntegrationTestEnvironment.Factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<WeaverDbContext>();
-            await scope.ServiceProvider.GetRequiredService<IAttachmentFileCleanup>().PurgeAsync(
-                [item.Id],
-                ct => db.WorkItems.IgnoreQueryFilters().Where(w => w.Id == item.Id).ExecuteDeleteAsync(ct));
-        }
+        var purge = await _client.DeleteAsync($"/api/trash/{item.Id}");
 
         using var check = IntegrationTestEnvironment.Factory.Services.CreateScope();
+        var attachmentIds = new[] { attachment.Id, childAttachment.Id };
         var rowsLeft = await check.ServiceProvider.GetRequiredService<WeaverDbContext>().WorkItemAttachments
             .IgnoreQueryFilters()
-            .CountAsync(a => a.Id == attachment.Id);
+            .CountAsync(a => attachmentIds.Contains(a.Id));
         Assert.Multiple(() =>
         {
+            Assert.That(purge.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
             Assert.That(File.Exists(Path.Combine(AttachmentsPath, attachment.Id.ToString())), Is.False);
+            Assert.That(File.Exists(Path.Combine(AttachmentsPath, childAttachment.Id.ToString())), Is.False);
             Assert.That(rowsLeft, Is.Zero);
         });
     }

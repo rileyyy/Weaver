@@ -4,7 +4,7 @@ namespace Weaver.Application.Services;
 
 /// <summary>
 /// Deleting a work item moves it and its subtree to the Trash, from which humans and
-/// read-write agents can restore it (ADR-0007). Purging is ticket 20.
+/// read-write agents can restore it (ADR-0007). Purging it is <see cref="IWorkItemPurgeService"/>.
 /// </summary>
 public interface IWorkItemTrashService
 {

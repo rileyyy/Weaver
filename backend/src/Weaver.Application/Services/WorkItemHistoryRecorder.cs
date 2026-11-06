@@ -31,6 +31,14 @@ internal sealed class WorkItemHistoryRecorder(IWeaverDbContext db, ICallerContex
         }
     }
 
+    public void RecordChanges(Guid workItemId, HistoryActor actor, IEnumerable<FieldChange> changes)
+    {
+        foreach (var change in changes.Where(c => c.Field != WorkItemField.Rank))
+        {
+            Add(workItemId, actor, change.Field, change.OldValue, change.NewValue);
+        }
+    }
+
     /// <summary>
     /// A new item records its creation (with its title) and the Space it was created in, so
     /// its history says where it started even after a move between Spaces (ticket 16).

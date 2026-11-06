@@ -84,4 +84,28 @@ public class TrashToolsTests
             Assert.That(ToolOf(nameof(TrashTools.DeleteWorkItem)).ReadOnly, Is.False);
         });
     }
+
+    // Agents can't purge (ADR-0007). Over MCP, where every caller is an agent, that's enforced
+    // by there being no tool for it at all, not just by the service refusing agents.
+    [Test]
+    public void NoMcpTool_PurgesOrEmptiesTheTrash()
+    {
+        var toolTypes = typeof(TrashTools).Assembly.GetTypes()
+            .Where(t => t.GetCustomAttribute<McpServerToolTypeAttribute>() is not null)
+            .ToList();
+        var toolNames = toolTypes
+            .SelectMany(t => t.GetMethods())
+            .Select(m => m.GetCustomAttribute<McpServerToolAttribute>()?.Name)
+            .OfType<string>()
+            .ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(toolNames, Does.Contain("restore_work_item"), "the scan found the tools");
+            Assert.That(toolNames, Has.None.Contains("purge").And.None.Contains("empty"));
+            Assert.That(
+                toolTypes.SelectMany(t => t.GetConstructors()).SelectMany(c => c.GetParameters()).Select(p => p.ParameterType),
+                Has.None.EqualTo(typeof(IWorkItemPurgeService)));
+        });
+    }
 }
