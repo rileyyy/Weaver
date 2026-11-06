@@ -29,6 +29,7 @@ public class WorkItemAttachmentsController(IWorkItemAttachmentService attachment
     /// the item's list.
     /// </summary>
     [HttpPost("api/work-items/{workItemId:guid}/attachments")]
+    [DisableFormValueModelBinding]
     [ProducesResponseType<AttachmentDto>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge, "application/problem+json")]
     public async Task<ActionResult<AttachmentDto>> Upload(Guid workItemId)
