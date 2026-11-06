@@ -13,7 +13,9 @@ the API.
 - **Spaces.** Every work item belongs to one Space. The board shows one
   Space at a time and opens the last one used on that device; the switcher
   before the breadcrumbs changes it. Admins add and rename Spaces on the
-  Admin page. An item can only be moved under an item in its own Space.
+  Admin page. An item can only be moved under an item in its own Space;
+  "Move to Space…" in the detail dialog moves it, with its sub-items, to
+  another Space, showing how its statuses, Types and priorities map first.
 - **Swimlane board with drill-down.** Cards move between status columns,
   and up or down within one, by drag and drop, landing where they're
   dropped; a card can be dropped on another lane's label to reparent it. Tapping the current breadcrumb (the Space's name at the top) picks a lane to

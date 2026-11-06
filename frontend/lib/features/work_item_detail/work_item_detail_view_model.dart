@@ -180,7 +180,7 @@ class WorkItemDetailViewModel extends ViewModel {
       _rollUps = rollUps;
       _parent = parent;
     } on ParallelWaitError<Object?, Object?> catch (e) {
-      rethrowNonApiErrors(e);
+      rethrowNonApiErrors(asyncErrorsOf(e.errors));
       _loadError =
           'Could not load this work item. Check your connection and try again.';
     } finally {
@@ -540,10 +540,20 @@ class WorkItemDetailViewModel extends ViewModel {
       _children = children;
       _rollUps = rollUps;
     } on ParallelWaitError<Object?, Object?> catch (e) {
-      rethrowNonApiErrors(e);
+      rethrowNonApiErrors(asyncErrorsOf(e.errors));
       // Keep the current lists; they only go stale.
     }
     notifyIfActive();
+  }
+
+  /// After the Move to Space dialog moved the item: its statuses, Types,
+  /// priorities and fields are now another Space's, so everything is
+  /// reloaded and the form re-seeded. The board counts as changed, since
+  /// the item and its sub-items left it.
+  Future<void> onMovedToSpace() async {
+    _hasChanges = true;
+    _reloadGeneration++;
+    await load(_id);
   }
 
   Future<bool> _save(

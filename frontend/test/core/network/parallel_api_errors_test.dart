@@ -21,7 +21,7 @@ void main() {
       Future.value(1),
     );
 
-    expect(() => rethrowNonApiErrors(failure), returnsNormally);
+    expect(() => rethrowNonApiErrors(asyncErrorsOf(failure.errors)), returnsNormally);
   });
 
   test('rethrows a failure that is not an API failure', () async {
@@ -30,6 +30,6 @@ void main() {
       Future.error(StateError('bug')),
     );
 
-    expect(() => rethrowNonApiErrors(failure), throwsStateError);
+    expect(() => rethrowNonApiErrors(asyncErrorsOf(failure.errors)), throwsStateError);
   });
 }

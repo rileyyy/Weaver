@@ -334,7 +334,7 @@ class BoardViewModel extends ViewModel {
       _spaceFields = fields;
       _items.putAll(items, asOf: asOf);
     } on ParallelWaitError<Object?, Object?> catch (e) {
-      rethrowNonApiErrors(e);
+      rethrowNonApiErrors(asyncErrorsOf(e.errors));
       if (generation != _hierarchyGeneration) return;
       _hierarchyLoadError =
           'Could not load the hierarchy view. Check your connection and try again.';

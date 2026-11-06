@@ -38,7 +38,7 @@ public class WorkItem : IHasUpdatedAt
 
     /// <summary>
     /// The Space the item belongs to. A top-level item is created in a chosen Space and every
-    /// descendant shares it; reparenting can't change it (ADR-0001).
+    /// descendant shares it; reparenting can't change it, only <see cref="MoveToSpace"/> (ADR-0001).
     /// </summary>
     public Guid SpaceId { get; private set; }
 
@@ -384,6 +384,73 @@ public class WorkItem : IHasUpdatedAt
         {
             throw new CrossSpaceParentException(Id, parent.Id);
         }
+    }
+
+    /// <summary>
+    /// Moves the item into another Space, under <paramref name="parent"/> there or at its top
+    /// level, taking that Space's <paramref name="values"/>. This is the explicit operation
+    /// reparenting refuses to be (ADR-0001). Its descendants then follow through
+    /// <see cref="FollowParentToSpace"/>. The caller must have checked the values are the
+    /// target Space's.
+    /// </summary>
+    public IReadOnlyList<FieldChange> MoveToSpace(Guid spaceId, WorkItem? parent, double rank, SpaceMoveValues values)
+    {
+        EnsureCanMoveToSpace(spaceId, parent);
+
+        var changed = new ChangedFields();
+        SpaceId = changed.Set(WorkItemField.SpaceId, SpaceId, spaceId);
+        ParentId = changed.Set(WorkItemField.ParentId, ParentId, parent?.Id);
+        Rank = changed.Set(WorkItemField.Rank, Rank, rank);
+        return [.. changed.Changes, .. TakeSpaceValues(values)];
+    }
+
+    /// <summary>
+    /// The checks <see cref="MoveToSpace"/> makes, for a caller that wants to reject a move
+    /// before loading the subtree and working out its mapping.
+    /// </summary>
+    public void EnsureCanMoveToSpace(Guid spaceId, WorkItem? parent)
+    {
+        if (spaceId == SpaceId)
+        {
+            throw new DomainValidationException(
+                $"Work item {Id} is already in Space {spaceId}; reparent it to move it within its Space.");
+        }
+
+        if (parent is not null && parent.SpaceId != spaceId)
+        {
+            throw new CrossSpaceParentException(Id, parent.Id);
+        }
+    }
+
+    /// <summary>
+    /// Moves a descendant of a moved item into the Space its <paramref name="parent"/> has just
+    /// moved to, keeping its place under that parent, so children still share their parent's
+    /// Space.
+    /// </summary>
+    public IReadOnlyList<FieldChange> FollowParentToSpace(WorkItem parent, SpaceMoveValues values)
+    {
+        if (parent.Id != ParentId)
+        {
+            throw new DomainValidationException($"Work item {parent.Id} isn't the parent of work item {Id}.");
+        }
+
+        if (parent.SpaceId == SpaceId)
+        {
+            throw new DomainValidationException($"Work item {parent.Id} hasn't moved out of work item {Id}'s Space.");
+        }
+
+        var changed = new ChangedFields();
+        SpaceId = changed.Set(WorkItemField.SpaceId, SpaceId, parent.SpaceId);
+        return [.. changed.Changes, .. TakeSpaceValues(values)];
+    }
+
+    /// <summary>The Type goes through <see cref="ChangeType"/>, so the custom field rule is the same one.</summary>
+    private IReadOnlyList<FieldChange> TakeSpaceValues(SpaceMoveValues values)
+    {
+        var changed = new ChangedFields();
+        StatusId = changed.Set(WorkItemField.StatusId, StatusId, values.StatusId);
+        PriorityId = changed.Set(WorkItemField.PriorityId, PriorityId, values.PriorityId);
+        return [.. changed.Changes, .. ChangeType(values.TypeId)];
     }
 
     /// <summary>Changes the item's place within its current board cell.</summary>

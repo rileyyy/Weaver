@@ -137,11 +137,7 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
             throw new DomainValidationException("A top-level work item needs a Space.");
         }
 
-        if (!await _db.Spaces.AnyAsync(s => s.Id == chosen, ct))
-        {
-            throw new EntityNotFoundException(nameof(Space), chosen);
-        }
-
+        await _db.EnsureSpaceExistsAsync(chosen, ct);
         return chosen;
     }
 
@@ -310,7 +306,7 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
         CancellationToken ct)
     {
         _history.RecordChanges(item.Id, changes);
-        await SaveWorkItemChangesAsync(item.Id, ct);
+        await _db.SaveWorkItemChangesAsync(item.Id, ct);
         return new WorkItemWriteResult(item, changes.Select(c => c.Field).ToList());
     }
 
@@ -340,18 +336,6 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
         if (valueSpaceId != spaceId)
         {
             throw new LookupNotInSpaceException(kind, id, spaceId);
-        }
-    }
-
-    private async Task SaveWorkItemChangesAsync(Guid id, CancellationToken ct)
-    {
-        try
-        {
-            await _db.SaveChangesAsync(ct);
-        }
-        catch (DbUpdateConcurrencyException ex)
-        {
-            throw new WorkItemVersionConflictException(id, ex);
         }
     }
 
