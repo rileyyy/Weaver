@@ -55,8 +55,8 @@ public class RollUpTests
             .ReadAsync<IReadOnlyList<RollUpDto>>();
         var detail = await mcp.CallToolAsync("get_work_item", new Dictionary<string, object?> { ["id"] = house.Id });
 
-        var mcpRollUps = JsonDocument.Parse(TextOf(detail)).RootElement.GetProperty("rollUps")
-            .Deserialize<List<RollUpDto>>(ApiClient.Json)!;
+        var mcpRollUps = McpJson.PropertyOf(JsonDocument.Parse(TextOf(detail)).RootElement, "rollUps")?
+            .Deserialize<List<RollUpDto>>(ApiClient.Json) ?? [];
         Assert.Multiple(() =>
         {
             Assert.That(rest.Single().Total, Is.EqualTo(250.25m));
