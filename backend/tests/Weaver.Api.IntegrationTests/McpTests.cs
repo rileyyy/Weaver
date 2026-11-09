@@ -262,6 +262,7 @@ public class McpTests
 
     // Marking a tool ReadOnly is what lets a read-only key call it, so a write tool marked that
     // way would be a hole. Tools are named for what they do, which makes the mistake visible.
+    // plan_ is a dry run: it reports what a write would do without making it.
     [Test]
     public async Task Mcp_OnlyReadingToolsAreMarkedReadOnly()
     {
@@ -277,7 +278,8 @@ public class McpTests
             Assert.That(
                 readOnly,
                 Has.All.Matches<string>(n =>
-                    n.StartsWith("list_") || n.StartsWith("get_") || n.StartsWith("search_") || n == "whoami"));
+                    n.StartsWith("list_") || n.StartsWith("get_") || n.StartsWith("search_") || n.StartsWith("plan_")
+                    || n == "whoami"));
         });
     }
 

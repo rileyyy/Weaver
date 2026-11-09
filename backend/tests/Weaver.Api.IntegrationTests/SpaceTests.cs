@@ -175,8 +175,10 @@ public class SpaceTests
         Assert.Multiple(() =>
         {
             Assert.That(spaces.Select(s => s.Id), Does.Contain(spaceId));
+            // Moving a work item into another Space writes the item, not the Space.
             Assert.That(
-                tools.Where(t => t.Name.Contains("space")).Select(t => t.ProtocolTool.Annotations?.ReadOnlyHint),
+                tools.Where(t => t.Name.Contains("space") && !t.Name.Contains("work_item"))
+                    .Select(t => t.ProtocolTool.Annotations?.ReadOnlyHint),
                 Has.All.True);
         });
     }
