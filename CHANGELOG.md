@@ -33,6 +33,34 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-10 — Dependency conflicts
+
+`feature/dependency-conflicts` (ticket 27 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md)).
+
+- **Conflict rule**: a blocked item conflicts with its blocker when it
+  starts before the blocker's end date. Starting on the end date is fine,
+  since the blocker can finish and the next item begin on the same day.
+  Undated items and Done items never conflict, and trashed blockers don't
+  count. Weaver flags conflicts and never changes a date because of one
+  (ADR-0009).
+- **`blockedBy` on every work item** (REST and MCP): each live blocker's id,
+  number, title, Space, end date and whether it `conflicts`. It replaces the
+  per-item blocker lookup behind `whenResolved`, and there is still one
+  lookup per response.
+- **MCP `list_dependency_conflicts`** (read-only, optional `spaceId`, which
+  matches either side of the link) lists each blocked item with its
+  blocker, so an agent can raise a stale date with a person.
+- **Board cards and Roadmap bars** show a conflict badge whose tooltip
+  (hover or tap) names the blocker.
+- **Roadmap arrows** run from each blocker to the item it blocks when both
+  are visible, drawn red when the link conflicts.
+- **Known limitation**: a blocked item's version doesn't change when its
+  blocker's dates do, so changes-since doesn't refresh its badge on other
+  clients until their next full load. The client that made the change
+  reloads the affected items itself.
+- No migration.
+
 ## 2026-11-10 — Completion date and done-hiding
 
 `feature/completion-date-and-done-hiding` (ticket 21 of
