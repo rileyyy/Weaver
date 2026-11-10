@@ -9,7 +9,8 @@ namespace Weaver.Api.Contracts;
 /// <see cref="CustomFieldDto"/>); a field with no value is left out. <see cref="TrashedAtUtc"/> is
 /// set only for an item in the Trash, which a read returns only when it asked for deleted items.
 /// <see cref="WhenResolved"/> depends on the item's blockers, so build it through
-/// <see cref="WorkItemDtoMapper"/>, which looks them up.
+/// <see cref="WorkItemDtoMapper"/>, which looks them up. <see cref="CompletionDate"/> is the day
+/// (in the server's time zone) the item entered a Done status, and null while it isn't Done.
 /// Each id comes with its name (the parent with its Number and title) so a reader needn't look
 /// them up; a name is null when its id is, or when the row it names is gone.
 /// </summary>
@@ -38,6 +39,7 @@ public record WorkItemDto(
     DateOnly? EndDate,
     string? When,
     bool WhenResolved,
+    DateOnly? CompletionDate,
     Guid? RecurrenceSourceId,
     DateOnly? RecurrenceDate,
     DateTimeOffset? TrashedAtUtc,
@@ -77,6 +79,7 @@ public record WorkItemDto(
         item.EndDate,
         item.When,
         item.IsWhenResolved(hasLiveBlocker),
+        item.CompletionDate,
         item.RecurrenceSourceId,
         item.RecurrenceDate,
         item.TrashedAtUtc,

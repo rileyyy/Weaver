@@ -55,6 +55,20 @@ public class SpaceService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerC
         return space;
     }
 
+    public async Task<Space> SetDoneHidingPeriodAsync(Guid id, int days, CancellationToken ct = default)
+    {
+        await EnsureAdminAsync(ct);
+
+        var space = await _db.Spaces.FindAsync([id], ct) ?? throw new EntityNotFoundException(nameof(Space), id);
+        foreach (var change in space.SetDoneHidingPeriod(days))
+        {
+            Record(id, change.Field, change.OldValue, change.NewValue);
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return space;
+    }
+
     private Task EnsureAdminAsync(CancellationToken ct) => _admins.EnsureAdminAsync(_caller.Current.AccountId, ct);
 
     /// <summary>

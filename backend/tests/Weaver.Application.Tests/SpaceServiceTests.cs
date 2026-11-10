@@ -166,4 +166,69 @@ public class SpaceServiceTests
 
         Assert.ThrowsAsync<AdminRequiredException>(() => _spaces.RenameAsync(space.Id, "House"));
     }
+
+    [Test]
+    public async Task SetDoneHidingPeriodAsync_ChangesThePeriodAndRecordsTheOldAndNew()
+    {
+        var space = await _spaces.CreateAsync("Home");
+
+        var changed = await _spaces.SetDoneHidingPeriodAsync(space.Id, 30);
+
+        var entry = _db.SpaceHistory.OrderBy(e => e.Id).Last(e => e.SpaceId == space.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed.DoneHidingDays, Is.EqualTo(30));
+            Assert.That(_db.Spaces.Find(space.Id)!.DoneHidingDays, Is.EqualTo(30));
+            Assert.That(entry.Field, Is.EqualTo(SpaceHistoryField.DoneHidingDays));
+            Assert.That(entry.OldValue, Is.EqualTo("14"));
+            Assert.That(entry.NewValue, Is.EqualTo("30"));
+            Assert.That(entry.AccountId, Is.EqualTo(_admin.Id));
+        });
+    }
+
+    [Test]
+    public async Task SetDoneHidingPeriodAsync_ToTheSamePeriod_RecordsNothing()
+    {
+        var space = await _spaces.CreateAsync("Home");
+
+        await _spaces.SetDoneHidingPeriodAsync(space.Id, Space.DefaultDoneHidingDays);
+
+        Assert.That(_db.SpaceHistory.Count(e => e.SpaceId == space.Id), Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task SetDoneHidingPeriodAsync_OutOfRange_IsAValidationErrorAndChangesNothing()
+    {
+        var space = await _spaces.CreateAsync("Home");
+
+        Assert.ThrowsAsync<DomainValidationException>(() => _spaces.SetDoneHidingPeriodAsync(space.Id, 0));
+        Assert.That(_db.SpaceHistory.Count(e => e.SpaceId == space.Id), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void SetDoneHidingPeriodAsync_AnUnknownSpace_ThrowsNotFound()
+    {
+        Assert.ThrowsAsync<EntityNotFoundException>(() => _spaces.SetDoneHidingPeriodAsync(Guid.NewGuid(), 7));
+    }
+
+    [Test]
+    public async Task SetDoneHidingPeriodAsync_ByANonAdmin_IsForbidden()
+    {
+        var space = await _spaces.CreateAsync("Home");
+        _caller.Current = new Caller(TestUsers.Add(_db, "member").Id, null, null);
+
+        Assert.ThrowsAsync<AdminRequiredException>(() => _spaces.SetDoneHidingPeriodAsync(space.Id, 7));
+    }
+
+    [Test]
+    public async Task SetDoneHidingPeriodAsync_ByAnAgent_IsForbidden()
+    {
+        var space = await _spaces.CreateAsync("Home");
+        var agent = User.CreateAgent("Claude", null);
+        _db.Users.Add(agent);
+        _db.SaveChanges();
+        _caller.Current = new Caller(agent.Id, Guid.NewGuid(), null);
+
+        Assert.ThrowsAsync<AgentAdministrationException>(() => _spaces.SetDoneHidingPeriodAsync(space.Id, 7));
+    }
 }
