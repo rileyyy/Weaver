@@ -62,6 +62,7 @@ public class WorkItemQueryService(IWeaverDbContext db, IWorkItemHierarchy hierar
         items = OfTypes(items, query.TypeIds);
         items = UpdatedSince(items, query.UpdatedSince);
         items = InBacklog(items, query.BacklogOnly);
+        items = WithUnresolvedWhen(items, query.UnresolvedWhenOnly);
         return query.HasDateWindow ? await InDateWindowAsync(items, query, ct) : items;
     }
 
@@ -107,6 +108,17 @@ public class WorkItemQueryService(IWeaverDbContext db, IWorkItemHierarchy hierar
         backlogOnly
             ? items.Where(w => w.StartDate == null && w.EndDate == null && w.Status!.Category != StatusCategory.Done)
             : items;
+
+    private IQueryable<WorkItem> WithUnresolvedWhen(IQueryable<WorkItem> items, bool unresolvedWhenOnly)
+    {
+        if (!unresolvedWhenOnly)
+        {
+            return items;
+        }
+
+        var blocked = _db.WorkItemLinks.BlockedIds();
+        return items.Where(WorkItem.WhenResolutionNeedsBlockersRule).Where(w => !blocked.Contains(w.Id));
+    }
 
     private static IQueryable<WorkItem> InSpaces(IQueryable<WorkItem> items, IReadOnlyList<Guid>? spaceIds) =>
         spaceIds is { Count: > 0 } ? items.Where(w => spaceIds.Contains(w.SpaceId)) : items;

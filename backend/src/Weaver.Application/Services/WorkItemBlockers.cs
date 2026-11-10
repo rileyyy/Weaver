@@ -1,13 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Weaver.Application.Persistence;
-using Weaver.Domain;
 
 namespace Weaver.Application.Services;
 
-/// <summary>
-/// The links' Trash filter hides a link while either end is trashed, so a trashed blocker
-/// stops counting without anything here having to know about the Trash.
-/// </summary>
+/// <summary>A blocker in the Trash stops counting until it's restored; see <see cref="BlockedWorkItems"/>.</summary>
 public class WorkItemBlockers(IWeaverDbContext db) : IWorkItemBlockers
 {
     private readonly IWeaverDbContext _db = db;
@@ -20,8 +16,8 @@ public class WorkItemBlockers(IWeaverDbContext db) : IWorkItemBlockers
         }
 
         var blocked = await _db.WorkItemLinks
-            .Where(l => l.Type == WorkItemLinkType.Blocks && workItemIds.Contains(l.LinkedWorkItemId))
-            .Select(l => l.LinkedWorkItemId)
+            .BlockedIds()
+            .Where(id => workItemIds.Contains(id))
             .Distinct()
             .ToListAsync(ct);
         return blocked.ToHashSet();

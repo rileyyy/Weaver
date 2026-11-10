@@ -20,6 +20,7 @@ public class WorkItemQueryServiceTests
     private TestSpace _home = null!;
     private int _lastNumber;
     private WorkItemTrashService _trash = null!;
+    private WorkItemLinkService _links = null!;
 
     [SetUp]
     public void SetUp()
@@ -31,6 +32,7 @@ public class WorkItemQueryServiceTests
         _workItems = new WorkItemService(_db, hierarchy, FakeCallerContext.Anyone());
         _query = new WorkItemQueryService(_db, hierarchy, new InMemoryWorkItemSearch());
         _trash = new WorkItemTrashService(_db, hierarchy, FakeCallerContext.Anyone(), _clock);
+        _links = new WorkItemLinkService(_db, FakeCallerContext.Anyone());
         _lastNumber = 0;
     }
 
@@ -459,6 +461,82 @@ public class WorkItemQueryServiceTests
     }
 
     [Test]
+    public async Task UnresolvedWhenOnly_ListsItemsWithAWhenButNoDatesOrBlocker()
+    {
+        var unresolved = await CreateWithWhenAsync("Paint the hall", "after drywall");
+        await CreateAsync("No When");
+        var dated = await CreateWithWhenAsync("Fence", "next spring");
+        await _workItems.RescheduleAsync(dated.Id, Nov(10), null);
+        var deadline = await CreateWithWhenAsync("Stall", "before the Christmas market");
+        await _workItems.RescheduleAsync(deadline.Id, null, Nov(28));
+
+        var page = await _query.QueryAsync(new WorkItemQuery(UnresolvedWhenOnly: true));
+
+        Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { unresolved.Id }));
+    }
+
+    [Test]
+    public async Task UnresolvedWhenOnly_LeavesOutAnItemABlockedByLinkResolves()
+    {
+        var drywall = await CreateAsync("Drywall");
+        var paint = await CreateWithWhenAsync("Paint the hall", "after drywall");
+        var related = await CreateWithWhenAsync("Tiles", "after drywall");
+        await _links.CreateAsync(paint.Id, drywall.Id, WorkItemLinkRelation.BlockedBy);
+        await _links.CreateAsync(related.Id, drywall.Id, WorkItemLinkRelation.Related);
+
+        var page = await _query.QueryAsync(new WorkItemQuery(UnresolvedWhenOnly: true));
+
+        Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { related.Id }));
+    }
+
+    // Only a live blocker resolves a When (ADR-0003), so trashing it brings the item back.
+    [Test]
+    public async Task UnresolvedWhenOnly_ListsAnItemAgain_WhileItsOnlyBlockerIsInTheTrash()
+    {
+        var drywall = await CreateAsync("Drywall");
+        var paint = await CreateWithWhenAsync("Paint the hall", "after drywall");
+        await _links.CreateAsync(drywall.Id, paint.Id, WorkItemLinkRelation.Blocks);
+
+        await _trash.MoveToTrashAsync(drywall.Id);
+        var page = await _query.QueryAsync(new WorkItemQuery(UnresolvedWhenOnly: true));
+
+        Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { paint.Id }));
+    }
+
+    [Test]
+    public async Task UnresolvedWhenOnly_DoesNotCountABlockerInTheTrash_EvenWithIncludeDeleted()
+    {
+        var drywall = await CreateAsync("Drywall");
+        var paint = await CreateWithWhenAsync("Paint the hall", "after drywall");
+        await _links.CreateAsync(drywall.Id, paint.Id, WorkItemLinkRelation.Blocks);
+
+        await _trash.MoveToTrashAsync(drywall.Id);
+        var page = await _query.QueryAsync(new WorkItemQuery(UnresolvedWhenOnly: true, IncludeDeleted: true));
+
+        Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { paint.Id }));
+    }
+
+    [Test]
+    public async Task UnresolvedWhenOnly_AgreesWithEachItemsOwnRule()
+    {
+        var drywall = await CreateAsync("Drywall");
+        var blocked = await CreateWithWhenAsync("Paint the hall", "after drywall");
+        await _links.CreateAsync(drywall.Id, blocked.Id, WorkItemLinkRelation.Blocks);
+        var dated = await CreateWithWhenAsync("Fence", "next spring");
+        await _workItems.RescheduleAsync(dated.Id, Nov(10), Nov(12));
+        await CreateWithWhenAsync("Stall", "before the Christmas market");
+        await CreateAsync("No When");
+        var blockedIds = new HashSet<Guid> { blocked.Id };
+
+        var all = (await _query.QueryAsync(new WorkItemQuery())).Items;
+        var unresolved = (await _query.QueryAsync(new WorkItemQuery(UnresolvedWhenOnly: true))).Items;
+
+        Assert.That(
+            unresolved.Select(i => i.Id),
+            Is.EqualTo(all.Where(i => i.When is not null && !i.IsWhenResolved(blockedIds.Contains(i.Id))).Select(i => i.Id)));
+    }
+
+    [Test]
     public async Task Summaries_AreTheSamePage_InBrief_WithNames()
     {
         var alice = TestUsers.Add(_db, "alice");
@@ -573,6 +651,13 @@ public class WorkItemQueryServiceTests
     {
         var item = await CreateAsync(title, parentId);
         await _workItems.RescheduleAsync(item.Id, start, end);
+        return item;
+    }
+
+    private async Task<WorkItem> CreateWithWhenAsync(string title, string when)
+    {
+        var item = await CreateAsync(title);
+        await _workItems.UpdateDetailsAsync(item.Id, new WorkItemDetailsPatch { When = when });
         return item;
     }
 
