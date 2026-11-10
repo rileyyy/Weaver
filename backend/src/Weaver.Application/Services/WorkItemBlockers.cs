@@ -19,11 +19,11 @@ public class WorkItemBlockers(IWeaverDbContext db) : IWorkItemBlockers
 
         var rows = await _db.WorkItemLinks
             .LiveBlocksLinkRows()
-            .Where(r => workItemIds.Contains(r.BlockedId))
-            .OrderBy(r => r.BlockerNumber)
+            .Where(r => workItemIds.Contains(r.Blocked.Id))
+            .OrderBy(r => r.Blocker.Number)
             .ToListAsync(ct);
         return rows
-            .GroupBy(r => r.BlockedId)
+            .GroupBy(r => r.Blocked.Id)
             .ToDictionary(
                 g => g.Key,
                 g => (IReadOnlyList<WorkItemBlocker>)g.Select(r => r.ToBlocker()).ToList());

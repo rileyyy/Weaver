@@ -16,13 +16,13 @@ public class DependencyConflicts(IWeaverDbContext db) : IDependencyConflicts
         }
 
         var rows = await InSpace(_db.WorkItemLinks.LiveBlocksLinkRows().Where(r => r.Conflicts), spaceId)
-            .OrderBy(r => r.BlockedStartDate)
-            .ThenBy(r => r.BlockedNumber)
-            .ThenBy(r => r.BlockerNumber)
+            .OrderBy(r => r.Blocked.StartDate)
+            .ThenBy(r => r.Blocked.Number)
+            .ThenBy(r => r.Blocker.Number)
             .ToListAsync(ct);
         return rows.Select(r => r.ToConflict()).ToList();
     }
 
     private static IQueryable<BlocksLinkRow> InSpace(IQueryable<BlocksLinkRow> rows, Guid? spaceId) =>
-        spaceId is null ? rows : rows.Where(r => r.BlockedSpaceId == spaceId || r.BlockerSpaceId == spaceId);
+        spaceId is null ? rows : rows.Where(r => r.Blocked.SpaceId == spaceId || r.Blocker.SpaceId == spaceId);
 }
