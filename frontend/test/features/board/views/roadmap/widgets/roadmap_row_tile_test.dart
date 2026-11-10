@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/features/board/models/flattened_tree_row.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/hierarchy_node.dart';
+import 'package:weaver/features/board/views/roadmap/roadmap_layout.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_timeframe.dart';
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_row_tile.dart';
 import 'package:weaver/shared/models/work_item_blocker.dart';
@@ -54,6 +55,7 @@ void main() {
     );
 
     expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
+    expect(_badgeX(tester), greaterThanOrEqualTo(leftColumnWidth));
   });
 
   testWidgets('a bar without a conflict shows no badge', (tester) async {
@@ -64,9 +66,30 @@ void main() {
     expect(find.byIcon(Icons.warning_amber_rounded), findsNothing);
   });
 
-  testWidgets('an item with no bar shows no badge', (tester) async {
+  testWidgets('a conflicting item with no dates shows the badge by its '
+      'title', (tester) async {
     await tester.pumpWidget(_tile(startDate: null, conflicts: true));
+
+    expect(_badgeX(tester), lessThan(leftColumnWidth));
+  });
+
+  testWidgets('a conflicting item whose bar is outside the window shows the '
+      'badge by its title', (tester) async {
+    await tester.pumpWidget(
+      _tile(startDate: DateTime(2026, 12, 20), conflicts: true),
+    );
+
+    expect(_badgeX(tester), lessThan(leftColumnWidth));
+  });
+
+  testWidgets('an item with no bar and no conflict shows no badge', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_tile(startDate: null, conflicts: false));
 
     expect(find.byIcon(Icons.warning_amber_rounded), findsNothing);
   });
 }
+
+double _badgeX(WidgetTester tester) =>
+    tester.getTopLeft(find.byIcon(Icons.warning_amber_rounded)).dx;

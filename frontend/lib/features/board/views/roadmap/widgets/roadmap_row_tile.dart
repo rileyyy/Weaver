@@ -52,6 +52,17 @@ class RoadmapRowTile extends StatelessWidget {
       timelineWidth: timelineWidth,
       totalDays: totalDays,
     );
+    final bar = roadmapBarExtent(
+      windowStart: windowStart,
+      totalDays: totalDays,
+      timelineWidth: timelineWidth,
+      start: item.startDate,
+      end: item.endDate,
+    );
+    // The badge normally rides on the bar; without one in view it moves to
+    // the title so a conflict is never hidden by the window.
+    final showTitleBadge =
+        bar == null && item.blockedBy.any((blocker) => blocker.conflicts);
 
     return InkWell(
       onTap: onTap,
@@ -91,6 +102,13 @@ class RoadmapRowTile extends StatelessWidget {
                           : null,
                     ),
                     const SizedBox(width: 4),
+                    if (showTitleBadge) ...[
+                      DependencyConflictBadge(
+                        blockers: item.blockedBy,
+                        size: _badgeSize,
+                      ),
+                      const SizedBox(width: 4),
+                    ],
                     Expanded(
                       flex: 3,
                       child: Text(item.title, overflow: TextOverflow.ellipsis),
@@ -127,7 +145,7 @@ class RoadmapRowTile extends StatelessWidget {
                       width: 2,
                       child: Container(color: roadmapTodayColor),
                     ),
-                  ..._buildBar(context, item),
+                  if (bar != null) ..._buildBar(context, item, bar),
                 ],
               ),
             ),
@@ -137,21 +155,14 @@ class RoadmapRowTile extends StatelessWidget {
     );
   }
 
-  /// The item's schedule as a positioned bar, clipped to the visible
+  /// The item's schedule as a positioned [bar], clipped to the visible
   /// window — an open start/end is drawn as running off the window's edge
-  /// rather than being treated as unscheduled. Returns no widgets for an item with
-  /// neither date set, or one whose schedule falls entirely outside the
-  /// visible window.
-  List<Widget> _buildBar(BuildContext context, HierarchyItem item) {
-    final bar = roadmapBarExtent(
-      windowStart: windowStart,
-      totalDays: timeframe.totalDays,
-      timelineWidth: timelineWidth,
-      start: item.startDate,
-      end: item.endDate,
-    );
-    if (bar == null) return const [];
-
+  /// rather than being treated as unscheduled — with its conflict badge.
+  List<Widget> _buildBar(
+    BuildContext context,
+    HierarchyItem item,
+    RoadmapBarExtent bar,
+  ) {
     final left = bar.left;
     final width = bar.right - bar.left;
 
