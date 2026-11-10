@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:weaver/core/dates/calendar_days.dart';
 import 'package:weaver/core/dates/date_format.dart';
 import 'package:weaver/features/board/board_view_model.dart';
+import 'package:weaver/features/board/models/flattened_tree_row.dart';
 import 'package:weaver/features/board/state/flatten_tree.dart';
+import 'package:weaver/features/board/views/roadmap/roadmap_arrows.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_layout.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_timeframe.dart';
+import 'package:weaver/features/board/views/roadmap/widgets/roadmap_dependency_arrows.dart';
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_header_row.dart';
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_row_tile.dart';
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_toolbar.dart';
@@ -39,6 +42,13 @@ class _RoadmapViewState extends State<RoadmapView> {
   final Set<String> _collapsedIds = {};
   RoadmapTimeframe _timeframe = RoadmapTimeframe.month;
   DateTime _windowStart = dateOnly(DateTime.now());
+  final ScrollController _rowScroll = ScrollController();
+
+  @override
+  void dispose() {
+    _rowScroll.dispose();
+    super.dispose();
+  }
 
   void _shiftWindow(int direction) {
     setState(() {
@@ -97,34 +107,75 @@ class _RoadmapViewState extends State<RoadmapView> {
                   ? const Center(
                       child: Text('No work items match the current filters.'),
                     )
-                  : ListView.builder(
-                      itemCount: rows.length,
-                      itemBuilder: (context, index) {
-                        final row = rows[index];
-                        return RoadmapRowTile(
-                          row: row,
-                          timeframe: _timeframe,
-                          windowStart: _windowStart,
-                          timelineWidth: timelineWidth,
-                          isCollapsed: _collapsedIds.contains(row.node.item.id),
-                          onToggleCollapsed: () => setState(() {
-                            if (!_collapsedIds.remove(row.node.item.id)) {
-                              _collapsedIds.add(row.node.item.id);
-                            }
-                          }),
-                          onTap: () => widget.onItemOpened(row.node.item.id),
-                          onAddTagTapped: () => widget.onAddTagsRequested(
-                            row.node.item.id,
-                            row.node.item.tags,
+                  : Stack(
+                      children: [
+                        _buildRows(rows, timelineWidth),
+                        Positioned(
+                          left: leftColumnWidth,
+                          top: 0,
+                          bottom: 0,
+                          width: timelineWidth,
+                          child: IgnorePointer(
+                            child: _buildArrows(context, rows, timelineWidth),
                           ),
-                          statusColorFor: viewModel.statusColorFor,
-                        );
-                      },
+                        ),
+                      ],
                     ),
             ),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildRows(List<FlattenedTreeRow> rows, double timelineWidth) {
+    final viewModel = widget.viewModel;
+    return ListView.builder(
+      controller: _rowScroll,
+      itemCount: rows.length,
+      itemExtent: roadmapRowHeight,
+      itemBuilder: (context, index) {
+        final row = rows[index];
+        return RoadmapRowTile(
+          row: row,
+          timeframe: _timeframe,
+          windowStart: _windowStart,
+          timelineWidth: timelineWidth,
+          isCollapsed: _collapsedIds.contains(row.node.item.id),
+          onToggleCollapsed: () => setState(() {
+            if (!_collapsedIds.remove(row.node.item.id)) {
+              _collapsedIds.add(row.node.item.id);
+            }
+          }),
+          onTap: () => widget.onItemOpened(row.node.item.id),
+          onAddTagTapped: () =>
+              widget.onAddTagsRequested(row.node.item.id, row.node.item.tags),
+          statusColorFor: viewModel.statusColorFor,
+        );
+      },
+    );
+  }
+
+  Widget _buildArrows(
+    BuildContext context,
+    List<FlattenedTreeRow> rows,
+    double timelineWidth,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return CustomPaint(
+      painter: RoadmapDependencyArrowsPainter(
+        arrows: roadmapArrows(
+          rows: [for (final row in rows) row.node.item],
+          windowStart: _windowStart,
+          totalDays: _timeframe.totalDays,
+          timelineWidth: timelineWidth,
+          rowHeight: roadmapRowHeight,
+        ),
+        rowHeight: roadmapRowHeight,
+        scroll: _rowScroll,
+        neutralColor: colorScheme.onSurfaceVariant,
+        conflictColor: colorScheme.error,
+      ),
     );
   }
 }
