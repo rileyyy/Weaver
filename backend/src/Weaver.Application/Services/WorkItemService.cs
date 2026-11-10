@@ -34,6 +34,34 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
         CancellationToken ct = default) =>
         await InRankOrder(ChildrenQuery(parentId, spaceId)).Summarize().ToListAsync(ct);
 
+    public async Task<IReadOnlyList<WorkItemSummary>> GetAncestorSummariesAsync(Guid id, CancellationToken ct = default)
+    {
+        var chainIds = await _hierarchy.GetSelfAndAncestorIdsAsync([id], ct);
+
+        // Trashed rows are read too, so the walk can pass through a trashed ancestor to the live ones above it.
+        var byId = (await _db.WorkItems
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(w => chainIds.Contains(w.Id))
+                .Summarize()
+                .ToListAsync(ct))
+            .ToDictionary(s => s.Id);
+
+        return ParentsUpFrom(byId, id).Where(s => s.TrashedAtUtc is null).Reverse().ToList();
+    }
+
+    /// <summary>Stops at a cycle rather than looping, as the hierarchy walk does.</summary>
+    private static IEnumerable<WorkItemSummary> ParentsUpFrom(IReadOnlyDictionary<Guid, WorkItemSummary> byId, Guid id)
+    {
+        var visited = new HashSet<Guid> { id };
+        var parentId = byId.GetValueOrDefault(id)?.ParentId;
+        while (parentId is { } current && visited.Add(current) && byId.TryGetValue(current, out var parent))
+        {
+            yield return parent;
+            parentId = parent.ParentId;
+        }
+    }
+
     public async Task<IReadOnlyList<Swimlane>> GetSwimlanesAsync(
         Guid? scopeItemId,
         Guid? spaceId = null,

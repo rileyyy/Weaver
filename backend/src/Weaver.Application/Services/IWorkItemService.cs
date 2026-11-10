@@ -33,6 +33,12 @@ public interface IWorkItemService
         CancellationToken ct = default);
 
     /// <summary>
+    /// Every live ancestor of <paramref name="id"/>, in brief, from its top-level item down to
+    /// its parent. Empty for a top-level item.
+    /// </summary>
+    Task<IReadOnlyList<WorkItemSummary>> GetAncestorSummariesAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
     /// A board's two levels in one call: the direct children of
     /// <paramref name="scopeItemId"/> (or the top-level items of <paramref name="spaceId"/>
     /// when null) as lanes, each with its own direct children as cards. Two queries regardless
