@@ -18,6 +18,10 @@ public interface IWeaverDbContext
     /// <summary>Append-only, like <see cref="WorkItemHistory"/>.</summary>
     DbSet<SpaceHistoryEntry> SpaceHistory { get; }
 
+    DbSet<View> Views { get; }
+
+    DbSet<DefaultView> DefaultViews { get; }
+
     DbSet<WorkItem> WorkItems { get; }
 
     DbSet<Status> Statuses { get; }

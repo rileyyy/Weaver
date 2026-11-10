@@ -14,6 +14,10 @@ public class WeaverDbContext(DbContextOptions<WeaverDbContext> options) : DbCont
 
     public DbSet<SpaceHistoryEntry> SpaceHistory => Set<SpaceHistoryEntry>();
 
+    public DbSet<View> Views => Set<View>();
+
+    public DbSet<DefaultView> DefaultViews => Set<DefaultView>();
+
     public DbSet<WorkItem> WorkItems => Set<WorkItem>();
 
     public DbSet<Status> Statuses => Set<Status>();
@@ -86,6 +90,8 @@ public class WeaverDbContext(DbContextOptions<WeaverDbContext> options) : DbCont
     {
         modelBuilder.ApplyConfiguration(new SpaceConfiguration());
         modelBuilder.ApplyConfiguration(new SpaceHistoryEntryConfiguration());
+        modelBuilder.ApplyConfiguration(new ViewConfiguration());
+        modelBuilder.ApplyConfiguration(new DefaultViewConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemConfiguration());
         modelBuilder.ApplyConfiguration(new StatusConfiguration());
         modelBuilder.ApplyConfiguration(new UserConfiguration());

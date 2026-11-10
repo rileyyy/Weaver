@@ -606,23 +606,7 @@ public class WorkItem : IHasUpdatedAt
     /// </summary>
     public IReadOnlyList<FieldChange> SetTags(IEnumerable<string> tags)
     {
-        var normalized = new List<string>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var tag in tags)
-        {
-            var trimmed = tag.Trim();
-            if (trimmed.Length == 0)
-            {
-                throw new InvalidWorkItemTagException(Id);
-            }
-
-            TextValidation.RequireMaxLength(trimmed, "Each tag", TagMaxLength);
-
-            if (seen.Add(trimmed))
-            {
-                normalized.Add(trimmed);
-            }
-        }
+        var normalized = TagList.Normalize(tags, () => new InvalidWorkItemTagException(Id));
 
         if (normalized.Count > MaxTags)
         {
