@@ -143,17 +143,17 @@ class RoadmapRowTile extends StatelessWidget {
   /// neither date set, or one whose schedule falls entirely outside the
   /// visible window.
   List<Widget> _buildBar(BuildContext context, HierarchyItem item) {
-    final span = roadmapBarSpan(
+    final bar = roadmapBarExtent(
       windowStart: windowStart,
       totalDays: timeframe.totalDays,
+      timelineWidth: timelineWidth,
       start: item.startDate,
       end: item.endDate,
     );
-    if (span == null) return const [];
+    if (bar == null) return const [];
 
-    final totalDays = timeframe.totalDays.toDouble();
-    final left = span.startDay / totalDays * timelineWidth;
-    final width = (span.endDay - span.startDay) / totalDays * timelineWidth;
+    final left = bar.left;
+    final width = bar.right - bar.left;
 
     return [
       Positioned(

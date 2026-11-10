@@ -32,3 +32,41 @@ RoadmapBarSpan? roadmapBarSpan({
   if (endDay <= startDay) return null;
   return (startDay: startDay, endDay: endDay);
 }
+
+/// Where an item's bar sits on a timeline [RoadmapBarSpan] laid out in
+/// pixels, and whether each edge is the item's own date rather than the
+/// window's edge (a missing date, or one outside the window). Bars and the
+/// dependency arrows both use it, so an arrow always meets its bar.
+typedef RoadmapBarExtent = ({
+  double left,
+  double right,
+  bool startsInWindow,
+  bool endsInWindow,
+});
+
+/// [roadmapBarSpan] on a timeline [timelineWidth] pixels wide.
+RoadmapBarExtent? roadmapBarExtent({
+  required DateTime windowStart,
+  required int totalDays,
+  required double timelineWidth,
+  required DateTime? start,
+  required DateTime? end,
+}) {
+  final span = roadmapBarSpan(
+    windowStart: windowStart,
+    totalDays: totalDays,
+    start: start,
+    end: end,
+  );
+  if (span == null) return null;
+  // Multiplying before dividing keeps whole-pixel days exact.
+  double toPixels(double day) => day * timelineWidth / totalDays;
+  // A drawn bar starts before the window's end and ends after its start,
+  // so only the other side of each edge needs checking.
+  return (
+    left: toPixels(span.startDay),
+    right: toPixels(span.endDay),
+    startsInWindow: start != null && daysBetween(windowStart, start) >= 0,
+    endsInWindow: end != null && daysBetween(windowStart, end) < totalDays,
+  );
+}

@@ -1,6 +1,5 @@
 import 'dart:ui';
 
-import 'package:weaver/core/dates/calendar_days.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_bar.dart';
 
@@ -24,37 +23,28 @@ List<RoadmapArrow> roadmapArrows({
   final rowIndexById = {
     for (final (index, item) in rows.indexed) item.id: index,
   };
-  final dayWidth = timelineWidth / totalDays;
   double rowCentre(int index) => (index + 0.5) * rowHeight;
 
-  bool onTimeline(DateTime? day) {
-    if (day == null) return false;
-    final offset = daysBetween(windowStart, day);
-    return offset >= 0 && offset < totalDays;
-  }
-
-  RoadmapBarSpan? spanOf(HierarchyItem item) => roadmapBarSpan(
+  RoadmapBarExtent? barOf(HierarchyItem item) => roadmapBarExtent(
     windowStart: windowStart,
     totalDays: totalDays,
+    timelineWidth: timelineWidth,
     start: item.startDate,
     end: item.endDate,
   );
 
   final arrows = <RoadmapArrow>[];
   for (final (blockedIndex, blocked) in rows.indexed) {
-    if (!onTimeline(blocked.startDate)) continue;
-    final blockedSpan = spanOf(blocked);
-    if (blockedSpan == null) continue;
+    final blockedBar = barOf(blocked);
+    if (blockedBar == null || !blockedBar.startsInWindow) continue;
     for (final blocker in blocked.blockedBy) {
       final blockerIndex = rowIndexById[blocker.id];
       if (blockerIndex == null) continue;
-      final blockerRow = rows[blockerIndex];
-      if (!onTimeline(blockerRow.endDate)) continue;
-      final blockerSpan = spanOf(blockerRow);
-      if (blockerSpan == null) continue;
+      final blockerBar = barOf(rows[blockerIndex]);
+      if (blockerBar == null || !blockerBar.endsInWindow) continue;
       arrows.add((
-        from: Offset(blockerSpan.endDay * dayWidth, rowCentre(blockerIndex)),
-        to: Offset(blockedSpan.startDay * dayWidth, rowCentre(blockedIndex)),
+        from: Offset(blockerBar.right, rowCentre(blockerIndex)),
+        to: Offset(blockedBar.left, rowCentre(blockedIndex)),
         conflicts: blocker.conflicts,
       ));
     }

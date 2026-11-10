@@ -20,12 +20,7 @@ HierarchyItem _item(
 );
 
 WorkItemBlocker _blockedBy(String id, {bool conflicts = false}) =>
-    WorkItemBlocker(
-      id: id,
-      number: 1,
-      title: id,
-      conflicts: conflicts,
-    );
+    WorkItemBlocker(id: id, number: 1, title: id, conflicts: conflicts);
 
 void main() {
   // 14 days over 140px: 10px a day. Rows are 40px tall.
