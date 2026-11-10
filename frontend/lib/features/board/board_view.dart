@@ -124,7 +124,11 @@ class _BoardViewState extends State<BoardView>
   /// Opens the user's default View, in its layout.
   Future<void> _load() async {
     await (_viewModel.load(), _savedViews.load()).wait;
-    if (mounted) _showOpenView();
+    if (!mounted) return;
+    if (_viewModel.currentView case final view?) {
+      _savedViews.knowDefault(view.id);
+    }
+    _showOpenView();
   }
 
   /// After a View opens: the search box shows its text and its layout's
@@ -132,7 +136,7 @@ class _BoardViewState extends State<BoardView>
   void _showOpenView() {
     _searchController.text = _viewModel.searchQuery;
     final layout = _viewModel.currentView?.definition.layout;
-    if (layout != null) _tabController.index = layout.tab.index;
+    if (layout != null) _tabController.index = BoardTab.showing(layout).index;
     _loadBacklogIfShown();
   }
 
@@ -152,8 +156,7 @@ class _BoardViewState extends State<BoardView>
     if (mounted) _loadBacklogIfShown();
   }
 
-  ViewLayout get _currentLayout =>
-      ViewLayout.ofTab(BoardTab.values[_tabController.index]);
+  ViewLayout get _currentLayout => BoardTab.values[_tabController.index].layout;
 
   Future<void> _onViewAction(ViewMenuAction action) async {
     final current = _viewModel.currentView;
@@ -215,7 +218,7 @@ class _BoardViewState extends State<BoardView>
       isDestructive: true,
     );
     if (!confirmed || !await _savedViews.delete(view)) return;
-    final overview = _savedViews.views.where((v) => v.builtIn).firstOrNull;
+    final overview = _savedViews.overview;
     if (overview != null && mounted) await _openView(overview);
   }
 

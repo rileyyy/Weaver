@@ -208,7 +208,7 @@ class ApiBoardRepository implements BoardRepository {
     if (query.text.isNotEmpty) 'text': query.text,
     if (query.tags.isNotEmpty) 'tags': query.tags.toList(),
     // Any is the server's default.
-    if (query.tagMatch == TagMatch.all) 'tagMatch': 'All',
+    if (query.tagMatch == TagMatch.all) 'tagMatch': TagMatch.all.wireName,
     'from': ?formatCalendarDate(query.from),
     'to': ?formatCalendarDate(query.to),
     if (query.applyDoneHiding) 'applyDoneHiding': 'true',

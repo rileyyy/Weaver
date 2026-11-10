@@ -26,7 +26,7 @@ What shipped, newest first. Design reasoning lives in
 | 15        | Done        | Production deployment pieces                |
 | 16        | Planned     | Foundations: Spaces, Types, history, agents |
 | 17        | Planned     | Agent surface                               |
-| 18        | In progress | Human UX: Views, Backlog, When              |
+| 18        | Planned     | Human UX: Views, Backlog, When              |
 | 19        | Planned     | Attachments, mobile polish, cleanup         |
 | 20        | Later       | Reminders, export, autonomous agents        |
 

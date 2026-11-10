@@ -7,7 +7,9 @@ import 'package:weaver/features/board/models/view_definition.dart';
 
 /// The shared Views for the header's View menu: listing them, saving,
 /// renaming and deleting one, and the signed-in user's default. Opening a
-/// View is the board's job ([BoardViewModel.openView]).
+/// View is the board's job ([BoardViewModel.openView]), and so is reading
+/// the default on launch, which the board then reports through
+/// [knowDefault] rather than asking the server twice.
 @injectable
 class SavedViewsViewModel extends ViewModel {
   SavedViewsViewModel(this._repository);
@@ -28,12 +30,18 @@ class SavedViewsViewModel extends ViewModel {
 
   void clearError() => _error = null;
 
+  /// Overview, which every server has.
+  SavedView? get overview => _views.where((view) => view.builtIn).firstOrNull;
+
   Future<void> load() => _run(() async {
-    final views = await _repository.list();
-    final defaultView = await _repository.loadDefault();
-    _views = views;
-    _defaultViewId = defaultView.id;
+    _views = await _repository.list();
   }, failure: 'Could not load the Views. Check your connection.');
+
+  /// Records [viewId] as the signed-in user's default, as the board read it.
+  void knowDefault(String viewId) {
+    _defaultViewId = viewId;
+    notifyIfActive();
+  }
 
   /// The saved View, or null when it couldn't be saved ([error] says why).
   Future<SavedView?> create(ViewDefinition definition) => _run(() async {
@@ -66,7 +74,7 @@ class SavedViewsViewModel extends ViewModel {
           for (final existing in _views)
             if (existing.id != view.id) existing,
         ];
-        if (_defaultViewId == view.id) _defaultViewId = _overviewId;
+        if (_defaultViewId == view.id) _defaultViewId = overview?.id;
         return true;
       }, failure: 'Could not delete "${view.name}". Try again.') ??
       false;
@@ -74,13 +82,6 @@ class SavedViewsViewModel extends ViewModel {
   Future<void> setDefault(SavedView view) => _run(() async {
     _defaultViewId = (await _repository.setDefault(view.id)).id;
   }, failure: 'Could not make "${view.name}" your default. Try again.');
-
-  String? get _overviewId {
-    for (final view in _views) {
-      if (view.builtIn) return view.id;
-    }
-    return null;
-  }
 
   static List<SavedView> _sorted(List<SavedView> views) => [
     for (final view in views)

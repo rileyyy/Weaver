@@ -195,6 +195,14 @@ void main() {
       scheduledOrInProgressOnly: true,
     );
 
+    test('keeps the spelling of a tag chosen in the header', () {
+      final definition = none
+          .withTagToggled('UI')
+          .toDefinition('Design', ViewLayout.board);
+
+      expect(definition.tags, {'UI'});
+    });
+
     test('replaces the query inputs it stores', () {
       final filters = none
           .withSearchQuery('paint')
@@ -232,7 +240,7 @@ void main() {
       expect(definition.name, 'Gates');
       expect(definition.spaceIds, {'home', 'village'});
       expect(definition.text, 'gate');
-      expect(definition.tags, {'outside'});
+      expect(definition.tags, {'Outside'});
       expect(definition.tagMatch, TagMatch.all);
       expect(definition.applyDoneHiding, isFalse);
       expect(definition.scheduledOrInProgressOnly, isTrue);

@@ -525,7 +525,7 @@ class BoardViewModel extends ViewModel {
       _breadcrumbs = [
         for (final crumb in _breadcrumbs)
           switch (crumb) {
-            ScopeCrumb(id: null, spaceId: null) => _rootCrumb(
+            ScopeCrumb(isViewRoot: true) => _rootCrumb(
               _view,
               _spacesOf(spaces, _filters.spaceIds),
             ),
@@ -646,7 +646,7 @@ class BoardViewModel extends ViewModel {
     _view = view;
     _breadcrumbs = [
       for (final crumb in _breadcrumbs)
-        crumb.id == null && crumb.spaceId == null
+        crumb.isViewRoot
             ? _rootCrumb(view, _spacesOf(_spaces, _filters.spaceIds))
             : crumb,
     ];
@@ -671,9 +671,7 @@ class BoardViewModel extends ViewModel {
 
   /// Shows only [space]'s top level, below the View's root.
   Future<void> focusSpace(Space space) => _navigate([
-    if (_breadcrumbs.firstOrNull case final root?
-        when root.id == null && root.spaceId == null)
-      root,
+    if (_breadcrumbs.firstOrNull case final root? when root.isViewRoot) root,
     _spaceCrumb(space),
   ], errorMessage: 'Could not open "${space.name}". Try again.');
 

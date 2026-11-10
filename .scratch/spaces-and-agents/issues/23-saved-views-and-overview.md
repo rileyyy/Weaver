@@ -27,4 +27,7 @@
 - **Default View** is a `DefaultViews` row per user, not a `User` column. Choosing Overview or deleting the View removes the row.
 - **Launch** opens the default View, replacing the last-used-Space memory.
 - **The breadcrumb** starts at the View when it spans several Spaces, else at its one Space. Drilling in from the View pushes the Space, then the item. The Hierarchy and Roadmap follow the Space the breadcrumb is in.
+- **The Roadmap leaves Overview's rule off.** Inside a window the rule would only add undated Doing items, which are Backlog items and have no bar.
+- **Changing the Spaces shown keeps the open View's name.** The header is then that View with unsaved changes, and "Save changes" stores them.
+- **Saving from Backlog, Repeating or Trash stores the Board layout**, since those tabs aren't layouts.
 - **Not verified here:** the Postgres integration tests (`ViewTests`, the new `WorkItemSearchTests` case) couldn't run locally, because this machine has no Docker. CI runs them on the backend PR. Nobody ran the app by hand; the Flutter side is covered by unit and widget tests.

@@ -27,13 +27,20 @@ void main() {
     );
     viewModel = SavedViewsViewModel(repository);
     await viewModel.load();
+    viewModel.knowDefault(overviewId);
   });
 
   tearDown(() => viewModel.dispose());
 
-  test('loads every View and the default', () {
+  test('loads every View, Overview first', () {
     expect(viewModel.views.map((v) => v.name), ['Overview', 'Village']);
-    expect(viewModel.defaultViewId, overviewId);
+    expect(viewModel.overview?.id, overviewId);
+  });
+
+  test('takes the default from the board rather than asking again', () {
+    viewModel.knowDefault('village');
+
+    expect(viewModel.defaultViewId, 'village');
   });
 
   test('a saved View is listed by name after Overview', () async {

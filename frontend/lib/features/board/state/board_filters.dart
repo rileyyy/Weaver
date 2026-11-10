@@ -34,8 +34,9 @@ class BoardFilters {
   final String searchQuery;
   final Set<String> hiddenStatusIds;
 
-  /// Lower-cased, so "Urgent" and "urgent" are one selection, the same way
-  /// the tag chip list merges them.
+  /// As first chosen, so a saved View keeps the tag's spelling. "Urgent"
+  /// and "urgent" are one selection, the same way the tag chip list merges
+  /// them.
   final Set<String> selectedTags;
   final TagMatch tagMatch;
   final CardSortOption sortOption;
@@ -63,8 +64,16 @@ class BoardFilters {
   BoardFilters withStatusToggled(String statusId) =>
       _copy(hiddenStatusIds: _toggled(hiddenStatusIds, statusId));
 
-  BoardFilters withTagToggled(String tag) =>
-      _copy(selectedTags: _toggled(selectedTags, tag.toLowerCase()));
+  BoardFilters withTagToggled(String tag) => _copy(
+    selectedTags: Set.unmodifiable(
+      isTagSelected(tag)
+          ? {
+              for (final selected in selectedTags)
+                if (selected.toLowerCase() != tag.toLowerCase()) selected,
+            }
+          : {...selectedTags, tag},
+    ),
+  );
 
   BoardFilters withTagMatch(TagMatch match) => _copy(tagMatch: match);
 
@@ -84,9 +93,7 @@ class BoardFilters {
   BoardFilters withView(ViewDefinition view) => _copy(
     spaceIds: Set.unmodifiable(view.spaceIds),
     searchQuery: view.text,
-    selectedTags: Set.unmodifiable({
-      for (final tag in view.tags) tag.toLowerCase(),
-    }),
+    selectedTags: Set.unmodifiable(view.tags),
     tagMatch: view.tagMatch,
     showDone: !view.applyDoneHiding,
     scheduledOrInProgressOnly: view.scheduledOrInProgressOnly,
@@ -104,7 +111,14 @@ class BoardFilters {
     layout: layout,
   );
 
-  bool isTagSelected(String tag) => selectedTags.contains(tag.toLowerCase());
+  bool isTagSelected(String tag) =>
+      _selectedTagsLowered.contains(tag.toLowerCase());
+
+  /// The server ignores case, so the query asks lower-cased: changing only
+  /// a tag's case then asks nothing new.
+  Set<String> get _selectedTagsLowered => {
+    for (final tag in selectedTags) tag.toLowerCase(),
+  };
 
   /// The server query over [shownSpaceIds] with this header's time range,
   /// search, tags, done-hiding and Overview's rule. Hiding a status or
@@ -139,7 +153,7 @@ class BoardFilters {
   }) => WorkItemQuery(
     spaceIds: shownSpaceIds,
     text: searchQuery,
-    tags: selectedTags,
+    tags: _selectedTagsLowered,
     tagMatch: tagMatch,
     from: from,
     to: to,

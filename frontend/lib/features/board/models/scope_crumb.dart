@@ -10,4 +10,7 @@ class ScopeCrumb {
   final String? id;
   final String title;
   final String? spaceId;
+
+  /// The open View's own root, above its Spaces.
+  bool get isViewRoot => id == null && spaceId == null;
 }
