@@ -244,8 +244,9 @@ class _TestBoardRepository implements BoardRepository {
   /// Every query sent, in order.
   final List<WorkItemQuery> queries = [];
 
-  /// Which items the "server" says match any query.
-  Set<String> matchingIds = const {};
+  /// Which items the "server" says match any query; null for every item
+  /// it holds, as when the default done-hiding query has nothing to hide.
+  Set<String>? matchingIds;
 
   /// When set, every query fails with it.
   Exception? queryError;
@@ -265,7 +266,7 @@ class _TestBoardRepository implements BoardRepository {
     }
     final error = queryError;
     if (error != null) throw error;
-    return [for (final id in matchingIds) server[id]!];
+    return [for (final id in matchingIds ?? server.keys) server[id]!];
   }
 
   @override
@@ -1477,6 +1478,9 @@ void main() {
     test(
       'an older hierarchy load finishing last does not overwrite the newer one',
       () async {
+        // These items exist only in the hierarchy loads, so the fake
+        // server's done-hiding query would leave them out.
+        viewModel.setShowDone(true);
         repository.pendingHierarchyLoads = [];
         final older = viewModel.loadHierarchy();
         final newer = viewModel.loadHierarchy();
@@ -1799,11 +1803,12 @@ void main() {
           workItem('root-2', number: 3, parentId: null, statusId: 'done'),
         ],
       );
+      // Showing every Done item leaves only the filters each test sets.
       filtered = BoardViewModel(
         queried,
         WorkItemStore(),
         MemoryLastSpaceStore(),
-      );
+      )..setShowDone(true);
       await filtered.load();
       await filtered.loadHierarchy();
     });
@@ -1957,6 +1962,80 @@ void main() {
 
       expect(queried.queries.length, greaterThan(asked));
       expect(filtered.cardVisible(filtered.swimlanes[0].cards.single), isTrue);
+    });
+  });
+
+  group('done hiding', () {
+    late _TestBoardRepository queried;
+    late BoardViewModel board;
+
+    setUp(() async {
+      queried = _TestBoardRepository()..matchingIds = {'lane-a', 'lane-b'};
+      board = BoardViewModel(queried, WorkItemStore(), MemoryLastSpaceStore());
+      await board.load();
+      await pumpEventQueue();
+    });
+
+    tearDown(() => board.dispose());
+
+    WorkItemCard card(int lane) => board.swimlanes[lane].cards.single;
+
+    test('is on by default, asking the server to hide old Done items', () {
+      expect(board.showDone, isFalse);
+      expect(queried.queries.single.applyDoneHiding, isTrue);
+      expect(queried.queries.single.spaceId, 'home');
+    });
+
+    test('hides the items the server leaves out', () {
+      expect(board.cardVisible(card(0)), isFalse);
+      expect(board.cardVisible(card(1)), isFalse);
+    });
+
+    test('Show done shows every item without asking', () async {
+      final asked = queried.queries.length;
+
+      board.setShowDone(true);
+      await pumpEventQueue();
+
+      expect(board.showDone, isTrue);
+      expect(queried.queries, hasLength(asked));
+      expect(board.cardVisible(card(0)), isTrue);
+      expect(board.cardVisible(card(1)), isTrue);
+    });
+
+    test('turning Show done off again asks again', () async {
+      board.setShowDone(true);
+      await pumpEventQueue();
+      queried.matchingIds = {'lane-a', 'lane-b', 'card-2'};
+
+      board.setShowDone(false);
+      await pumpEventQueue();
+
+      expect(queried.queries.last.applyDoneHiding, isTrue);
+      expect(board.cardVisible(card(0)), isFalse);
+      expect(board.cardVisible(card(1)), isTrue);
+    });
+
+    test('Show done keeps the other filters but drops done hiding', () async {
+      board
+        ..setShowDone(true)
+        ..setSearchQuery('card');
+      await pumpEventQueue();
+
+      expect(queried.queries.last.text, 'card');
+      expect(queried.queries.last.applyDoneHiding, isFalse);
+    });
+
+    test('an edit that changes nothing the server matches redraws only its '
+        'lane', () async {
+      var boardRedraws = 0;
+      board.addListener(() => boardRedraws++);
+
+      await board.assign('card-1', 'u1');
+      await pumpEventQueue();
+
+      expect(queried.queries.length, greaterThan(1));
+      expect(boardRedraws, 0);
     });
   });
 

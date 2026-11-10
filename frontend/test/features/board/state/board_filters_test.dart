@@ -9,8 +9,18 @@ bool _asksDifferently(BoardFilters a, BoardFilters b) =>
 void main() {
   const none = BoardFilters();
 
-  test('an empty filter asks for every item', () {
-    expect(none.toQuery('home').isUnfiltered, isTrue);
+  test('by default the query hides old Done items', () {
+    final query = none.toQuery('home');
+
+    expect(query.applyDoneHiding, isTrue);
+    expect(query.isUnfiltered, isFalse);
+  });
+
+  test('showing Done items with no other filter asks for every item', () {
+    final query = none.withShowDone(true).toQuery('home');
+
+    expect(query.applyDoneHiding, isFalse);
+    expect(query.isUnfiltered, isTrue);
   });
 
   test('changes return new values and leave the original untouched', () {
@@ -78,11 +88,15 @@ void main() {
     expect(query.isUnfiltered, isFalse);
   });
 
-  test('a blank search alone leaves the query unfiltered', () {
-    expect(none.withSearchQuery('   ').toQuery('home').isUnfiltered, isTrue);
+  test('a blank search alone adds no filter', () {
+    expect(none.withSearchQuery('   ').toQuery('home'), none.toQuery('home'));
   });
 
   group('whether a change needs a new request', () {
+    test('toggling Show done asks again', () {
+      expect(_asksDifferently(none.withShowDone(true), none), isTrue);
+    });
+
     test('hiding a status or changing the sort asks nothing new', () {
       expect(
         _asksDifferently(

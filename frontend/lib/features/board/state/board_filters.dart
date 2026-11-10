@@ -3,10 +3,11 @@ import 'package:weaver/shared/models/tag_match.dart';
 import 'package:weaver/shared/models/work_item_query.dart';
 
 /// Everything the board's header controls: time range, search, hidden
-/// status columns, selected tags and sort. Immutable; each change returns a
-/// new value.
+/// status columns, selected tags, sort and whether old Done items show.
+/// Immutable; each change returns a new value.
 ///
-/// Which items match the time range, search and tags is the server's
+/// Which items match the time range, search, tags and done-hiding is the
+/// server's
 /// decision (ADR-0006): [toQuery] says what to ask for. Hidden statuses and
 /// sort only change how the result is laid out, so they stay here.
 class BoardFilters {
@@ -18,6 +19,7 @@ class BoardFilters {
     this.selectedTags = const {},
     this.tagMatch = TagMatch.any,
     this.sortOption = CardSortOption.manual,
+    this.showDone = false,
   });
 
   final DateTime? start;
@@ -30,6 +32,10 @@ class BoardFilters {
   final Set<String> selectedTags;
   final TagMatch tagMatch;
   final CardSortOption sortOption;
+
+  /// When false (the default) the server leaves out Done items completed
+  /// longer ago than the Space's done-hiding period.
+  final bool showDone;
 
   /// Either bound may be null (open on that side). An inverted range is
   /// swapped rather than silently matching nothing; the pickers prevent
@@ -52,10 +58,12 @@ class BoardFilters {
   BoardFilters withSortOption(CardSortOption option) =>
       _copy(sortOption: option);
 
+  BoardFilters withShowDone(bool showDone) => _copy(showDone: showDone);
+
   bool isTagSelected(String tag) => selectedTags.contains(tag.toLowerCase());
 
-  /// The server query for [spaceId] with this header's time range, search
-  /// and tags. Hiding a status or changing the sort leaves it equal, as
+  /// The server query for [spaceId] with this header's time range, search,
+  /// tags and done-hiding. Hiding a status or changing the sort leaves it equal, as
   /// neither needs a new request.
   WorkItemQuery toQuery(String spaceId) => WorkItemQuery(
     spaceId: spaceId,
@@ -64,6 +72,7 @@ class BoardFilters {
     tagMatch: tagMatch,
     from: start,
     to: end,
+    applyDoneHiding: !showDone,
   );
 
   static Set<String> _toggled(Set<String> set, String value) =>
@@ -79,6 +88,7 @@ class BoardFilters {
     Set<String>? selectedTags,
     TagMatch? tagMatch,
     CardSortOption? sortOption,
+    bool? showDone,
   }) => BoardFilters(
     start: identical(start, _unchanged) ? this.start : start as DateTime?,
     end: identical(end, _unchanged) ? this.end : end as DateTime?,
@@ -87,6 +97,7 @@ class BoardFilters {
     selectedTags: selectedTags ?? this.selectedTags,
     tagMatch: tagMatch ?? this.tagMatch,
     sortOption: sortOption ?? this.sortOption,
+    showDone: showDone ?? this.showDone,
   );
 
   static const Object _unchanged = Object();

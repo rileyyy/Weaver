@@ -211,6 +211,7 @@ class ApiBoardRepository implements BoardRepository {
     if (query.tagMatch == TagMatch.all) 'tagMatch': 'All',
     'from': ?formatCalendarDate(query.from),
     'to': ?formatCalendarDate(query.to),
+    if (query.applyDoneHiding) 'applyDoneHiding': 'true',
     'limit': '$searchPageSize',
   };
 
