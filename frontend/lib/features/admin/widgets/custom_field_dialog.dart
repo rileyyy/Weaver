@@ -9,17 +9,13 @@ import 'package:weaver/shared/models/custom_field_kind.dart';
 
 /// Adds a custom field, or edits [initial]. The kind is only chosen when
 /// adding: the server fixes it, since stored values have its shape. A select
-/// field also edits its options, in order. [onSave] gets the trimmed name,
-/// the kind and the options, and returns null on success or an error to
+/// field also edits its options, in order, and a number or currency field
+/// whether it rolls up. [onSave] gets the trimmed name, the kind, the
+/// options and the roll-up, and returns null on success or an error to
 /// show, keeping the dialog open. Completes with whether a save succeeded.
 Future<bool> showCustomFieldDialog(
   BuildContext context, {
-  required Future<String?> Function(
-    String name,
-    CustomFieldKind kind,
-    List<CustomFieldOptionDraft> options,
-  )
-  onSave,
+  required CustomFieldSave onSave,
   CustomField? initial,
 }) async =>
     await showDialog<bool>(
@@ -28,16 +24,21 @@ Future<bool> showCustomFieldDialog(
     ) ??
     false;
 
+/// Saves what [showCustomFieldDialog] was given; returns null on success or
+/// an error to show.
+typedef CustomFieldSave =
+    Future<String?> Function(
+      String name,
+      CustomFieldKind kind,
+      List<CustomFieldOptionDraft> options, {
+      required bool rollsUp,
+    });
+
 class _CustomFieldDialog extends StatefulWidget {
   const _CustomFieldDialog({required this.initial, required this.onSave});
 
   final CustomField? initial;
-  final Future<String?> Function(
-    String name,
-    CustomFieldKind kind,
-    List<CustomFieldOptionDraft> options,
-  )
-  onSave;
+  final CustomFieldSave onSave;
 
   @override
   State<_CustomFieldDialog> createState() => _CustomFieldDialogState();
@@ -49,6 +50,7 @@ class _CustomFieldDialogState extends State<_CustomFieldDialog>
     text: widget.initial?.name,
   );
   late CustomFieldKind _kind = widget.initial?.kind ?? CustomFieldKind.text;
+  late bool _rollsUp = widget.initial?.rollsUp ?? false;
 
   /// Each option's id (null for one added here) and its name being edited.
   late final List<({String? id, TextEditingController name})> _options = [
@@ -97,7 +99,13 @@ class _CustomFieldDialogState extends State<_CustomFieldDialog>
           ]
         : const <CustomFieldOptionDraft>[];
     final name = _name.text.trim();
-    unawaited(runSubmission(() => widget.onSave(name, _kind, options)));
+    // A kind picked and then left behind can't take its roll-up with it.
+    final rollsUp = _kind.canRollUp && _rollsUp;
+    unawaited(
+      runSubmission(
+        () => widget.onSave(name, _kind, options, rollsUp: rollsUp),
+      ),
+    );
   }
 
   @override
@@ -135,6 +143,20 @@ class _CustomFieldDialogState extends State<_CustomFieldDialog>
                 : null,
           ),
           if (_kind.isSelect) ..._optionEditor(context),
+          if (_kind.canRollUp)
+            CheckboxListTile(
+              value: _rollsUp,
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              title: const Text('Roll up into parents'),
+              subtitle: const Text(
+                'A parent also shows the sum of this field over its '
+                'sub-items.',
+              ),
+              onChanged: isSaving
+                  ? null
+                  : (value) => setState(() => _rollsUp = value ?? false),
+            ),
         ],
       ),
     );

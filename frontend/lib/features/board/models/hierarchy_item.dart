@@ -18,6 +18,7 @@ class HierarchyItem {
     this.assignedToUserId,
     this.typeId,
     this.tags = const [],
+    this.fields = const {},
   });
 
   factory HierarchyItem.fromWorkItem(WorkItem item) => HierarchyItem(
@@ -32,6 +33,7 @@ class HierarchyItem {
     assignedToUserId: item.assignedToUserId,
     typeId: item.typeId,
     tags: item.tags,
+    fields: item.fields,
   );
 
   final String id;
@@ -54,4 +56,7 @@ class HierarchyItem {
 
   /// Short free-text labels, zero or more.
   final List<String> tags;
+
+  /// The item's custom field values by field id, for its roll-ups.
+  final Map<String, Object?> fields;
 }

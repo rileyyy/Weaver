@@ -15,6 +15,7 @@ public class CustomFieldDefinitionConfiguration : IEntityTypeConfiguration<Custo
         builder.Property(f => f.Options).HasJsonConversion();
         builder.Ignore(f => f.IsSelect);
         builder.Ignore(f => f.ChangeName);
+        builder.Ignore(f => f.CanRollUp);
 
         // Cascade: a Type's fields mean nothing without it. Deleting a Type first moves its
         // items off it, which clears their values (WorkItem.ChangeType).

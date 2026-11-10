@@ -4,6 +4,7 @@ using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using Weaver.Api.Contracts;
 using Weaver.Domain;
+using static Weaver.Api.IntegrationTests.McpJson;
 
 namespace Weaver.Api.IntegrationTests;
 
@@ -261,6 +262,7 @@ public class McpTests
 
     // Marking a tool ReadOnly is what lets a read-only key call it, so a write tool marked that
     // way would be a hole. Tools are named for what they do, which makes the mistake visible.
+    // plan_ is a dry run: it reports what a write would do without making it.
     [Test]
     public async Task Mcp_OnlyReadingToolsAreMarkedReadOnly()
     {
@@ -276,7 +278,8 @@ public class McpTests
             Assert.That(
                 readOnly,
                 Has.All.Matches<string>(n =>
-                    n.StartsWith("list_") || n.StartsWith("get_") || n.StartsWith("search_") || n == "whoami"));
+                    n.StartsWith("list_") || n.StartsWith("get_") || n.StartsWith("search_") || n.StartsWith("plan_")
+                    || n == "whoami"));
         });
     }
 
@@ -318,13 +321,6 @@ public class McpTests
 
     private static string TextOf(CallToolResult result) =>
         string.Join("\n", result.Content.OfType<TextContentBlock>().Select(c => c.Text));
-
-    /// <summary>Ignores case, since the casing of tool results is the MCP serializer's, not REST's.</summary>
-    private static JsonElement? PropertyOf(JsonElement obj, string name) =>
-        obj.EnumerateObject()
-            .Where(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))
-            .Select(p => (JsonElement?)p.Value)
-            .FirstOrDefault();
 
     private static async Task<T> CallAsync<T>(McpClient mcp, string tool)
     {

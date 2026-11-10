@@ -12,6 +12,8 @@ import 'package:weaver/features/board/models/scope_crumb.dart';
 import 'package:weaver/features/board/models/swimlane_items.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
+import 'package:weaver/shared/models/custom_field.dart';
+import 'package:weaver/shared/models/custom_field_kind.dart';
 import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/tag_match.dart';
 import 'package:weaver/shared/models/user.dart';
@@ -232,6 +234,13 @@ class _TestBoardRepository implements BoardRepository {
     return [for (final item in hierarchyItems) server[item.id]!];
   }
 
+  /// The Space's custom fields, which the Hierarchy sums for its roll-ups.
+  List<CustomField> spaceFields = const [];
+
+  @override
+  Future<List<CustomField>> loadCustomFields(String spaceId) async =>
+      spaceFields;
+
   /// Every query sent, in order.
   final List<WorkItemQuery> queries = [];
 
@@ -389,6 +398,10 @@ class _FailingLoadRepository implements BoardRepository {
 
   @override
   Future<List<WorkItem>> loadAllItems(String spaceId) => Future.error(_down);
+
+  @override
+  Future<List<CustomField>> loadCustomFields(String spaceId) =>
+      Future.error(_down);
 
   @override
   Future<List<WorkItem>> queryItems(WorkItemQuery query) => Future.error(_down);
@@ -1261,6 +1274,54 @@ void main() {
     final root = hierarchyViewModel.hierarchyRoots.single;
     expect(root.item.id, 'root-1');
     expect(root.children.single.item.id, 'child-1');
+  });
+
+  test("hierarchyRollUps sums the Space's roll-up fields and follows an edit "
+      'to a sub-item without a reload', () async {
+    final child = workItem(
+      'child-1',
+      parentId: 'root-1',
+      fields: const {'field-hours': 2},
+    );
+    final repository =
+        _TestBoardRepository(hierarchyItems: [workItem('root-1'), child])
+          ..spaceFields = const [
+            CustomField(
+              id: 'field-hours',
+              typeId: 'type-task',
+              name: 'Hours',
+              kind: CustomFieldKind.number,
+              order: 0,
+              rollsUp: true,
+            ),
+          ];
+    final store = WorkItemStore();
+    final hierarchyViewModel = BoardViewModel(
+      repository,
+      store,
+      MemoryLastSpaceStore(),
+    );
+    await hierarchyViewModel.load();
+    await hierarchyViewModel.loadHierarchy();
+    final before = hierarchyViewModel.hierarchyRollUps
+        .forItem('root-1')
+        .single
+        .total;
+
+    store.putAll([
+      workItem(
+        'child-1',
+        parentId: 'root-1',
+        fields: const {'field-hours': 5},
+        version: 2,
+      ),
+    ], asOf: store.revision);
+
+    expect(before, 2);
+    expect(
+      hierarchyViewModel.hierarchyRollUps.forItem('root-1').single.total,
+      5,
+    );
   });
 
   test(

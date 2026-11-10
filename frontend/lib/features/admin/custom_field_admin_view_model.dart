@@ -47,9 +47,10 @@ class CustomFieldAdminViewModel extends ViewModel {
   Future<String?> create(
     String name,
     CustomFieldKind kind,
-    List<String> optionNames,
-  ) => _attempt(
-    () => _repository.create(typeId, name, kind, optionNames),
+    List<String> optionNames, {
+    required bool rollsUp,
+  }) => _attempt(
+    () => _repository.create(typeId, name, kind, optionNames, rollsUp: rollsUp),
     onSuccess: (created) => _items = [..._items, created],
     fallbackError: 'Could not add the field. Try again.',
   );
@@ -57,9 +58,10 @@ class CustomFieldAdminViewModel extends ViewModel {
   Future<String?> update(
     String id,
     String name,
-    List<CustomFieldOptionDraft> options,
-  ) => _attempt(
-    () => _repository.update(id, name, options),
+    List<CustomFieldOptionDraft> options, {
+    required bool rollsUp,
+  }) => _attempt(
+    () => _repository.update(id, name, options, rollsUp: rollsUp),
     onSuccess: (updated) =>
         _items = [for (final field in _items) field.id == id ? updated : field],
     fallbackError: 'Could not save the field. Try again.',

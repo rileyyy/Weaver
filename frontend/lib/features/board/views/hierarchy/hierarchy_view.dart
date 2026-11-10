@@ -14,7 +14,8 @@ import 'package:weaver/shared/widgets/load_error_view.dart';
 ///
 /// Columns, left to right: a work-item-number column, a title column (whose
 /// expand/collapse caret and text indent together by depth, as in a file
-/// tree), then Status, Assigned To and Tags — every column independently
+/// tree), then Status, Assigned To, Tags and, when the Space has a field
+/// that rolls up, Totals — every column independently
 /// resizable by dragging the header dividers. Column widths are pure view state, like the collapse
 /// set below — not persisted. When the columns are wider than the screen,
 /// header and rows scroll horizontally together.
@@ -63,10 +64,15 @@ class _HierarchyViewState extends State<HierarchyView> {
       viewModel.hierarchyRoots,
       collapsedIds: _collapsedIds,
     );
+    final columns = HierarchyColumn.shown(
+      withTotals: !viewModel.hierarchyRollUps.isEmpty,
+    );
+    final rowWidth = _columnWidths.rowWidthOf(columns);
 
     final table = Column(
       children: [
         HierarchyHeaderRow(
+          columns: columns,
           columnWidths: _columnWidths,
           onResize: _resizeColumn,
         ),
@@ -83,6 +89,7 @@ class _HierarchyViewState extends State<HierarchyView> {
                     return HierarchyItemTile(
                       node: node,
                       depth: row.depth,
+                      columns: columns,
                       columnWidths: _columnWidths,
                       isCollapsed: _collapsedIds.contains(node.item.id),
                       onToggleCollapsed: () => setState(() {
@@ -109,9 +116,9 @@ class _HierarchyViewState extends State<HierarchyView> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = constraints.maxWidth > _columnWidths.rowWidth
+        final width = constraints.maxWidth > rowWidth
             ? constraints.maxWidth
-            : _columnWidths.rowWidth;
+            : rowWidth;
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: SizedBox(width: width, child: table),

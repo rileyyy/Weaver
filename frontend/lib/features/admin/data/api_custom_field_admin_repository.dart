@@ -35,14 +35,16 @@ class ApiCustomFieldAdminRepository implements CustomFieldAdminRepository {
     String typeId,
     String name,
     CustomFieldKind kind,
-    List<String> optionNames,
-  ) => _api.post(
+    List<String> optionNames, {
+    required bool rollsUp,
+  }) => _api.post(
     _path,
     {
       'typeId': typeId,
       'name': name,
       'kind': kind.apiName,
       'options': optionNames,
+      'rollsUp': rollsUp,
     },
     _field,
     failureMessage: 'Failed to add the field',
@@ -52,12 +54,14 @@ class ApiCustomFieldAdminRepository implements CustomFieldAdminRepository {
   Future<CustomField> update(
     String id,
     String name,
-    List<CustomFieldOptionDraft> options,
-  ) => _api.put(
+    List<CustomFieldOptionDraft> options, {
+    required bool rollsUp,
+  }) => _api.put(
     '$_path/$id',
     {
       'name': name,
       'options': [for (final option in options) option.toJson()],
+      'rollsUp': rollsUp,
     },
     _field,
     failureMessage: 'Failed to save the field',
