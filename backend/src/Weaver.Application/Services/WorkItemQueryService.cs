@@ -5,12 +5,16 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
-public class WorkItemQueryService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, IWorkItemSearch search)
-    : IWorkItemQueryService
+public class WorkItemQueryService(
+    IWeaverDbContext db,
+    IWorkItemHierarchy hierarchy,
+    IWorkItemSearch search,
+    IServerCalendar calendar) : IWorkItemQueryService
 {
     private readonly IWeaverDbContext _db = db;
     private readonly IWorkItemHierarchy _hierarchy = hierarchy;
     private readonly IWorkItemSearch _search = search;
+    private readonly IServerCalendar _calendar = calendar;
 
     public async Task<WorkItemQueryPage<WorkItem>> QueryAsync(WorkItemQuery query, CancellationToken ct = default)
     {
@@ -63,7 +67,29 @@ public class WorkItemQueryService(IWeaverDbContext db, IWorkItemHierarchy hierar
         items = UpdatedSince(items, query.UpdatedSince);
         items = InBacklog(items, query.BacklogOnly);
         items = WithUnresolvedWhen(items, query.UnresolvedWhenOnly);
+        items = await WithoutHiddenDoneAsync(items, query.ApplyDoneHiding, ct);
         return query.HasDateWindow ? await InDateWindowAsync(items, query, ct) : items;
+    }
+
+    /// <summary>
+    /// Each item is judged by its own Space's period, since one query can span Spaces. Today is
+    /// only read when the filter is asked for, so other queries cost no settings lookup.
+    /// </summary>
+    private async Task<IQueryable<WorkItem>> WithoutHiddenDoneAsync(
+        IQueryable<WorkItem> items,
+        bool applyDoneHiding,
+        CancellationToken ct)
+    {
+        if (!applyDoneHiding)
+        {
+            return items;
+        }
+
+        var today = await _calendar.TodayAsync(ct);
+        return items.Where(w =>
+            w.Status!.Category != StatusCategory.Done
+            || w.CompletionDate == null
+            || w.CompletionDate.Value.AddDays(w.Space!.DoneHidingDays) >= today);
     }
 
     /// <summary>Include-deleted is the one way to see the Trash through the query (ADR-0007).</summary>
