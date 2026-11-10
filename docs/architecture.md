@@ -87,7 +87,9 @@ and it is what allows MCP tools to reuse the same business logic (see
   `/work-items/all` and `list_all_work_items` take an optional `spaceId`.
 - **Spaces are admin configuration.** Anyone signed in lists them
   (`GET /api/spaces`, `list_spaces`); only a human admin creates or
-  renames one (`POST /api/spaces`, `PUT /api/spaces/{id}`), and there's no
+  renames one (`POST /api/spaces`, `PUT /api/spaces/{id}`) or sets its
+  done-hiding period (`PUT /api/spaces/{id}/done-hiding-period`, see
+  [Completion date](#completion-date-and-done-hiding)), and there's no
   MCP tool to change them. Names are unique ignoring case. There's no
   delete yet: nothing says what happens to a Space's items.
 - **Each Space owns its statuses, priorities and Types** (tickets 12 and
@@ -523,6 +525,34 @@ A number or currency field can roll up (ticket 15,
   with no dates at all, which move to the Backlog
   ([ADR-0003](adr/0003-when-and-backlog.md)).
 
+### Completion date and done-hiding
+
+- **`WorkItem.CompletionDate` is the calendar date the item entered a
+  Done-category status** (`DateOnly`, `completionDate` in every work item
+  DTO and summary), taken from `IServerCalendar.TodayAsync` so a
+  late-evening finish isn't dated tomorrow in UTC. It's null while the
+  status isn't Done, and kept when the item moves between two Done
+  statuses, so it says when the work was finished.
+- **One rule, applied wherever the status or its meaning changes**: a
+  private `WorkItem.FollowStatusCategory` that create, `MoveToStatus`, the
+  Space move (`TakeSpaceValues`), repeating copies and
+  `FollowStatusRecategorized` all go through. Domain methods take the
+  `Status` entity and today's date, so the domain needs no clock or
+  lookups. Repeating copies never inherit the template's date. An admin
+  moving a status into or out of Done (`StatusService.UpdateAsync`)
+  completes or reopens every item in it, trashed ones too, each recorded
+  in history; so does deleting a status into a replacement of the other
+  kind.
+- **Each Space has a done-hiding period**, `Space.DoneHidingDays`
+  (default 14, 1 to 3650), set by an admin and recorded in the Space's
+  history (`doneHidingDays`). Agents read it from `list_spaces`.
+- **The query's `ApplyDoneHiding`** leaves out Done items whose completion
+  date is before today minus their own Space's period (one query can
+  span Spaces). An item completed exactly that many days ago is still
+  listed, and so is a Done item with no completion date. Items already
+  Done when the column was added were backfilled with the date of their
+  last update.
+
 ### Repeating work items
 
 - **The schedule lives in its own table, the template stays a normal
@@ -641,7 +671,9 @@ store its inputs.
 
 - **Inputs** (`WorkItemQuery`): Spaces, text, `number`, status
   categories, assignee, tags with `tagMatch` `Any` or `All`, Types, a
-  `from`/`to` date window, `backlogOnly` and `updatedSince`. Each input
+  `from`/`to` date window, `backlogOnly`, `applyDoneHiding` (see
+  [Completion date](#completion-date-and-done-hiding)), `updatedSince`
+  and `includeDeleted`. Each input
   left out applies no filter, the ones given AND together, and a list
   input matches any of its values. Over REST a list repeats its key
   (`?tags=a&tags=b`).
@@ -684,8 +716,8 @@ store its inputs.
   tests use `InMemoryWorkItemSearch`; the Postgres versions are covered by
   `WorkItemSearchTests` in the integration tests, including an `EXPLAIN`
   with sequential scans off that shows the index can be used.
-- **Not in it yet**: include-deleted waits for the Trash (ticket 19), and
-  excluding Done items completed before a cutoff for ticket 21.
+- **Done-hiding runs before the date window**, like the other filters,
+  so a hidden Done item can't bring its undated parent into a window.
 
 ### Optimistic concurrency
 
