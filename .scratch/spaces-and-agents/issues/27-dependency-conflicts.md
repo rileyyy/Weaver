@@ -4,13 +4,13 @@
 
 **Blocked by:** 26
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Conflict detection lives in the Application layer, with tests for overlapping, touching, and undated cases
-- [ ] Cards and Roadmap bars show a conflict badge, with the blocker named on hover or tap
-- [ ] The Roadmap draws arrows for blocks links between visible items
-- [ ] An MCP tool lists current conflicts, optionally per Space
-- [ ] No code path changes dates in response to a conflict
+- [x] Conflict detection lives in the Application layer, with tests for overlapping, touching, and undated cases
+- [x] Cards and Roadmap bars show a conflict badge, with the blocker named on hover or tap
+- [x] The Roadmap draws arrows for blocks links between visible items
+- [x] An MCP tool lists current conflicts, optionally per Space
+- [x] No code path changes dates in response to a conflict
 
 ## Where to start
 
@@ -51,3 +51,10 @@ Decide these first, because the tests depend on them:
 **2026-11-04, from ticket 26 (typed links):**
 
 - A blocks link is stored once as `WorkItemLink { WorkItemId blocks LinkedWorkItemId, Type = Blocks }`; `RelationFrom(id)` reads it from either side. `IWorkItemBlockers` (Application) already finds which items have a live blocker in one query, and the Trash filter on links hides trashed blockers, so conflict detection can start from there.
+
+**2026-11-10, implementation:**
+
+- Conflict rule as decided: `blocked.StartDate < blocker.EndDate`, strictly. The end date is inclusive only on the Roadmap; starting on the blocker's end date is fine. Undated items, and links where either item is Done, never conflict. The rule lives once in `BlockedWorkItems.LiveBlocksLinkRows`.
+- `WorkItemDto.blockedBy` is `{id, number, title, conflicts}` per live blocker. `list_dependency_conflicts` matches a `spaceId` on either side of the link.
+- Stale badges: the client that changes a blocker's dates or Done state, deletes it, or adds or removes a blocks link refreshes the affected items (`BlockedItemRefresher`). Other clients, and restores, catch up on the next load; this is recorded as a known limitation in `docs/architecture.md` and the changelog.
+- Verified by unit and widget tests only. The integration tests (including the new MCP case) need Docker and weren't run locally, and nobody has looked at the arrows or badges in the running app yet.

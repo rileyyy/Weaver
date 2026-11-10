@@ -45,20 +45,22 @@ because Milestone 9's "assigned to" field needs Milestone 10's users.
   count. Weaver flags conflicts and never changes a date because of one
   (ADR-0009).
 - **`blockedBy` on every work item** (REST and MCP): each live blocker's id,
-  number, title, Space, end date and whether it `conflicts`. It replaces the
+  number, title and whether it `conflicts`. It replaces the
   per-item blocker lookup behind `whenResolved`, and there is still one
   lookup per response.
 - **MCP `list_dependency_conflicts`** (read-only, optional `spaceId`, which
   matches either side of the link) lists each blocked item with its
   blocker, so an agent can raise a stale date with a person.
 - **Board cards and Roadmap bars** show a conflict badge whose tooltip
-  (hover or tap) names the blocker.
+  (hover or tap) names the blocker. On the Roadmap it moves next to the
+  title when the item has no bar in view.
 - **Roadmap arrows** run from each blocker to the item it blocks when both
   are visible, drawn red when the link conflicts.
 - **Known limitation**: a blocked item's version doesn't change when its
-  blocker's dates do, so changes-since doesn't refresh its badge on other
-  clients until their next full load. The client that made the change
-  reloads the affected items itself.
+  blocker's dates, Done state, Trash state or links do, so changes-since
+  doesn't refresh its badge on other clients until their next full load.
+  The client that made the change reloads the affected items itself,
+  except after a restore, where only the board's own scope reload helps.
 - No migration.
 
 ## 2026-11-10 — Completion date and done-hiding

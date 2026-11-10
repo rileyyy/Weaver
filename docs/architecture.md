@@ -430,10 +430,12 @@ A number or currency field can roll up (ticket 15,
   `BlockedWorkItems.LiveBlocksLinkRows`, which both `blockedBy` and
   `IDependencyConflicts` (the MCP `list_dependency_conflicts` tool) read,
   so the badge and the list can't disagree. Weaver never changes dates in
-  response to a conflict. Known gap: changing a blocker's dates changes
-  whether the *blocked* item conflicts, but not the blocked item's
-  version or history, so changes-since-T doesn't report it (the same gap
-  `whenResolved` has).
+  response to a conflict. Known gap: changing a blocker's dates, Done
+  state, Trash state or links changes whether the *blocked* item
+  conflicts, but not the blocked item's version or history, so
+  changes-since-T doesn't report it (the same gap `whenResolved` has).
+  The client that made the change refreshes the affected items itself
+  (`BlockedItemRefresher`); other clients catch up on their next load.
 - Comments cascade-delete with their work item; editing is restricted to
   the author (see [Authentication](#authentication)).
 
@@ -1340,6 +1342,13 @@ store its inputs.
     someone else changed it first.
   - Loads pass `asOf: store.revision` read before they started, so a slow
     load can't put back an older copy of an item saved meanwhile.
+  - The store knows nothing about dependencies. `BlockedItemRefresher`
+    listens to its saves (`addSaveListener`) and reloads the held items a
+    saved item blocks when its dates or Done state change, since that can
+    flip their conflict badge. The detail dialog uses the refresher the
+    same way after a delete and after adding or removing a blocks link.
+    Restore can't do this: a trashed item isn't in anyone's `blockedBy`,
+    so the board's scope reload after a restore covers what's visible.
 - **Card position is the board's own optimistic state** (`_save`'s
   `applyLayout`/`revertLayout`). The revert undoes only that card's move
   by id, and is skipped if the scope was reloaded since. Restoring a
