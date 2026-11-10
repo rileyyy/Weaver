@@ -85,4 +85,37 @@ void main() {
     expect(error, 'Not an admin.');
     expect(names(), ['Home', 'Village']);
   });
+
+  group('setDoneHidingPeriod', () {
+    test('saves the trimmed days and shows the new period', () async {
+      final error = await viewModel.setDoneHidingPeriod('home', ' 30 ');
+
+      expect(error, isNull);
+      expect(repository.calls.last, 'setDoneHidingPeriod home 30');
+      expect(viewModel.spaces.first.doneHidingDays, 30);
+    });
+
+    test('accepts both ends of the range', () async {
+      expect(await viewModel.setDoneHidingPeriod('home', '1'), isNull);
+      expect(await viewModel.setDoneHidingPeriod('home', '3650'), isNull);
+    });
+
+    for (final typed in ['0', '3651', '-5', 'two weeks', '1.5', '']) {
+      test('refuses "$typed" without a request', () async {
+        final error = await viewModel.setDoneHidingPeriod('home', typed);
+
+        expect(error, 'Enter a whole number of days from 1 to 3650.');
+        expect(repository.calls, ['list']);
+      });
+    }
+
+    test("shows the server's reason on failure and keeps the period", () async {
+      repository.error = const ApiException('Not an admin.', statusCode: 403);
+
+      final error = await viewModel.setDoneHidingPeriod('home', '30');
+
+      expect(error, 'Not an admin.');
+      expect(viewModel.spaces.first.doneHidingDays, 14);
+    });
+  });
 }

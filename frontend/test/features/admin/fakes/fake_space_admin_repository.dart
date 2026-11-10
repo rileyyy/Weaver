@@ -29,9 +29,28 @@ class FakeSpaceAdminRepository implements SpaceAdminRepository {
   Future<Space> rename(String id, String name) async {
     calls.add('rename $id $name');
     _throwIfFailing();
-    final renamed = Space(id: id, name: name);
-    spaces[spaces.indexWhere((s) => s.id == id)] = renamed;
+    final index = spaces.indexWhere((s) => s.id == id);
+    final renamed = Space(
+      id: id,
+      name: name,
+      doneHidingDays: spaces[index].doneHidingDays,
+    );
+    spaces[index] = renamed;
     return renamed;
+  }
+
+  @override
+  Future<Space> setDoneHidingPeriod(String id, int days) async {
+    calls.add('setDoneHidingPeriod $id $days');
+    _throwIfFailing();
+    final index = spaces.indexWhere((s) => s.id == id);
+    final changed = Space(
+      id: id,
+      name: spaces[index].name,
+      doneHidingDays: days,
+    );
+    spaces[index] = changed;
+    return changed;
   }
 
   void _throwIfFailing() {
