@@ -34,11 +34,11 @@ public class WorkItemTools(
         "item's live descendants, not counting the item's own value (which is in fields); a currency total " +
         "is in that field's one currency.")]
     public async Task<WorkItemDetailDto> GetWorkItem(
-        [Description("The work item's id.")] Guid? id = null,
-        [Description("The work item's Number, without the # (123 for #123).")] int? number = null,
+        [Description(WorkItemReference.IdDescription)] Guid? id = null,
+        [Description(WorkItemReference.NumberDescription)] int? number = null,
         CancellationToken ct = default)
     {
-        var item = await FindByIdOrNumberAsync(id, number, ct);
+        var item = await _workItems.FindByIdOrNumberAsync(id, number, ct);
         var rollUps = await _rollUps.GetAsync(item.Id, ct);
         return new WorkItemDetailDto(await _dtos.ToDtoAsync(item, ct), rollUps.Select(RollUpDto.FromTotal).ToList());
     }
@@ -53,7 +53,7 @@ public class WorkItemTools(
         [Description("The Space whose top-level work items to list when parentId is omitted. Use list_spaces to find valid ids.")] Guid? spaceId = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
-            ToSummaryDtos(await _workItems.GetChildSummariesAsync(parentId, spaceId, ct)));
+            WorkItemSummaryDto.FromSummaries(await _workItems.GetChildSummariesAsync(parentId, spaceId, ct)));
 
     [McpServerTool(Name = "list_all_work_items", ReadOnly = true)]
     [Description("Lists one page of every work item in a Space (or every Space), flat, ordered by rank " +
@@ -66,7 +66,7 @@ public class WorkItemTools(
         [Description("Only list items in this Space. Omit for every Space.")] Guid? spaceId = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
-            ToSummaryDtos(await _workItems.GetAllSummariesAsync(offset, limit, spaceId, ct)));
+            WorkItemSummaryDto.FromSummaries(await _workItems.GetAllSummariesAsync(offset, limit, spaceId, ct)));
 
     [McpServerTool(Name = "create_work_item", Destructive = false)]
     [Description("Creates a new work item.")]
@@ -203,19 +203,6 @@ public class WorkItemTools(
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
         TranslateWriteAsync(actorLabel, () => _workItems.SetCustomFieldsAsync(id, values, expectedVersion, ct));
-
-    private async Task<WorkItem> FindByIdOrNumberAsync(Guid? id, int? number, CancellationToken ct) =>
-        (id, number) switch
-        {
-            ({ } byId, null) => await _workItems.GetByIdAsync(byId, ct)
-                ?? throw new McpException($"Work item {byId} was not found."),
-            (null, { } byNumber) => await _workItems.GetByNumberAsync(byNumber, ct)
-                ?? throw new McpException($"Work item #{byNumber} was not found."),
-            _ => throw new McpException("Give exactly one of id and number."),
-        };
-
-    private static IReadOnlyList<WorkItemSummaryDto> ToSummaryDtos(IReadOnlyList<WorkItemSummary> summaries) =>
-        summaries.Select(WorkItemSummaryDto.FromSummary).ToList();
 
     private Task<WorkItemWriteResponse> TranslateWriteAsync(string? actorLabel, Func<Task<WorkItemWriteResult>> write) =>
         McpExceptionTranslation.TranslateAsync(async () =>

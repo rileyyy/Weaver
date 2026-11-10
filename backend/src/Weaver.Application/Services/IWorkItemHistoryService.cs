@@ -12,4 +12,11 @@ public interface IWorkItemHistoryService
     /// when the item neither exists nor ever did.
     /// </summary>
     Task<IReadOnlyList<WorkItemHistoryView>> ListForWorkItemAsync(Guid workItemId, CancellationToken ct = default);
+
+    /// <summary>
+    /// The same entries as <see cref="ListForWorkItemAsync"/>, one page at a time, for agents
+    /// that only want the latest few. <paramref name="limit"/> is 1 to
+    /// <see cref="WorkItemHistoryService.MaxPageSize"/>.
+    /// </summary>
+    Task<WorkItemHistoryPage> ListPageForWorkItemAsync(Guid workItemId, int offset, int limit, CancellationToken ct = default);
 }

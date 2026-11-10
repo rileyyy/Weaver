@@ -430,7 +430,10 @@ backend stopped, owned by uid 1654.
 The tools cover work items, Spaces (`list_spaces`; agents can't change
 them), statuses, Types, priorities, users, comments, links, repeating
 items and attachments (`list_work_item_attachments` and
-`get_work_item_attachment`; agents can't upload or delete them). A top-level item is created with a `spaceId`; a child joins its
+`get_work_item_attachment`; agents can't upload or delete them).
+`get_work_item_context` returns an item (by id or `#Number`) with whichever
+of its ancestors, children, comments, links, history and attachments you
+`include`, in one call. A top-level item is created with a `spaceId`; a child joins its
 parent's Space. Updates to details, schedule and tags
 change only the arguments you send: leave one out to keep it, or send
 `null` to clear it. Every work-item write accepts an optional

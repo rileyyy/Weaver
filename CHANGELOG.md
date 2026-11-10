@@ -33,6 +33,26 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-10 — `get_work_item_context`
+
+`feature/get-work-item-context` (ticket 30 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md)).
+
+- **One call for an item and its surroundings**: MCP's
+  `get_work_item_context` takes an `id` or a `number` (`#N`) and an
+  `include` list of `ancestors`, `children`, `comments`, `links`,
+  `history` and `attachments`, and returns the full item plus only what was
+  included. An unknown include value is an error that lists the valid ones.
+- **Ancestors and children are summaries**, ancestors from the top-level
+  item down to the parent. Trashed items are left out of them and of links.
+- **Links** come back as `links` (other work items) and `urlLinks`.
+- **History** is newest first, 20 entries by default (`historyLimit`, at
+  most 200); `nextHistoryOffset` is the `historyOffset` for the next page.
+- **Attachments** are metadata only; fetch content with
+  `get_work_item_attachment`.
+- Read-only, so read-only keys can use it. No REST endpoint and no
+  migration.
+
 ## 2026-11-10 — Unresolved When items over MCP
 
 `feature/unresolved-when-items-over-mcp` (ticket 28 of

@@ -90,6 +90,60 @@ public class WorkItemSummaryListingTests
     }
 
     [Test]
+    public async Task GetAncestorSummariesAsync_ListsEveryAncestor_FromTheRootDown()
+    {
+        var root = await CreateAsync("House");
+        var middle = await CreateAsync("Kitchen", root.Id);
+        var parent = await CreateAsync("Cabinets", middle.Id);
+        var item = await CreateAsync("Hinges", parent.Id);
+
+        var ancestors = await _service.GetAncestorSummariesAsync(item.Id);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ancestors.Select(a => a.Title), Is.EqualTo(new[] { "House", "Kitchen", "Cabinets" }));
+            Assert.That(ancestors[0], Is.EqualTo(new WorkItemSummary(
+                root.Id, root.Number, "House", _home.Id, "Home", null, "To Do", null, null, null, null, ChildCount: 1)));
+        });
+    }
+
+    [Test]
+    public async Task GetAncestorSummariesAsync_ForATopLevelItem_IsEmpty()
+    {
+        var top = await CreateAsync("Top");
+
+        Assert.That(await _service.GetAncestorSummariesAsync(top.Id), Is.Empty);
+    }
+
+    [Test]
+    public async Task GetAncestorSummariesAsync_LeavesTheTrashOut()
+    {
+        var root = await CreateAsync("Root");
+        var parent = await CreateAsync("Parent", root.Id);
+        var item = await CreateAsync("Item", parent.Id);
+        await TrashOnlyAsync(parent.Id);
+
+        var ancestors = await _service.GetAncestorSummariesAsync(item.Id);
+
+        Assert.That(ancestors.Select(a => a.Id), Is.EqualTo(new[] { root.Id }));
+    }
+
+    [Test]
+    public async Task GetAncestorSummariesAsync_OnACorruptTreeWithACycle_StopsInsteadOfLooping()
+    {
+        var a = await CreateAsync("A");
+        var b = await CreateAsync("B", a.Id);
+        var item = await CreateAsync("Item", b.Id);
+        var trackedA = (await _db.WorkItems.FindAsync(a.Id))!;
+        _db.Entry(trackedA).Property(w => w.ParentId).CurrentValue = b.Id;
+        await _db.SaveChangesAsync();
+
+        var ancestors = await _service.GetAncestorSummariesAsync(item.Id);
+
+        Assert.That(ancestors.Select(s => s.Id), Is.EquivalentTo(new[] { a.Id, b.Id }));
+    }
+
+    [Test]
     public async Task GetAllSummariesAsync_PagesInRankThenNumberOrder_WithEachItemsParent()
     {
         var first = await CreateAsync("First");
@@ -167,6 +221,17 @@ public class WorkItemSummaryListingTests
             spaceId: parentId is null ? (space ?? _home).Id : null);
         NumberLikePostgres(item);
         return item;
+    }
+
+    /// <summary>
+    /// Trashes one item without its subtree, which a delete never does, so the ancestor walk
+    /// is shown to rely on the Trash filter rather than on the subtree going with it.
+    /// </summary>
+    private async Task TrashOnlyAsync(Guid id)
+    {
+        var tracked = await _db.WorkItems.FindAsync(id);
+        tracked!.MoveToTrash(id, _clock.GetUtcNow());
+        await _db.SaveChangesAsync();
     }
 
     /// <summary>Postgres numbers items from an identity column, which InMemory doesn't generate.</summary>

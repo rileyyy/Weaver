@@ -40,4 +40,7 @@ public record WorkItemSummaryDto(
         summary.ChildCount,
         summary.TrashedAtUtc,
         summary.When);
+
+    public static IReadOnlyList<WorkItemSummaryDto> FromSummaries(IEnumerable<WorkItemSummary> summaries) =>
+        summaries.Select(FromSummary).ToList();
 }

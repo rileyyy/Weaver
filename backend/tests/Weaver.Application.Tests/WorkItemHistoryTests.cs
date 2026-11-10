@@ -519,6 +519,72 @@ public class WorkItemHistoryTests
         Assert.ThrowsAsync<EntityNotFoundException>(() => _history.ListForWorkItemAsync(Guid.NewGuid()));
     }
 
+    [Test]
+    public async Task ListPage_ReturnsTheNewestEntriesUpToTheLimit_AndWhereTheNextPageStarts()
+    {
+        var item = await RenamedThriceAsync();
+
+        var page = await _history.ListPageForWorkItemAsync(item.Id, offset: 0, limit: 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(page.Entries.Select(e => e.NewValue?.GetString()), Is.EqualTo(new[] { "Third", "Second" }));
+            Assert.That(page.NextOffset, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public async Task ListPage_OnTheLastPage_HasNoNextOffset()
+    {
+        var item = await RenamedThriceAsync();
+
+        var page = await _history.ListPageForWorkItemAsync(item.Id, offset: 4, limit: 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(page.Entries, Has.Count.EqualTo(1));
+            Assert.That(page.NextOffset, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task ListPage_PastTheEnd_IsEmpty()
+    {
+        var item = await CreateAsync("Task");
+
+        var page = await _history.ListPageForWorkItemAsync(item.Id, offset: 10, limit: 2);
+
+        Assert.That(page.Entries, Is.Empty);
+    }
+
+    [TestCase(-1, 10)]
+    [TestCase(0, 0)]
+    [TestCase(0, WorkItemHistoryService.MaxPageSize + 1)]
+    public async Task ListPage_WithAnInvalidPage_IsRejected(int offset, int limit)
+    {
+        var item = await CreateAsync("Task");
+
+        Assert.ThrowsAsync<DomainValidationException>(() => _history.ListPageForWorkItemAsync(item.Id, offset, limit));
+    }
+
+    [Test]
+    public void ListPage_ForAnItemThatNeverExisted_ThrowsNotFound()
+    {
+        Assert.ThrowsAsync<EntityNotFoundException>(() => _history.ListPageForWorkItemAsync(Guid.NewGuid(), 0, 10));
+    }
+
+    /// <summary>Five entries: the two that creating records, then three renames.</summary>
+    private async Task<WorkItem> RenamedThriceAsync()
+    {
+        var item = await CreateAsync("Zeroth");
+        foreach (var title in new[] { "First", "Second", "Third" })
+        {
+            await _workItems.UpdateDetailsAsync(item.Id, new WorkItemDetailsPatch { Title = title });
+        }
+
+        return item;
+    }
+
     private const string WeeklyJson =
         "{\"frequency\":\"Weekly\",\"daysOfWeek\":[\"Monday\"],\"startDate\":\"2027-01-04\",\"endDate\":null}";
 
