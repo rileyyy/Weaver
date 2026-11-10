@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
+import 'package:weaver/shared/models/work_item_blocker.dart';
 
 WorkItemCard _card({
   String title = 'Card',
@@ -8,6 +9,7 @@ WorkItemCard _card({
   String? assignedToUserId,
   DateTime? endDate,
   List<String> tags = const ['a'],
+  List<WorkItemBlocker> blockedBy = const [],
 }) => WorkItemCard(
   id: 'card',
   number: 1,
@@ -17,6 +19,7 @@ WorkItemCard _card({
   assignedToUserId: assignedToUserId,
   endDate: endDate,
   tags: tags,
+  blockedBy: blockedBy,
 );
 
 Swimlane _lane({String title = 'Lane', List<WorkItemCard>? cards}) =>
@@ -36,6 +39,21 @@ void main() {
     ('assignee', _card(assignedToUserId: 'user')),
     ('end date', _card(endDate: DateTime(2026, 11, 3))),
     ('tags', _card(tags: const ['a', 'b'])),
+    (
+      'blockers',
+      _card(
+        blockedBy: const [
+          WorkItemBlocker(
+            id: 'drywall',
+            number: 12,
+            title: 'Drywall',
+            spaceId: 'home',
+            endDate: null,
+            conflicts: true,
+          ),
+        ],
+      ),
+    ),
   ]) {
     test('a card differing only in its $what is a different card', () {
       expect(changed, isNot(_card()));

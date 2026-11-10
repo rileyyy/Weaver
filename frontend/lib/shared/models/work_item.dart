@@ -1,5 +1,6 @@
 import 'package:weaver/core/network/api_dates.dart';
 import 'package:weaver/core/network/json_fields.dart';
+import 'package:weaver/shared/models/work_item_blocker.dart';
 
 /// One work item as the server sends it (`WorkItemDto`): what
 /// `WorkItemStore` holds, and what every layout and the detail dialog read.
@@ -29,6 +30,7 @@ class WorkItem {
     this.recurrenceSourceId,
     this.recurrenceDate,
     this.completionDate,
+    this.blockedBy = const [],
   });
 
   factory WorkItem.fromJson(Map<String, dynamic> json) => WorkItem(
@@ -54,6 +56,10 @@ class WorkItem {
     recurrenceSourceId: json['recurrenceSourceId'] as String?,
     recurrenceDate: parseCalendarDate(json['recurrenceDate']),
     completionDate: parseCalendarDate(json['completionDate']),
+    blockedBy: [
+      for (final blocker in (json['blockedBy'] as List<dynamic>?) ?? const [])
+        WorkItemBlocker.fromJson(blocker as Map<String, dynamic>),
+    ],
   );
 
   final String id;
@@ -102,6 +108,11 @@ class WorkItem {
   /// server sets and clears it, so an optimistic status change leaves it
   /// alone until the saved item comes back.
   final DateTime? completionDate;
+
+  /// The item's live blockers, from any Space. Changing a blocker's dates
+  /// can change [WorkItemBlocker.conflicts] without touching this item's
+  /// version, so `WorkItemStore` reloads blocked items after such a save.
+  final List<WorkItemBlocker> blockedBy;
 
   // The edits a layout can make before the server confirms them, each the
   // model-level mirror of one backend operation. A status change never
@@ -161,5 +172,6 @@ class WorkItem {
     recurrenceSourceId: recurrenceSourceId,
     recurrenceDate: recurrenceDate,
     completionDate: completionDate,
+    blockedBy: blockedBy,
   );
 }

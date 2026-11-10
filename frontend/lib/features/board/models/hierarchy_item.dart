@@ -1,4 +1,5 @@
 import 'package:weaver/shared/models/work_item.dart';
+import 'package:weaver/shared/models/work_item_blocker.dart';
 
 /// One work item as shown in the Hierarchy view: enough fields to render a
 /// row and to nest it under its parent. A richer, unscoped sibling of
@@ -19,6 +20,7 @@ class HierarchyItem {
     this.typeId,
     this.tags = const [],
     this.fields = const {},
+    this.blockedBy = const [],
   });
 
   factory HierarchyItem.fromWorkItem(WorkItem item) => HierarchyItem(
@@ -34,6 +36,7 @@ class HierarchyItem {
     typeId: item.typeId,
     tags: item.tags,
     fields: item.fields,
+    blockedBy: item.blockedBy,
   );
 
   final String id;
@@ -59,4 +62,7 @@ class HierarchyItem {
 
   /// The item's custom field values by field id, for its roll-ups.
   final Map<String, Object?> fields;
+
+  /// The item's live blockers; see [WorkItem.blockedBy].
+  final List<WorkItemBlocker> blockedBy;
 }

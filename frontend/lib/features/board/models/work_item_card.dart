@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:weaver/shared/models/work_item.dart';
+import 'package:weaver/shared/models/work_item_blocker.dart';
 
 /// A card on the board: the subset of a work item's fields the board needs
 /// to render. [parentId] is the swimlane's work item id — never mutated by
@@ -19,6 +20,7 @@ class WorkItemCard {
     this.assignedToUserId,
     this.typeId,
     this.tags = const [],
+    this.blockedBy = const [],
   });
 
   /// [item] drawn as a card in the lane of [laneId], which owns it on the
@@ -36,6 +38,7 @@ class WorkItemCard {
         assignedToUserId: item.assignedToUserId,
         typeId: item.typeId,
         tags: item.tags,
+        blockedBy: item.blockedBy,
       );
 
   final String id;
@@ -65,6 +68,9 @@ class WorkItemCard {
   /// Short free-text labels, zero or more.
   final List<String> tags;
 
+  /// The item's live blockers; see [WorkItem.blockedBy].
+  final List<WorkItemBlocker> blockedBy;
+
   WorkItemCard copyWith({String? statusId}) => WorkItemCard(
     id: id,
     number: number,
@@ -77,6 +83,7 @@ class WorkItemCard {
     assignedToUserId: assignedToUserId,
     typeId: typeId,
     tags: tags,
+    blockedBy: blockedBy,
   );
 
   /// Moves this card to a new parent, keeping its status — the model-level
@@ -94,6 +101,7 @@ class WorkItemCard {
     assignedToUserId: assignedToUserId,
     typeId: typeId,
     tags: tags,
+    blockedBy: blockedBy,
   );
 
   @override
@@ -109,7 +117,8 @@ class WorkItemCard {
       other.endDate == endDate &&
       other.assignedToUserId == assignedToUserId &&
       other.typeId == typeId &&
-      listEquals(other.tags, tags);
+      listEquals(other.tags, tags) &&
+      listEquals(other.blockedBy, blockedBy);
 
   @override
   int get hashCode => Object.hash(
@@ -124,5 +133,6 @@ class WorkItemCard {
     assignedToUserId,
     typeId,
     Object.hashAll(tags),
+    Object.hashAll(blockedBy),
   );
 }

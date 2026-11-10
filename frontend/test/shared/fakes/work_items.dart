@@ -1,4 +1,5 @@
 import 'package:weaver/shared/models/work_item.dart';
+import 'package:weaver/shared/models/work_item_blocker.dart';
 
 /// A [WorkItem] with test-friendly defaults for every field a test doesn't
 /// care about.
@@ -19,6 +20,7 @@ WorkItem workItem(
   Map<String, Object?> fields = const {},
   int version = 1,
   DateTime? completionDate,
+  List<WorkItemBlocker> blockedBy = const [],
 }) => WorkItem(
   id: id,
   number: number,
@@ -38,6 +40,7 @@ WorkItem workItem(
   tags: tags,
   fields: fields,
   completionDate: completionDate,
+  blockedBy: blockedBy,
 );
 
 /// [item] as the server would return it after a write: the same fields with
@@ -62,4 +65,5 @@ WorkItem withVersion(WorkItem item, int version) => WorkItem(
   recurrenceSourceId: item.recurrenceSourceId,
   recurrenceDate: item.recurrenceDate,
   completionDate: item.completionDate,
+  blockedBy: item.blockedBy,
 );
