@@ -13,8 +13,8 @@
 - [x] Attachments on trashed items are kept, and their files deleted when the item is purged
   - Kept: yes, hidden by the Trash filter and back on restore. Ticket 20's purge runs its row deletion through `IAttachmentFileCleanup.PurgeAsync` with every purged id; `AttachmentTests.PurgingATrashedItem_RemovesItsAndItsSubtreesFilesAndRows` uses the real endpoint (not yet run, no Docker on the implementing machine).
 - [x] Adding and removing attachments is recorded in history
-- [ ] MCP lists attachments and fetches one; `get_work_item_context` can include them
-  - `list_work_item_attachments` and `get_work_item_attachment` are done (read-only; text-like files come back as text, others as a base64 blob, capped at 5 MiB). `get_work_item_context` is ticket 30 and doesn't exist yet; the include is handed to it there.
+- [x] MCP lists attachments and fetches one; `get_work_item_context` can include them
+  - `list_work_item_attachments` and `get_work_item_attachment` are done (read-only; text-like files come back as text, others as a base64 blob, capped at 5 MiB). `get_work_item_context`'s `attachments` include (ticket 30) returns the same metadata, and content still goes through `get_work_item_attachment`.
 - [x] The attachments volume and env var are in the README's deployment reference and the example compose, with a note that backups must include it
 - [x] Integration tests for upload, download, and purge removing the file
   - `AttachmentTests` (purge simulated through the seam). Written without Docker on the implementing machine, so CI is their first run.
