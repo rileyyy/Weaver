@@ -686,8 +686,8 @@ A number or currency field can roll up (ticket 15,
 One query in the Application layer (`IWorkItemQueryService`,
 [ADR-0006](adr/0006-server-side-query-and-views.md)) serves `GET
 /api/work-items/search` (full `WorkItemDto`s, for Flutter from ticket 18)
-and MCP `search_work_items` (`WorkItemSummary`s). Views (ticket 23) will
-store its inputs.
+and MCP `search_work_items` (`WorkItemSummary`s). Views store its inputs
+(see [Views](#views)).
 
 - **Inputs** (`WorkItemQuery`): Spaces, text, `number`, status
   categories, assignee, tags with `tagMatch` `Any` or `All`, Types, a
@@ -722,6 +722,12 @@ store its inputs.
   over the parents of the dated matches. A window ending before it
   starts is a 400.
 - **Backlog-only** is every non-Done item with no dates.
+- **Scheduled-or-in-progress-only** is Overview's rule: every item in a
+  Doing-category status, whatever its dates, or with dates overlapping the
+  window (any dated item when there's no window). It's an OR, which the
+  other inputs can't express, so it lives inside the date-window rule:
+  undated ancestors of what it lists come along as for a window, and a
+  window narrows only the dated items, never the Doing ones.
 - **Pages by `Number`**, with an opaque cursor (`WorkItemQueryCursor`)
   holding the last Number on the page. A Number never changes and new
   items get higher ones, so items moving between pages (a rank change) or
@@ -738,6 +744,39 @@ store its inputs.
   with sequential scans off that shows the index can be used.
 - **Done-hiding runs before the date window**, like the other filters,
   so a hidden Done item can't bring its undated parent into a window.
+
+### Views
+
+A View is a stored instance of the work-item query plus a layout
+([ADR-0006](adr/0006-server-side-query-and-views.md), ticket 23).
+
+- **What a View stores** (`View`, `ViewDefinition`): a name, its Spaces
+  (`uuid[]`, empty for every Space, including Spaces created later), text,
+  tags (`text[]`, normalised by `TagList` like an item's), tag match,
+  done-hiding, scheduled-or-in-progress-only and a layout (Board,
+  Hierarchy or Roadmap; Agenda comes with ticket 24). **No time range**:
+  saved dates go stale within a week, so the window is chosen when a View
+  is shown (the header's range, the Roadmap's timeline) or run
+  (`run_view`'s `from`/`to`). Hidden status columns and sort aren't
+  stored either; they're layout, not query inputs.
+- **Views are shared.** Anyone signed in lists them, and anyone who may
+  write saves, replaces (`PUT` takes the whole definition, the name
+  included) or deletes one. Names are unique ignoring case, as for
+  Spaces.
+- **Overview is built in, not stored** (`View.Overview()`, id
+  `View.OverviewId`): every Space, scheduled-or-in-progress-only, old Done
+  items hidden, Board layout. It's listed first, read and run like any
+  View, and changing or deleting it is a 400 (`BuiltInViewException`).
+  Its name counts as taken.
+- **Each user's default View** is a `DefaultViews` row (user id as key,
+  View id), not a column on `User`, which stays about the account. No row
+  means Overview, so picking Overview removes the row. Both foreign keys
+  cascade: deleting a View sends whoever had it back to Overview.
+- **Endpoints:** `GET /api/views`, `GET/PUT/DELETE /api/views/{id}`,
+  `POST /api/views`, `GET/PUT /api/views/default` (`{ viewId }`). Over MCP
+  agents only read them: `list_views` and `run_view` (summaries, paged
+  like `search_work_items`). Views are the humans' layouts; anything a
+  View asks, an agent can ask with `search_work_items`.
 
 ### Optimistic concurrency
 
@@ -1032,6 +1071,8 @@ store its inputs.
   description tells agents to find a referenced item with
   `search_work_items` before linking and to leave ambiguous phrases to a
   human. Summaries carry the `when` phrase for this.
+  `list_views` and `run_view` list the saved Views and run one (see
+  [Views](#views)).
   `list_dependency_conflicts` (optionally per Space, matching either side
   of the link) names each conflicting blocked item and its blocker with
   their numbers, titles, Spaces and dates; its description tells agents
