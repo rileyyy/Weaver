@@ -143,7 +143,8 @@ public class WorkItemTools(
         [Description("Id of the Type (one of the item's own Space's, from list_work_item_types), or null to clear it.")] Guid? typeId = null,
         [Description("Id of the work item priority (one of the item's own Space's, from list_work_item_priorities), or null to clear it.")] Guid? priorityId = null,
         [Description("Free-text phrase for when the item should happen (e.g. \"after drywall\"), or null to clear it. " +
-            "It stays unresolved until the item has dates; set those with reschedule_work_item and keep the phrase.")] string? when = null,
+            "It stays unresolved until the item has dates (reschedule_work_item) or a blocked-by link " +
+            "(create_work_item_link); the phrase is kept. list_unresolved_when_items lists the unresolved ones.")] string? when = null,
         [Description(ExpectedVersionArgument.Description)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default)

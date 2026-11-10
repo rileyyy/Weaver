@@ -33,6 +33,25 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-10 — Unresolved When items over MCP
+
+`feature/unresolved-when-items-over-mcp` (ticket 28 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0003](docs/adr/0003-when-and-backlog.md)).
+
+- **`list_unresolved_when_items`** lists the work items whose When is
+  unresolved (a phrase, but no dates and no live item blocking them) as
+  summaries with the phrase, Space and parent, optionally narrowed by
+  Space and status category, paged like `search_work_items`.
+- **Resolving uses the existing writes**: `reschedule_work_item` for a
+  date, or `create_work_item_link` with `BlockedBy` for "after …"; the
+  phrase is kept and the item leaves the list. The tool's description tells
+  agents to search for a referenced item before linking and to leave
+  ambiguous phrases for a human.
+- **Summaries carry `when`** wherever they're returned (MCP lists, and the
+  REST trash and changes responses), left out over MCP when there's none.
+- No migration.
+
 ## 2026-11-06 — Roll-ups of number and currency fields
 
 `feature/roll-ups` (ticket 15 of
