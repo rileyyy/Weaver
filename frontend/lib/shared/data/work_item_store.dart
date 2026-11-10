@@ -1,11 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/shared/data/work_item_conflict.dart';
 import 'package:weaver/shared/models/work_item.dart';
+import 'package:weaver/shared/models/work_item_blocker.dart';
 
 /// An optimistic change to a work item, applied over its stored copy.
 typedef WorkItemEdit = WorkItem Function(WorkItem item);
+
+/// Fetches the server's current copy of the work item [id].
+typedef WorkItemReload = Future<WorkItem> Function(String id);
 
 /// The app's one copy of each work item it has loaded, keyed by id and
 /// carrying the item's version. Board, Hierarchy, Roadmap and the detail
@@ -84,11 +90,15 @@ class WorkItemStore extends ChangeNotifier {
   /// thrown; writes to the same item already queued behind it fail the same
   /// way without being sent. A 409 for an item that turns out unchanged is
   /// a rule the change broke, and is rethrown as it is, like other failures.
+  ///
+  /// A save that moves the item's dates also reloads, in the background,
+  /// the stored items it blocks: whether they conflict with it is worked
+  /// out by the server and can change without their version changing.
   Future<WorkItem> write(
     String id, {
     WorkItemEdit? optimistic,
     required Future<WorkItem> Function(int expectedVersion) send,
-    required Future<WorkItem> Function() reload,
+    required WorkItemReload reload,
   }) {
     if (!_confirmed.containsKey(id)) {
       throw StateError('Work item $id is written before it was loaded.');
@@ -112,7 +122,7 @@ class WorkItemStore extends ChangeNotifier {
     String id,
     WorkItemEdit? optimistic,
     Future<WorkItem> Function(int expectedVersion) send,
-    Future<WorkItem> Function() reload,
+    WorkItemReload reload,
     int conflictCount,
   ) async {
     final stored = _confirmed[id];
@@ -127,6 +137,7 @@ class WorkItemStore extends ChangeNotifier {
     try {
       final saved = await send(stored.version);
       _confirm(saved);
+      if (_datesMoved(stored, saved)) unawaited(_reloadBlockedBy(id, reload));
       return saved;
     } on ApiException catch (e) {
       if (!e.isConflict) rethrow;
@@ -145,12 +156,12 @@ class WorkItemStore extends ChangeNotifier {
   Future<ApiException> _reloadAfterConflict(
     String id,
     ApiException rejection,
-    Future<WorkItem> Function() reload,
+    WorkItemReload reload,
     int sentVersion,
   ) async {
     final WorkItem latest;
     try {
-      latest = await reload();
+      latest = await reload(id);
     } on Exception {
       return _markStale(id, WorkItemConflict(rejection.message, latest: null));
     }
@@ -167,5 +178,36 @@ class WorkItemStore extends ChangeNotifier {
     // writes they belong to are rejected when their turn comes.
     _pending.remove(id);
     return _lastConflicts[id] = conflict;
+  }
+
+  static bool _datesMoved(WorkItem before, WorkItem after) =>
+      before.startDate != after.startDate || before.endDate != after.endDate;
+
+  /// Reloads the stored items [blockerId] blocks, so their
+  /// [WorkItemBlocker.conflicts] reflect its new dates. Best effort: a
+  /// failed reload leaves that item's badge stale until the next load,
+  /// rather than failing a save that already succeeded.
+  Future<void> _reloadBlockedBy(String blockerId, WorkItemReload reload) async {
+    final blockedIds = [
+      for (final item in _confirmed.values)
+        if (item.blockedBy.any((blocker) => blocker.id == blockerId)) item.id,
+    ];
+    if (blockedIds.isEmpty) return;
+    final asOf = _revision;
+    final reloaded = await Future.wait([
+      for (final id in blockedIds) _tryReload(id, reload),
+    ]);
+    putAll([
+      for (final item in reloaded)
+        if (item != null && _confirmed.containsKey(item.id)) item,
+    ], asOf: asOf);
+  }
+
+  static Future<WorkItem?> _tryReload(String id, WorkItemReload reload) async {
+    try {
+      return await reload(id);
+    } on Exception {
+      return null;
+    }
   }
 }

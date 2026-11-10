@@ -5,11 +5,22 @@ import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/shared/data/work_item_conflict.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/models/work_item.dart';
+import 'package:weaver/shared/models/work_item_blocker.dart';
 
 import '../fakes/work_items.dart';
 
 WorkItemStore _storeWith(List<WorkItem> items) =>
     WorkItemStore()..putAll(items, asOf: 0);
+
+WorkItemBlocker _blocker(String id, {required bool conflicts}) =>
+    WorkItemBlocker(
+      id: id,
+      number: 1,
+      title: id,
+      spaceId: 'home',
+      endDate: null,
+      conflicts: conflicts,
+    );
 
 void main() {
   test('holds one copy of each loaded item, the latest load winning', () {
@@ -32,7 +43,7 @@ void main() {
       await store.write(
         'a',
         send: (_) async => workItem('a', statusId: 'done', version: 2),
-        reload: () => throw StateError('No conflict expected'),
+        reload: (_) => throw StateError('No conflict expected'),
       );
       store.putAll([
         workItem('a', statusId: 'todo', version: 1),
@@ -63,7 +74,7 @@ void main() {
     await store.write(
       'a',
       send: (_) async => workItem('a', version: 2),
-      reload: () => throw StateError('No conflict expected'),
+      reload: (_) => throw StateError('No conflict expected'),
     );
     store
       ..remove('a')
@@ -85,7 +96,7 @@ void main() {
             sentVersion = expectedVersion;
             return workItem('a', statusId: 'done', version: 5);
           },
-          reload: () => throw StateError('No conflict expected'),
+          reload: (_) => throw StateError('No conflict expected'),
         );
 
         expect(sentVersion, 4);
@@ -105,7 +116,7 @@ void main() {
           'a',
           optimistic: (item) => item.withStatus('done'),
           send: (_) => response.future,
-          reload: () => throw StateError('No conflict expected'),
+          reload: (_) => throw StateError('No conflict expected'),
         );
         expect(store['a']?.statusId, 'done');
 
@@ -130,7 +141,7 @@ void main() {
           sentVersions['status'] = version;
           return firstResponse.future;
         },
-        reload: () => throw StateError('No conflict expected'),
+        reload: (_) => throw StateError('No conflict expected'),
       );
       final second = store.write(
         'a',
@@ -144,7 +155,7 @@ void main() {
             version: 3,
           );
         },
-        reload: () => throw StateError('No conflict expected'),
+        reload: (_) => throw StateError('No conflict expected'),
       );
       await pumpEventQueue();
       expect(sentVersions, {'status': 1}, reason: 'tags wait for status');
@@ -171,7 +182,7 @@ void main() {
         store.write(
           'a',
           send: (_) => slow.future,
-          reload: () => throw StateError('No conflict expected'),
+          reload: (_) => throw StateError('No conflict expected'),
         ),
       );
       await store.write(
@@ -180,7 +191,7 @@ void main() {
           bSent = true;
           return workItem('b', version: 2);
         },
-        reload: () => throw StateError('No conflict expected'),
+        reload: (_) => throw StateError('No conflict expected'),
       );
 
       expect(bSent, isTrue);
@@ -200,14 +211,14 @@ void main() {
           'b',
           optimistic: (item) => item.withStatus('done'),
           send: (_) => otherResponse.future,
-          reload: () => throw StateError('No conflict expected'),
+          reload: (_) => throw StateError('No conflict expected'),
         );
 
         final write = store.write(
           'a',
           optimistic: (item) => item.withStatus('done'),
           send: (_) async => throw conflict,
-          reload: () async =>
+          reload: (_) async =>
               workItem('a', title: 'Their title', statusId: 'todo', version: 9),
         );
 
@@ -238,7 +249,7 @@ void main() {
         'a',
         optimistic: (item) => item.withStatus('done'),
         send: (_) async => throw conflict,
-        reload: () async => throw const ApiException('Offline'),
+        reload: (_) async => throw const ApiException('Offline'),
       );
 
       await expectLater(
@@ -258,12 +269,12 @@ void main() {
       final first = store.write(
         'a',
         send: (_) => firstResponse.future,
-        reload: () async => throw const ApiException('Offline'),
+        reload: (_) async => throw const ApiException('Offline'),
       );
       final queued = store.write(
         'a',
         send: (_) async => workItem('a', version: 2),
-        reload: () async => throw const ApiException('Offline'),
+        reload: (_) async => throw const ApiException('Offline'),
       );
       firstResponse.completeError(conflict);
 
@@ -281,7 +292,7 @@ void main() {
         'a',
         optimistic: (item) => item.withStatus('done'),
         send: (_) => firstResponse.future,
-        reload: () async => workItem('a', version: 9),
+        reload: (_) async => workItem('a', version: 9),
       );
       final queued = store.write(
         'a',
@@ -290,7 +301,7 @@ void main() {
           queuedSent = true;
           return workItem('a', version: 10);
         },
-        reload: () async => workItem('a', version: 9),
+        reload: (_) async => workItem('a', version: 9),
       );
       firstResponse.completeError(conflict);
 
@@ -307,7 +318,7 @@ void main() {
         store.write(
           'a',
           send: (_) async => throw conflict,
-          reload: () async => workItem('a', version: 9),
+          reload: (_) async => workItem('a', version: 9),
         ),
         throwsA(isA<WorkItemConflict>()),
       );
@@ -319,7 +330,7 @@ void main() {
           sentVersion = version;
           return workItem('a', version: 10);
         },
-        reload: () => throw StateError('No conflict expected'),
+        reload: (_) => throw StateError('No conflict expected'),
       );
 
       expect(sentVersion, 9);
@@ -338,7 +349,7 @@ void main() {
         'a',
         optimistic: (item) => item.movedToParent('b'),
         send: (_) async => throw rejection,
-        reload: () async => workItem('a', version: 3),
+        reload: (_) async => workItem('a', version: 3),
       );
 
       await expectLater(
@@ -359,7 +370,7 @@ void main() {
       final first = store.write(
         'a',
         send: (_) => firstResponse.future,
-        reload: () async => workItem('a', version: 3),
+        reload: (_) async => workItem('a', version: 3),
       );
       int? queuedVersion;
       final queued = store.write(
@@ -368,7 +379,7 @@ void main() {
           queuedVersion = version;
           return workItem('a', version: 4);
         },
-        reload: () => throw StateError('No conflict expected'),
+        reload: (_) => throw StateError('No conflict expected'),
       );
       firstResponse.completeError(rejection);
 
@@ -376,5 +387,113 @@ void main() {
       await queued;
       expect(queuedVersion, 3);
     });
+  });
+
+  // A blocked item's conflict flag depends on its blocker's dates, but
+  // moving those dates doesn't bump the blocked item's version.
+  group('a save that moves the dates', () {
+    WorkItemStore drywallBlockingPaint() => _storeWith([
+      workItem('drywall', endDate: DateTime(2026, 11, 20)),
+      workItem(
+        'paint',
+        startDate: DateTime(2026, 11, 18),
+        blockedBy: [_blocker('drywall', conflicts: true)],
+      ),
+      workItem('fence'),
+    ]);
+
+    test('reloads the items it blocks', () async {
+      final store = drywallBlockingPaint();
+      final reloaded = <String>[];
+
+      await store.write(
+        'drywall',
+        send: (_) async =>
+            workItem('drywall', endDate: DateTime(2026, 11, 17), version: 2),
+        reload: (id) async {
+          reloaded.add(id);
+          return workItem(
+            id,
+            startDate: DateTime(2026, 11, 18),
+            blockedBy: [_blocker('drywall', conflicts: false)],
+            version: 1,
+          );
+        },
+      );
+      await pumpEventQueue();
+
+      expect(reloaded, ['paint']);
+      expect(store['paint']?.blockedBy.single.conflicts, isFalse);
+    });
+
+    test('reloads them when a date is cleared too', () async {
+      final store = drywallBlockingPaint();
+      final reloaded = <String>[];
+
+      await store.write(
+        'drywall',
+        send: (_) async => workItem('drywall', version: 2),
+        reload: (id) async {
+          reloaded.add(id);
+          return workItem(id);
+        },
+      );
+      await pumpEventQueue();
+
+      expect(reloaded, ['paint']);
+    });
+
+    test('keeps the blocked copy when its reload fails', () async {
+      final store = drywallBlockingPaint();
+
+      final saved = await store.write(
+        'drywall',
+        send: (_) async =>
+            workItem('drywall', endDate: DateTime(2026, 11, 17), version: 2),
+        reload: (_) async => throw const ApiException('Offline'),
+      );
+      await pumpEventQueue();
+
+      expect(saved.endDate, DateTime(2026, 11, 17));
+      expect(store['paint']?.blockedBy.single.conflicts, isTrue);
+    });
+
+    test('does not bring back a blocked item removed meanwhile', () async {
+      final store = drywallBlockingPaint();
+      final reload = Completer<WorkItem>();
+
+      await store.write(
+        'drywall',
+        send: (_) async =>
+            workItem('drywall', endDate: DateTime(2026, 11, 17), version: 2),
+        reload: (_) => reload.future,
+      );
+      store.remove('paint');
+      reload.complete(workItem('paint', version: 2));
+      await pumpEventQueue();
+
+      expect(store['paint'], isNull);
+    });
+  });
+
+  test('a save that leaves the dates alone reloads nothing', () async {
+    final store = _storeWith([
+      workItem('drywall', endDate: DateTime(2026, 11, 20)),
+      workItem('paint', blockedBy: [_blocker('drywall', conflicts: true)]),
+    ]);
+
+    await store.write(
+      'drywall',
+      send: (_) async => workItem(
+        'drywall',
+        statusId: 'done',
+        endDate: DateTime(2026, 11, 20),
+        version: 2,
+      ),
+      reload: (_) => throw StateError('No reload expected'),
+    );
+    await pumpEventQueue();
+
+    expect(store['paint']?.blockedBy.single.conflicts, isTrue);
   });
 }

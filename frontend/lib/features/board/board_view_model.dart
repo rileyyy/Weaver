@@ -933,7 +933,7 @@ class BoardViewModel extends ViewModel {
         id,
         optimistic: optimistic,
         send: send,
-        reload: () => _repository.getItem(id),
+        reload: _repository.getItem,
       );
     } on WorkItemConflict catch (conflict) {
       if (scopeGeneration == _scopeGeneration) {

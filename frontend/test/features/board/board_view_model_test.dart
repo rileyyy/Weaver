@@ -2256,7 +2256,7 @@ void main() {
           ),
           version + 1,
         ),
-        reload: () => throw StateError('No conflict expected'),
+        reload: (_) => throw StateError('No conflict expected'),
       );
 
       expect(itemsChanged, isTrue);
@@ -2280,7 +2280,7 @@ void main() {
           ),
           version + 1,
         ),
-        reload: () => throw StateError('No conflict expected'),
+        reload: (_) => throw StateError('No conflict expected'),
       );
 
       test('a card edit notifies only its own lane', () async {
@@ -2316,7 +2316,7 @@ void main() {
           'lane-a',
           send: (version) async =>
               withVersion(workItem('lane-a', title: 'Lane A2'), version + 1),
-          reload: () => throw StateError('No conflict expected'),
+          reload: (_) => throw StateError('No conflict expected'),
         );
 
         expect(boardNotified, isTrue);

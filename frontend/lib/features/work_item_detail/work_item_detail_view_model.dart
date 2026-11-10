@@ -567,7 +567,7 @@ class WorkItemDetailViewModel extends ViewModel {
         _id,
         optimistic: optimistic,
         send: send,
-        reload: () => _repository.getItem(_id),
+        reload: _repository.getItem,
       ),
       errorMessage: errorMessage,
       refusedMessage: refusedMessage,
