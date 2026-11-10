@@ -26,10 +26,15 @@ the API.
   Space as a collapsible tree with resizable Number / Title / Status /
   Assigned To
   columns. Roadmap is a Gantt-style timeline (week, fortnight, month,
-  quarter, year) with weekly gridlines and a today marker.
+  quarter, year) with weekly gridlines and a today marker. It shows the
+  items dated in its window; a parent with no dates of its own is a group
+  row without a bar.
 - **Time-frame filter.** A from/to range shows only items whose own
-  start/end window overlaps it. A missing date is open-ended, not
-  excluded.
+  start/end window overlaps it. An item with only one date is open on the
+  other side. An item with no dates at all matches no range: it's in the
+  Backlog, and an undated parent still shows when an item under it matches.
+- **Backlog.** Every item in the Space that isn't Done and has no dates,
+  grouped by parent. "Set dates" gives one dates, which moves it out.
 - **Search, filter and sort.** Search matches title, description and tags.
   Status columns can be hidden, tags filtered, and cards sorted by title,
   start date or due date without touching the manual order.

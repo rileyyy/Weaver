@@ -33,6 +33,26 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-10 — Date-window rule and the Backlog
+
+`feature/date-window-rule-and-backlog` (ticket 22 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md)).
+
+- **The Roadmap shows only items dated in its window**, asked of the
+  server's query for the days on screen (cut to the header's time-frame
+  filter, if set). Someday items no longer appear as rows with no bar.
+- **Undated parents are group rows** on the Roadmap: bold title, no bar,
+  shown because an item under them is in the window. A parent with its
+  own dates keeps its own bar.
+- **Backlog tab**: every item in the Space that isn't Done and has no
+  dates, grouped by parent. "Set dates" picks a range, and the item
+  leaves the Backlog once saved; dates set in the detail dialog do the
+  same.
+- The board's time-frame filter already used the rule (ticket 18). The
+  docs no longer call a missing date open-ended for items with no dates.
+- No API change or migration: the query's `backlogOnly` input is from
+  ticket 17.
+
 ## 2026-11-10 — Dependency conflicts
 
 `feature/dependency-conflicts` (ticket 27 of

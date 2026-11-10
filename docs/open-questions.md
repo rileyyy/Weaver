@@ -31,7 +31,8 @@ These were open until the design review recorded in
   aren't part of a Space's configuration.
   ([ADR-0001](adr/0001-spaces.md))
 - **Items without dates have no Roadmap bar:** undated items live in the
-  Backlog, and an undated parent is shown when a child matches.
+  Backlog, and an undated parent is shown as a group row when a child
+  matches. (Ticket 22.)
   ([ADR-0003](adr/0003-when-and-backlog.md))
 - **Production deployment access model:** registration off, Tailscale-only
   reach; the published images are the product.
