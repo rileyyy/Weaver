@@ -214,6 +214,9 @@ namespace Weaver.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("DoneHidingDays")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -367,6 +370,9 @@ namespace Weaver.Infrastructure.Migrations
 
                     b.Property<Guid?>("AssignedToUserId")
                         .HasColumnType("uuid");
+
+                    b.Property<DateOnly?>("CompletionDate")
+                        .HasColumnType("date");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
