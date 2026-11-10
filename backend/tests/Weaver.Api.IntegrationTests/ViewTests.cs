@@ -124,13 +124,43 @@ public class ViewTests
     }
 
     [Test]
-    public async Task AReadOnlyAgent_CannotSaveAView()
+    public async Task AReadOnlyAgent_CannotSaveChangeDeleteOrPickADefaultView()
     {
+        var (human, _) = await ApiClient.SignedInAsync();
+        var view = await CreateAsync(human, UniqueName("Kept"));
         var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadOnly);
 
-        var response = await agent.PostJsonAsync("/api/views", new SaveViewRequest(UniqueName("Agent's")));
+        var create = await agent.PostJsonAsync("/api/views", new SaveViewRequest(UniqueName("Agent's")));
+        var update = await agent.PutJsonAsync($"/api/views/{view.Id}", new SaveViewRequest(UniqueName("Changed")));
+        var delete = await agent.DeleteAsync($"/api/views/{view.Id}");
+        var setDefault = await agent.PutJsonAsync("/api/views/default", new SetDefaultViewRequest(view.Id));
+        var after = await (await human.GetAsync($"/api/views/{view.Id}")).ReadAsync<ViewDto>();
 
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+        Assert.Multiple(() =>
+        {
+            Assert.That(create.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+            Assert.That(update.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+            Assert.That(delete.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+            Assert.That(setDefault.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+            Assert.That(after.Name, Is.EqualTo(view.Name));
+        });
+    }
+
+    [Test]
+    public async Task SignedOut_EveryViewEndpointIsUnauthorized()
+    {
+        var anonymous = ApiClient.Anonymous();
+
+        var list = await anonymous.GetAsync("/api/views");
+        var create = await anonymous.PostJsonAsync("/api/views", new SaveViewRequest(UniqueName("Anyone's")));
+        var setDefault = await anonymous.PutJsonAsync("/api/views/default", new SetDefaultViewRequest(View.OverviewId));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(list.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+            Assert.That(create.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+            Assert.That(setDefault.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+        });
     }
 
     [Test]
