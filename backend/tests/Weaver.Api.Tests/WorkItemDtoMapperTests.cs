@@ -114,7 +114,7 @@ public class WorkItemDtoMapperTests
         var typeId = Guid.NewGuid();
         var priorityId = Guid.NewGuid();
         var userId = Guid.NewGuid();
-        var item = WorkItem.CreateChildOf(parent, "Paint", null, Guid.NewGuid(), rank: 1.0, typeId, priorityId);
+        var item = WorkItem.CreateChildOf(parent, "Paint", null, TestWorkItems.StatusOf(StatusCategory.Doing), rank: 1.0, TestWorkItems.Today, typeId, priorityId);
         item.AssignTo(userId);
         var names = new WorkItemNames
         {
@@ -209,7 +209,7 @@ public class WorkItemDtoMapperTests
     private static WorkItemDtoMapper Mapper(IWorkItemBlockers blockers, IWorkItemNameLookup? names = null) =>
         new(blockers, names ?? new FakeWorkItemNameLookup());
 
-    private static WorkItem NewItem() => WorkItem.Create(Guid.NewGuid(), "Paint", null, Guid.NewGuid(), rank: 1.0);
+    private static WorkItem NewItem() => TestWorkItems.Create("Paint");
 
     private static WorkItem ItemWithWhen()
     {

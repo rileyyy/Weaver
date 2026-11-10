@@ -33,7 +33,7 @@ public class WorkItemPurgeServiceTests
         _home = TestSpaces.Add(_db, "Home");
         _caller = new FakeCallerContext(_alice.Id);
         var hierarchy = new IterativeWorkItemHierarchy(_db);
-        _workItems = new WorkItemService(_db, hierarchy, _caller);
+        _workItems = new WorkItemService(_db, hierarchy, new FixedServerCalendar(), _caller);
         _trash = new WorkItemTrashService(_db, hierarchy, _caller, _clock);
         _purge = new WorkItemPurgeService(_db, new AttachmentFileCleanup(_db, new InMemoryAttachmentStore()), _caller, _clock);
     }

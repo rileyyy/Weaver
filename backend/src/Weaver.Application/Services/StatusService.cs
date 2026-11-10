@@ -6,8 +6,11 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
-public class StatusService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerContext caller) : SpaceLookupService<Status>(db, admins, caller), IStatusService
+public class StatusService(IWeaverDbContext db, IAdminAuthorizer admins, IServerCalendar calendar, ICallerContext caller)
+    : SpaceLookupService<Status>(db, admins, caller), IStatusService
 {
+    private readonly IServerCalendar _calendar = calendar;
+
     protected override DbSet<Status> Values => Db.Statuses;
 
     protected override string Kind => nameof(Status);
@@ -30,11 +33,36 @@ public class StatusService(IWeaverDbContext db, IAdminAuthorizer admins, ICaller
         StatusCategory category,
         string color,
         CancellationToken ct = default) =>
-        EditAsync(actorUserId, id, status =>
+        EditAsync(actorUserId, id, async status =>
         {
+            var wasDone = status.Category == StatusCategory.Done;
             status.Rename(name);
             status.Recategorize(category, color);
+            if (wasDone != (status.Category == StatusCategory.Done))
+            {
+                await FollowRecategorizationAsync(status, ct);
+            }
         }, ct);
+
+    /// <summary>
+    /// A status moving into or out of Done completes or reopens every item in it, so each item's
+    /// completion date changes as if it had been moved, and is recorded the same way.
+    /// </summary>
+    private async Task FollowRecategorizationAsync(Status status, CancellationToken ct)
+    {
+        // Trashed items too: one restored later should come back with the date its status implies.
+        var items = await Db.WorkItems.IgnoreQueryFilters().Where(w => w.StatusId == status.Id).ToListAsync(ct);
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        var today = await _calendar.TodayAsync(ct);
+        foreach (var item in items)
+        {
+            History.RecordChanges(item.Id, item.FollowStatusRecategorized(status, today));
+        }
+    }
 
     /// <summary>
     /// Moved items go to the bottom of their lane's replacement column, keeping their relative
@@ -53,13 +81,16 @@ public class StatusService(IWeaverDbContext db, IAdminAuthorizer admins, ICaller
             return;
         }
 
-        if (replacementId is not { } replacement)
+        if (replacementId is not { } replacementStatusId)
         {
             throw new LookupValueInUseException(Kind, deleted.Name, moving.Count);
         }
 
+        var replacement = await Values.FindAsync([replacementStatusId], ct)
+            ?? throw new EntityNotFoundException(Kind, replacementStatusId);
+        var today = await _calendar.TodayAsync(ct);
         var lastRankByCell = (await Db.WorkItems
-                .Where(w => w.StatusId == replacement)
+                .Where(w => w.StatusId == replacementStatusId)
                 .GroupBy(w => new { w.SpaceId, w.ParentId })
                 .Select(cell => new { cell.Key.SpaceId, cell.Key.ParentId, LastRank = cell.Max(w => w.Rank) })
                 .ToListAsync(ct))
@@ -70,7 +101,7 @@ public class StatusService(IWeaverDbContext db, IAdminAuthorizer admins, ICaller
         {
             var cellKey = (item.SpaceId, item.ParentId);
             var rank = RankCalculator.GetRankBetween(lastRankByCell.GetValueOrDefault(cellKey), null);
-            History.RecordChanges(item.Id, item.MoveToStatus(replacement, rank));
+            History.RecordChanges(item.Id, item.MoveToStatus(replacement, rank, today));
             lastRankByCell[cellKey] = rank;
         }
     }

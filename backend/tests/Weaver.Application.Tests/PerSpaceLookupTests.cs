@@ -28,10 +28,10 @@ public class PerSpaceLookupTests
     {
         _db = TestDatabase.Create(new FixedTimeProvider(new DateTimeOffset(2026, 11, 3, 12, 0, 0, TimeSpan.Zero)));
         var admins = new AdminAuthorizer(_db);
-        _statuses = new StatusService(_db, admins, FakeCallerContext.Anyone());
+        _statuses = new StatusService(_db, admins, new FixedServerCalendar(), FakeCallerContext.Anyone());
         _priorities = new WorkItemPriorityService(_db, admins, FakeCallerContext.Anyone());
         _types = new WorkItemTypeService(_db, admins, FakeCallerContext.Anyone());
-        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), FakeCallerContext.Anyone());
+        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), new FixedServerCalendar(), FakeCallerContext.Anyone());
         _admin = TestUsers.Add(_db, "admin", isAdmin: true);
         _home = TestSpaces.Add(_db, "Home");
         _software = TestSpaces.Add(_db, "Software");

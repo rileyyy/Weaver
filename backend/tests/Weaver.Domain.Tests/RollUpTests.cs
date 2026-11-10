@@ -7,7 +7,7 @@ namespace Weaver.Domain.Tests;
 public class RollUpTests
 {
     private static readonly Guid Home = Guid.NewGuid();
-    private static readonly Guid ToDo = Guid.NewGuid();
+    private static readonly Status ToDo = TestStatuses.ToDo(Home);
     private static readonly Guid Room = Guid.NewGuid();
     private static readonly Guid Chore = Guid.NewGuid();
 
@@ -16,7 +16,7 @@ public class RollUpTests
 
     private static WorkItem Item(Guid typeId, params (CustomFieldDefinition Field, string Json)[] values)
     {
-        var item = WorkItem.Create(Home, "Item", null, ToDo, rank: 1.0, typeId: typeId);
+        var item = WorkItem.Create(Home, "Item", null, ToDo, rank: 1.0, new DateOnly(2026, 11, 10), typeId: typeId);
         var fields = values.Select(v => v.Field).ToList();
         item.SetCustomFields(CustomFieldPatch.Validate(
             typeId, fields, values.ToDictionary(v => v.Field.Id, v => JsonSerializer.Deserialize<JsonElement>(v.Json))));

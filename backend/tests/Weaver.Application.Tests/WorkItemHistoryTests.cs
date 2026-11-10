@@ -33,7 +33,7 @@ public class WorkItemHistoryTests
         _alice = TestUsers.Add(_db, "alice");
         _home = TestSpaces.Add(_db, "Home");
         _caller = new FakeCallerContext(_alice.Id);
-        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), _caller);
+        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), new FixedServerCalendar(), _caller);
         _history = new WorkItemHistoryService(_db);
     }
 
@@ -465,21 +465,22 @@ public class WorkItemHistoryTests
             PriorityId = _home.Low,
         });
 
-        await new StatusService(_db, new AdminAuthorizer(_db), _caller).DeleteAsync(admin.Id, _home.Doing, _home.Done);
+        await new StatusService(_db, new AdminAuthorizer(_db), new FixedServerCalendar(), _caller).DeleteAsync(admin.Id, _home.Doing, _home.Done);
         await new WorkItemTypeService(_db, new AdminAuthorizer(_db), _caller).DeleteAsync(admin.Id, _home.Task, null);
         await new WorkItemPriorityService(_db, new AdminAuthorizer(_db), _caller).DeleteAsync(admin.Id, _home.Low, _home.High);
 
-        var entries = (await _history.ListForWorkItemAsync(item.Id)).Take(3).ToList();
+        // The replacement status is a Done one, so the status move also completes the item.
+        var entries = (await _history.ListForWorkItemAsync(item.Id)).Take(4).ToList();
         Assert.Multiple(() =>
         {
             Assert.That(entries.Select(e => e.Field), Is.EqualTo(new[]
             {
-                WorkItemField.PriorityId, WorkItemField.TypeId, WorkItemField.StatusId,
+                WorkItemField.PriorityId, WorkItemField.TypeId, WorkItemField.CompletionDate, WorkItemField.StatusId,
             }));
             Assert.That(entries.Select(e => e.AccountId), Is.All.EqualTo(admin.Id));
             Assert.That(entries[0].NewName, Is.EqualTo("High"));
             Assert.That(entries[1].NewValue, Is.Null);
-            Assert.That(entries[2].NewName, Is.EqualTo("Done"));
+            Assert.That(entries[3].NewName, Is.EqualTo("Done"));
         });
     }
 

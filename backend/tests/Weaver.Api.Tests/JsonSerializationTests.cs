@@ -54,7 +54,7 @@ public class JsonSerializationTests
     [Test]
     public void WorkItemDto_SerializesScheduleDatesAsCalendarDates()
     {
-        var item = WorkItem.Create(Guid.NewGuid(), "Item", null, Guid.NewGuid(), rank: 1.0);
+        var item = TestWorkItems.Create("Item");
         item.Reschedule(new DateOnly(2026, 9, 25), new DateOnly(2026, 9, 30));
 
         var json = JsonSerializer.Serialize(WorkItemDto.FromEntity(item, hasLiveBlocker: false, WorkItemNames.None), Options);

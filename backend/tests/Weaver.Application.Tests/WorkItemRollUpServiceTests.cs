@@ -28,7 +28,7 @@ public class WorkItemRollUpServiceTests
         _taskHours = AddField(_home.Task, "Hours", CustomFieldKind.Number, rollsUp: true);
         var hierarchy = new IterativeWorkItemHierarchy(_db);
         var caller = new FakeCallerContext(alice.Id);
-        _workItems = new WorkItemService(_db, hierarchy, caller);
+        _workItems = new WorkItemService(_db, hierarchy, new FixedServerCalendar(), caller);
         _trash = new WorkItemTrashService(_db, hierarchy, caller, clock);
         _rollUps = new WorkItemRollUpService(_db, hierarchy);
     }

@@ -107,6 +107,14 @@ public class WorkItem : IHasUpdatedAt
     public string? When { get; private set; }
 
     /// <summary>
+    /// The calendar date (in the server's time zone) the item entered a Done-category status, or
+    /// null while its status isn't Done. Kept when it moves between two Done statuses, so it says
+    /// when the work was finished rather than when it was last shuffled. Every operation that can
+    /// change the status, or what its status means, applies the one rule in <see cref="FollowStatusCategory"/>.
+    /// </summary>
+    public DateOnly? CompletionDate { get; private set; }
+
+    /// <summary>
     /// Whether the When has been given concrete form: a date, or a live item blocking this one
     /// (ADR-0003). False when there is no When, since there is nothing to resolve. Blockers are
     /// other rows, so the caller says whether there is one; see <see cref="WhenResolutionNeedsBlockers"/>.
@@ -178,52 +186,60 @@ public class WorkItem : IHasUpdatedAt
 
     public WorkItem? RecurrenceSource { get; private set; }
 
-    /// <summary>A top-level item in <paramref name="spaceId"/>.</summary>
+    /// <summary>
+    /// A top-level item in <paramref name="spaceId"/>. <paramref name="today"/> is the server's
+    /// date, which becomes the completion date when <paramref name="status"/> is a Done one.
+    /// </summary>
     public static WorkItem Create(
         Guid spaceId,
         string title,
         string? description,
-        Guid statusId,
+        Status status,
         double rank,
+        DateOnly today,
         Guid? typeId = null,
         Guid? priorityId = null) =>
-        New(spaceId, null, title, description, statusId, rank, typeId, priorityId);
+        New(spaceId, null, title, description, status, rank, today, typeId, priorityId);
 
     /// <summary>A child of <paramref name="parent"/>, in the parent's Space.</summary>
     public static WorkItem CreateChildOf(
         WorkItem parent,
         string title,
         string? description,
-        Guid statusId,
+        Status status,
         double rank,
+        DateOnly today,
         Guid? typeId = null,
         Guid? priorityId = null) =>
-        New(parent.SpaceId, parent.Id, title, description, statusId, rank, typeId, priorityId);
+        New(parent.SpaceId, parent.Id, title, description, status, rank, today, typeId, priorityId);
 
     private static WorkItem New(
         Guid spaceId,
         Guid? parentId,
         string title,
         string? description,
-        Guid statusId,
+        Status status,
         double rank,
+        DateOnly today,
         Guid? typeId,
         Guid? priorityId)
     {
         TextValidation.RequireText(title, "Title", TitleMaxLength);
 
-        return new WorkItem
+        var item = new WorkItem
         {
             Id = Guid.NewGuid(),
             SpaceId = spaceId,
             ParentId = parentId,
-            StatusId = statusId,
+            StatusId = status.Id,
             Rank = rank,
             Title = title,
             Description = description,
             TypeId = typeId,
             PriorityId = priorityId,
         };
+        item.FollowStatusCategory(status.Category, today);
+        return item;
     }
 
     /// <summary>
@@ -355,11 +371,37 @@ public class WorkItem : IHasUpdatedAt
     /// Moves the item to another column. Never touches <see cref="ParentId"/>: that is what
     /// guarantees a drag between columns can never reparent the item.
     /// </summary>
-    public IReadOnlyList<FieldChange> MoveToStatus(Guid statusId, double rank)
+    public IReadOnlyList<FieldChange> MoveToStatus(Status status, double rank, DateOnly today)
     {
         var changed = new ChangedFields();
-        StatusId = changed.Set(WorkItemField.StatusId, StatusId, statusId);
+        StatusId = changed.Set(WorkItemField.StatusId, StatusId, status.Id);
         Rank = changed.Set(WorkItemField.Rank, Rank, rank);
+        return [.. changed.Changes, .. FollowStatusCategory(status.Category, today)];
+    }
+
+    /// <summary>
+    /// Used when an admin changes the category of the item's own status: moving it into or out
+    /// of Done completes or reopens the item, just as moving the item to such a status would.
+    /// </summary>
+    public IReadOnlyList<FieldChange> FollowStatusRecategorized(Status status, DateOnly today)
+    {
+        if (status.Id != StatusId)
+        {
+            throw new DomainValidationException($"Status {status.Id} isn't work item {Id}'s status.");
+        }
+
+        return FollowStatusCategory(status.Category, today);
+    }
+
+    /// <summary>
+    /// The completion rule: an item in a Done status keeps the date it was first done on, or
+    /// takes <paramref name="today"/>; an item in any other status has none.
+    /// </summary>
+    private IReadOnlyList<FieldChange> FollowStatusCategory(StatusCategory category, DateOnly today)
+    {
+        var completionDate = category == StatusCategory.Done ? CompletionDate ?? today : (DateOnly?)null;
+        var changed = new ChangedFields();
+        CompletionDate = changed.Set(WorkItemField.CompletionDate, CompletionDate, completionDate);
         return changed.Changes;
     }
 
@@ -403,7 +445,12 @@ public class WorkItem : IHasUpdatedAt
     /// <see cref="FollowParentToSpace"/>. The caller must have checked the values are the
     /// target Space's.
     /// </summary>
-    public IReadOnlyList<FieldChange> MoveToSpace(Guid spaceId, WorkItem? parent, double rank, SpaceMoveValues values)
+    public IReadOnlyList<FieldChange> MoveToSpace(
+        Guid spaceId,
+        WorkItem? parent,
+        double rank,
+        SpaceMoveValues values,
+        DateOnly today)
     {
         EnsureCanMoveToSpace(spaceId, parent);
 
@@ -411,7 +458,7 @@ public class WorkItem : IHasUpdatedAt
         SpaceId = changed.Set(WorkItemField.SpaceId, SpaceId, spaceId);
         ParentId = changed.Set(WorkItemField.ParentId, ParentId, parent?.Id);
         Rank = changed.Set(WorkItemField.Rank, Rank, rank);
-        return [.. changed.Changes, .. TakeSpaceValues(values)];
+        return [.. changed.Changes, .. TakeSpaceValues(values, today)];
     }
 
     /// <summary>
@@ -437,7 +484,7 @@ public class WorkItem : IHasUpdatedAt
     /// moved to, keeping its place under that parent, so children still share their parent's
     /// Space.
     /// </summary>
-    public IReadOnlyList<FieldChange> FollowParentToSpace(WorkItem parent, SpaceMoveValues values)
+    public IReadOnlyList<FieldChange> FollowParentToSpace(WorkItem parent, SpaceMoveValues values, DateOnly today)
     {
         if (parent.Id != ParentId)
         {
@@ -451,16 +498,19 @@ public class WorkItem : IHasUpdatedAt
 
         var changed = new ChangedFields();
         SpaceId = changed.Set(WorkItemField.SpaceId, SpaceId, parent.SpaceId);
-        return [.. changed.Changes, .. TakeSpaceValues(values)];
+        return [.. changed.Changes, .. TakeSpaceValues(values, today)];
     }
 
-    /// <summary>The Type goes through <see cref="ChangeType"/>, so the custom field rule is the same one.</summary>
-    private IReadOnlyList<FieldChange> TakeSpaceValues(SpaceMoveValues values)
+    /// <summary>
+    /// The Type goes through <see cref="ChangeType"/>, so the custom field rule is the same one,
+    /// and the new status's category settles the completion date as any status change does.
+    /// </summary>
+    private IReadOnlyList<FieldChange> TakeSpaceValues(SpaceMoveValues values, DateOnly today)
     {
         var changed = new ChangedFields();
-        StatusId = changed.Set(WorkItemField.StatusId, StatusId, values.StatusId);
+        StatusId = changed.Set(WorkItemField.StatusId, StatusId, values.Status.Id);
         PriorityId = changed.Set(WorkItemField.PriorityId, PriorityId, values.PriorityId);
-        return [.. changed.Changes, .. ChangeType(values.TypeId)];
+        return [.. changed.Changes, .. FollowStatusCategory(values.Status.Category, today), .. ChangeType(values.TypeId)];
     }
 
     /// <summary>Changes the item's place within its current board cell.</summary>
@@ -499,13 +549,14 @@ public class WorkItem : IHasUpdatedAt
     /// <summary>
     /// A copy of this item for one occurrence of a repetition: same descriptive fields,
     /// assignee, tags and Space, placed under <paramref name="parentId"/> and scheduled on
-    /// <paramref name="date"/>. Comments, links, schedule and repetition are not copied. The
-    /// caller places it under the template's parent or a copy of one of its descendants, so
-    /// the copy's Space matches its parent's.
+    /// <paramref name="date"/>. Comments, links, schedule, repetition and completion date are
+    /// not copied: the copy is complete only when <paramref name="status"/> is a Done one, as of
+    /// <paramref name="today"/>. The caller places it under the template's parent or a copy of
+    /// one of its descendants, so the copy's Space matches its parent's.
     /// </summary>
-    public WorkItem CopyForOccurrence(Guid? parentId, Guid statusId, double rank, DateOnly date)
+    public WorkItem CopyForOccurrence(Guid? parentId, Status status, double rank, DateOnly date, DateOnly today)
     {
-        var copy = New(SpaceId, parentId, Title, Description, statusId, rank, TypeId, PriorityId);
+        var copy = New(SpaceId, parentId, Title, Description, status, rank, today, TypeId, PriorityId);
         copy.AssignedToUserId = AssignedToUserId;
         copy._tags = [.. _tags];
         copy._customFields = new Dictionary<Guid, JsonElement>(_customFields);

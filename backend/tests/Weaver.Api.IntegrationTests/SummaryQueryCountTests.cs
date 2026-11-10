@@ -131,5 +131,5 @@ public class SummaryQueryCountTests
             .Options);
 
     private static WorkItemService WorkItems(WeaverDbContext db) =>
-        new(db, new PostgresWorkItemHierarchy(db), new NoCaller());
+        new(db, new PostgresWorkItemHierarchy(db), new NoCalendar(), new NoCaller());
 }

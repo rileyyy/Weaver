@@ -21,7 +21,7 @@ public class WorkItemUrlLinkServiceTests
         _clock = new FixedTimeProvider(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
         _db = TestDatabase.Create(_clock);
         _urlLinks = new WorkItemUrlLinkService(_db, FakeCallerContext.Anyone());
-        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), FakeCallerContext.Anyone());
+        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), new FixedServerCalendar(), FakeCallerContext.Anyone());
         _space = TestSpaces.Add(_db);
     }
 

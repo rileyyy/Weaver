@@ -25,7 +25,7 @@ public class AttachmentFileCleanupTests
         _store = new InMemoryAttachmentStore();
         _caller = FakeCallerContext.Anyone();
         _attachments = new WorkItemAttachmentService(_db, _caller, _store, Options.Create(new AttachmentOptions()));
-        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), _caller);
+        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), new FixedServerCalendar(), _caller);
         _space = TestSpaces.Add(_db);
     }
 

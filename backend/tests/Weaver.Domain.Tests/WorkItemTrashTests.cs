@@ -6,10 +6,11 @@ namespace Weaver.Domain.Tests;
 public class WorkItemTrashTests
 {
     private static readonly Guid Home = Guid.NewGuid();
-    private static readonly Guid ToDo = Guid.NewGuid();
+    private static readonly Status ToDo = TestStatuses.ToDo(Home);
+    private static readonly DateOnly Today = new(2026, 11, 4);
     private static readonly DateTimeOffset Now = new(2026, 11, 4, 9, 0, 0, TimeSpan.Zero);
 
-    private static WorkItem NewItem() => WorkItem.Create(Home, "Task", null, ToDo, rank: 1.0);
+    private static WorkItem NewItem() => WorkItem.Create(Home, "Task", null, ToDo, rank: 1.0, Today);
 
     [Test]
     public void ANewItem_IsNotTrashed()
@@ -28,7 +29,7 @@ public class WorkItemTrashTests
     public void MoveToTrash_RecordsWhenAndWhichDeleteTrashedIt()
     {
         var root = NewItem();
-        var child = WorkItem.CreateChildOf(root, "Child", null, ToDo, rank: 1.0);
+        var child = WorkItem.CreateChildOf(root, "Child", null, ToDo, rank: 1.0, Today);
 
         root.MoveToTrash(root.Id, Now);
         child.MoveToTrash(root.Id, Now);

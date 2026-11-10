@@ -7,13 +7,18 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
-public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, ICallerContext caller) : IWorkItemService
+public class WorkItemService(
+    IWeaverDbContext db,
+    IWorkItemHierarchy hierarchy,
+    IServerCalendar calendar,
+    ICallerContext caller) : IWorkItemService
 {
     public const int DefaultPageSize = 500;
     public const int MaxPageSize = 1000;
 
     private readonly IWeaverDbContext _db = db;
     private readonly IWorkItemHierarchy _hierarchy = hierarchy;
+    private readonly IServerCalendar _calendar = calendar;
     private readonly WorkItemHistoryRecorder _history = new WorkItemHistoryRecorder(db, caller);
 
     public Task<WorkItem?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
@@ -129,13 +134,14 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
         var parent = parentId is null ? null : await FindParentAsync(parentId.Value, ct);
         var itemSpaceId = await ResolveSpaceForNewItemAsync(parent, spaceId, ct);
 
-        await EnsureInSpaceAsync(_db.Statuses, nameof(Status), statusId, itemSpaceId, ct);
+        var status = await FindInSpaceAsync(_db.Statuses, nameof(Status), statusId, itemSpaceId, ct);
         await EnsureDetailLookupsExistAsync(itemSpaceId, typeId, priorityId, ct);
 
         var rank = await ComputeRankAsync(itemSpaceId, parentId, statusId, afterId, excludeItemId: null, ct);
+        var today = await _calendar.TodayAsync(ct);
         var item = parent is null
-            ? WorkItem.Create(itemSpaceId, title, description, statusId, rank, typeId, priorityId)
-            : WorkItem.CreateChildOf(parent, title, description, statusId, rank, typeId, priorityId);
+            ? WorkItem.Create(itemSpaceId, title, description, status, rank, today, typeId, priorityId)
+            : WorkItem.CreateChildOf(parent, title, description, status, rank, today, typeId, priorityId);
 
         _db.WorkItems.Add(item);
         _history.RecordCreation(item);
@@ -202,10 +208,11 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
     {
         var item = await FindForWriteAsync(id, expectedVersion, ct);
 
-        await EnsureInSpaceAsync(_db.Statuses, nameof(Status), newStatusId, item.SpaceId, ct);
+        var status = await FindInSpaceAsync(_db.Statuses, nameof(Status), newStatusId, item.SpaceId, ct);
 
         var rank = await ComputeRankAsync(item.SpaceId, item.ParentId, newStatusId, afterId, excludeItemId: id, ct);
-        return await SaveWriteAsync(item, item.MoveToStatus(newStatusId, rank), ct);
+        var today = await _calendar.TodayAsync(ct);
+        return await SaveWriteAsync(item, item.MoveToStatus(status, rank, today), ct);
     }
 
     public async Task<WorkItemWriteResult> ReparentAsync(
@@ -342,29 +349,31 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
     {
         if (typeId is { } type)
         {
-            await EnsureInSpaceAsync(_db.WorkItemTypes, "Type", type, spaceId, ct);
+            await FindInSpaceAsync(_db.WorkItemTypes, "Type", type, spaceId, ct);
         }
 
         if (priorityId is { } priority)
         {
-            await EnsureInSpaceAsync(_db.WorkItemPriorities, nameof(WorkItemPriority), priority, spaceId, ct);
+            await FindInSpaceAsync(_db.WorkItemPriorities, nameof(WorkItemPriority), priority, spaceId, ct);
         }
     }
 
     /// <summary>A work item can only take its own Space's statuses, priorities and Types (ADR-0001).</summary>
-    private static async Task EnsureInSpaceAsync<T>(
+    private static async Task<T> FindInSpaceAsync<T>(
         IQueryable<T> values,
         string kind,
         Guid id,
         Guid spaceId,
         CancellationToken ct) where T : SpaceLookupValue
     {
-        var valueSpaceId = await values.Where(v => v.Id == id).Select(v => (Guid?)v.SpaceId).FirstOrDefaultAsync(ct)
+        var value = await values.AsNoTracking().FirstOrDefaultAsync(v => v.Id == id, ct)
             ?? throw new EntityNotFoundException(kind, id);
-        if (valueSpaceId != spaceId)
+        if (value.SpaceId != spaceId)
         {
             throw new LookupNotInSpaceException(kind, id, spaceId);
         }
+
+        return value;
     }
 
     /// <summary>

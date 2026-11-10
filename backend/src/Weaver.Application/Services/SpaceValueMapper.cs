@@ -42,7 +42,7 @@ internal sealed class SpaceValueMapper
         new(await SpaceLookups.LoadAsync(db, sourceSpaceId, ct), await SpaceLookups.LoadAsync(db, targetSpaceId, ct), maps);
 
     public SpaceMoveValues Map(WorkItem item) => new(
-        _statuses[item.StatusId],
+        _target.Statuses.First(s => s.Id == _statuses[item.StatusId]),
         item.TypeId is { } type ? _types[type] : null,
         item.PriorityId is { } priority ? _priorities[priority] : null);
 

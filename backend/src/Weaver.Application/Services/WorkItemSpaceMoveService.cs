@@ -9,10 +9,12 @@ namespace Weaver.Application.Services;
 public class WorkItemSpaceMoveService(
     IWeaverDbContext db,
     IWorkItemHierarchy hierarchy,
+    IServerCalendar calendar,
     ICallerContext caller) : IWorkItemSpaceMoveService
 {
     private readonly IWeaverDbContext _db = db;
     private readonly IWorkItemHierarchy _hierarchy = hierarchy;
+    private readonly IServerCalendar _calendar = calendar;
     private readonly WorkItemHistoryRecorder _history = new WorkItemHistoryRecorder(db, caller);
 
     public async Task<SpaceMovePlan> PlanAsync(Guid id, Guid targetSpaceId, CancellationToken ct = default)
@@ -46,12 +48,13 @@ public class WorkItemSpaceMoveService(
 
         var mapper = await SpaceValueMapper.LoadAsync(_db, item.SpaceId, targetSpaceId, maps, ct);
         var rootValues = mapper.Map(item);
-        var rank = await FirstRankInCellAsync(targetSpaceId, targetParentId, rootValues.StatusId, ct);
-        var rootChanges = item.MoveToSpace(targetSpaceId, parent, rank, rootValues);
+        var rank = await FirstRankInCellAsync(targetSpaceId, targetParentId, rootValues.Status.Id, ct);
+        var today = await _calendar.TodayAsync(ct);
+        var rootChanges = item.MoveToSpace(targetSpaceId, parent, rank, rootValues, today);
         _history.RecordChanges(item.Id, rootChanges);
 
         var descendants = await LoadDescendantsAsync(_db.WorkItems.IgnoreQueryFilters(), id, ct);
-        MoveDescendants(item, descendants, mapper);
+        MoveDescendants(item, descendants, mapper, today);
         await _db.SaveWorkItemChangesAsync(id, ct);
         return new WorkItemWriteResult(item, rootChanges.Select(c => c.Field).ToList());
     }
@@ -67,7 +70,7 @@ public class WorkItemSpaceMoveService(
     }
 
     /// <summary>Parents go before their children, since each follows its parent's new Space.</summary>
-    private void MoveDescendants(WorkItem root, IEnumerable<WorkItem> descendants, SpaceValueMapper mapper)
+    private void MoveDescendants(WorkItem root, IEnumerable<WorkItem> descendants, SpaceValueMapper mapper, DateOnly today)
     {
         var childrenByParent = descendants.ToLookup(w => w.ParentId);
         var parents = new Queue<WorkItem>([root]);
@@ -75,7 +78,7 @@ public class WorkItemSpaceMoveService(
         {
             foreach (var child in childrenByParent[parent.Id])
             {
-                _history.RecordChanges(child.Id, child.FollowParentToSpace(parent, mapper.Map(child)));
+                _history.RecordChanges(child.Id, child.FollowParentToSpace(parent, mapper.Map(child), today));
                 parents.Enqueue(child);
             }
         }

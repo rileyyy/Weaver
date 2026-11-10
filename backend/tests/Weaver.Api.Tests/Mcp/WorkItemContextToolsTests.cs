@@ -42,7 +42,7 @@ public class WorkItemContextToolsTests
             _history.Object,
             _attachments.Object);
 
-        _item = WorkItem.Create(Guid.NewGuid(), "Hinges", null, Guid.NewGuid(), rank: 1.0);
+        _item = TestWorkItems.Create("Hinges");
         _workItems.Setup(w => w.GetByIdAsync(_item.Id, It.IsAny<CancellationToken>())).ReturnsAsync(_item);
     }
 

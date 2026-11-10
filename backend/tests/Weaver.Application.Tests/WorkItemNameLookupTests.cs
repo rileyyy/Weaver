@@ -21,7 +21,7 @@ public class WorkItemNameLookupTests
         _clock = new FixedTimeProvider(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
         _db = TestDatabase.Create(_clock);
         var caller = FakeCallerContext.Anyone();
-        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), caller);
+        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), new FixedServerCalendar(), caller);
         _trash = new WorkItemTrashService(_db, new IterativeWorkItemHierarchy(_db), caller, _clock);
         _lookup = new WorkItemNameLookup(_db);
         _home = TestSpaces.Add(_db, "Home");

@@ -87,7 +87,7 @@ public class WorkItemTypeServiceTests
 
     private WorkItem AddItem(Guid typeId)
     {
-        var item = WorkItem.Create(_space.Id, "Item", null, _space.ToDo, 1, typeId: typeId);
+        var item = WorkItem.Create(_space.Id, "Item", null, _db.Statuses.Find(_space.ToDo)!, 1, FixedServerCalendar.DefaultToday, typeId: typeId);
         _db.WorkItems.Add(item);
         _db.SaveChanges();
         return item;

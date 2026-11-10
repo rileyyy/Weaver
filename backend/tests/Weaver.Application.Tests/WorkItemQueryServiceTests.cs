@@ -29,7 +29,7 @@ public class WorkItemQueryServiceTests
         _db = TestDatabase.Create(_clock);
         _home = TestSpaces.Add(_db, "Home");
         var hierarchy = new IterativeWorkItemHierarchy(_db);
-        _workItems = new WorkItemService(_db, hierarchy, FakeCallerContext.Anyone());
+        _workItems = new WorkItemService(_db, hierarchy, new FixedServerCalendar(), FakeCallerContext.Anyone());
         _query = new WorkItemQueryService(_db, hierarchy, new InMemoryWorkItemSearch());
         _trash = new WorkItemTrashService(_db, hierarchy, FakeCallerContext.Anyone(), _clock);
         _links = new WorkItemLinkService(_db, FakeCallerContext.Anyone());

@@ -22,7 +22,7 @@ public class WorkItemSpaceTests
     {
         _clock = new FixedTimeProvider(new DateTimeOffset(2026, 9, 26, 12, 0, 0, TimeSpan.Zero));
         _db = TestDatabase.Create(_clock);
-        _service = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), FakeCallerContext.Anyone());
+        _service = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), new FixedServerCalendar(), FakeCallerContext.Anyone());
         _home = TestSpaces.Add(_db, "Home");
         _village = TestSpaces.Add(_db, "Village");
     }

@@ -21,8 +21,7 @@ public class WorkItemsControllerTests
         _controller = new WorkItemsController(_workItems.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup()));
     }
 
-    private static WorkItem MakeWorkItem(Guid statusId = default) =>
-        WorkItem.Create(Guid.NewGuid(), "Task", null, statusId, rank: 1.0);
+    private static WorkItem MakeWorkItem() => TestWorkItems.Create("Task");
 
     [Test]
     public async Task GetById_WhenServiceReturnsNull_ReturnsNotFound()
@@ -72,7 +71,7 @@ public class WorkItemsControllerTests
         var statusId = Guid.NewGuid();
         var afterId = Guid.NewGuid();
         var spaceId = Guid.NewGuid();
-        var created = MakeWorkItem(statusId);
+        var created = MakeWorkItem();
 
         _workItems.Setup(s => s.CreateAsync(
                 "Title", "Desc", parentId, statusId, afterId, null, null, spaceId, It.IsAny<CancellationToken>()))

@@ -53,7 +53,7 @@ public class WorkItemSpaceMoveControllerTests
     [Test]
     public async Task Move_PassesTheTargetParentMapsAndVersionThrough()
     {
-        var item = WorkItem.Create(Guid.NewGuid(), "Shed", null, Guid.NewGuid(), rank: 1.0);
+        var item = TestWorkItems.Create("Shed");
         var (target, parent, toDo, quoted, room) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
         _moves.Setup(s => s.MoveAsync(
                 item.Id,

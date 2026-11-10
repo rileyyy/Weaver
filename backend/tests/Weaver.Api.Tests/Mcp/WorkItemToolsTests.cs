@@ -33,7 +33,7 @@ public class WorkItemToolsTests
             new HttpCallerContext(new HttpContextAccessor()));
     }
 
-    private static WorkItem MakeWorkItem() => WorkItem.Create(Guid.NewGuid(), "A work item", null, Guid.NewGuid(), rank: 1.0);
+    private static WorkItem MakeWorkItem() => TestWorkItems.Create("A work item");
 
     private static WorkItemSummary MakeSummary(Guid? parentId = null) =>
         new(Guid.NewGuid(), 7, "A work item", Guid.NewGuid(), "Home", parentId, "To Do", "Task", null, null, "alice", 2);

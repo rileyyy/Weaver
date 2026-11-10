@@ -7,7 +7,8 @@ namespace Weaver.Domain.Tests;
 public class WorkItemCustomFieldTests
 {
     private static readonly Guid Home = Guid.NewGuid();
-    private static readonly Guid ToDo = Guid.NewGuid();
+    private static readonly Status ToDo = TestStatuses.ToDo(Home);
+    private static readonly DateOnly Today = new(2026, 11, 10);
     private static readonly Guid Room = Guid.NewGuid();
     private static readonly Guid Chore = Guid.NewGuid();
 
@@ -17,7 +18,7 @@ public class WorkItemCustomFieldTests
     private static readonly CustomFieldDefinition Floor =
         CustomFieldDefinition.Create(Room, "Floor", CustomFieldKind.SingleSelect, order: 1, ["Oak", "Tiles"]);
 
-    private static WorkItem NewRoom() => WorkItem.Create(Home, "Kitchen", null, ToDo, rank: 1.0, typeId: Room);
+    private static WorkItem NewRoom() => WorkItem.Create(Home, "Kitchen", null, ToDo, rank: 1.0, Today, typeId: Room);
 
     private static JsonElement Json(string json) => JsonSerializer.Deserialize<JsonElement>(json);
 
@@ -222,7 +223,7 @@ public class WorkItemCustomFieldTests
         var item = NewRoom();
         item.SetCustomFields(Patch(Room, (Budget, "10")));
 
-        var copy = item.CopyForOccurrence(null, ToDo, 1.0, new DateOnly(2026, 12, 1));
+        var copy = item.CopyForOccurrence(null, ToDo, 1.0, new DateOnly(2026, 12, 1), Today);
 
         Assert.That(ValueOf(copy, Budget), Is.EqualTo("10"));
     }

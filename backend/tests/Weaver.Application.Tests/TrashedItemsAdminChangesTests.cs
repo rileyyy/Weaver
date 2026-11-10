@@ -34,7 +34,7 @@ public class TrashedItemsAdminChangesTests
         _home = TestSpaces.Add(_db, "Home");
         _caller = new FakeCallerContext(_admin.Id);
         var hierarchy = new IterativeWorkItemHierarchy(_db);
-        _workItems = new WorkItemService(_db, hierarchy, _caller);
+        _workItems = new WorkItemService(_db, hierarchy, new FixedServerCalendar(), _caller);
         _trash = new WorkItemTrashService(_db, hierarchy, _caller, _clock);
     }
 
@@ -59,7 +59,7 @@ public class TrashedItemsAdminChangesTests
     public async Task DeletingAStatus_UsedOnlyInTheTrash_StillNeedsAReplacement()
     {
         await CreateTrashedAsync(statusId: _home.Doing);
-        var statuses = new StatusService(_db, new AdminAuthorizer(_db), _caller);
+        var statuses = new StatusService(_db, new AdminAuthorizer(_db), new FixedServerCalendar(), _caller);
 
         Assert.ThrowsAsync<LookupValueInUseException>(() => statuses.DeleteAsync(_admin.Id, _home.Doing, null));
     }
@@ -69,7 +69,7 @@ public class TrashedItemsAdminChangesTests
     {
         var item = await CreateTrashedAsync(statusId: _home.Doing);
 
-        await new StatusService(_db, new AdminAuthorizer(_db), _caller).DeleteAsync(_admin.Id, _home.Doing, _home.Done);
+        await new StatusService(_db, new AdminAuthorizer(_db), new FixedServerCalendar(), _caller).DeleteAsync(_admin.Id, _home.Doing, _home.Done);
 
         Assert.That((await RestoredAsync(item.Id)).StatusId, Is.EqualTo(_home.Done));
     }
