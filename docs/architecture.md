@@ -1464,14 +1464,16 @@ store its inputs.
   keeps the previous rows until the answer arrives, and closing the tab
   (`closeRoadmap`) stops the re-asking that every edit otherwise causes.
   `ServerMatches` holds each answer for the header and the Roadmap, and
-  drops a slower answer to an older question.
+  drops a slower answer to an older question. If the first answer for the
+  Roadmap fails it has no rows to keep, so it shows an error with retry
+  (`roadmapLoadError`) rather than a spinner.
 - **The Backlog tab** (`BacklogViewModel`) asks for `backlogOnly` in the
   current Space and groups the answer by parent: top-level items first,
   then each parent by title. Parents it doesn't hold are loaded one by
   one, as they can be dated or Done themselves and so aren't in the
-  answer. After any save, made there or anywhere else, it asks again, so
-  an item given dates leaves the list because the server says so, not by
-  a client rule. It listens for saves rather than every store change,
+  answer. After any save, made there or anywhere else, it asks again
+  while its tab shows, so an item given dates leaves the list because the
+  server says so, not by a client rule. It listens for saves rather than every store change,
   because its own load writes to the store. "Set dates" is a date-range
   picker; the detail dialog's quick picks work too. It depends on
   `BacklogRepository`, the three calls it needs, which `BoardRepository`

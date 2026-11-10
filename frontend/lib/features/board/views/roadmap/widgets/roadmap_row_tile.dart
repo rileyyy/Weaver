@@ -68,8 +68,9 @@ class RoadmapRowTile extends StatelessWidget {
     );
     // The badge normally rides on the bar; without one in view it moves to
     // the title so a conflict is never hidden by the window.
-    final isGroupRow =
-        hasChildren && item.startDate == null && item.endDate == null;
+    // The server only lists an undated item as the parent of a match, so
+    // it's a group row even when a hidden status column empties it here.
+    final isGroupRow = item.startDate == null && item.endDate == null;
     final showTitleBadge =
         bar == null && item.blockedBy.any((blocker) => blocker.conflicts);
 

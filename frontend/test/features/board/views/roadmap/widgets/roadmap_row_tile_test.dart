@@ -116,6 +116,13 @@ void main() {
     expect(find.byTooltip(RoadmapRowTile.groupRowTooltip), findsOneWidget);
   });
 
+  testWidgets('an undated parent whose children are all hidden is still a '
+      'group row', (tester) async {
+    await tester.pumpWidget(_tile(startDate: null, conflicts: false));
+
+    expect(_titleWeight(tester), FontWeight.bold);
+  });
+
   testWidgets('a dated parent shows its own bar', (tester) async {
     await tester.pumpWidget(
       _tile(

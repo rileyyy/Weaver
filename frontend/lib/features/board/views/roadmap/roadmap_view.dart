@@ -89,6 +89,10 @@ class _RoadmapViewState extends State<RoadmapView> {
       return LoadErrorView(message: error, onRetry: viewModel.loadHierarchy);
     }
 
+    if (viewModel.roadmapLoadError case final error?) {
+      return LoadErrorView(message: error, onRetry: viewModel.retryRoadmap);
+    }
+
     final rows = flattenTree(
       viewModel.roadmapRoots,
       collapsedIds: _collapsedIds,

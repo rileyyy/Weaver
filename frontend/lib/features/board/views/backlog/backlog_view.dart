@@ -7,8 +7,7 @@ import 'package:weaver/features/board/views/backlog/widgets/backlog_item_tile.da
 import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/widgets/load_error_view.dart';
 
-/// Picks a start and end day, or null when cancelled. A parameter so tests
-/// can answer without driving the Material picker.
+/// A parameter so tests can answer without driving the Material picker.
 typedef DateRangeChooser =
     Future<DateTimeRange?> Function(BuildContext context, WorkItem item);
 

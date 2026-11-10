@@ -4,6 +4,7 @@ import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';
 
 import 'package:injectable/injectable.dart';
+import 'package:weaver/core/dates/calendar_window.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/core/network/parallel_api_errors.dart';
 import 'package:weaver/core/presentation/view_model.dart';
@@ -105,6 +106,7 @@ class BoardViewModel extends ViewModel {
     _repository.queryItems,
   );
   CalendarWindow? _roadmapWindow;
+  String? _roadmapLoadError;
   bool _matchRefreshScheduled = false;
 
   // Derived values the views read many times per frame. Every state change
@@ -331,7 +333,16 @@ class BoardViewModel extends ViewModel {
   /// True while the Roadmap is open and waiting for the first answer for it,
   /// when there are no rows to show yet.
   bool get isRoadmapMatching =>
-      _roadmapWindow != null && _roadmapMatches.ids == null;
+      _roadmapWindow != null &&
+      _roadmapMatches.ids == null &&
+      _roadmapLoadError == null;
+
+  /// Set when the Roadmap's first answer failed, so it has no rows to show;
+  /// the Roadmap replaces them with [retryRoadmap]. A later failure keeps
+  /// the rows and is reported through [moveError] instead.
+  String? get roadmapLoadError => _roadmapLoadError;
+
+  Future<void> retryRoadmap() => _refreshRoadmapMatches();
 
   /// Asks the server which items to show on the Roadmap for [window], the
   /// calendar days its timeline shows. Asked again as the header's filters
@@ -348,6 +359,7 @@ class BoardViewModel extends ViewModel {
   /// notify by itself, so the Roadmap can call it while it's disposed.
   void closeRoadmap() {
     _roadmapWindow = null;
+    _roadmapLoadError = null;
     _roadmapMatches.settle(null);
     _roadmapRootsCache = null;
   }
@@ -909,7 +921,7 @@ class BoardViewModel extends ViewModel {
     return _ask(
       _headerMatches,
       query,
-      failure:
+      onFailure: () => _moveError =
           'Could not apply the filters. Check your connection and try again.',
     );
   }
@@ -926,27 +938,31 @@ class BoardViewModel extends ViewModel {
       if (_roadmapMatches.settle(const {}) && notify) notifyIfActive();
       return Future.value();
     }
+    _roadmapLoadError = null;
+    const failure =
+        'Could not load the Roadmap. Check your connection and try again.';
     return _ask(
       _roadmapMatches,
       query,
-      failure:
-          'Could not load the Roadmap. Check your connection and try again.',
+      onFailure: () => _roadmapMatches.ids == null
+          ? _roadmapLoadError = failure
+          : _moveError = failure,
     );
   }
 
   /// Asks [query] of [matches], redrawing when the answer changes what
-  /// shows. A failure keeps the last answer and reports it once.
+  /// shows. A failure keeps the last answer and calls [onFailure] to say so.
   Future<void> _ask(
     ServerMatches matches,
     WorkItemQuery query, {
-    required String failure,
+    required void Function() onFailure,
   }) async {
     try {
       final changed = await matches.refresh(query);
       if (!changed || isDisposed) return;
     } on ApiException {
       if (isDisposed) return;
-      _moveError = failure;
+      onFailure();
     }
     notifyIfActive();
   }

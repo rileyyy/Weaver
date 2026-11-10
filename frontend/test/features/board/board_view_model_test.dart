@@ -2439,6 +2439,43 @@ void main() {
       expect(roadmap.roadmapRoots.map((n) => n.item.id), ['root-2']);
     });
 
+    test('a failed first answer is an error the Roadmap can retry', () async {
+      queried.queryError = const ApiException('down');
+      roadmap.showRoadmapWindow(november);
+      await pumpEventQueue();
+
+      expect(roadmap.isRoadmapMatching, isFalse);
+      expect(roadmap.roadmapLoadError, isNotNull);
+
+      queried
+        ..queryError = null
+        ..matchingIds = {'root-2'};
+      await roadmap.retryRoadmap();
+
+      expect(roadmap.roadmapLoadError, isNull);
+      expect(roadmap.roadmapRoots.map((n) => n.item.id), ['root-2']);
+    });
+
+    test(
+      'a failure after an answer keeps the rows and reports it once',
+      () async {
+        queried.matchingIds = {'root-2'};
+        roadmap.showRoadmapWindow(november);
+        await pumpEventQueue();
+        queried.queryError = const ApiException('down');
+
+        roadmap.showRoadmapWindow((
+          start: DateTime(2026, 12, 1),
+          end: DateTime(2026, 12, 31),
+        ));
+        await pumpEventQueue();
+
+        expect(roadmap.roadmapLoadError, isNull);
+        expect(roadmap.moveError, isNotNull);
+        expect(roadmap.roadmapRoots.map((n) => n.item.id), ['root-2']);
+      },
+    );
+
     test(
       'a header range outside the window shows nothing without asking',
       () async {

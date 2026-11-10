@@ -30,6 +30,10 @@ class BacklogViewModel extends ViewModel {
   final WorkItemStore _items;
 
   String? _spaceId;
+
+  // Whether a save asks again: only while the Backlog tab is shown, since
+  // every visit loads afresh anyway.
+  bool _refreshing = false;
   List<String> _itemIds = const [];
   bool _isLoading = false;
   bool _hasLoaded = false;
@@ -74,6 +78,7 @@ class BacklogViewModel extends ViewModel {
     final generation = ++_loadGeneration;
     if (spaceId != _spaceId) _hasLoaded = false;
     _spaceId = spaceId;
+    _refreshing = true;
     _isLoading = true;
     _loadError = null;
     notifyIfActive();
@@ -97,6 +102,10 @@ class BacklogViewModel extends ViewModel {
       }
     }
   }
+
+  /// Stops asking again after saves, once the Backlog tab is left. The next
+  /// [load] starts again.
+  void stopRefreshing() => _refreshing = false;
 
   /// Sets [workItemId]'s dates. True when saved; it then leaves the Backlog
   /// once the server confirms it's no longer listed there.
@@ -168,11 +177,11 @@ class BacklogViewModel extends ViewModel {
   /// Any save can move an item into or out of the Backlog (dates, status,
   /// parent), so the server is asked again once the current burst settles.
   void _onItemSaved(WorkItem before, WorkItem saved, WorkItemReload reload) {
-    if (_spaceId == null || _reloadScheduled) return;
+    if (!_refreshing || _reloadScheduled) return;
     _reloadScheduled = true;
     scheduleMicrotask(() {
       _reloadScheduled = false;
-      if (_spaceId case final spaceId? when !isDisposed) {
+      if (_spaceId case final spaceId? when _refreshing && !isDisposed) {
         unawaited(load(spaceId));
       }
     });

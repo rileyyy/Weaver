@@ -35,7 +35,8 @@ the API.
   Backlog, and an undated parent still shows when an item under it matches.
 - **Backlog.** Every item in the Space that isn't Done and has no dates,
   grouped by parent. "Set dates" gives one dates, which moves it out.
-- **Search, filter and sort.** Search matches title, description and tags.
+- **Search, filter and sort.** Search matches title, description and When;
+  the tag filter matches tags, any or all of them.
   Status columns can be hidden, tags filtered, and cards sorted by title,
   start date or due date without touching the manual order.
 - **Work-item details.** Title, description, Type (Project / Goal / Task by default,

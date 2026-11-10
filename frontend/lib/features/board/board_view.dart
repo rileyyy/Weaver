@@ -164,6 +164,7 @@ class _BoardViewState extends State<BoardView>
   void _loadBacklogIfShown() {
     final spaceId = _viewModel.currentSpace?.id;
     if (_tabController.index != BoardTab.backlog.index || spaceId == null) {
+      _backlogViewModel.stopRefreshing();
       return;
     }
     unawaited(_backlogViewModel.load(spaceId));

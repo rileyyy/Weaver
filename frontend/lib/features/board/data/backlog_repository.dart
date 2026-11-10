@@ -8,7 +8,7 @@ abstract class BacklogRepository {
   /// Rank order.
   Future<List<WorkItem>> queryItems(WorkItemQuery query);
 
-  /// One work item as it is now.
+  /// One work item, for a parent the Backlog groups under but doesn't list.
   Future<WorkItem> getItem(String id);
 
   /// Sets the work item identified by [itemId]'s scheduled start/end.

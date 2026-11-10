@@ -164,6 +164,25 @@ void main() {
     },
   );
 
+  test(
+    'a save asks nothing once refreshing stops, until the next load',
+    () async {
+      await viewModel.load('home');
+      viewModel.stopRefreshing();
+      repository.queries.clear();
+
+      await viewModel.setDates('bench', _nov, _nov);
+      await pumpEventQueue();
+      final whileStopped = repository.queries.length;
+      await viewModel.load('home');
+      await viewModel.setDates('paint', _nov, _nov);
+      await pumpEventQueue();
+
+      expect(whileStopped, 0);
+      expect(repository.queries, hasLength(greaterThan(1)));
+    },
+  );
+
   test('nothing is asked after it is disposed', () async {
     final other = BacklogViewModel(repository, store);
     await other.load('home');

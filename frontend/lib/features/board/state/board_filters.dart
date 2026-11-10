@@ -1,10 +1,8 @@
 import 'package:weaver/core/dates/calendar_days.dart';
+import 'package:weaver/core/dates/calendar_window.dart';
 import 'package:weaver/features/board/models/card_sort_option.dart';
 import 'package:weaver/shared/models/tag_match.dart';
 import 'package:weaver/shared/models/work_item_query.dart';
-
-/// Calendar days from [start] to [end], both inclusive.
-typedef CalendarWindow = ({DateTime start, DateTime end});
 
 /// Everything the board's header controls: time range, search, hidden
 /// status columns, selected tags, sort and whether old Done items show.
