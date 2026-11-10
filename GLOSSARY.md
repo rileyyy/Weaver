@@ -63,6 +63,10 @@ ago than this unless "show done" is on.
 filters and a layout. It keeps no time range: the window is chosen when it's
 shown. Each user picks a default View, opened on launch.
 
+**Breadcrumb**
+: Where the board is: the open View (when it spans several Spaces), then a
+Space, then each item drilled into.
+
 **Board**
 : The swimlane layout of a View. Each parent is a lane and its children are
 cards that move between status columns. It isn't a stored entity (the old

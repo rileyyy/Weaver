@@ -26,12 +26,36 @@ What shipped, newest first. Design reasoning lives in
 | 15        | Done        | Production deployment pieces                |
 | 16        | Planned     | Foundations: Spaces, Types, history, agents |
 | 17        | Planned     | Agent surface                               |
-| 18        | Planned     | Human UX: Views, Backlog, When              |
+| 18        | In progress | Human UX: Views, Backlog, When              |
 | 19        | Planned     | Attachments, mobile polish, cleanup         |
 | 20        | Later       | Reminders, export, autonomous agents        |
 
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
+
+## 2026-11-10 — Saved Views, Overview and a default View
+
+`feature/saved-views-backend` and, stacked on it,
+`feature/saved-views-flutter` (ticket 23 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md)).
+
+- **Views** are saved, shared queries: Spaces (or every Space), search,
+  tags, tag match, show-done, Overview's rule and a layout (Board,
+  Hierarchy or Roadmap). They keep no time range, since saved dates go
+  stale. Anyone can save, change, rename or delete one from the header's
+  View menu.
+- **Overview** is built in: everything in a Doing status or with dates in
+  the window, across every Space. It can't be changed or deleted.
+- **Each user has a default View**, opened on launch; it's Overview until
+  they pick another. It replaces remembering the last-used Space.
+- **Several Spaces at once**: the board stacks a section per Space, each
+  with its own status columns, and the Hierarchy and Roadmap group their
+  trees under a heading per Space. The breadcrumb runs View, Space, then
+  the drill-down path. The Filters dialog chooses the Spaces shown and
+  Overview's rule. The Backlog covers every Space shown.
+- **Agents** list Views and run one over MCP (`list_views`, `run_view`,
+  read-only). The query gains `scheduledOrInProgressOnly`.
+- Migration `AddViews`: `Views` and `DefaultViews` tables.
 
 ## 2026-11-10 — Date-window rule and the Backlog
 
