@@ -30,6 +30,7 @@ public static class DependencyInjection
             .AddScoped<IWorkItemAttachmentService, WorkItemAttachmentService>()
             .AddScoped<IAttachmentFileCleanup, AttachmentFileCleanup>()
             .AddScoped<IWorkItemBlockers, WorkItemBlockers>()
+            .AddScoped<IDependencyConflicts, DependencyConflicts>()
             .AddScoped<IWorkItemNameLookup, WorkItemNameLookup>()
             .AddScoped<IWorkItemHistoryService, WorkItemHistoryService>()
             .AddScoped<IWorkItemChangesService, WorkItemChangesService>()
