@@ -26,7 +26,7 @@ public class WorkItemSummaryListingTests
         _clock = new FixedTimeProvider(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
         _db = TestDatabase.Create(_clock);
         var hierarchy = new IterativeWorkItemHierarchy(_db);
-        _service = new WorkItemService(_db, hierarchy, FakeCallerContext.Anyone());
+        _service = new WorkItemService(_db, hierarchy, new FixedServerCalendar(), FakeCallerContext.Anyone());
         _trash = new WorkItemTrashService(_db, hierarchy, FakeCallerContext.Anyone(), _clock);
         _home = TestSpaces.Add(_db, "Home");
         _software = TestSpaces.Add(_db, "Software");

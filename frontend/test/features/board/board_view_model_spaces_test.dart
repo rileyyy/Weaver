@@ -253,11 +253,13 @@ void main() {
       await viewModel.load();
       viewModel.setSearchQuery('fence');
       await pumpEventQueue();
+      final askedBefore = repository.querySpaces.length;
 
       await viewModel.switchSpace(_village);
       await pumpEventQueue();
 
-      expect(repository.querySpaces, ['home', 'village']);
+      expect(repository.querySpaces.first, 'home');
+      expect(repository.querySpaces.skip(askedBefore), ['village']);
     });
 
     test(

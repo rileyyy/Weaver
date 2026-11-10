@@ -204,6 +204,35 @@ public class WorkItemSearchTests
         Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { someday.Id }));
     }
 
+    // The date arithmetic runs as SQL (completion date plus each item's own Space's period), so
+    // this checks Postgres agrees with the InMemory tests. Completion dates are backdated directly,
+    // since an item can only be completed today through the API; the margins keep the result the
+    // same whatever time zone another test left the server in.
+    [Test]
+    public async Task ApplyDoneHiding_LeavesOutDoneItemsCompletedBeforeTheirSpacesPeriod()
+    {
+        var open = await CreateAsync("Still to do");
+        var recent = await CreateAsync("Done yesterday");
+        var old = await CreateAsync("Done long ago");
+        var undated = await CreateAsync("Done before completion dates");
+        await MoveToAsync(recent, "Done");
+        await MoveToAsync(old, "Done");
+        await MoveToAsync(undated, "Done");
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        await SetCompletionDateAsync(recent, today.AddDays(-1));
+        await SetCompletionDateAsync(old, today.AddDays(-20));
+        await SetCompletionDateAsync(undated, null);
+
+        var hiding = await SearchAsync($"spaceIds={_space}&applyDoneHiding=true");
+        var all = await SearchAsync($"spaceIds={_space}");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hiding.Items.Select(i => i.Id), Is.EqualTo(new[] { open.Id, recent.Id, undated.Id }));
+            Assert.That(all.Items, Has.Count.EqualTo(4));
+        });
+    }
+
     [Test]
     public async Task UpdatedSince_LimitsTheResults_WhateverTheOffset()
     {
@@ -345,6 +374,33 @@ public class WorkItemSearchTests
         Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { item.Id }));
     }
 
+    [Test]
+    public async Task Mcp_SearchWorkItems_AppliesDoneHiding_AndShowsCompletionDates()
+    {
+        var recent = await CreateAsync("Done recently");
+        var old = await CreateAsync("Done long ago");
+        await MoveToAsync(recent, "Done");
+        await MoveToAsync(old, "Done");
+        await SetCompletionDateAsync(old, DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-20));
+        var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadOnly);
+        await using var mcp = await ConnectAsync(agent);
+
+        var result = await mcp.CallToolAsync("search_work_items", new Dictionary<string, object?>
+        {
+            ["spaceIds"] = new[] { _space },
+            ["applyDoneHiding"] = true,
+        });
+
+        var text = string.Join("\n", result.Content.OfType<TextContentBlock>().Select(c => c.Text));
+        Assert.That(result.IsError, Is.Not.True, text);
+        var page = JsonSerializer.Deserialize<WorkItemSummaryPageDto>(text, ApiClient.Json)!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { recent.Id }));
+            Assert.That(page.Items.Single().CompletionDate, Is.Not.Null);
+        });
+    }
+
     private Task<WorkItemDto> CreateAsync(string title) => _client.CreateWorkItemAsync(title, spaceId: _space);
 
     private async Task<WorkItemPageDto> SearchAsync(string query) =>
@@ -362,6 +418,14 @@ public class WorkItemSearchTests
     {
         var statusId = await ApiClient.StatusIdAsync(item.SpaceId, status);
         (await _client.PutJsonAsync($"/api/work-items/{item.Id}/status", new ChangeWorkItemStatusRequest(statusId, null))).EnsureSuccessStatusCode();
+    }
+
+    private static async Task SetCompletionDateAsync(WorkItemDto item, DateOnly? date)
+    {
+        using var scope = IntegrationTestEnvironment.Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<WeaverDbContext>();
+        await db.WorkItems.Where(w => w.Id == item.Id)
+            .ExecuteUpdateAsync(set => set.SetProperty(w => w.CompletionDate, date));
     }
 
     private static string UniqueTag(string name) => $"{name}-{Guid.NewGuid():N}"[..20];

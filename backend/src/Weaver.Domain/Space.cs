@@ -1,3 +1,5 @@
+using Weaver.Domain.Exceptions;
+
 namespace Weaver.Domain;
 
 /// <summary>
@@ -8,6 +10,9 @@ namespace Weaver.Domain;
 public class Space : IHasCreatedAt
 {
     public const int NameMaxLength = 100;
+    public const int DefaultDoneHidingDays = 14;
+    public const int MinDoneHidingDays = 1;
+    public const int MaxDoneHidingDays = 3650;
 
     /// <summary>For EF Core.</summary>
     private Space()
@@ -20,6 +25,13 @@ public class Space : IHasCreatedAt
     /// <summary>Trimmed, and unique across Spaces.</summary>
     public string Name { get; private set; }
 
+    /// <summary>
+    /// How many days a Done item stays on the Board after its completion date, counted in
+    /// calendar days in the server's time zone. Each Space has its own, since a household Space
+    /// and a software one finish work at different paces.
+    /// </summary>
+    public int DoneHidingDays { get; private set; } = DefaultDoneHidingDays;
+
     public DateTimeOffset CreatedAtUtc { get; private set; }
 
     public static Space Create(string name) => new() { Id = Guid.NewGuid(), Name = ValidName(name) };
@@ -28,6 +40,19 @@ public class Space : IHasCreatedAt
     {
         var changed = new ChangedFields();
         Name = changed.Set(SpaceHistoryField.Name, Name, ValidName(name));
+        return changed.Changes;
+    }
+
+    public IReadOnlyList<FieldChange> SetDoneHidingPeriod(int days)
+    {
+        if (days is < MinDoneHidingDays or > MaxDoneHidingDays)
+        {
+            throw new DomainValidationException(
+                $"The done-hiding period must be between {MinDoneHidingDays} and {MaxDoneHidingDays} days.");
+        }
+
+        var changed = new ChangedFields();
+        DoneHidingDays = changed.Set(SpaceHistoryField.DoneHidingDays, DoneHidingDays, days);
         return changed.Changes;
     }
 

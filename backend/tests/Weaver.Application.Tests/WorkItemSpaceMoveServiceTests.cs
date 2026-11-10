@@ -31,8 +31,8 @@ public class WorkItemSpaceMoveServiceTests
         _workshop = TestWorkshop.Add(_db);
         var caller = new FakeCallerContext(_alice.Id);
         var hierarchy = new IterativeWorkItemHierarchy(_db);
-        _workItems = new WorkItemService(_db, hierarchy, caller);
-        _moves = new WorkItemSpaceMoveService(_db, hierarchy, caller);
+        _workItems = new WorkItemService(_db, hierarchy, new FixedServerCalendar(), caller);
+        _moves = new WorkItemSpaceMoveService(_db, hierarchy, new FixedServerCalendar(), caller);
         _history = new WorkItemHistoryService(_db);
     }
 

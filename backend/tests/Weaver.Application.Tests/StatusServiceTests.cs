@@ -19,7 +19,7 @@ public class StatusServiceTests
     public void SetUp()
     {
         _db = TestDatabase.Create(new FixedTimeProvider(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero)));
-        _statuses = new StatusService(_db, new AdminAuthorizer(_db), FakeCallerContext.Anyone());
+        _statuses = new StatusService(_db, new AdminAuthorizer(_db), new FixedServerCalendar(), FakeCallerContext.Anyone());
         _admin = TestUsers.Add(_db, "admin", isAdmin: true);
         _space = TestSpaces.Add(_db);
     }
@@ -140,8 +140,8 @@ public class StatusServiceTests
     private WorkItem AddItem(WorkItem? parent, Guid statusId, double rank)
     {
         var item = parent is null
-            ? WorkItem.Create(_space.Id, "Item", null, statusId, rank)
-            : WorkItem.CreateChildOf(parent, "Item", null, statusId, rank);
+            ? WorkItem.Create(_space.Id, "Item", null, _db.Statuses.Find(statusId)!, rank, FixedServerCalendar.DefaultToday)
+            : WorkItem.CreateChildOf(parent, "Item", null, _db.Statuses.Find(statusId)!, rank, FixedServerCalendar.DefaultToday);
         _db.WorkItems.Add(item);
         _db.SaveChanges();
         return item;

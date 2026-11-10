@@ -4,7 +4,10 @@ using Weaver.Application.Services;
 
 namespace Weaver.Api.Controllers;
 
-/// <summary>Anyone signed in can list Spaces; creating and renaming them needs a human admin (403 otherwise).</summary>
+/// <summary>
+/// Anyone signed in can list Spaces; creating, renaming and changing their settings needs a human
+/// admin (403 otherwise).
+/// </summary>
 [ApiController]
 [Route("api/spaces")]
 // The bearer challenge has no body.
@@ -43,6 +46,13 @@ public class SpacesController(ISpaceService spaces) : ControllerBase
     public async Task<ActionResult<SpaceDto>> Rename(Guid id, SpaceNameRequest request)
     {
         var space = await _spaces.RenameAsync(id, request.Name);
+        return Ok(SpaceDto.FromEntity(space));
+    }
+
+    [HttpPut("{id:guid}/done-hiding-period")]
+    public async Task<ActionResult<SpaceDto>> SetDoneHidingPeriod(Guid id, SetDoneHidingPeriodRequest request)
+    {
+        var space = await _spaces.SetDoneHidingPeriodAsync(id, request.Days);
         return Ok(SpaceDto.FromEntity(space));
     }
 }

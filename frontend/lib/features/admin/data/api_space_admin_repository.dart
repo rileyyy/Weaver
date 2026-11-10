@@ -37,4 +37,12 @@ class ApiSpaceAdminRepository implements SpaceAdminRepository {
     _space,
     failureMessage: 'Failed to rename the Space',
   );
+
+  @override
+  Future<Space> setDoneHidingPeriod(String id, int days) => _api.put(
+    '/spaces/$id/done-hiding-period',
+    {'days': days},
+    _space,
+    failureMessage: 'Failed to change the done-hiding period',
+  );
 }

@@ -11,6 +11,7 @@ import 'package:weaver/shared/models/custom_field_kind.dart';
 import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
+import 'package:weaver/shared/models/work_item_query.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 import 'package:weaver/shared/models/work_item_type.dart';
 
@@ -74,6 +75,11 @@ class _HierarchyOnlyRepository implements BoardRepository {
       fields: _budget(250),
     ),
   ];
+
+  /// The board's default query hides old Done items; none of these are.
+  @override
+  Future<List<WorkItem>> queryItems(WorkItemQuery query) =>
+      loadAllItems(query.spaceId);
 
   @override
   Future<List<User>> loadUsers() async => const [];

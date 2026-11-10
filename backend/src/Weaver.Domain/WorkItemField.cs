@@ -17,6 +17,7 @@ public static class WorkItemField
     public const string Rank = "rank";
     public const string StartDate = "startDate";
     public const string EndDate = "endDate";
+    public const string CompletionDate = "completionDate";
     public const string AssignedToUserId = "assignedToUserId";
     public const string Tags = "tags";
 

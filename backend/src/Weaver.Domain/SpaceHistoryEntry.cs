@@ -1,7 +1,7 @@
 namespace Weaver.Domain;
 
 /// <summary>
-/// One recorded change to a Space: its creation or a rename, who made it and when. Kept apart
+/// One recorded change to a Space: its creation, a rename or a settings change, who made it and when. Kept apart
 /// from <see cref="WorkItemHistoryEntry"/> because a Space isn't a work item, and append-only
 /// like it. Values are JSON, in the shape the field has in the API.
 /// </summary>

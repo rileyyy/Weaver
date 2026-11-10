@@ -21,6 +21,7 @@ public class WorkItemQueryServiceTests
     private int _lastNumber;
     private WorkItemTrashService _trash = null!;
     private WorkItemLinkService _links = null!;
+    private FixedServerCalendar _calendar = null!;
 
     [SetUp]
     public void SetUp()
@@ -29,8 +30,9 @@ public class WorkItemQueryServiceTests
         _db = TestDatabase.Create(_clock);
         _home = TestSpaces.Add(_db, "Home");
         var hierarchy = new IterativeWorkItemHierarchy(_db);
-        _workItems = new WorkItemService(_db, hierarchy, FakeCallerContext.Anyone());
-        _query = new WorkItemQueryService(_db, hierarchy, new InMemoryWorkItemSearch());
+        _calendar = new FixedServerCalendar();
+        _workItems = new WorkItemService(_db, hierarchy, _calendar, FakeCallerContext.Anyone());
+        _query = new WorkItemQueryService(_db, hierarchy, new InMemoryWorkItemSearch(), _calendar);
         _trash = new WorkItemTrashService(_db, hierarchy, FakeCallerContext.Anyone(), _clock);
         _links = new WorkItemLinkService(_db, FakeCallerContext.Anyone());
         _lastNumber = 0;
@@ -461,6 +463,68 @@ public class WorkItemQueryServiceTests
     }
 
     [Test]
+    public async Task ApplyDoneHiding_LeavesOutDoneItemsCompletedBeforeThePeriod_ButNotOnItsLastDay()
+    {
+        var hidden = await CompleteOnAsync("Finished a day too long ago", Nov(5));
+        var lastDay = await CompleteOnAsync("Finished exactly 14 days ago", Nov(6));
+        var recent = await CompleteOnAsync("Finished today", Nov(20));
+        _calendar.Today = Nov(20);
+
+        var hiding = await _query.QueryAsync(new WorkItemQuery(ApplyDoneHiding: true));
+        var all = await _query.QueryAsync(new WorkItemQuery());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hiding.Items.Select(i => i.Id), Is.EqualTo(new[] { lastDay.Id, recent.Id }));
+            Assert.That(all.Items.Select(i => i.Id), Is.EqualTo(new[] { hidden.Id, lastDay.Id, recent.Id }));
+        });
+    }
+
+    [Test]
+    public async Task ApplyDoneHiding_JudgesEachItemByItsOwnSpacesPeriod()
+    {
+        var village = TestSpaces.Add(_db, "Village");
+        _db.Spaces.Find(village.Id)!.SetDoneHidingPeriod(3);
+        _db.SaveChanges();
+        var home = await CompleteOnAsync("Home chore", Nov(16));
+        await CompleteOnAsync("Village chore", Nov(16), village);
+        _calendar.Today = Nov(20);
+
+        var page = await _query.QueryAsync(new WorkItemQuery(ApplyDoneHiding: true));
+
+        Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { home.Id }));
+    }
+
+    [Test]
+    public async Task ApplyDoneHiding_KeepsDoneItemsWithNoCompletionDate_AndEveryOpenItem()
+    {
+        var undated = await CompleteOnAsync("Done before completion dates existed", Nov(1));
+        var tracked = _db.WorkItems.Find(undated.Id)!;
+        _db.Entry(tracked).Property(w => w.CompletionDate).CurrentValue = null;
+        _db.SaveChanges();
+        var open = await CreateAsync("Still to do");
+        _calendar.Today = Nov(30);
+
+        var page = await _query.QueryAsync(new WorkItemQuery(ApplyDoneHiding: true));
+
+        Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { undated.Id, open.Id }));
+    }
+
+    [Test]
+    public async Task ApplyDoneHiding_AHiddenChild_DoesNotBringItsUndatedParentIntoTheDateWindow()
+    {
+        var parent = await CreateAsync("Undated project");
+        var child = await CreateDatedAsync("Old task", Nov(2), Nov(3), parent.Id);
+        _calendar.Today = Nov(3);
+        await _workItems.ChangeStatusAsync(child.Id, _home.Done);
+        _calendar.Today = Nov(30);
+
+        var page = await _query.QueryAsync(new WorkItemQuery(From: Nov(1), To: Nov(30), ApplyDoneHiding: true));
+
+        Assert.That(page.Items, Is.Empty);
+    }
+
+    [Test]
     public async Task UnresolvedWhenOnly_ListsItemsWithAWhenButNoDatesOrBlocker()
     {
         var unresolved = await CreateWithWhenAsync("Paint the hall", "after drywall");
@@ -678,6 +742,15 @@ public class WorkItemQueryServiceTests
     {
         var item = await CreateAsync(title, space: space);
         await _workItems.SetTagsAsync(item.Id, tags);
+        return item;
+    }
+
+    /// <summary>An item moved into its Space's Done status with the server's today set to <paramref name="day"/>.</summary>
+    private async Task<WorkItem> CompleteOnAsync(string title, DateOnly day, TestSpace? space = null)
+    {
+        var item = await CreateAsync(title, space: space);
+        _calendar.Today = day;
+        await _workItems.ChangeStatusAsync(item.Id, (space ?? _home).Done);
         return item;
     }
 

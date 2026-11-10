@@ -34,6 +34,9 @@ public sealed class WorkItemSearchParameters
 
     public bool BacklogOnly { get; init; }
 
+    /// <summary>Leave out Done items completed longer ago than their Space's done-hiding period.</summary>
+    public bool ApplyDoneHiding { get; init; }
+
     public DateTimeOffset? UpdatedSince { get; init; }
 
     /// <summary>Also list items in the Trash, each with its <c>trashedAtUtc</c> set.</summary>
@@ -57,6 +60,7 @@ public sealed class WorkItemSearchParameters
         From: From,
         To: To,
         BacklogOnly: BacklogOnly,
+        ApplyDoneHiding: ApplyDoneHiding,
         UpdatedSince: UpdatedSince,
         IncludeDeleted: IncludeDeleted,
         Cursor: Cursor,

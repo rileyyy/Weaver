@@ -7,6 +7,7 @@ import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/admin/data/api_agent_admin_repository.dart';
 import 'package:weaver/features/admin/data/api_lookup_admin_repository.dart';
 import 'package:weaver/features/admin/data/api_server_settings_admin_repository.dart';
+import 'package:weaver/features/admin/data/api_space_admin_repository.dart';
 import 'package:weaver/features/admin/data/api_status_admin_repository.dart';
 import 'package:weaver/features/admin/data/api_user_admin_repository.dart';
 import 'package:weaver/features/admin/models/api_key_scope.dart';
@@ -496,6 +497,54 @@ void main() {
       expect(requests.single.url.path, '/api/server-settings/trash-retention');
       expect(jsonDecode(requests.single.body), {'days': 90});
       expect(settings.trashRetentionDays, 90);
+    });
+  });
+
+  group('ApiSpaceAdminRepository', () {
+    test('setDoneHidingPeriod puts the days to its own sub-resource', () async {
+      final requests = <http.Request>[];
+      final client = MockClient((request) async {
+        requests.add(request);
+        final sent = jsonDecode(request.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({
+            'id': 'home',
+            'name': 'Home',
+            'doneHidingDays': sent['days'],
+          }),
+          200,
+        );
+      });
+      final repository = ApiSpaceAdminRepository(client, _endpoint);
+
+      final space = await repository.setDoneHidingPeriod('home', 30);
+
+      expect(requests.single.method, 'PUT');
+      expect(requests.single.url.path, '/api/spaces/home/done-hiding-period');
+      expect(jsonDecode(requests.single.body), {'days': 30});
+      expect(space.doneHidingDays, 30);
+    });
+
+    test('setDoneHidingPeriod surfaces a refusal as an ApiException', () async {
+      final client = MockClient(
+        (request) async => http.Response(
+          jsonEncode({
+            'title': 'Out of range',
+            'detail': 'The done-hiding period must be from 1 to 3650 days.',
+            'status': 400,
+          }),
+          400,
+          headers: {'content-type': 'application/problem+json'},
+        ),
+      );
+      final repository = ApiSpaceAdminRepository(client, _endpoint);
+
+      await expectLater(
+        repository.setDoneHidingPeriod('home', 0),
+        throwsA(
+          isA<ApiException>().having((e) => e.statusCode, 'statusCode', 400),
+        ),
+      );
     });
   });
 }

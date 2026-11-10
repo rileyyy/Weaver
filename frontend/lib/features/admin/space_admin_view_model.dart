@@ -5,7 +5,8 @@ import 'package:weaver/features/admin/data/space_admin_repository.dart';
 import 'package:weaver/features/admin/state/admin_error_message.dart';
 import 'package:weaver/shared/models/space.dart';
 
-/// The Admin page's Spaces tab. Each change returns null on success, or why
+/// The Admin page's Spaces tab: each Space's name and done-hiding period.
+/// Each change returns null on success, or why
 /// it failed for the dialog that asked for it. Spaces can't be deleted yet:
 /// nothing is in place to say what happens to their items.
 @injectable
@@ -62,12 +63,34 @@ class SpaceAdminViewModel extends ViewModel {
     if (trimmed.isEmpty) return Future.value('Enter a name.');
     return _attempt(
       () => _repository.rename(id, trimmed),
-      onSuccess: (renamed) => _spaces = _sorted([
-        for (final space in _spaces) space.id == renamed.id ? renamed : space,
-      ]),
+      onSuccess: _replace,
       fallbackError: 'Could not rename the Space. Try again.',
     );
   }
+
+  /// [days] is the text the admin typed, checked here so a typo doesn't need
+  /// a round trip.
+  Future<String?> setDoneHidingPeriod(String id, String days) {
+    final parsed = int.tryParse(days.trim());
+    if (parsed == null || !_isValidDoneHidingPeriod(parsed)) {
+      return Future.value(
+        'Enter a whole number of days from ${Space.minDoneHidingDays} to '
+        '${Space.maxDoneHidingDays}.',
+      );
+    }
+    return _attempt(
+      () => _repository.setDoneHidingPeriod(id, parsed),
+      onSuccess: _replace,
+      fallbackError: 'Could not change the done-hiding period. Try again.',
+    );
+  }
+
+  void _replace(Space changed) => _spaces = _sorted([
+    for (final space in _spaces) space.id == changed.id ? changed : space,
+  ]);
+
+  static bool _isValidDoneHidingPeriod(int days) =>
+      days >= Space.minDoneHidingDays && days <= Space.maxDoneHidingDays;
 
   Future<String?> _attempt(
     Future<Space> Function() change, {

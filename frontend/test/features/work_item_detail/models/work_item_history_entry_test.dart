@@ -121,6 +121,19 @@ void main() {
       );
     });
 
+    test('a completion date change is labelled Completion date', () {
+      expect(
+        _change(
+          _entryJson(
+            field: 'completionDate',
+            oldValue: null,
+            newValue: '2026-09-03',
+          ),
+        ),
+        'Completion date: none → 2026-09-03',
+      );
+    });
+
     test('a When change is labelled When', () {
       expect(
         _change(

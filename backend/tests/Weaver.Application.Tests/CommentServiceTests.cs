@@ -26,7 +26,7 @@ public class CommentServiceTests
         _db = TestDatabase.Create(_clock);
         _caller = FakeCallerContext.Anyone();
         _comments = new CommentService(_db, _clock, _caller);
-        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), FakeCallerContext.Anyone());
+        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), new FixedServerCalendar(), FakeCallerContext.Anyone());
         _space = TestSpaces.Add(_db);
 
         var alice = User.CreateHuman("alice", "alice");

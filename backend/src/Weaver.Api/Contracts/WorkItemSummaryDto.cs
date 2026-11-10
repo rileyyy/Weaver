@@ -7,7 +7,7 @@ namespace Weaver.Api.Contracts;
 /// last Space are known, and the rest is null. <see cref="TrashedAtUtc"/> is set for an item in
 /// the Trash. <see cref="ParentId"/> is null for a top-level item. Full detail comes from
 /// <c>get_work_item</c>. <see cref="When"/> is the item's When phrase, which stays after it's
-/// resolved.
+/// resolved. <see cref="CompletionDate"/> is the day the item was finished, set while it's Done.
 /// </summary>
 public record WorkItemSummaryDto(
     Guid Id,
@@ -23,7 +23,8 @@ public record WorkItemSummaryDto(
     string? AssigneeName,
     int? ChildCount,
     DateTimeOffset? TrashedAtUtc,
-    string? When)
+    string? When,
+    DateOnly? CompletionDate)
 {
     public static WorkItemSummaryDto FromSummary(WorkItemSummary summary) => new(
         summary.Id,
@@ -39,7 +40,8 @@ public record WorkItemSummaryDto(
         summary.AssigneeName,
         summary.ChildCount,
         summary.TrashedAtUtc,
-        summary.When);
+        summary.When,
+        summary.CompletionDate);
 
     public static IReadOnlyList<WorkItemSummaryDto> FromSummaries(IEnumerable<WorkItemSummary> summaries) =>
         summaries.Select(FromSummary).ToList();

@@ -31,7 +31,7 @@ public class WorkItemAttachmentServiceTests
         _store = new InMemoryAttachmentStore();
         _caller = FakeCallerContext.Anyone();
         _attachments = ServiceOver(_db);
-        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), _caller);
+        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), new FixedServerCalendar(), _caller);
         _space = TestSpaces.Add(_db);
     }
 
@@ -151,7 +151,7 @@ public class WorkItemAttachmentServiceTests
         var saves = new SwitchableSaveFailure();
         using var db = TestDatabase.Create(_clock, saves);
         var space = TestSpaces.Add(db);
-        var item = await new WorkItemService(db, new IterativeWorkItemHierarchy(db), _caller)
+        var item = await new WorkItemService(db, new IterativeWorkItemHierarchy(db), new FixedServerCalendar(), _caller)
             .CreateAsync("Kitchen", null, null, space.ToDo, spaceId: space.Id);
         saves.Fail = true;
 

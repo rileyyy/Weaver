@@ -506,8 +506,12 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
           typeNameFor: _viewModel.typeNameFor,
         ),
         Text(
-          'Created ${formatDate(item.createdAt)} · '
-          'Updated ${formatDate(item.updatedAt)}',
+          [
+            'Created ${formatDate(item.createdAt)}',
+            'Updated ${formatDate(item.updatedAt)}',
+            if (item.completionDate case final completed?)
+              'Completed ${formatDate(completed)}',
+          ].join(' · '),
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 20),

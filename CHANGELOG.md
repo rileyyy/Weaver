@@ -33,6 +33,27 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-10 — Completion date and done-hiding
+
+`feature/completion-date-and-done-hiding` (ticket 21 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md)).
+
+- **Completion date**: entering a Done-category status records
+  `completionDate` (the server calendar's today), and leaving Done clears
+  it. Moving between Done statuses keeps it, and so does an admin moving a
+  status into or out of Done. Changes appear in history. It is returned on
+  work items and summaries over REST and MCP.
+- **Done-hiding period per Space** (`doneHidingDays`, default 14, 1–3650):
+  admins set it on the Admin page's Spaces tab
+  (`PUT /api/spaces/{id}/done-hiding-period`), and agents read it from
+  `list_spaces`.
+- **Query input `applyDoneHiding`** (REST search and `search_work_items`)
+  leaves out Done items completed longer ago than their own Space's period.
+- **Board** hides those items by default, with a "Show done" toggle in the
+  Filters dialog.
+- **Migration** adds both columns and sets existing Done items' date to
+  their last-updated day.
+
 ## 2026-11-10 — `get_work_item_context`
 
 `feature/get-work-item-context` (ticket 30 of

@@ -775,7 +775,7 @@ class BoardViewModel extends ViewModel {
   bool _matches(String itemId) => _matchingIds?.contains(itemId) ?? true;
 
   /// Whether [card] is one the server matched for the header's time range,
-  /// search and tags. Hidden statuses aren't checked here: the board only
+  /// search, tags and done-hiding. Hidden statuses aren't checked here: the board only
   /// draws visible columns.
   bool cardVisible(WorkItemCard card) => _matches(card.id);
 
@@ -790,6 +790,14 @@ class BoardViewModel extends ViewModel {
 
   void setSortOption(CardSortOption option) =>
       _setFilters(_filters.withSortOption(option));
+
+  /// Whether Done items completed longer ago than the current Space's
+  /// done-hiding period show. Off by default, and like the other header
+  /// filters it isn't remembered across launches.
+  bool get showDone => _filters.showDone;
+
+  void setShowDone(bool showDone) =>
+      _setFilters(_filters.withShowDone(showDone));
 
   /// Null for [CardSortOption.manual] — see [sortComparator].
   Comparator<WorkItemCard>? get cardComparator => sortComparator(
@@ -857,7 +865,11 @@ class BoardViewModel extends ViewModel {
     try {
       final matched = await _repository.queryItems(query);
       if (generation != _matchGeneration || isDisposed) return;
-      _matchingIds = {for (final item in matched) item.id};
+      final ids = {for (final item in matched) item.id};
+      // Every edit asks again, and the answer is usually the same. Notifying
+      // then would redraw the whole board, undoing the per-lane rebuilds.
+      if (setEquals(ids, _matchingIds)) return;
+      _matchingIds = ids;
     } on ApiException {
       if (generation != _matchGeneration || isDisposed) return;
       _moveError =

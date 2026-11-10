@@ -566,6 +566,22 @@ void main() {
       });
     });
 
+    test('asks the server to hide old Done items when told to', () async {
+      final parameters = await sentParameters(
+        WorkItemQuery(spaceId: 'space-home', applyDoneHiding: true),
+      );
+
+      expect(parameters['applyDoneHiding'], ['true']);
+    });
+
+    test('leaves done hiding out otherwise', () async {
+      final parameters = await sentParameters(
+        WorkItemQuery(spaceId: 'space-home', text: 'fence'),
+      );
+
+      expect(parameters.containsKey('applyDoneHiding'), isFalse);
+    });
+
     test('sends the text, trimmed', () async {
       final parameters = await sentParameters(
         WorkItemQuery(spaceId: 'space-home', text: '  fence post '),

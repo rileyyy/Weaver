@@ -33,7 +33,7 @@ public class SpacesControllerTests
         {
             Assert.That(created, Is.Not.Null);
             Assert.That(created!.ActionName, Is.EqualTo(nameof(SpacesController.GetById)));
-            Assert.That(created.Value, Is.EqualTo(new SpaceDto(space.Id, "Village")));
+            Assert.That(created.Value, Is.EqualTo(new SpaceDto(space.Id, "Village", Space.DefaultDoneHidingDays)));
         });
     }
 
@@ -45,7 +45,19 @@ public class SpacesControllerTests
 
         var result = await _controller.Rename(space.Id, new SpaceNameRequest("House"));
 
-        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(new SpaceDto(space.Id, "House")));
+        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(new SpaceDto(space.Id, "House", Space.DefaultDoneHidingDays)));
+    }
+
+    [Test]
+    public async Task SetDoneHidingPeriod_ReturnsTheSpaceWithItsNewPeriod()
+    {
+        var space = Space.Create("Home");
+        space.SetDoneHidingPeriod(30);
+        _spaces.Setup(s => s.SetDoneHidingPeriodAsync(space.Id, 30, It.IsAny<CancellationToken>())).ReturnsAsync(space);
+
+        var result = await _controller.SetDoneHidingPeriod(space.Id, new SetDoneHidingPeriodRequest(30));
+
+        Assert.That((result.Result as OkObjectResult)!.Value, Is.EqualTo(new SpaceDto(space.Id, "Home", 30)));
     }
 
     [Test]

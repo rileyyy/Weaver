@@ -66,6 +66,16 @@ public class LookupValueTests
         });
     }
 
+    [TestCase(StatusCategory.ToDo, false)]
+    [TestCase(StatusCategory.Doing, false)]
+    [TestCase(StatusCategory.Done, true)]
+    public void Status_IsDone_OnlyForTheDoneCategory(StatusCategory category, bool expected)
+    {
+        var status = Status.Create(Guid.NewGuid(), "Review", 3, category, "#00897B");
+
+        Assert.That(status.IsDone, Is.EqualTo(expected));
+    }
+
     [Test]
     public void Type_Create_NormalisesTheColorToUpperCase()
     {

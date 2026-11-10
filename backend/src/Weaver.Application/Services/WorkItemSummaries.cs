@@ -22,5 +22,6 @@ internal static class WorkItemSummaries
             // trashed rows lifts that filter from navigations too.
             w.Children.Count(c => c.TrashedAtUtc == null),
             w.TrashedAtUtc,
-            w.When));
+            w.When,
+            w.CompletionDate));
 }

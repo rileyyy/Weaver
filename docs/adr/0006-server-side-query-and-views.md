@@ -24,6 +24,8 @@ that leaves out Software.
   - Type
   - date window (by the rule in [ADR-0003](0003-when-and-backlog.md))
   - Backlog-only
+  - done-hiding: leave out Done items completed longer ago than their
+    Space's period (ticket 21)
   - updated-since
   - include-deleted
 - **It pages with a stable cursor**, not an offset over a mutable order.

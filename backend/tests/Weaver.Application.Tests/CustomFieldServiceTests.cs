@@ -26,7 +26,7 @@ public class CustomFieldServiceTests
         _home = TestSpaces.Add(_db);
         _caller = new FakeCallerContext(_admin.Id);
         _fields = new CustomFieldService(_db, new AdminAuthorizer(_db), _caller);
-        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), _caller);
+        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), new FixedServerCalendar(), _caller);
         _history = new WorkItemHistoryService(_db);
     }
 

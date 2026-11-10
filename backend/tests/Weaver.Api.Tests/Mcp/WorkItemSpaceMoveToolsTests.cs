@@ -47,7 +47,7 @@ public class WorkItemSpaceMoveToolsTests
     [Test]
     public async Task MoveWorkItemToSpace_PassesTheMapsThrough_TreatingAMissingMapAsNone()
     {
-        var item = WorkItem.Create(Guid.NewGuid(), "Shed", null, Guid.NewGuid(), rank: 1.0);
+        var item = TestWorkItems.Create("Shed");
         var (target, high, urgent) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
         _moves.Setup(s => s.MoveAsync(
                 item.Id,

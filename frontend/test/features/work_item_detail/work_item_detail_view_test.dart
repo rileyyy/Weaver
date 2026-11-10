@@ -46,6 +46,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   String? parentId;
   String statusId = 'todo';
   int version = 1;
+  DateTime? completionDate;
   final List<(String, int)> statusSaves = [];
   final List<(String?, int)> parentSaves = [];
   final List<String> searches = [];
@@ -89,6 +90,7 @@ class _FakeRepository implements WorkItemDetailRepository {
         createdAt: DateTime(2026, 9, 1),
         updatedAt: DateTime(2026, 9, 1),
         version: version,
+        completionDate: completionDate,
       );
 
   @override
@@ -352,6 +354,32 @@ void main() {
 
     expect(find.text('Totals of sub-items'), findsOneWidget);
     expect(find.text('Hours: 7.5'), findsOneWidget);
+  });
+
+  testWidgets('a Done item shows the day it was completed', (tester) async {
+    final repository = _FakeRepository()
+      ..statusId = 'done'
+      ..completionDate = DateTime(2026, 9, 3);
+
+    await _openDetails(tester, repository: repository);
+
+    expect(
+      find.text(
+        'Created 2026-09-01 · Updated 2026-09-01 · Completed 2026-09-03',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('an item that is not Done shows no completion date', (
+    tester,
+  ) async {
+    await _openDetails(tester);
+
+    expect(
+      find.text('Created 2026-09-01 · Updated 2026-09-01'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('closing without edits needs no confirmation', (tester) async {

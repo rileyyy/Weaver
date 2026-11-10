@@ -14,6 +14,7 @@ class WorkItemQuery {
     TagMatch tagMatch = TagMatch.any,
     this.from,
     this.to,
+    this.applyDoneHiding = false,
   }) : text = text.trim(),
        // With fewer than two tags, Any and All return the same items.
        tagMatch = tags.length > 1 ? tagMatch : TagMatch.any;
@@ -33,10 +34,19 @@ class WorkItemQuery {
   final DateTime? from;
   final DateTime? to;
 
+  /// Leaves out Done items completed longer ago than their Space's
+  /// done-hiding period. The server works out the cutoff from its own
+  /// calendar, so nothing date-like is sent for it.
+  final bool applyDoneHiding;
+
   /// True when the query matches every item of the Space, so there's no
   /// need to ask the server which ones match.
   bool get isUnfiltered =>
-      text.isEmpty && tags.isEmpty && from == null && to == null;
+      text.isEmpty &&
+      tags.isEmpty &&
+      from == null &&
+      to == null &&
+      !applyDoneHiding;
 
   @override
   bool operator ==(Object other) =>
@@ -47,7 +57,8 @@ class WorkItemQuery {
       other.tags.containsAll(tags) &&
       other.tagMatch == tagMatch &&
       other.from == from &&
-      other.to == to;
+      other.to == to &&
+      other.applyDoneHiding == applyDoneHiding;
 
   @override
   int get hashCode => Object.hash(
@@ -57,5 +68,6 @@ class WorkItemQuery {
     tagMatch,
     from,
     to,
+    applyDoneHiding,
   );
 }

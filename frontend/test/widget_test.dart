@@ -15,6 +15,7 @@ import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item.dart';
+import 'package:weaver/shared/models/work_item_query.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 import 'package:weaver/shared/recurrence/data/recurrence_repository.dart';
 
@@ -56,6 +57,20 @@ class _StubBoardRepository implements BoardRepository {
   @override
   Future<List<CustomField>> loadCustomFields(String spaceId) =>
       Future.value(const []);
+
+  final List<WorkItemQuery> queries = [];
+
+  /// The board's default query hides old Done items; none of these are.
+  @override
+  Future<List<WorkItem>> queryItems(WorkItemQuery query) async {
+    queries.add(query);
+    return [
+      for (final lane in (await loadBoard(query.spaceId, null)).swimlanes) ...[
+        lane.lane,
+        ...lane.cards,
+      ],
+    ];
+  }
 
   @override
   Future<List<User>> loadUsers() => Future.value(const []);
@@ -146,5 +161,32 @@ void main() {
     expect(find.text('To Do'), findsOneWidget);
     expect(find.text('Swimlane board'), findsOneWidget);
     expect(find.text('Design swimlane layout'), findsOneWidget);
+  });
+
+  testWidgets('the Filters dialog turns Show done on and back off', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const WeaverApp());
+    await tester.pumpAndSettle();
+    final repository = getIt<BoardRepository>() as _StubBoardRepository;
+    expect(repository.queries.last.applyDoneHiding, isTrue);
+
+    await tester.tap(find.byTooltip('Filters'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Hiding items completed more than 14 days ago.'),
+      findsOneWidget,
+    );
+    final asked = repository.queries.length;
+
+    await tester.tap(find.text('Show done'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Hiding items'), findsNothing);
+    expect(repository.queries, hasLength(asked));
+
+    await tester.tap(find.text('Show done'));
+    await tester.pumpAndSettle();
+    expect(repository.queries.last.applyDoneHiding, isTrue);
+    expect(repository.queries, hasLength(asked + 1));
   });
 }
