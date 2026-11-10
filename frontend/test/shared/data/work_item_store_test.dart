@@ -426,6 +426,23 @@ void main() {
 
       expect(heard, isFalse);
     });
+
+    test('hear nothing once removed', () async {
+      final store = _storeWith([workItem('a')]);
+      var heard = false;
+      void listener(WorkItem _, WorkItem _, WorkItemReload _) => heard = true;
+      store
+        ..addSaveListener(listener)
+        ..removeSaveListener(listener);
+
+      await store.write(
+        'a',
+        send: (_) async => workItem('a', version: 2),
+        reload: (_) => throw StateError('No conflict expected'),
+      );
+
+      expect(heard, isFalse);
+    });
   });
 
   test('lists the server copies it holds', () {

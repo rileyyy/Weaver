@@ -1,4 +1,5 @@
 import 'package:weaver/core/network/api_exception.dart';
+import 'package:weaver/features/board/data/backlog_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/shared/models/custom_field.dart';
 import 'package:weaver/shared/models/space.dart';
@@ -12,7 +13,7 @@ import 'package:weaver/shared/models/work_item_query.dart';
 /// Every write takes the `expectedVersion` the change was based on and
 /// returns the saved item, carrying its new version. A stale version fails
 /// with a 409 [ApiException].
-abstract class BoardRepository {
+abstract class BoardRepository implements BacklogRepository {
   /// Every Space the board can show, by name.
   Future<List<Space>> loadSpaces();
 
@@ -31,9 +32,11 @@ abstract class BoardRepository {
 
   /// Every work item matching [query], across all of the server's pages.
   /// The board shows only these while a header filter is set.
+  @override
   Future<List<WorkItem>> queryItems(WorkItemQuery query);
 
   /// One work item as it is now, e.g. after a write was rejected as stale.
+  @override
   Future<WorkItem> getItem(String id);
 
   /// Every active user, for resolving a work item's assignee to a
@@ -61,6 +64,7 @@ abstract class BoardRepository {
 
   /// Sets the work item identified by [itemId]'s scheduled start/end.
   /// Either may be null.
+  @override
   Future<WorkItem> rescheduleItem(
     String itemId,
     DateTime? startDate,

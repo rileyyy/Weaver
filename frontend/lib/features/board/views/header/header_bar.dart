@@ -144,6 +144,7 @@ class HeaderBar extends StatelessWidget {
             tabs: const [
               Tab(text: 'Swim Lanes'),
               Tab(text: 'Roadmap'),
+              Tab(text: 'Backlog'),
               Tab(text: 'Hierarchy'),
               Tab(text: 'Repeating'),
               Tab(text: 'Trash'),

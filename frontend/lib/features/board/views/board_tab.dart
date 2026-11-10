@@ -1,2 +1,2 @@
 /// The board's alternate views, selected via the tabs in the top bar.
-enum BoardTab { swimLanes, roadmap, hierarchy, repeating, trash }
+enum BoardTab { swimLanes, roadmap, backlog, hierarchy, repeating, trash }
