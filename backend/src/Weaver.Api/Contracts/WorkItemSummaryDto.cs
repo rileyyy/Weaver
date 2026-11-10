@@ -20,10 +20,10 @@ public record WorkItemSummaryDto(
     string? TypeName,
     DateOnly? StartDate,
     DateOnly? EndDate,
-    string? When,
     string? AssigneeName,
     int? ChildCount,
-    DateTimeOffset? TrashedAtUtc)
+    DateTimeOffset? TrashedAtUtc,
+    string? When)
 {
     public static WorkItemSummaryDto FromSummary(WorkItemSummary summary) => new(
         summary.Id,
@@ -36,8 +36,8 @@ public record WorkItemSummaryDto(
         summary.TypeName,
         summary.StartDate,
         summary.EndDate,
-        summary.When,
         summary.AssigneeName,
         summary.ChildCount,
-        summary.TrashedAtUtc);
+        summary.TrashedAtUtc,
+        summary.When);
 }
