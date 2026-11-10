@@ -47,7 +47,7 @@ public class WorkItemBlockersTests
         Assert.Multiple(() =>
         {
             Assert.That(blockers.Keys, Is.EquivalentTo(new[] { paint.Id }));
-            Assert.That(blockers[paint.Id], Is.EqualTo(new[] { new WorkItemBlocker(drywall.Id, drywall.Number, "Drywall", _space.Id, null, false) }));
+            Assert.That(blockers[paint.Id], Is.EqualTo(new[] { new WorkItemBlocker(drywall.Id, drywall.Number, "Drywall", false) }));
         });
     }
 
@@ -62,10 +62,10 @@ public class WorkItemBlockersTests
 
         var blockers = await _blockers.BlockersOfAsync([paint.Id]);
 
-        Assert.That(blockers[paint.Id].Select(b => (b.Title, b.EndDate, b.Conflicts)), Is.EquivalentTo(new[]
+        Assert.That(blockers[paint.Id].Select(b => (b.Title, b.Conflicts)), Is.EquivalentTo(new[]
         {
-            ("Drywall", (DateOnly?)Nov(6), true),
-            ("Wiring", (DateOnly?)Nov(3), false),
+            ("Drywall", true),
+            ("Wiring", false),
         }));
     }
 

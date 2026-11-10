@@ -37,5 +37,5 @@ internal sealed class BlocksLinkRow
         new DependencyConflictItem(BlockedId, BlockedNumber, BlockedTitle, BlockedSpaceId, BlockedSpaceName, BlockedStartDate, BlockedEndDate),
         new DependencyConflictItem(BlockerId, BlockerNumber, BlockerTitle, BlockerSpaceId, BlockerSpaceName, BlockerStartDate, BlockerEndDate));
 
-    public WorkItemBlocker ToBlocker() => new(BlockerId, BlockerNumber, BlockerTitle, BlockerSpaceId, BlockerEndDate, Conflicts);
+    public WorkItemBlocker ToBlocker() => new(BlockerId, BlockerNumber, BlockerTitle, Conflicts);
 }

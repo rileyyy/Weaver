@@ -80,15 +80,15 @@ public class JsonSerializationTests
     }
 
     [Test]
-    public void WorkItemDto_SerializesEachBlockerWithItsEndDateAsACalendarDate()
+    public void WorkItemDto_SerializesEachBlockerAsItsIdNumberTitleAndConflict()
     {
         var item = TestWorkItems.Create("Paint");
-        var blocker = new WorkItemBlocker(Guid.NewGuid(), 4, "Drywall", Guid.NewGuid(), new DateOnly(2026, 11, 6), true);
+        var blocker = new WorkItemBlocker(Guid.NewGuid(), 4, "Drywall", true);
 
         var json = JsonSerializer.Serialize(WorkItemDto.FromEntity(item, [blocker], WorkItemNames.None), Options);
 
         Assert.That(json, Does.Contain(
-            $"\"blockedBy\":[{{\"id\":\"{blocker.Id}\",\"number\":4,\"title\":\"Drywall\",\"spaceId\":\"{blocker.SpaceId}\",\"endDate\":\"2026-11-06\",\"conflicts\":true}}]"));
+            $"\"blockedBy\":[{{\"id\":\"{blocker.Id}\",\"number\":4,\"title\":\"Drywall\",\"conflicts\":true}}],"));
     }
 
     [Test]

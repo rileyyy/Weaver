@@ -14,7 +14,7 @@ public sealed class FakeWorkItemBlockers(IReadOnlyDictionary<Guid, IReadOnlyList
     public static FakeWorkItemBlockers Blocking(params Guid[] blocked) =>
         new(blocked.ToDictionary(
             id => id,
-            _ => (IReadOnlyList<WorkItemBlocker>)[new WorkItemBlocker(Guid.NewGuid(), 1, "Blocker", Guid.NewGuid(), null, false)]));
+            _ => (IReadOnlyList<WorkItemBlocker>)[new WorkItemBlocker(Guid.NewGuid(), 1, "Blocker", false)]));
 
     public Task<IReadOnlyDictionary<Guid, IReadOnlyList<WorkItemBlocker>>> BlockersOfAsync(
         IReadOnlyCollection<Guid> workItemIds,

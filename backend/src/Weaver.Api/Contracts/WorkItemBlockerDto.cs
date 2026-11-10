@@ -8,8 +8,8 @@ namespace Weaver.Api.Contracts;
 /// item starts before this blocker ends (a dependency conflict, ADR-0009); a Done blocker is listed
 /// but never conflicts.
 /// </summary>
-public record WorkItemBlockerDto(Guid Id, int Number, string Title, Guid SpaceId, DateOnly? EndDate, bool Conflicts)
+public record WorkItemBlockerDto(Guid Id, int Number, string Title, bool Conflicts)
 {
     public static WorkItemBlockerDto FromBlocker(WorkItemBlocker blocker) =>
-        new(blocker.Id, blocker.Number, blocker.Title, blocker.SpaceId, blocker.EndDate, blocker.Conflicts);
+        new(blocker.Id, blocker.Number, blocker.Title, blocker.Conflicts);
 }

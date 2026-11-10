@@ -4,4 +4,4 @@ namespace Weaver.Application.Services;
 /// A live item blocking another, named so a reader needs no lookups. <see cref="Conflicts"/> says
 /// whether the blocked item is a dependency conflict because of it (see <see cref="IDependencyConflicts"/>).
 /// </summary>
-public sealed record WorkItemBlocker(Guid Id, int Number, string Title, Guid SpaceId, DateOnly? EndDate, bool Conflicts);
+public sealed record WorkItemBlocker(Guid Id, int Number, string Title, bool Conflicts);

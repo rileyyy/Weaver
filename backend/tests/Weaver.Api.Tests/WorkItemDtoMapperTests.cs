@@ -63,16 +63,16 @@ public class WorkItemDtoMapperTests
     public async Task ToDtoAsync_ListsEachBlocker_WithWhetherItConflicts()
     {
         var item = NewItem();
-        var drywall = new WorkItemBlocker(Guid.NewGuid(), 4, "Drywall", Guid.NewGuid(), new DateOnly(2026, 11, 6), true);
-        var wiring = new WorkItemBlocker(Guid.NewGuid(), 7, "Wiring", Guid.NewGuid(), null, false);
+        var drywall = new WorkItemBlocker(Guid.NewGuid(), 4, "Drywall", true);
+        var wiring = new WorkItemBlocker(Guid.NewGuid(), 7, "Wiring", false);
         var mapper = Mapper(new FakeWorkItemBlockers(new Dictionary<Guid, IReadOnlyList<WorkItemBlocker>> { [item.Id] = [drywall, wiring] }));
 
         var dto = await mapper.ToDtoAsync(item);
 
         Assert.That(dto.BlockedBy, Is.EqualTo(new[]
         {
-            new WorkItemBlockerDto(drywall.Id, 4, "Drywall", drywall.SpaceId, new DateOnly(2026, 11, 6), true),
-            new WorkItemBlockerDto(wiring.Id, 7, "Wiring", wiring.SpaceId, null, false),
+            new WorkItemBlockerDto(drywall.Id, 4, "Drywall", true),
+            new WorkItemBlockerDto(wiring.Id, 7, "Wiring", false),
         }));
     }
 

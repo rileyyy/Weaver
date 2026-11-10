@@ -411,8 +411,8 @@ A number or currency field can roll up (ticket 15,
   mapped to `WorkItemDto`: `WorkItemDtoMapper` asks
   `IWorkItemBlockers.BlockersOfAsync` once per response, for every item.
   `blockedBy` lists each live blocker (Done ones too, so the Roadmap can
-  still draw their arrows) with its number, title, Space, end date and
-  whether that link is a dependency conflict; it's `[]`, never null, when
+  still draw their arrows) with its id, number, title and whether that
+  link is a dependency conflict; it's `[]`, never null, when
   nothing blocks the item. An item is blocked for `whenResolved` when the
   list isn't empty. A trashed blocker stops counting without the Trash
   having to update anything: the links' Trash filter hides it, and
