@@ -47,8 +47,6 @@ void main() {
             id: 'drywall',
             number: 12,
             title: 'Drywall',
-            spaceId: 'home',
-            endDate: null,
             conflicts: true,
           ),
         ],

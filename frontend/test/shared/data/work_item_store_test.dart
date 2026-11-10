@@ -17,8 +17,6 @@ WorkItemBlocker _blocker(String id, {required bool conflicts}) =>
       id: id,
       number: 1,
       title: id,
-      spaceId: 'home',
-      endDate: null,
       conflicts: conflicts,
     );
 

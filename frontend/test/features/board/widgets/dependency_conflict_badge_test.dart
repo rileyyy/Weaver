@@ -11,8 +11,6 @@ WorkItemBlocker _blocker(
   id: title.toLowerCase(),
   number: number,
   title: title,
-  spaceId: 'home',
-  endDate: DateTime(2026, 11, 20),
   conflicts: conflicts,
 );
 

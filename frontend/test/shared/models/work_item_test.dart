@@ -63,16 +63,12 @@ void main() {
               'id': 'drywall',
               'number': 12,
               'title': 'Drywall',
-              'spaceId': 'home',
-              'endDate': '2026-11-20',
               'conflicts': true,
             },
             {
               'id': 'permit',
               'number': 3,
               'title': 'Permit',
-              'spaceId': 'office',
-              'endDate': null,
               'conflicts': false,
             },
           ],
@@ -80,20 +76,16 @@ void main() {
       );
 
       expect(item.blockedBy, [
-        WorkItemBlocker(
+        const WorkItemBlocker(
           id: 'drywall',
           number: 12,
           title: 'Drywall',
-          spaceId: 'home',
-          endDate: DateTime(2026, 11, 20),
           conflicts: true,
         ),
         const WorkItemBlocker(
           id: 'permit',
           number: 3,
           title: 'Permit',
-          spaceId: 'office',
-          endDate: null,
           conflicts: false,
         ),
       ]);
@@ -111,8 +103,6 @@ void main() {
               'id': 'drywall',
               'number': 12,
               'title': 'Drywall',
-              'spaceId': 'home',
-              'endDate': null,
               'conflicts': true,
             },
           ],

@@ -24,8 +24,6 @@ WorkItemBlocker _blockedBy(String id, {bool conflicts = false}) =>
       id: id,
       number: 1,
       title: id,
-      spaceId: 'home',
-      endDate: null,
       conflicts: conflicts,
     );
 

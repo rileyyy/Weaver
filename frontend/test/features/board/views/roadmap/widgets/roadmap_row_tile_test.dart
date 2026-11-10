@@ -27,8 +27,6 @@ Widget _tile({DateTime? startDate, required bool conflicts}) => MaterialApp(
                 id: 'drywall',
                 number: 4,
                 title: 'Drywall',
-                spaceId: 'home',
-                endDate: DateTime(2026, 11, 10),
                 conflicts: conflicts,
               ),
             ],
