@@ -28,6 +28,7 @@ class WorkItem {
     this.whenResolved = false,
     this.recurrenceSourceId,
     this.recurrenceDate,
+    this.completionDate,
   });
 
   factory WorkItem.fromJson(Map<String, dynamic> json) => WorkItem(
@@ -52,6 +53,7 @@ class WorkItem {
     whenResolved: json['whenResolved'] as bool? ?? false,
     recurrenceSourceId: json['recurrenceSourceId'] as String?,
     recurrenceDate: parseCalendarDate(json['recurrenceDate']),
+    completionDate: parseCalendarDate(json['completionDate']),
   );
 
   final String id;
@@ -94,6 +96,12 @@ class WorkItem {
   /// it was created for; null for items created by hand.
   final String? recurrenceSourceId;
   final DateTime? recurrenceDate;
+
+  /// The calendar day the item last entered a Done-category status; null
+  /// while it isn't Done, and from servers that predate the field. The
+  /// server sets and clears it, so an optimistic status change leaves it
+  /// alone until the saved item comes back.
+  final DateTime? completionDate;
 
   // The edits a layout can make before the server confirms them, each the
   // model-level mirror of one backend operation. A status change never
@@ -152,5 +160,6 @@ class WorkItem {
     whenResolved: whenResolved,
     recurrenceSourceId: recurrenceSourceId,
     recurrenceDate: recurrenceDate,
+    completionDate: completionDate,
   );
 }
