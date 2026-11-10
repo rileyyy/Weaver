@@ -68,7 +68,7 @@ public class WorkItemQueryService(
         items = InBacklog(items, query.BacklogOnly);
         items = WithUnresolvedWhen(items, query.UnresolvedWhenOnly);
         items = await WithoutHiddenDoneAsync(items, query.ApplyDoneHiding, ct);
-        return query.HasDateWindow ? await InDateWindowAsync(items, query, ct) : items;
+        return query.JudgesByDates ? await ByDatesAsync(items, query, ct) : items;
     }
 
     /// <summary>
@@ -100,10 +100,12 @@ public class WorkItemQueryService(
     /// ADR-0003's rule: an item with dates matches when they overlap the window; an item with
     /// none matches only through a descendant that matches the whole query, so a Board or Roadmap
     /// can still draw the undated parent a listed item sits under, and never one with nothing
-    /// listed beneath it. A dated parent is judged by its own dates alone.
+    /// listed beneath it. A dated parent is judged by its own dates alone. Overview's rule
+    /// (<see cref="WorkItemQuery.ScheduledOrInProgressOnly"/>) also lists every Doing item,
+    /// whatever its dates, and brings in its undated ancestors the same way.
     /// </summary>
     /// <param name="items">Already narrowed by every other input.</param>
-    private async Task<IQueryable<WorkItem>> InDateWindowAsync(IQueryable<WorkItem> items, WorkItemQuery query, CancellationToken ct)
+    private async Task<IQueryable<WorkItem>> ByDatesAsync(IQueryable<WorkItem> items, WorkItemQuery query, CancellationToken ct)
     {
         if (query is { From: { } from, To: { } to } && from > to)
         {
@@ -111,16 +113,19 @@ public class WorkItemQueryService(
         }
 
         var datedInWindow = DatedInWindow(items, query.From, query.To);
-        var parentsOfMatches = await datedInWindow
+        var listed = query.ScheduledOrInProgressOnly
+            ? items.Where(w => w.Status!.Category == StatusCategory.Doing || datedInWindow.Any(d => d.Id == w.Id))
+            : datedInWindow;
+        var parentsOfListed = await listed
             .Where(w => w.ParentId != null)
             .Select(w => w.ParentId!.Value)
             .Distinct()
             .ToListAsync(ct);
-        var ancestorsOfMatches = await _hierarchy.GetSelfAndAncestorIdsAsync(parentsOfMatches, ct);
+        var ancestorsOfListed = await _hierarchy.GetSelfAndAncestorIdsAsync(parentsOfListed, ct);
 
         return items.Where(w =>
-            datedInWindow.Any(d => d.Id == w.Id)
-            || (w.StartDate == null && w.EndDate == null && ancestorsOfMatches.Contains(w.Id)));
+            listed.Any(d => d.Id == w.Id)
+            || (w.StartDate == null && w.EndDate == null && ancestorsOfListed.Contains(w.Id)));
     }
 
     /// <summary>A missing start or end, on the item or the window, is open on that side.</summary>

@@ -447,6 +447,60 @@ public class WorkItemQueryServiceTests
     }
 
     [Test]
+    public async Task ScheduledOrInProgress_ListsDoingItemsAndDatedItems_ButNotUndatedOnesInOtherStatuses()
+    {
+        var doing = await CreateAsync("Started, undated");
+        await _workItems.ChangeStatusAsync(doing.Id, _home.Doing);
+        var dated = await CreateDatedAsync("Scheduled", Nov(10), Nov(11));
+        await CreateAsync("Someday");
+
+        var page = await _query.QueryAsync(new WorkItemQuery(ScheduledOrInProgressOnly: true));
+
+        Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { doing.Id, dated.Id }));
+    }
+
+    [Test]
+    public async Task ScheduledOrInProgress_WithADateWindow_NarrowsOnlyTheDatedItems()
+    {
+        var doing = await CreateDatedAsync("Started, dated later", Nov(20), Nov(21));
+        await _workItems.ChangeStatusAsync(doing.Id, _home.Doing);
+        var inWindow = await CreateDatedAsync("In the window", Nov(10), Nov(11));
+        await CreateDatedAsync("Outside the window", Nov(20), Nov(21));
+
+        var page = await _query.QueryAsync(new WorkItemQuery(ScheduledOrInProgressOnly: true, From: Nov(9), To: Nov(14)));
+
+        Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { doing.Id, inWindow.Id }));
+    }
+
+    [Test]
+    public async Task ScheduledOrInProgress_IncludesTheUndatedAncestorsOfWhatItLists()
+    {
+        var house = await CreateAsync("House");
+        var kitchen = await CreateAsync("Kitchen", house.Id);
+        await _workItems.ChangeStatusAsync(kitchen.Id, _home.Doing);
+        var garden = await CreateAsync("Garden");
+        var hedge = await CreateDatedAsync("Hedge", Nov(10), Nov(11), garden.Id);
+        await CreateAsync("Someday");
+
+        var page = await _query.QueryAsync(new WorkItemQuery(ScheduledOrInProgressOnly: true));
+
+        Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { house.Id, kitchen.Id, garden.Id, hedge.Id }));
+    }
+
+    [Test]
+    public async Task ScheduledOrInProgress_AndsWithTheOtherInputs()
+    {
+        var doing = await CreateWithTagsAsync("Tagged and started", "outside");
+        await _workItems.ChangeStatusAsync(doing.Id, _home.Doing);
+        var other = await CreateAsync("Started, untagged");
+        await _workItems.ChangeStatusAsync(other.Id, _home.Doing);
+
+        var page = await _query.QueryAsync(new WorkItemQuery(ScheduledOrInProgressOnly: true, Tags: ["outside"]));
+
+        Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { doing.Id }));
+    }
+
+    [Test]
     public async Task BacklogOnly_ListsItemsThatAreNotDoneAndHaveNoDates()
     {
         var todo = await CreateAsync("Someday");

@@ -1,6 +1,6 @@
-namespace Weaver.Application.Services;
+namespace Weaver.Domain;
 
-/// <summary>How a <see cref="WorkItemQuery"/> with several tags combines them.</summary>
+/// <summary>How the work-item query, or a View, with several tags combines them.</summary>
 public enum TagMatch
 {
     /// <summary>An item with at least one of the tags matches.</summary>

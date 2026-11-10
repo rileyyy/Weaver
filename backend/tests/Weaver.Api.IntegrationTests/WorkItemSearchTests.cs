@@ -172,6 +172,23 @@ public class WorkItemSearchTests
     }
 
     [Test]
+    public async Task ScheduledOrInProgressOnly_ListsDoingAndDatedItems_AndTheirUndatedAncestors()
+    {
+        var house = await CreateAsync("House");
+        var kitchen = await _client.CreateWorkItemAsync("Kitchen", parentId: house.Id);
+        await MoveToAsync(kitchen, "Doing");
+        var tiles = await CreateAsync("Tiles");
+        await ScheduleAsync(tiles, "2026-11-10", "2026-11-11");
+        var later = await CreateAsync("Later");
+        await ScheduleAsync(later, "2026-12-10", "2026-12-11");
+        await CreateAsync("Someday");
+
+        var page = await SearchAsync($"spaceIds={_space}&scheduledOrInProgressOnly=true&from=2026-11-09&to=2026-11-14");
+
+        Assert.That(page.Items.Select(i => i.Title), Is.EqualTo(new[] { "House", "Kitchen", "Tiles" }));
+    }
+
+    [Test]
     public async Task DateWindow_IncludesAnUndatedAncestor_OnlyThroughADescendantMatchingTheWholeQuery()
     {
         var tag = UniqueTag("window");
