@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:weaver/features/admin/widgets/name_dialog.dart';
+import 'package:weaver/shared/formatting/day_count.dart';
 import 'package:weaver/shared/models/space.dart';
 
 /// The Spaces tab's row for one Space: its name and how long its Done items
@@ -27,7 +28,7 @@ class SpaceTile extends StatelessWidget {
     return ListTile(
       title: Text(space.name),
       subtitle: Text(
-        'Done items leave the board ${days == 1 ? '1 day' : '$days days'} '
+        'Done items leave the board ${dayCount(days)} '
         'after they are completed.',
       ),
       trailing: Row(

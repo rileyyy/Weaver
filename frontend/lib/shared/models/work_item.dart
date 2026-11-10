@@ -97,8 +97,8 @@ class WorkItem {
   final String? recurrenceSourceId;
   final DateTime? recurrenceDate;
 
-  /// The calendar day the item last entered a Done-category status; null
-  /// while it isn't Done, and from servers that predate the field. The
+  /// The calendar day the item entered Done from a non-Done status (moving
+  /// between Done statuses keeps it); null while it isn't Done, and from servers that predate the field. The
   /// server sets and clears it, so an optimistic status change leaves it
   /// alone until the saved item comes back.
   final DateTime? completionDate;

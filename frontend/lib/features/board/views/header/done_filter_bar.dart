@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:weaver/shared/formatting/day_count.dart';
 
 /// The Filters dialog's switch for Done items the board hides once they
 /// were completed longer ago than the Space's done-hiding period.
@@ -44,5 +45,5 @@ class DoneFilterBar extends StatelessWidget {
 
   static String _hiddenExplanation(int days) =>
       'Hiding items completed more than '
-      '${days == 1 ? '1 day' : '$days days'} ago.';
+      '${dayCount(days)} ago.';
 }
