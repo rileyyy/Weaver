@@ -14,12 +14,17 @@ public class SpaceToolsTests
     public async Task ListSpaces_DelegatesToServiceAndMapsResults()
     {
         var home = Space.Create("Home");
+        home.SetDoneHidingPeriod(7);
         var spaces = new Mock<ISpaceService>(MockBehavior.Strict);
         spaces.Setup(s => s.GetAllAsync(It.IsAny<CancellationToken>())).ReturnsAsync([home]);
 
         var result = await new SpaceTools(spaces.Object).ListSpaces(CancellationToken.None);
 
-        Assert.That(result.Single().Name, Is.EqualTo("Home"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Single().Name, Is.EqualTo("Home"));
+            Assert.That(result.Single().DoneHidingDays, Is.EqualTo(7));
+        });
     }
 
     [Test]

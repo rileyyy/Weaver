@@ -13,6 +13,7 @@ public static class DependencyInjection
     public static IServiceCollection AddWeaverApplication(this IServiceCollection services) =>
         services
             .AddScoped<IWorkItemService, WorkItemService>()
+            .AddScoped<IWorkItemSpaceMoveService, WorkItemSpaceMoveService>()
             .AddScoped<IWorkItemTrashService, WorkItemTrashService>()
             .AddScoped<IWorkItemPurgeService, WorkItemPurgeService>()
             .AddScoped<IAuthService, AuthService>()
@@ -37,6 +38,7 @@ public static class DependencyInjection
             .AddScoped<IStatusService, StatusService>()
             .AddScoped<IWorkItemTypeService, WorkItemTypeService>()
             .AddScoped<ICustomFieldService, CustomFieldService>()
+            .AddScoped<IWorkItemRollUpService, WorkItemRollUpService>()
             .AddScoped<IWorkItemPriorityService, WorkItemPriorityService>()
             .AddScoped<IWorkItemRecurrenceService, WorkItemRecurrenceService>()
             .AddScoped<IServerSettingsService, ServerSettingsService>()

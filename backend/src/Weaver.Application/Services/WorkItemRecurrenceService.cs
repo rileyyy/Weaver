@@ -81,7 +81,7 @@ public class WorkItemRecurrenceService(
         await _db.SaveChangesAsync(ct);
 
         var today = await _calendar.TodayAsync(ct);
-        await GenerateForAsync(recurrence, item, NewOccurrenceFactory(_history.CurrentActor), today, ct);
+        await GenerateForAsync(recurrence, item, NewOccurrenceFactory(_history.CurrentActor, today), today, ct);
         return Describe(recurrence, item, await ParentTitleAsync(item, ct), today);
     }
 
@@ -116,7 +116,7 @@ public class WorkItemRecurrenceService(
             {
                 var recurrence = await _db.WorkItemRecurrences.Include(r => r.WorkItem).FirstAsync(r => r.WorkItemId == id, ct);
                 created += await GenerateForAsync(
-                    recurrence, recurrence.WorkItem!, NewOccurrenceFactory(HistoryActor.System), today, ct);
+                    recurrence, recurrence.WorkItem!, NewOccurrenceFactory(HistoryActor.System, today), today, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -166,7 +166,7 @@ public class WorkItemRecurrenceService(
     }
 
     /// <summary>Background generation has no caller: its occurrences are created by Weaver itself.</summary>
-    private OccurrenceFactory NewOccurrenceFactory(HistoryActor actor) => new(_db, _history, actor);
+    private OccurrenceFactory NewOccurrenceFactory(HistoryActor actor, DateOnly today) => new(_db, _history, actor, today);
 
     /// <summary>The schedule in the shape the API shows it.</summary>
     private static object? HistoryValue(RecurrenceSchedule? schedule) =>

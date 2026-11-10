@@ -7,6 +7,7 @@ import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/scope_crumb.dart';
 import 'package:weaver/features/board/models/swimlane_items.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
+import 'package:weaver/shared/models/custom_field.dart';
 import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
@@ -64,6 +65,9 @@ class _SpacesRepository implements BoardRepository {
     await allItemGates[spaceId]?.future;
     return [workItem('$spaceId-item', spaceId: spaceId)];
   }
+
+  @override
+  Future<List<CustomField>> loadCustomFields(String spaceId) async => const [];
 
   @override
   Future<List<WorkItem>> queryItems(WorkItemQuery query) async {
@@ -249,11 +253,13 @@ void main() {
       await viewModel.load();
       viewModel.setSearchQuery('fence');
       await pumpEventQueue();
+      final askedBefore = repository.querySpaces.length;
 
       await viewModel.switchSpace(_village);
       await pumpEventQueue();
 
-      expect(repository.querySpaces, ['home', 'village']);
+      expect(repository.querySpaces.first, 'home');
+      expect(repository.querySpaces.skip(askedBefore), ['village']);
     });
 
     test(

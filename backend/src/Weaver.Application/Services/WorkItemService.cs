@@ -7,13 +7,18 @@ using Weaver.Domain.Exceptions;
 
 namespace Weaver.Application.Services;
 
-public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, ICallerContext caller) : IWorkItemService
+public class WorkItemService(
+    IWeaverDbContext db,
+    IWorkItemHierarchy hierarchy,
+    IServerCalendar calendar,
+    ICallerContext caller) : IWorkItemService
 {
     public const int DefaultPageSize = 500;
     public const int MaxPageSize = 1000;
 
     private readonly IWeaverDbContext _db = db;
     private readonly IWorkItemHierarchy _hierarchy = hierarchy;
+    private readonly IServerCalendar _calendar = calendar;
     private readonly WorkItemHistoryRecorder _history = new WorkItemHistoryRecorder(db, caller);
 
     public Task<WorkItem?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
@@ -33,6 +38,34 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
         Guid? spaceId = null,
         CancellationToken ct = default) =>
         await InRankOrder(ChildrenQuery(parentId, spaceId)).Summarize().ToListAsync(ct);
+
+    public async Task<IReadOnlyList<WorkItemSummary>> GetAncestorSummariesAsync(Guid id, CancellationToken ct = default)
+    {
+        var chainIds = await _hierarchy.GetSelfAndAncestorIdsAsync([id], ct);
+
+        // Trashed rows are read too, so the walk can pass through a trashed ancestor to the live ones above it.
+        var byId = (await _db.WorkItems
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(w => chainIds.Contains(w.Id))
+                .Summarize()
+                .ToListAsync(ct))
+            .ToDictionary(s => s.Id);
+
+        return ParentsUpFrom(byId, id).Where(s => s.TrashedAtUtc is null).Reverse().ToList();
+    }
+
+    /// <summary>Stops at a cycle rather than looping, as the hierarchy walk does.</summary>
+    private static IEnumerable<WorkItemSummary> ParentsUpFrom(IReadOnlyDictionary<Guid, WorkItemSummary> byId, Guid id)
+    {
+        var visited = new HashSet<Guid> { id };
+        var parentId = byId.GetValueOrDefault(id)?.ParentId;
+        while (parentId is { } current && visited.Add(current) && byId.TryGetValue(current, out var parent))
+        {
+            yield return parent;
+            parentId = parent.ParentId;
+        }
+    }
 
     public async Task<IReadOnlyList<Swimlane>> GetSwimlanesAsync(
         Guid? scopeItemId,
@@ -101,13 +134,14 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
         var parent = parentId is null ? null : await FindParentAsync(parentId.Value, ct);
         var itemSpaceId = await ResolveSpaceForNewItemAsync(parent, spaceId, ct);
 
-        await EnsureInSpaceAsync(_db.Statuses, nameof(Status), statusId, itemSpaceId, ct);
+        var status = await FindInSpaceAsync(_db.Statuses, nameof(Status), statusId, itemSpaceId, ct);
         await EnsureDetailLookupsExistAsync(itemSpaceId, typeId, priorityId, ct);
 
         var rank = await ComputeRankAsync(itemSpaceId, parentId, statusId, afterId, excludeItemId: null, ct);
+        var today = await _calendar.TodayAsync(ct);
         var item = parent is null
-            ? WorkItem.Create(itemSpaceId, title, description, statusId, rank, typeId, priorityId)
-            : WorkItem.CreateChildOf(parent, title, description, statusId, rank, typeId, priorityId);
+            ? WorkItem.Create(itemSpaceId, title, description, status, rank, today, typeId, priorityId)
+            : WorkItem.CreateChildOf(parent, title, description, status, rank, today, typeId, priorityId);
 
         _db.WorkItems.Add(item);
         _history.RecordCreation(item);
@@ -137,11 +171,7 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
             throw new DomainValidationException("A top-level work item needs a Space.");
         }
 
-        if (!await _db.Spaces.AnyAsync(s => s.Id == chosen, ct))
-        {
-            throw new EntityNotFoundException(nameof(Space), chosen);
-        }
-
+        await _db.EnsureSpaceExistsAsync(chosen, ct);
         return chosen;
     }
 
@@ -178,10 +208,11 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
     {
         var item = await FindForWriteAsync(id, expectedVersion, ct);
 
-        await EnsureInSpaceAsync(_db.Statuses, nameof(Status), newStatusId, item.SpaceId, ct);
+        var status = await FindInSpaceAsync(_db.Statuses, nameof(Status), newStatusId, item.SpaceId, ct);
 
         var rank = await ComputeRankAsync(item.SpaceId, item.ParentId, newStatusId, afterId, excludeItemId: id, ct);
-        return await SaveWriteAsync(item, item.MoveToStatus(newStatusId, rank), ct);
+        var today = await _calendar.TodayAsync(ct);
+        return await SaveWriteAsync(item, item.MoveToStatus(status, rank, today), ct);
     }
 
     public async Task<WorkItemWriteResult> ReparentAsync(
@@ -310,7 +341,7 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
         CancellationToken ct)
     {
         _history.RecordChanges(item.Id, changes);
-        await SaveWorkItemChangesAsync(item.Id, ct);
+        await _db.SaveWorkItemChangesAsync(item.Id, ct);
         return new WorkItemWriteResult(item, changes.Select(c => c.Field).ToList());
     }
 
@@ -318,41 +349,31 @@ public class WorkItemService(IWeaverDbContext db, IWorkItemHierarchy hierarchy, 
     {
         if (typeId is { } type)
         {
-            await EnsureInSpaceAsync(_db.WorkItemTypes, "Type", type, spaceId, ct);
+            await FindInSpaceAsync(_db.WorkItemTypes, "Type", type, spaceId, ct);
         }
 
         if (priorityId is { } priority)
         {
-            await EnsureInSpaceAsync(_db.WorkItemPriorities, nameof(WorkItemPriority), priority, spaceId, ct);
+            await FindInSpaceAsync(_db.WorkItemPriorities, nameof(WorkItemPriority), priority, spaceId, ct);
         }
     }
 
     /// <summary>A work item can only take its own Space's statuses, priorities and Types (ADR-0001).</summary>
-    private static async Task EnsureInSpaceAsync<T>(
+    private static async Task<T> FindInSpaceAsync<T>(
         IQueryable<T> values,
         string kind,
         Guid id,
         Guid spaceId,
         CancellationToken ct) where T : SpaceLookupValue
     {
-        var valueSpaceId = await values.Where(v => v.Id == id).Select(v => (Guid?)v.SpaceId).FirstOrDefaultAsync(ct)
+        var value = await values.AsNoTracking().FirstOrDefaultAsync(v => v.Id == id, ct)
             ?? throw new EntityNotFoundException(kind, id);
-        if (valueSpaceId != spaceId)
+        if (value.SpaceId != spaceId)
         {
             throw new LookupNotInSpaceException(kind, id, spaceId);
         }
-    }
 
-    private async Task SaveWorkItemChangesAsync(Guid id, CancellationToken ct)
-    {
-        try
-        {
-            await _db.SaveChangesAsync(ct);
-        }
-        catch (DbUpdateConcurrencyException ex)
-        {
-            throw new WorkItemVersionConflictException(id, ex);
-        }
+        return value;
     }
 
     /// <summary>

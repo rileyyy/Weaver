@@ -5,13 +5,16 @@ namespace Weaver.Domain.Tests;
 [TestFixture]
 public class WorkItemTests
 {
-    private static readonly Guid ToDo = Guid.NewGuid();
-    private static readonly Guid Done = Guid.NewGuid();
-
     private static readonly Guid Home = Guid.NewGuid();
     private static readonly Guid Village = Guid.NewGuid();
 
-    private static WorkItem NewItem(Guid? spaceId = null) => WorkItem.Create(spaceId ?? Home, "Task", null, ToDo, rank: 1.0);
+    private static readonly Status ToDo = TestStatuses.ToDo(Home);
+    private static readonly Status Doing = TestStatuses.Doing(Home);
+    private static readonly Status Done = TestStatuses.Done(Home);
+
+    private static readonly DateOnly Today = new(2026, 11, 10);
+
+    private static WorkItem NewItem(Guid? spaceId = null) => WorkItem.Create(spaceId ?? Home, "Task", null, ToDo, rank: 1.0, Today);
 
     private static IEnumerable<string> Fields(IEnumerable<FieldChange> changes) => changes.Select(c => c.Field);
 
@@ -19,7 +22,7 @@ public class WorkItemTests
     [TestCase("   ")]
     public void Create_WithABlankTitle_IsRejected(string title)
     {
-        Assert.Throws<DomainValidationException>(() => WorkItem.Create(Home, title, null, ToDo, 1.0));
+        Assert.Throws<DomainValidationException>(() => WorkItem.Create(Home, title, null, ToDo, 1.0, Today));
     }
 
     [Test]
@@ -27,7 +30,7 @@ public class WorkItemTests
     {
         var title = new string('x', WorkItem.TitleMaxLength + 1);
 
-        Assert.Throws<DomainValidationException>(() => WorkItem.Create(Home, title, null, ToDo, 1.0));
+        Assert.Throws<DomainValidationException>(() => WorkItem.Create(Home, title, null, ToDo, 1.0, Today));
     }
 
     [Test]
@@ -35,13 +38,13 @@ public class WorkItemTests
     {
         var parent = NewItem();
         var parentId = parent.Id;
-        var item = WorkItem.CreateChildOf(parent, "Task", null, ToDo, rank: 1.0);
+        var item = WorkItem.CreateChildOf(parent, "Task", null, ToDo, rank: 1.0, Today);
 
-        item.MoveToStatus(Done, rank: 5.0);
+        item.MoveToStatus(Done, rank: 5.0, Today);
 
         Assert.Multiple(() =>
         {
-            Assert.That(item.StatusId, Is.EqualTo(Done));
+            Assert.That(item.StatusId, Is.EqualTo(Done.Id));
             Assert.That(item.Rank, Is.EqualTo(5.0));
             Assert.That(item.ParentId, Is.EqualTo(parentId));
         });
@@ -58,7 +61,7 @@ public class WorkItemTests
         Assert.Multiple(() =>
         {
             Assert.That(item.ParentId, Is.EqualTo(newParent.Id));
-            Assert.That(item.StatusId, Is.EqualTo(ToDo));
+            Assert.That(item.StatusId, Is.EqualTo(ToDo.Id));
         });
     }
 
@@ -73,7 +76,7 @@ public class WorkItemTests
     [Test]
     public void Create_PutsATopLevelItemInTheChosenSpace()
     {
-        var item = WorkItem.Create(Village, "Fix the fence", null, ToDo, rank: 1.0);
+        var item = WorkItem.Create(Village, "Fix the fence", null, ToDo, rank: 1.0, Today);
 
         Assert.Multiple(() =>
         {
@@ -87,7 +90,7 @@ public class WorkItemTests
     {
         var parent = NewItem(Village);
 
-        var child = WorkItem.CreateChildOf(parent, "Paint it", null, ToDo, rank: 1.0);
+        var child = WorkItem.CreateChildOf(parent, "Paint it", null, ToDo, rank: 1.0, Today);
 
         Assert.Multiple(() =>
         {
@@ -114,7 +117,7 @@ public class WorkItemTests
     public void MoveToParent_ToTopLevel_StaysInItsSpace()
     {
         var parent = NewItem(Village);
-        var child = WorkItem.CreateChildOf(parent, "Paint it", null, ToDo, rank: 1.0);
+        var child = WorkItem.CreateChildOf(parent, "Paint it", null, ToDo, rank: 1.0, Today);
 
         var changed = child.MoveToParent(null, rank: 1.0);
 
@@ -131,7 +134,7 @@ public class WorkItemTests
     {
         var template = NewItem(Village);
 
-        var copy = template.CopyForOccurrence(null, ToDo, 1.0, new DateOnly(2026, 11, 7));
+        var copy = template.CopyForOccurrence(null, ToDo, 1.0, new DateOnly(2026, 11, 7), Today);
 
         Assert.That(copy.SpaceId, Is.EqualTo(Village));
     }
@@ -195,7 +198,7 @@ public class WorkItemTests
     {
         var typeId = Guid.NewGuid();
         var priorityId = Guid.NewGuid();
-        var item = WorkItem.Create(Home, "Task", "Keep me", ToDo, 1.0, typeId, priorityId);
+        var item = WorkItem.Create(Home, "Task", "Keep me", ToDo, 1.0, Today, typeId, priorityId);
 
         var changed = item.UpdateDetails(new WorkItemDetailsPatch { Title = "Renamed" });
 
@@ -212,7 +215,7 @@ public class WorkItemTests
     [Test]
     public void UpdateDetails_WithExplicitNulls_ClearsThoseFields()
     {
-        var item = WorkItem.Create(Home, "Task", "Clear me", ToDo, 1.0, Guid.NewGuid(), Guid.NewGuid());
+        var item = WorkItem.Create(Home, "Task", "Clear me", ToDo, 1.0, Today, Guid.NewGuid(), Guid.NewGuid());
 
         var changed = item.UpdateDetails(new WorkItemDetailsPatch { Description = null, TypeId = null, PriorityId = null });
 
@@ -360,7 +363,7 @@ public class WorkItemTests
         var item = NewItem();
         item.UpdateDetails(new WorkItemDetailsPatch { When = "every market day" });
 
-        var copy = item.CopyForOccurrence(null, ToDo, 1.0, new DateOnly(2026, 11, 7));
+        var copy = item.CopyForOccurrence(null, ToDo, 1.0, new DateOnly(2026, 11, 7), Today);
 
         Assert.That(copy.When, Is.EqualTo("every market day"));
     }
@@ -443,8 +446,8 @@ public class WorkItemTests
     {
         var item = NewItem();
 
-        var moved = item.MoveToStatus(Done, rank: 1.0);
-        var reordered = item.MoveToStatus(Done, rank: 2.0);
+        var moved = item.MoveToStatus(Doing, rank: 1.0, Today);
+        var reordered = item.MoveToStatus(Doing, rank: 2.0, Today);
 
         Assert.Multiple(() =>
         {
@@ -466,7 +469,7 @@ public class WorkItemTests
     [Test]
     public void UpdateDetails_ReportsEachChangedFieldsOldAndNewValue()
     {
-        var item = WorkItem.Create(Home, "Task", "Old notes", ToDo, 1.0);
+        var item = WorkItem.Create(Home, "Task", "Old notes", ToDo, 1.0, Today);
 
         var changed = item.UpdateDetails(new WorkItemDetailsPatch { Title = "Renamed", Description = null });
 

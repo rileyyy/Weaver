@@ -30,6 +30,7 @@ public class WorkItemSearchControllerTests
             From = new DateOnly(2026, 11, 1),
             To = new DateOnly(2026, 11, 30),
             BacklogOnly = true,
+            ApplyDoneHiding = true,
             UpdatedSince = since,
             Cursor = "abc",
             Limit = 5,
@@ -58,6 +59,7 @@ public class WorkItemSearchControllerTests
             Assert.That(received.From, Is.EqualTo(new DateOnly(2026, 11, 1)));
             Assert.That(received.To, Is.EqualTo(new DateOnly(2026, 11, 30)));
             Assert.That(received.BacklogOnly, Is.True);
+            Assert.That(received.ApplyDoneHiding, Is.True);
             Assert.That(received.UpdatedSince, Is.EqualTo(since));
             Assert.That(received.Cursor, Is.EqualTo("abc"));
             Assert.That(received.Limit, Is.EqualTo(5));

@@ -13,7 +13,9 @@ the API.
 - **Spaces.** Every work item belongs to one Space. The board shows one
   Space at a time and opens the last one used on that device; the switcher
   before the breadcrumbs changes it. Admins add and rename Spaces on the
-  Admin page. An item can only be moved under an item in its own Space.
+  Admin page. An item can only be moved under an item in its own Space;
+  "Move to Space…" in the detail dialog moves it, with its sub-items, to
+  another Space, showing how its statuses, Types and priorities map first.
 - **Swimlane board with drill-down.** Cards move between status columns,
   and up or down within one, by drag and drop, landing where they're
   dropped; a card can be dropped on another lane's label to reparent it. Tapping the current breadcrumb (the Space's name at the top) picks a lane to
@@ -428,7 +430,10 @@ backend stopped, owned by uid 1654.
 The tools cover work items, Spaces (`list_spaces`; agents can't change
 them), statuses, Types, priorities, users, comments, links, repeating
 items and attachments (`list_work_item_attachments` and
-`get_work_item_attachment`; agents can't upload or delete them). A top-level item is created with a `spaceId`; a child joins its
+`get_work_item_attachment`; agents can't upload or delete them).
+`get_work_item_context` returns an item (by id or `#Number`) with whichever
+of its ancestors, children, comments, links, history and attachments you
+`include`, in one call. A top-level item is created with a `spaceId`; a child joins its
 parent's Space. Updates to details, schedule and tags
 change only the arguments you send: leave one out to keep it, or send
 `null` to clear it. Every work-item write accepts an optional

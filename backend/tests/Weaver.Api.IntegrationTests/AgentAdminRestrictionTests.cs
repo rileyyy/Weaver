@@ -20,6 +20,7 @@ public class AgentAdminRestrictionTests
         {
             ["time zone"] = await agent.PutJsonAsync("/api/server-settings/time-zone", new SetTimeZoneRequest("Europe/Berlin")),
             ["trash retention"] = await agent.PutJsonAsync("/api/server-settings/trash-retention", new SetTrashRetentionRequest(1)),
+            ["done-hiding period"] = await agent.PutJsonAsync($"/api/spaces/{space}/done-hiding-period", new SetDoneHidingPeriodRequest(1)),
             ["status"] = await agent.PostJsonAsync("/api/statuses", new CreateStatusRequest(space, "Agent's", StatusCategory.ToDo, "#336699")),
             ["priority"] = await agent.PostJsonAsync("/api/work-item-priorities", new CreatePriorityRequest(space, "Agent's")),
             ["account"] = await agent.PostJsonAsync(

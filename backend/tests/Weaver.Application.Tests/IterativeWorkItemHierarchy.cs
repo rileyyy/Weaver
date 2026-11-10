@@ -42,14 +42,21 @@ public class IterativeWorkItemHierarchy(WeaverDbContext db) : IWorkItemHierarchy
         return false;
     }
 
-    public async Task<IReadOnlyList<Guid>> GetDescendantIdsAsync(Guid rootId, CancellationToken ct = default)
+    public Task<IReadOnlyList<Guid>> GetDescendantIdsAsync(Guid rootId, CancellationToken ct = default) =>
+        DescendantIdsAsync(rootId, includeTrashed: false, ct);
+
+    public Task<IReadOnlyList<Guid>> GetDescendantIdsIncludingTrashAsync(Guid rootId, CancellationToken ct = default) =>
+        DescendantIdsAsync(rootId, includeTrashed: true, ct);
+
+    private async Task<IReadOnlyList<Guid>> DescendantIdsAsync(Guid rootId, bool includeTrashed, CancellationToken ct)
     {
         var descendants = new HashSet<Guid>();
         var frontier = new List<Guid> { rootId };
+        var items = includeTrashed ? _db.WorkItems.IgnoreQueryFilters() : _db.WorkItems;
 
         while (frontier.Count > 0)
         {
-            var children = await _db.WorkItems
+            var children = await items
                 .Where(w => w.ParentId != null && frontier.Contains(w.ParentId.Value))
                 .Select(w => w.Id)
                 .ToListAsync(ct);

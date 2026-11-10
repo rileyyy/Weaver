@@ -13,8 +13,10 @@ import 'package:weaver/features/work_item_detail/widgets/custom_fields_section.d
 import 'package:weaver/features/work_item_detail/widgets/description_field.dart';
 import 'package:weaver/features/work_item_detail/widgets/history_tab.dart';
 import 'package:weaver/features/work_item_detail/widgets/links_section.dart';
+import 'package:weaver/features/work_item_detail/widgets/move_to_space_dialog.dart';
 import 'package:weaver/features/work_item_detail/widgets/parent_field.dart';
 import 'package:weaver/features/work_item_detail/widgets/repeat_section.dart';
+import 'package:weaver/features/work_item_detail/widgets/roll_ups_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/schedule_fields.dart';
 import 'package:weaver/features/work_item_detail/widgets/sub_items_section.dart';
 import 'package:weaver/features/work_item_detail/widgets/tags_editor.dart';
@@ -496,11 +498,20 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
           fields: _viewModel.customFields,
           values: item.fields,
           users: _viewModel.users,
+          rollUpFor: _viewModel.rollUpFor,
           onSave: _viewModel.saveCustomField,
         ),
+        RollUpsSection(
+          rollUps: _viewModel.otherRollUps,
+          typeNameFor: _viewModel.typeNameFor,
+        ),
         Text(
-          'Created ${formatDate(item.createdAt)} · '
-          'Updated ${formatDate(item.updatedAt)}',
+          [
+            'Created ${formatDate(item.createdAt)}',
+            'Updated ${formatDate(item.updatedAt)}',
+            if (item.completionDate case final completed?)
+              'Completed ${formatDate(completed)}',
+          ].join(' · '),
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 20),
@@ -545,6 +556,13 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
           ),
           onPressed: _viewModel.isSaving ? null : () => unawaited(_delete()),
           child: const Text('Delete'),
+        ),
+        const SizedBox(width: 8),
+        OutlinedButton(
+          onPressed: _viewModel.isSaving
+              ? null
+              : () => unawaited(_moveToSpace()),
+          child: const Text('Move to Space…'),
         ),
         const Spacer(),
         if (_hasUnsavedDetails)
@@ -638,6 +656,17 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
     if (!await confirmDeleteWorkItem(context)) return;
     final ok = await _viewModel.deleteItem();
     if (ok && mounted) Navigator.of(context).pop();
+  }
+
+  /// The move clears the details form's Type and priority on the server, so
+  /// unsaved edits there would be saved against the wrong Space.
+  Future<void> _moveToSpace() async {
+    if (_hasUnsavedChanges && !await confirmDiscardChanges(context)) return;
+    if (!mounted) return;
+    final moved = await showMoveToSpaceDialog(context, item: _viewModel.item!);
+    if (!moved) return;
+    _repeat.discardChanges();
+    await _viewModel.onMovedToSpace();
   }
 
   Future<void> _stopRepeating() async {

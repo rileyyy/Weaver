@@ -97,6 +97,31 @@ void main() {
     ]);
   });
 
+  test("loadCustomFields asks for every Type's fields in the Space", () async {
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/custom-fields' &&
+          request.url.queryParameters['spaceId'] == 'space-home') {
+        return _jsonResponse([
+          {
+            'id': 'field-hours',
+            'typeId': 'type-task',
+            'name': 'Hours',
+            'kind': 'Number',
+            'order': 0,
+            'options': <Object>[],
+            'rollsUp': true,
+          },
+        ]);
+      }
+      throw StateError('Unexpected request: ${request.url}');
+    });
+
+    final fields = await repositoryFor(client).loadCustomFields('space-home');
+
+    expect(fields.single.name, 'Hours');
+    expect(fields.single.rollsUp, isTrue);
+  });
+
   group('createWorkItem', () {
     Future<Map<String, dynamic>> sentBody({required String? parentId}) async {
       late Map<String, dynamic> body;
@@ -539,6 +564,22 @@ void main() {
         'spaceIds': ['space-home'],
         'limit': ['$searchPageSize'],
       });
+    });
+
+    test('asks the server to hide old Done items when told to', () async {
+      final parameters = await sentParameters(
+        WorkItemQuery(spaceId: 'space-home', applyDoneHiding: true),
+      );
+
+      expect(parameters['applyDoneHiding'], ['true']);
+    });
+
+    test('leaves done hiding out otherwise', () async {
+      final parameters = await sentParameters(
+        WorkItemQuery(spaceId: 'space-home', text: 'fence'),
+      );
+
+      expect(parameters.containsKey('applyDoneHiding'), isFalse);
     });
 
     test('sends the text, trimmed', () async {

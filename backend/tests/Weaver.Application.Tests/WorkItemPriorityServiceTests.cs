@@ -259,7 +259,7 @@ public class WorkItemPriorityServiceTests
 
     private WorkItem AddItem(Guid priorityId)
     {
-        var item = WorkItem.Create(_space.Id, "Item", null, _space.ToDo, 1, priorityId: priorityId);
+        var item = WorkItem.Create(_space.Id, "Item", null, _db.Statuses.Find(_space.ToDo)!, 1, FixedServerCalendar.DefaultToday, priorityId: priorityId);
         _db.WorkItems.Add(item);
         _db.SaveChanges();
         return item;

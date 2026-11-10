@@ -4,6 +4,7 @@ using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using Weaver.Api.Contracts;
 using Weaver.Domain;
+using static Weaver.Api.IntegrationTests.McpJson;
 
 namespace Weaver.Api.IntegrationTests;
 
@@ -87,6 +88,57 @@ public class McpTests
             Assert.That(neither.IsError, Is.True);
         });
     }
+
+    [Test]
+    public async Task Mcp_GetWorkItemContext_ByNumber_ReturnsOnlyTheIncludes_AndLeavesTheTrashOut()
+    {
+        var (client, _) = await ApiClient.SignedInAsync();
+        var root = await client.CreateWorkItemAsync($"Kitchen {Guid.NewGuid():N}");
+        var item = await client.CreateWorkItemAsync("Cabinets", root.Id);
+        var child = await client.CreateWorkItemAsync("Hinges", item.Id);
+        var trashedChild = await client.CreateWorkItemAsync("Old handles", item.Id);
+        var linked = await client.CreateWorkItemAsync($"Drywall {Guid.NewGuid():N}");
+        var trashedLinked = await client.CreateWorkItemAsync($"Old quote {Guid.NewGuid():N}");
+        await client.PostJsonAsync($"/api/work-items/{item.Id}/links", new CreateWorkItemLinkRequest(linked.Id, WorkItemLinkRelation.BlockedBy));
+        await client.PostJsonAsync($"/api/work-items/{item.Id}/links", new CreateWorkItemLinkRequest(trashedLinked.Id, WorkItemLinkRelation.Related));
+        await client.PostJsonAsync($"/api/work-items/{item.Id}/comments", new CreateCommentRequest("Ordered"));
+        (await client.DeleteAsync($"/api/work-items/{trashedChild.Id}")).EnsureSuccessStatusCode();
+        (await client.DeleteAsync($"/api/work-items/{trashedLinked.Id}")).EnsureSuccessStatusCode();
+        await using var mcp = await ConnectAsync(client);
+
+        var result = await mcp.CallToolAsync("get_work_item_context", new Dictionary<string, object?>
+        {
+            ["number"] = item.Number,
+            ["include"] = new[] { "ancestors", "children", "comments", "links", "history" },
+            ["historyLimit"] = 1,
+        });
+        var unknown = await mcp.CallToolAsync("get_work_item_context", new Dictionary<string, object?>
+        {
+            ["id"] = item.Id,
+            ["include"] = new[] { "parents" },
+        });
+
+        Assert.That(result.IsError, Is.Not.True, () => TextOf(result));
+        var context = JsonDocument.Parse(TextOf(result)).RootElement;
+        Assert.Multiple(() =>
+        {
+            Assert.That(PropertyOf(PropertyOf(context, "item")!.Value, "id")?.GetGuid(), Is.EqualTo(item.Id));
+            Assert.That(IdsIn(context, "ancestors"), Is.EqualTo(new[] { root.Id }));
+            Assert.That(IdsIn(context, "children"), Is.EqualTo(new[] { child.Id }));
+            Assert.That(PropertyOf(context, "comments")?.GetArrayLength(), Is.EqualTo(1));
+            Assert.That(
+                PropertyOf(context, "links")!.Value.EnumerateArray().Select(l => PropertyOf(l, "linkedWorkItemId")?.GetGuid()),
+                Is.EqualTo(new Guid?[] { linked.Id }));
+            Assert.That(PropertyOf(context, "history")?.GetArrayLength(), Is.EqualTo(1));
+            Assert.That(PropertyOf(context, "nextHistoryOffset")?.GetInt32(), Is.EqualTo(1));
+            Assert.That(PropertyOf(context, "attachments"), Is.Null, "attachments weren't asked for");
+            Assert.That(unknown.IsError, Is.True);
+            Assert.That(TextOf(unknown), Does.Contain("ancestors, children, comments, links, history, attachments"));
+        });
+    }
+
+    private static IEnumerable<Guid?> IdsIn(JsonElement obj, string listName) =>
+        PropertyOf(obj, listName)!.Value.EnumerateArray().Select(e => PropertyOf(e, "id")?.GetGuid());
 
     // Agents may read the server settings but never change them (ADR-0004).
     [Test]
@@ -261,6 +313,7 @@ public class McpTests
 
     // Marking a tool ReadOnly is what lets a read-only key call it, so a write tool marked that
     // way would be a hole. Tools are named for what they do, which makes the mistake visible.
+    // plan_ is a dry run: it reports what a write would do without making it.
     [Test]
     public async Task Mcp_OnlyReadingToolsAreMarkedReadOnly()
     {
@@ -276,7 +329,8 @@ public class McpTests
             Assert.That(
                 readOnly,
                 Has.All.Matches<string>(n =>
-                    n.StartsWith("list_") || n.StartsWith("get_") || n.StartsWith("search_") || n == "whoami"));
+                    n.StartsWith("list_") || n.StartsWith("get_") || n.StartsWith("search_") || n.StartsWith("plan_")
+                    || n == "whoami"));
         });
     }
 
@@ -318,13 +372,6 @@ public class McpTests
 
     private static string TextOf(CallToolResult result) =>
         string.Join("\n", result.Content.OfType<TextContentBlock>().Select(c => c.Text));
-
-    /// <summary>Ignores case, since the casing of tool results is the MCP serializer's, not REST's.</summary>
-    private static JsonElement? PropertyOf(JsonElement obj, string name) =>
-        obj.EnumerateObject()
-            .Where(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))
-            .Select(p => (JsonElement?)p.Value)
-            .FirstOrDefault();
 
     private static async Task<T> CallAsync<T>(McpClient mcp, string tool)
     {

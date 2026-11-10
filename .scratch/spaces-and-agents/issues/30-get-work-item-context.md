@@ -4,12 +4,16 @@
 
 **Blocked by:** 10, 26, 29
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Accepts an item by id or `#Number` and an `include` list; unknown include values are an error listing the valid ones
-- [ ] Children and ancestors use lean summaries; history is newest first and limited, with a way to ask for more
-- [ ] Trashed related items are excluded
-- [ ] MCP tests for each include
+- [x] Accepts an item by id or `#Number` and an `include` list; unknown include values are an error listing the valid ones
+  - `get_work_item_context` takes `id` or `number` like `get_work_item` (shared through `WorkItemReference`). It always returns the full item; `links` also brings the item's URL links, as `urlLinks`.
+- [x] Children and ancestors use lean summaries; history is newest first and limited, with a way to ask for more
+  - Ancestors run from the top-level item down to the parent. History pages with `historyOffset`/`historyLimit` (20 by default, at most 200) and returns `nextHistoryOffset` while more exists, through the new `IWorkItemHistoryService.ListPageForWorkItemAsync`.
+- [x] Trashed related items are excluded
+  - Children, ancestors and links go through the Trash filter. A live item under a trashed ancestor can't normally happen (restore re-homes it), so the ancestor case is tested only on InMemory, not on Postgres.
+- [x] MCP tests for each include
+  - `WorkItemContextToolsTests` has one per include. `McpTests.Mcp_GetWorkItemContext_ByNumber_ReturnsOnlyTheIncludes_AndLeavesTheTrashOut` covers every include except attachments end to end on Postgres. It was written without Docker on the implementing machine, so CI is its first run.
 
 ## Comments
 

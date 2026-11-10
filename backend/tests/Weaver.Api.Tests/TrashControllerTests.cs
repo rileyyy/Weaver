@@ -67,7 +67,7 @@ public class TrashControllerTests
     [Test]
     public async Task Restore_ReturnsTheRestoredItem()
     {
-        var item = WorkItem.Create(Guid.NewGuid(), "Old shed", null, Guid.NewGuid(), rank: 1.0);
+        var item = TestWorkItems.Create("Old shed");
         _trash.Setup(s => s.RestoreAsync(item.Id, It.IsAny<CancellationToken>())).ReturnsAsync(item);
 
         var result = await _controller.Restore(item.Id);

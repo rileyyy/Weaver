@@ -70,7 +70,7 @@ public class SummaryQueryCountTests
         var parent = await CreateTreeAsync(children);
         var counter = new CommandCounter();
         await using var db = CountingContext(counter);
-        var query = new WorkItemQueryService(db, new PostgresWorkItemHierarchy(db), new PostgresWorkItemSearch());
+        var query = new WorkItemQueryService(db, new PostgresWorkItemHierarchy(db), new PostgresWorkItemSearch(), new NoCalendar());
 
         var page = await query.QuerySummariesAsync(new WorkItemQuery(SpaceIds: [parent.SpaceId]));
 
@@ -131,5 +131,5 @@ public class SummaryQueryCountTests
             .Options);
 
     private static WorkItemService WorkItems(WeaverDbContext db) =>
-        new(db, new PostgresWorkItemHierarchy(db), new NoCaller());
+        new(db, new PostgresWorkItemHierarchy(db), new NoCalendar(), new NoCaller());
 }

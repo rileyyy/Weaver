@@ -8,6 +8,7 @@ import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/repeating_items_view_model.dart';
 import 'package:weaver/features/board/trash_view_model.dart';
 import 'package:weaver/features/board/views/board_tab.dart';
+import 'package:weaver/features/board/views/header/done_filter_bar.dart';
 import 'package:weaver/features/board/views/header/header_bar.dart';
 import 'package:weaver/features/board/views/header/sort_bar.dart';
 import 'package:weaver/features/board/views/header/status_filter_bar.dart';
@@ -277,6 +278,11 @@ class _BoardViewState extends State<BoardView>
                   statuses: _viewModel.statuses,
                   hiddenStatusIds: _viewModel.hiddenStatusIds,
                   onToggle: _viewModel.toggleStatusVisibility,
+                ),
+                DoneFilterBar(
+                  showDone: _viewModel.showDone,
+                  hidingDays: _viewModel.currentSpace?.doneHidingDays,
+                  onChanged: _viewModel.setShowDone,
                 ),
                 SortBar(
                   value: _viewModel.sortOption,

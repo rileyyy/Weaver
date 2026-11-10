@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Text.Json;
 using Weaver.Domain.Exceptions;
 
@@ -38,7 +39,7 @@ public class WorkItem : IHasUpdatedAt
 
     /// <summary>
     /// The Space the item belongs to. A top-level item is created in a chosen Space and every
-    /// descendant shares it; reparenting can't change it (ADR-0001).
+    /// descendant shares it; reparenting can't change it, only <see cref="MoveToSpace"/> (ADR-0001).
     /// </summary>
     public Guid SpaceId { get; private set; }
 
@@ -106,6 +107,14 @@ public class WorkItem : IHasUpdatedAt
     public string? When { get; private set; }
 
     /// <summary>
+    /// The calendar date (in the server's time zone) the item entered a Done-category status, or
+    /// null while its status isn't Done. Kept when it moves between two Done statuses, so it says
+    /// when the work was finished rather than when it was last shuffled. Every operation that can
+    /// change the status, or what its status means, applies the one rule in <see cref="FollowStatusCategory"/>.
+    /// </summary>
+    public DateOnly? CompletionDate { get; private set; }
+
+    /// <summary>
     /// Whether the When has been given concrete form: a date, or a live item blocking this one
     /// (ADR-0003). False when there is no When, since there is nothing to resolve. Blockers are
     /// other rows, so the caller says whether there is one; see <see cref="WhenResolutionNeedsBlockers"/>.
@@ -114,10 +123,19 @@ public class WorkItem : IHasUpdatedAt
         When is not null && (StartDate is not null || EndDate is not null || hasLiveBlocker);
 
     /// <summary>
-    /// Whether <see cref="IsWhenResolved"/> depends on blockers at all, so readers can skip
-    /// looking them up for every other item.
+    /// <see cref="WhenResolutionNeedsBlockers"/> as a query predicate, so a query listing
+    /// unresolved Whens applies the same rule as the items themselves.
     /// </summary>
-    public bool WhenResolutionNeedsBlockers => When is not null && StartDate is null && EndDate is null;
+    public static readonly Expression<Func<WorkItem, bool>> WhenResolutionNeedsBlockersRule =
+        w => w.When != null && w.StartDate == null && w.EndDate == null;
+
+    private static readonly Func<WorkItem, bool> WhenResolutionNeedsBlockersCheck = WhenResolutionNeedsBlockersRule.Compile();
+
+    /// <summary>
+    /// Whether <see cref="IsWhenResolved"/> depends on blockers at all, so readers can skip
+    /// looking them up for every other item. Such an item that nothing live blocks is unresolved.
+    /// </summary>
+    public bool WhenResolutionNeedsBlockers => WhenResolutionNeedsBlockersCheck(this);
 
     /// <summary>
     /// The repeating work item this one was generated from, and the occurrence date it was
@@ -168,52 +186,60 @@ public class WorkItem : IHasUpdatedAt
 
     public WorkItem? RecurrenceSource { get; private set; }
 
-    /// <summary>A top-level item in <paramref name="spaceId"/>.</summary>
+    /// <summary>
+    /// A top-level item in <paramref name="spaceId"/>. <paramref name="today"/> is the server's
+    /// date, which becomes the completion date when <paramref name="status"/> is a Done one.
+    /// </summary>
     public static WorkItem Create(
         Guid spaceId,
         string title,
         string? description,
-        Guid statusId,
+        Status status,
         double rank,
+        DateOnly today,
         Guid? typeId = null,
         Guid? priorityId = null) =>
-        New(spaceId, null, title, description, statusId, rank, typeId, priorityId);
+        New(spaceId, null, title, description, status, rank, today, typeId, priorityId);
 
     /// <summary>A child of <paramref name="parent"/>, in the parent's Space.</summary>
     public static WorkItem CreateChildOf(
         WorkItem parent,
         string title,
         string? description,
-        Guid statusId,
+        Status status,
         double rank,
+        DateOnly today,
         Guid? typeId = null,
         Guid? priorityId = null) =>
-        New(parent.SpaceId, parent.Id, title, description, statusId, rank, typeId, priorityId);
+        New(parent.SpaceId, parent.Id, title, description, status, rank, today, typeId, priorityId);
 
     private static WorkItem New(
         Guid spaceId,
         Guid? parentId,
         string title,
         string? description,
-        Guid statusId,
+        Status status,
         double rank,
+        DateOnly today,
         Guid? typeId,
         Guid? priorityId)
     {
         TextValidation.RequireText(title, "Title", TitleMaxLength);
 
-        return new WorkItem
+        var item = new WorkItem
         {
             Id = Guid.NewGuid(),
             SpaceId = spaceId,
             ParentId = parentId,
-            StatusId = statusId,
+            StatusId = status.Id,
             Rank = rank,
             Title = title,
             Description = description,
             TypeId = typeId,
             PriorityId = priorityId,
         };
+        item.FollowStatusCategory(status, today);
+        return item;
     }
 
     /// <summary>
@@ -345,11 +371,37 @@ public class WorkItem : IHasUpdatedAt
     /// Moves the item to another column. Never touches <see cref="ParentId"/>: that is what
     /// guarantees a drag between columns can never reparent the item.
     /// </summary>
-    public IReadOnlyList<FieldChange> MoveToStatus(Guid statusId, double rank)
+    public IReadOnlyList<FieldChange> MoveToStatus(Status status, double rank, DateOnly today)
     {
         var changed = new ChangedFields();
-        StatusId = changed.Set(WorkItemField.StatusId, StatusId, statusId);
+        StatusId = changed.Set(WorkItemField.StatusId, StatusId, status.Id);
         Rank = changed.Set(WorkItemField.Rank, Rank, rank);
+        return [.. changed.Changes, .. FollowStatusCategory(status, today)];
+    }
+
+    /// <summary>
+    /// Used when an admin changes the category of the item's own status: moving it into or out
+    /// of Done completes or reopens the item, just as moving the item to such a status would.
+    /// </summary>
+    public IReadOnlyList<FieldChange> FollowStatusRecategorized(Status status, DateOnly today)
+    {
+        if (status.Id != StatusId)
+        {
+            throw new DomainValidationException($"Status {status.Id} isn't work item {Id}'s status.");
+        }
+
+        return FollowStatusCategory(status, today);
+    }
+
+    /// <summary>
+    /// The completion rule: an item in a Done status keeps the date it was first done on, or
+    /// takes <paramref name="today"/>; an item in any other status has none.
+    /// </summary>
+    private IReadOnlyList<FieldChange> FollowStatusCategory(Status status, DateOnly today)
+    {
+        var completionDate = status.IsDone ? CompletionDate ?? today : (DateOnly?)null;
+        var changed = new ChangedFields();
+        CompletionDate = changed.Set(WorkItemField.CompletionDate, CompletionDate, completionDate);
         return changed.Changes;
     }
 
@@ -384,6 +436,81 @@ public class WorkItem : IHasUpdatedAt
         {
             throw new CrossSpaceParentException(Id, parent.Id);
         }
+    }
+
+    /// <summary>
+    /// Moves the item into another Space, under <paramref name="parent"/> there or at its top
+    /// level, taking that Space's <paramref name="values"/>. This is the explicit operation
+    /// reparenting refuses to be (ADR-0001). Its descendants then follow through
+    /// <see cref="FollowParentToSpace"/>. The caller must have checked the values are the
+    /// target Space's.
+    /// </summary>
+    public IReadOnlyList<FieldChange> MoveToSpace(
+        Guid spaceId,
+        WorkItem? parent,
+        double rank,
+        SpaceMoveValues values,
+        DateOnly today)
+    {
+        EnsureCanMoveToSpace(spaceId, parent);
+
+        var changed = new ChangedFields();
+        SpaceId = changed.Set(WorkItemField.SpaceId, SpaceId, spaceId);
+        ParentId = changed.Set(WorkItemField.ParentId, ParentId, parent?.Id);
+        Rank = changed.Set(WorkItemField.Rank, Rank, rank);
+        return [.. changed.Changes, .. TakeSpaceValues(values, today)];
+    }
+
+    /// <summary>
+    /// The checks <see cref="MoveToSpace"/> makes, for a caller that wants to reject a move
+    /// before loading the subtree and working out its mapping.
+    /// </summary>
+    public void EnsureCanMoveToSpace(Guid spaceId, WorkItem? parent)
+    {
+        if (spaceId == SpaceId)
+        {
+            throw new DomainValidationException(
+                $"Work item {Id} is already in Space {spaceId}; reparent it to move it within its Space.");
+        }
+
+        if (parent is not null && parent.SpaceId != spaceId)
+        {
+            throw new CrossSpaceParentException(Id, parent.Id);
+        }
+    }
+
+    /// <summary>
+    /// Moves a descendant of a moved item into the Space its <paramref name="parent"/> has just
+    /// moved to, keeping its place under that parent, so children still share their parent's
+    /// Space.
+    /// </summary>
+    public IReadOnlyList<FieldChange> FollowParentToSpace(WorkItem parent, SpaceMoveValues values, DateOnly today)
+    {
+        if (parent.Id != ParentId)
+        {
+            throw new DomainValidationException($"Work item {parent.Id} isn't the parent of work item {Id}.");
+        }
+
+        if (parent.SpaceId == SpaceId)
+        {
+            throw new DomainValidationException($"Work item {parent.Id} hasn't moved out of work item {Id}'s Space.");
+        }
+
+        var changed = new ChangedFields();
+        SpaceId = changed.Set(WorkItemField.SpaceId, SpaceId, parent.SpaceId);
+        return [.. changed.Changes, .. TakeSpaceValues(values, today)];
+    }
+
+    /// <summary>
+    /// The Type goes through <see cref="ChangeType"/>, so the custom field rule is the same one,
+    /// and the new status's category settles the completion date as any status change does.
+    /// </summary>
+    private IReadOnlyList<FieldChange> TakeSpaceValues(SpaceMoveValues values, DateOnly today)
+    {
+        var changed = new ChangedFields();
+        StatusId = changed.Set(WorkItemField.StatusId, StatusId, values.Status.Id);
+        PriorityId = changed.Set(WorkItemField.PriorityId, PriorityId, values.PriorityId);
+        return [.. changed.Changes, .. FollowStatusCategory(values.Status, today), .. ChangeType(values.TypeId)];
     }
 
     /// <summary>Changes the item's place within its current board cell.</summary>
@@ -422,13 +549,14 @@ public class WorkItem : IHasUpdatedAt
     /// <summary>
     /// A copy of this item for one occurrence of a repetition: same descriptive fields,
     /// assignee, tags and Space, placed under <paramref name="parentId"/> and scheduled on
-    /// <paramref name="date"/>. Comments, links, schedule and repetition are not copied. The
-    /// caller places it under the template's parent or a copy of one of its descendants, so
-    /// the copy's Space matches its parent's.
+    /// <paramref name="date"/>. Comments, links, schedule, repetition and completion date are
+    /// not copied: the copy is complete only when <paramref name="status"/> is a Done one, as of
+    /// <paramref name="today"/>. The caller places it under the template's parent or a copy of
+    /// one of its descendants, so the copy's Space matches its parent's.
     /// </summary>
-    public WorkItem CopyForOccurrence(Guid? parentId, Guid statusId, double rank, DateOnly date)
+    public WorkItem CopyForOccurrence(Guid? parentId, Status status, double rank, DateOnly date, DateOnly today)
     {
-        var copy = New(SpaceId, parentId, Title, Description, statusId, rank, TypeId, PriorityId);
+        var copy = New(SpaceId, parentId, Title, Description, status, rank, today, TypeId, PriorityId);
         copy.AssignedToUserId = AssignedToUserId;
         copy._tags = [.. _tags];
         copy._customFields = new Dictionary<Guid, JsonElement>(_customFields);

@@ -40,6 +40,7 @@ public class WorkItemSearchToolsTests
             from: new DateOnly(2026, 11, 1),
             to: new DateOnly(2026, 11, 30),
             backlogOnly: true,
+            applyDoneHiding: true,
             updatedSince: since,
             cursor: "abc",
             limit: 5);
@@ -61,6 +62,7 @@ public class WorkItemSearchToolsTests
             Assert.That(received.From, Is.EqualTo(new DateOnly(2026, 11, 1)));
             Assert.That(received.To, Is.EqualTo(new DateOnly(2026, 11, 30)));
             Assert.That(received.BacklogOnly, Is.True);
+            Assert.That(received.ApplyDoneHiding, Is.True);
             Assert.That(received.UpdatedSince, Is.EqualTo(since));
             Assert.That(received.Cursor, Is.EqualTo("abc"));
             Assert.That(received.Limit, Is.EqualTo(5));

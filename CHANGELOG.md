@@ -33,6 +33,117 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-10 — Completion date and done-hiding
+
+`feature/completion-date-and-done-hiding` (ticket 21 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md)).
+
+- **Completion date**: entering a Done-category status records
+  `completionDate` (the server calendar's today), and leaving Done clears
+  it. Moving between Done statuses keeps it, and so does an admin moving a
+  status into or out of Done. Changes appear in history. It is returned on
+  work items and summaries over REST and MCP.
+- **Done-hiding period per Space** (`doneHidingDays`, default 14, 1–3650):
+  admins set it on the Admin page's Spaces tab
+  (`PUT /api/spaces/{id}/done-hiding-period`), and agents read it from
+  `list_spaces`.
+- **Query input `applyDoneHiding`** (REST search and `search_work_items`)
+  leaves out Done items completed longer ago than their own Space's period.
+- **Board** hides those items by default, with a "Show done" toggle in the
+  Filters dialog.
+- **Migration** adds both columns and sets existing Done items' date to
+  their last-updated day.
+
+## 2026-11-10 — `get_work_item_context`
+
+`feature/get-work-item-context` (ticket 30 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md)).
+
+- **One call for an item and its surroundings**: MCP's
+  `get_work_item_context` takes an `id` or a `number` (`#N`) and an
+  `include` list of `ancestors`, `children`, `comments`, `links`,
+  `history` and `attachments`, and returns the full item plus only what was
+  included. An unknown include value is an error that lists the valid ones.
+- **Ancestors and children are summaries**, ancestors from the top-level
+  item down to the parent. Trashed items are left out of them and of links.
+- **Links** come back as `links` (other work items) and `urlLinks`.
+- **History** is newest first, 20 entries by default (`historyLimit`, at
+  most 200); `nextHistoryOffset` is the `historyOffset` for the next page.
+- **Attachments** are metadata only; fetch content with
+  `get_work_item_attachment`.
+- Read-only, so read-only keys can use it. No REST endpoint and no
+  migration.
+
+## 2026-11-10 — Unresolved When items over MCP
+
+`feature/unresolved-when-items-over-mcp` (ticket 28 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0003](docs/adr/0003-when-and-backlog.md)).
+
+- **`list_unresolved_when_items`** lists the work items whose When is
+  unresolved (a phrase, but no dates and no live item blocking them) as
+  summaries with the phrase, Space and parent, optionally narrowed by
+  Space and status category, paged like `search_work_items`.
+- **Resolving uses the existing writes**: `reschedule_work_item` for a
+  date, or `create_work_item_link` with `BlockedBy` for "after …"; the
+  phrase is kept and the item leaves the list. The tool's description tells
+  agents to search for a referenced item before linking and to leave
+  ambiguous phrases for a human.
+- **Summaries carry `when`** wherever they're returned (MCP lists, and the
+  REST trash and changes responses), left out over MCP when there's none.
+- No migration.
+
+## 2026-11-06 — Roll-ups of number and currency fields
+
+`feature/roll-ups` (ticket 15 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0002](docs/adr/0002-types-and-custom-fields.md) and its amendment).
+
+- **A number or currency field can roll up**: admins tick "Roll up into
+  parents" when adding or editing it on the Admin page.
+- **A parent shows the sum over its sub-items** at every depth, of any
+  Type, next to its own value and never including it. Trashed items don't
+  count. Only sums are supported.
+- **A currency field fixes one currency**, so a total is in that
+  currency; two fields are never summed together, even with the same name.
+- **The detail dialog** shows a total under its field, and totals of
+  fields only sub-items of other Types have in "Totals of sub-items". **The
+  Hierarchy** gets a Totals column when the Space has a field that rolls
+  up.
+- **API:** `GET /api/work-items/{id}/roll-ups`,
+  `GET /api/custom-fields?spaceId=`, and `rollsUp` on custom field
+  definitions. MCP's `get_work_item` returns `rollUps`.
+- **Migration:** `AddCustomFieldRollUp` adds the `RollsUp` column, off for
+  every existing field. No reset needed.
+
+## 2026-11-06 — Move a work item between Spaces
+
+`feature/move-item-between-spaces` (ticket 16 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0001](docs/adr/0001-spaces.md)).
+
+- **Move to Space…** in the detail dialog moves an item and its whole
+  subtree to another Space, under a chosen parent there or at its top
+  level. It shows how many items move and how many custom field values are
+  cleared, and each status, Type and priority they use next to the one it
+  becomes, which can be changed before confirming.
+- **Defaults:** a status maps to the target's status with the same name
+  (ignoring case), else its first status of the same category, else its
+  first status. A Type or priority maps to its namesake, else it's cleared.
+  Custom field values are always cleared, as with any change of Type.
+- **Kept:** links (they may cross Spaces), comments, attachments, tags,
+  dates and the assignee. Sub-items in the Trash move too.
+- **History** records the Space, status, Type, priority and cleared values
+  on every moved item, attributed to whoever moved it. Reparenting still
+  can't cross Spaces.
+- **API:** `GET /api/work-items/{id}/space-move-plan?targetSpaceId=` and
+  `POST /api/work-items/{id}/space-move` (`targetSpaceId`, `parentId`,
+  `statusMap`, `typeMap`, `priorityMap`, `expectedVersion`). MCP adds
+  `plan_work_item_space_move` (read-only keys too) and
+  `move_work_item_to_space` (read-write keys only).
+- **Known gap:** a sub-item created under a moving item during the move
+  stays behind (ticket 48). No migration.
+
 ## 2026-11-05 — Attachments
 
 `feature/attachments` (ticket 38 of

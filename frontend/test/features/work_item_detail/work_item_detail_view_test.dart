@@ -18,6 +18,8 @@ import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dar
 import 'package:weaver/features/work_item_detail/work_item_history_view_model.dart';
 import 'package:weaver/shared/data/current_user.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
+import 'package:weaver/shared/models/custom_field_kind.dart';
+import 'package:weaver/shared/models/roll_up.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item.dart';
@@ -44,11 +46,13 @@ class _FakeRepository implements WorkItemDetailRepository {
   String? parentId;
   String statusId = 'todo';
   int version = 1;
+  DateTime? completionDate;
   final List<(String, int)> statusSaves = [];
   final List<(String?, int)> parentSaves = [];
   final List<String> searches = [];
   final List<String> createdSubItems = [];
   final List<WorkItemChildSummary> children = [];
+  final List<RollUp> rollUps = [];
   final List<String> allSpacesSearches = [];
   final List<(String, WorkItemLinkRelation)> linkSaves = [];
   final List<(String, String?)> urlLinkSaves = [];
@@ -86,6 +90,7 @@ class _FakeRepository implements WorkItemDetailRepository {
         createdAt: DateTime(2026, 9, 1),
         updatedAt: DateTime(2026, 9, 1),
         version: version,
+        completionDate: completionDate,
       );
 
   @override
@@ -238,6 +243,9 @@ class _FakeRepository implements WorkItemDetailRepository {
       List.of(children);
 
   @override
+  Future<List<RollUp>> loadRollUps(String id) async => List.of(rollUps);
+
+  @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError('${invocation.memberName}');
 }
@@ -328,6 +336,52 @@ Future<void> _openDetails(
 Finder get _titleField => find.widgetWithText(TextField, 'Original title');
 
 void main() {
+  testWidgets("shows sub-items' totals of fields its Type doesn't have", (
+    tester,
+  ) async {
+    final repository = _FakeRepository()
+      ..rollUps.add(
+        const RollUp(
+          fieldId: 'field-hours',
+          fieldName: 'Hours',
+          typeId: 'type-task',
+          kind: CustomFieldKind.number,
+          total: 7.5,
+        ),
+      );
+
+    await _openDetails(tester, repository: repository);
+
+    expect(find.text('Totals of sub-items'), findsOneWidget);
+    expect(find.text('Hours: 7.5'), findsOneWidget);
+  });
+
+  testWidgets('a Done item shows the day it was completed', (tester) async {
+    final repository = _FakeRepository()
+      ..statusId = 'done'
+      ..completionDate = DateTime(2026, 9, 3);
+
+    await _openDetails(tester, repository: repository);
+
+    expect(
+      find.text(
+        'Created 2026-09-01 · Updated 2026-09-01 · Completed 2026-09-03',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('an item that is not Done shows no completion date', (
+    tester,
+  ) async {
+    await _openDetails(tester);
+
+    expect(
+      find.text('Created 2026-09-01 · Updated 2026-09-01'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('closing without edits needs no confirmation', (tester) async {
     await _openDetails(tester);
 

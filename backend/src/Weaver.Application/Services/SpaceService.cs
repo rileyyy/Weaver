@@ -38,7 +38,7 @@ public class SpaceService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerC
     {
         await EnsureAdminAsync(ct);
 
-        var space = await _db.Spaces.FindAsync([id], ct) ?? throw new EntityNotFoundException(nameof(Space), id);
+        var space = await FindForEditAsync(id, ct);
         var changes = space.Rename(name);
         if (changes.Count == 0)
         {
@@ -46,14 +46,25 @@ public class SpaceService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerC
         }
 
         await EnsureNameFreeAsync(space.Name, exceptId: id, ct);
-        foreach (var change in changes)
-        {
-            Record(id, change.Field, change.OldValue, change.NewValue);
-        }
+        RecordAll(id, changes);
 
         await SaveAsync(space.Name, ct);
         return space;
     }
+
+    public async Task<Space> SetDoneHidingPeriodAsync(Guid id, int days, CancellationToken ct = default)
+    {
+        await EnsureAdminAsync(ct);
+
+        var space = await FindForEditAsync(id, ct);
+        RecordAll(id, space.SetDoneHidingPeriod(days));
+
+        await _db.SaveChangesAsync(ct);
+        return space;
+    }
+
+    private async Task<Space> FindForEditAsync(Guid id, CancellationToken ct) =>
+        await _db.Spaces.FindAsync([id], ct) ?? throw new EntityNotFoundException(nameof(Space), id);
 
     private Task EnsureAdminAsync(CancellationToken ct) => _admins.EnsureAdminAsync(_caller.Current.AccountId, ct);
 
@@ -79,6 +90,14 @@ public class SpaceService(IWeaverDbContext db, IAdminAuthorizer admins, ICallerC
         catch (UniqueConstraintViolationException ex)
         {
             throw new SpaceNameTakenException(name, ex);
+        }
+    }
+
+    private void RecordAll(Guid spaceId, IEnumerable<FieldChange> changes)
+    {
+        foreach (var change in changes)
+        {
+            Record(spaceId, change.Field, change.OldValue, change.NewValue);
         }
     }
 

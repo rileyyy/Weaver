@@ -19,6 +19,9 @@ public class Status : SpaceLookupValue
 
     public StatusCategory Category { get; private set; }
 
+    /// <summary>Whether items in this status count as completed and carry a completion date.</summary>
+    public bool IsDone => Category == StatusCategory.Done;
+
     /// <summary>
     /// The color a column/badge for this status renders with, as a
     /// <c>#RRGGBB</c> hex string. Stored per-status (not derived from

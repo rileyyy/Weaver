@@ -29,7 +29,7 @@ public class WorkItemCustomFieldTests
         _budget = AddField(_home.Project, "Budget", CustomFieldKind.Currency);
         _owner = AddField(_home.Project, "Owner", CustomFieldKind.User);
         _floor = AddField(_home.Project, "Floor", CustomFieldKind.SingleSelect, "Oak", "Tiles");
-        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), new FakeCallerContext(_alice.Id));
+        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), new FixedServerCalendar(), new FakeCallerContext(_alice.Id));
         _history = new WorkItemHistoryService(_db);
     }
 

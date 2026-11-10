@@ -16,7 +16,9 @@ WorkItem workItem(
   DateTime? startDate,
   DateTime? endDate,
   List<String> tags = const [],
+  Map<String, Object?> fields = const {},
   int version = 1,
+  DateTime? completionDate,
 }) => WorkItem(
   id: id,
   number: number,
@@ -34,6 +36,8 @@ WorkItem workItem(
   updatedAt: DateTime.utc(2026, 1, 1),
   version: version,
   tags: tags,
+  fields: fields,
+  completionDate: completionDate,
 );
 
 /// [item] as the server would return it after a write: the same fields with
@@ -57,4 +61,5 @@ WorkItem withVersion(WorkItem item, int version) => WorkItem(
   tags: item.tags,
   recurrenceSourceId: item.recurrenceSourceId,
   recurrenceDate: item.recurrenceDate,
+  completionDate: item.completionDate,
 );

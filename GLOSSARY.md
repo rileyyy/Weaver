@@ -17,7 +17,9 @@ item's id.
 : A top-level container such as Home, Village or Software. It holds a forest
 of work-item trees. An item belongs to exactly one Space: a top-level item
 is created in one, and children share their parent's. Reparenting never
-crosses a Space. A Space owns its statuses, priorities and Types (a new one
+crosses a Space: **moving** an item to another Space is its own step, which
+takes its sub-items along and maps their statuses, Types and priorities onto
+the new Space's. A Space owns its statuses, priorities and Types (a new one
 starts with To Do / Doing / Done, Low / Medium / High / Urgent and Project /
 Goal / Task); an item only takes its own Space's.
 _Avoid:_ project, workspace, board.
@@ -37,13 +39,24 @@ item's values belong to its Type's fields, so changing the item's Type
 clears them (history keeps them).
 _Avoid:_ attribute, property.
 
-**Roll-up** *(planned)*
-: An optional setting on a number or currency field. It shows on a parent
-the sum of that field over the parent's descendants.
+**Roll-up**
+: An optional setting on a number or currency field. A parent then shows
+the sum of that field over its live descendants, next to its own value and
+never including it. Computed when read, never stored. A currency field has
+one currency, so a total is in that currency.
+_Avoid:_ aggregate, subtotal.
 
 **Status category**
-: To Do, Doing or Done. Every status has one. From Milestone 16,
-Done-category statuses record a completion date and drive done-hiding.
+: To Do, Doing or Done. Every status has one. Done-category statuses record
+a completion date and drive done-hiding.
+
+**Completion date**
+: The server-calendar day a work item entered a Done-category status. Moving
+between Done statuses keeps it; leaving Done clears it.
+
+**Done-hiding period**
+: Per Space, in days (default 14). The Board hides Done items completed longer
+ago than this unless "show done" is on.
 
 **View** *(planned)*
 : A saved, shared query that picks one or more Spaces, filters and a layout.

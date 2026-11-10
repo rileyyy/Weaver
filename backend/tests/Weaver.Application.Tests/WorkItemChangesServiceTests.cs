@@ -33,7 +33,7 @@ public class WorkItemChangesServiceTests
         _bob = TestUsers.Add(_db, "bob");
         _home = TestSpaces.Add(_db, "Home");
         _caller = new FakeCallerContext(_alice.Id);
-        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), _caller);
+        _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), new FixedServerCalendar(), _caller);
         _trash = new WorkItemTrashService(_db, new IterativeWorkItemHierarchy(_db), _caller, _clock);
         _changes = new WorkItemChangesService(_db, _caller);
     }

@@ -11,6 +11,8 @@ import 'package:weaver/features/board/views/swimlane/widgets/swimlane_label.dart
 import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
+import 'package:weaver/shared/models/work_item.dart';
+import 'package:weaver/shared/models/work_item_query.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
 import '../../../../shared/fakes/memory_last_space_store.dart';
@@ -41,6 +43,15 @@ class _TwoLaneRepository implements BoardRepository {
           ],
         ),
       );
+
+  /// The board's default query hides old Done items; none of these are.
+  @override
+  Future<List<WorkItem>> queryItems(WorkItemQuery query) async => [
+    for (final lane in (await loadBoard(query.spaceId, null)).swimlanes) ...[
+      lane.lane,
+      ...lane.cards,
+    ],
+  ];
 
   @override
   Future<List<User>> loadUsers() => Future.value(const []);

@@ -33,3 +33,17 @@ configurable by users, not by developers.
   happens to field values that don't exist on the target Type.
 - Only sum roll-ups are supported. Other aggregates wait until something
   actually needs them.
+
+## Amendment: roll-ups and currency (2026-11-06, ticket 15)
+
+- **A currency field fixes one currency.** A value is an amount with no
+  currency code (ticket 14), so every value of one field is in the same,
+  implied currency. Giving each value its own currency, and summing per
+  currency, was the alternative; it was left out because nothing here
+  needs two currencies, and it would put a code on every value.
+- **A roll-up sums one field, by id.** Two fields with the same name on
+  different Types (two "Budget"s) roll up apart, so a roll-up never adds
+  amounts of two fields, and so of two possible currencies, together.
+- **A total covers every live descendant at any depth, through items of any
+  Type**, counting those whose Type has the field. It never includes the
+  item's own value, which is shown beside it, and leaves trashed items out.

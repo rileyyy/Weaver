@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:injectable/injectable.dart';
 import 'package:weaver/core/network/api_exception.dart';
+import 'package:weaver/core/network/parallel_api_errors.dart';
 import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/data/last_space_store.dart';
@@ -17,6 +18,7 @@ import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/swimlane_items.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/state/board_filters.dart';
+import 'package:weaver/features/board/state/hierarchy_roll_ups.dart';
 import 'package:weaver/features/board/state/hierarchy_tree_builder.dart';
 import 'package:weaver/features/board/state/swimlane_edits.dart';
 import 'package:weaver/features/board/state/tag_additions.dart';
@@ -24,6 +26,7 @@ import 'package:weaver/features/board/state/user_directory.dart';
 import 'package:weaver/features/board/state/work_item_sorting.dart';
 import 'package:weaver/shared/data/work_item_conflict.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
+import 'package:weaver/shared/models/custom_field.dart';
 import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/tag_match.dart';
 import 'package:weaver/shared/models/user.dart';
@@ -77,6 +80,7 @@ class BoardViewModel extends ViewModel {
   Future<void> Function() _retry = _noRetry;
   BoardFilters _filters = const BoardFilters();
   List<String> _hierarchyItemIds = const [];
+  List<CustomField> _spaceFields = const [];
   bool _isHierarchyLoading = false;
   String? _hierarchyLoadError;
   bool _hierarchyLoaded = false;
@@ -99,6 +103,7 @@ class BoardViewModel extends ViewModel {
   // notifies, so they're cached until the next notification.
   List<HierarchyNode>? _hierarchyRootsCache;
   List<HierarchyItem>? _hierarchyItemsCache;
+  HierarchyRollUps? _hierarchyRollUpsCache;
   List<WorkItemStatus>? _visibleStatusesCache;
   List<String>? _availableTagsCache;
 
@@ -112,6 +117,7 @@ class BoardViewModel extends ViewModel {
   void _clearItemCaches() {
     _hierarchyRootsCache = null;
     _hierarchyItemsCache = null;
+    _hierarchyRollUpsCache = null;
     _availableTagsCache = null;
   }
 
@@ -298,9 +304,16 @@ class BoardViewModel extends ViewModel {
         comparator: hierarchyComparator,
       );
 
-  /// Loads every work item in the current Space for the Hierarchy view.
-  /// Independent of the swim-lane board's current drill-down scope — the
-  /// Hierarchy view always shows the Space's whole tree.
+  /// The roll-ups of every Hierarchy item: its own value and its sub-items'
+  /// total of each field that rolls up. Summed from the store, so they
+  /// follow every edit without a reload.
+  HierarchyRollUps get hierarchyRollUps => _hierarchyRollUpsCache ??=
+      HierarchyRollUps(_hierarchyItems, _spaceFields);
+
+  /// Loads every work item in the current Space for the Hierarchy view, and
+  /// the Space's fields for its roll-ups. Independent of the swim-lane
+  /// board's current drill-down scope — the Hierarchy view always shows the
+  /// Space's whole tree.
   Future<void> loadHierarchy() async {
     final generation = ++_hierarchyGeneration;
     _isHierarchyLoading = true;
@@ -310,13 +323,18 @@ class BoardViewModel extends ViewModel {
     try {
       final asOf = _items.revision;
       final space = _currentSpace;
-      final items = space == null
-          ? const <WorkItem>[]
-          : await _repository.loadAllItems(space.id);
+      final (items, fields) = space == null
+          ? (const <WorkItem>[], const <CustomField>[])
+          : await (
+              _repository.loadAllItems(space.id),
+              _repository.loadCustomFields(space.id),
+            ).wait;
       if (generation != _hierarchyGeneration) return;
       _hierarchyItemIds = [for (final item in items) item.id];
+      _spaceFields = fields;
       _items.putAll(items, asOf: asOf);
-    } on ApiException {
+    } on ParallelWaitError<Object?, Object?> catch (e) {
+      rethrowNonApiErrors(asyncErrorsOf(e.errors));
       if (generation != _hierarchyGeneration) return;
       _hierarchyLoadError =
           'Could not load the hierarchy view. Check your connection and try again.';
@@ -757,7 +775,7 @@ class BoardViewModel extends ViewModel {
   bool _matches(String itemId) => _matchingIds?.contains(itemId) ?? true;
 
   /// Whether [card] is one the server matched for the header's time range,
-  /// search and tags. Hidden statuses aren't checked here: the board only
+  /// search, tags and done-hiding. Hidden statuses aren't checked here: the board only
   /// draws visible columns.
   bool cardVisible(WorkItemCard card) => _matches(card.id);
 
@@ -772,6 +790,14 @@ class BoardViewModel extends ViewModel {
 
   void setSortOption(CardSortOption option) =>
       _setFilters(_filters.withSortOption(option));
+
+  /// Whether Done items completed longer ago than the current Space's
+  /// done-hiding period show. Off by default, and like the other header
+  /// filters it isn't remembered across launches.
+  bool get showDone => _filters.showDone;
+
+  void setShowDone(bool showDone) =>
+      _setFilters(_filters.withShowDone(showDone));
 
   /// Null for [CardSortOption.manual] — see [sortComparator].
   Comparator<WorkItemCard>? get cardComparator => sortComparator(
@@ -839,7 +865,11 @@ class BoardViewModel extends ViewModel {
     try {
       final matched = await _repository.queryItems(query);
       if (generation != _matchGeneration || isDisposed) return;
-      _matchingIds = {for (final item in matched) item.id};
+      final ids = {for (final item in matched) item.id};
+      // Every edit asks again, and the answer is usually the same. Notifying
+      // then would redraw the whole board, undoing the per-lane rebuilds.
+      if (setEquals(ids, _matchingIds)) return;
+      _matchingIds = ids;
     } on ApiException {
       if (generation != _matchGeneration || isDisposed) return;
       _moveError =

@@ -25,10 +25,7 @@ class CustomFieldTextEditor extends StatefulWidget {
   /// The text a stored [value] is edited as.
   static String textOf(CustomFieldKind kind, Object? value) => switch (value) {
     null => '',
-    final num amount when kind == CustomFieldKind.currency =>
-      amount.toStringAsFixed(2),
-    final num number when number == number.roundToDouble() =>
-      number.toInt().toString(),
+    final num amount => kind.formatAmount(amount),
     _ => '$value',
   };
 

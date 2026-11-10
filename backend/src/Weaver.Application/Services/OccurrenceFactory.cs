@@ -9,46 +9,48 @@ namespace Weaver.Application.Services;
 /// the template and its sub-item tree, each starting in the first status of the template's
 /// Space and scheduled on the occurrence date, in that Space. Comments, links and repetitions are not
 /// copied. Each copy records its creation in history, attributed to the actor the factory was
-/// made for.
+/// made for. <c>today</c> is the server's date, the completion date of a copy whose first status
+/// is a Done one.
 /// </summary>
-internal sealed class OccurrenceFactory(IWeaverDbContext db, WorkItemHistoryRecorder history, HistoryActor actor)
+internal sealed class OccurrenceFactory(IWeaverDbContext db, WorkItemHistoryRecorder history, HistoryActor actor, DateOnly today)
 {
     private readonly IWeaverDbContext _db = db;
     private readonly WorkItemHistoryRecorder _history = history;
     private readonly HistoryActor _actor = actor;
+    private readonly DateOnly _today = today;
     private readonly Dictionary<(Guid SpaceId, Guid? ParentId, Guid StatusId), double?> _lastRankByCell = new();
-    private readonly Dictionary<Guid, Guid> _firstStatusIdBySpace = new();
+    private readonly Dictionary<Guid, Status> _firstStatusBySpace = new();
 
     public async Task<WorkItem> AddOccurrenceAsync(WorkItem template, DateOnly date, CancellationToken ct)
     {
-        var statusId = await FirstStatusIdAsync(template.SpaceId, ct);
+        var status = await FirstStatusAsync(template.SpaceId, ct);
 
-        var root = await AddCopyAsync(template, template.ParentId, statusId, date, ct);
+        var root = await AddCopyAsync(template, template.ParentId, status, date, ct);
         root.MarkAsOccurrenceOf(template.Id, date);
 
-        await AddChildCopiesAsync(template.Id, root.Id, statusId, date, ct);
+        await AddChildCopiesAsync(template.Id, root.Id, status, date, ct);
         return root;
     }
 
-    private async Task<Guid> FirstStatusIdAsync(Guid spaceId, CancellationToken ct)
+    private async Task<Status> FirstStatusAsync(Guid spaceId, CancellationToken ct)
     {
-        if (!_firstStatusIdBySpace.TryGetValue(spaceId, out var statusId))
+        if (!_firstStatusBySpace.TryGetValue(spaceId, out var status))
         {
-            statusId = await _db.Statuses
+            status = await _db.Statuses
+                .AsNoTracking()
                 .Where(s => s.SpaceId == spaceId)
                 .OrderBy(s => s.Order)
-                .Select(s => s.Id)
                 .FirstAsync(ct);
-            _firstStatusIdBySpace[spaceId] = statusId;
+            _firstStatusBySpace[spaceId] = status;
         }
 
-        return statusId;
+        return status;
     }
 
     private async Task AddChildCopiesAsync(
         Guid templateParentId,
         Guid copyParentId,
-        Guid statusId,
+        Status status,
         DateOnly date,
         CancellationToken ct)
     {
@@ -63,20 +65,20 @@ internal sealed class OccurrenceFactory(IWeaverDbContext db, WorkItemHistoryReco
 
         foreach (var child in children)
         {
-            var copy = await AddCopyAsync(child, copyParentId, statusId, date, ct);
-            await AddChildCopiesAsync(child.Id, copy.Id, statusId, date, ct);
+            var copy = await AddCopyAsync(child, copyParentId, status, date, ct);
+            await AddChildCopiesAsync(child.Id, copy.Id, status, date, ct);
         }
     }
 
     private async Task<WorkItem> AddCopyAsync(
         WorkItem source,
         Guid? parentId,
-        Guid statusId,
+        Status status,
         DateOnly date,
         CancellationToken ct)
     {
-        var rank = await NextRankAtEndAsync(source.SpaceId, parentId, statusId, ct);
-        var copy = source.CopyForOccurrence(parentId, statusId, rank, date);
+        var rank = await NextRankAtEndAsync(source.SpaceId, parentId, status.Id, ct);
+        var copy = source.CopyForOccurrence(parentId, status, rank, date, _today);
         _db.WorkItems.Add(copy);
         _history.RecordCreation(copy, _actor);
         return copy;

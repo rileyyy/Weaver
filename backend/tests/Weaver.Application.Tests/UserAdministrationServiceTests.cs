@@ -232,7 +232,7 @@ public class UserAdministrationServiceTests
     [Test]
     public async Task SetActiveAsync_Deactivating_UnassignsWorkAndRevokesSessions()
     {
-        var item = WorkItem.Create(_space.Id, "Assigned", null, _space.ToDo, 1);
+        var item = WorkItem.Create(_space.Id, "Assigned", null, _db.Statuses.Find(_space.ToDo)!, 1, FixedServerCalendar.DefaultToday);
         item.AssignTo(_member.Id);
         _db.WorkItems.Add(item);
         var token = AddRefreshToken(_member);
@@ -268,7 +268,7 @@ public class UserAdministrationServiceTests
     [Test]
     public async Task DeleteAsync_RemovesTheUserTheirTokensAndAssignments()
     {
-        var item = WorkItem.Create(_space.Id, "Assigned", null, _space.ToDo, 1);
+        var item = WorkItem.Create(_space.Id, "Assigned", null, _db.Statuses.Find(_space.ToDo)!, 1, FixedServerCalendar.DefaultToday);
         item.AssignTo(_member.Id);
         _db.WorkItems.Add(item);
         AddRefreshToken(_member);
@@ -301,7 +301,7 @@ public class UserAdministrationServiceTests
     [Test]
     public async Task DeleteAsync_AUserWithComments_IsAConflictAndDeletesNothing()
     {
-        var item = WorkItem.Create(_space.Id, "Commented", null, _space.ToDo, 1);
+        var item = WorkItem.Create(_space.Id, "Commented", null, _db.Statuses.Find(_space.ToDo)!, 1, FixedServerCalendar.DefaultToday);
         _db.WorkItems.Add(item);
         _db.Comments.Add(Comment.Create(item.Id, _member.Id, "Hello"));
         await _db.SaveChangesAsync();

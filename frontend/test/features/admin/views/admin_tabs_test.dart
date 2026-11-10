@@ -88,6 +88,57 @@ void main() {
       expect(repository.calls.last, 'rename home House');
       expect(find.text('House'), findsOneWidget);
     });
+
+    testWidgets("shows each Space's done-hiding period", (tester) async {
+      await tester.pumpWidget(_host(SpacesTab(viewModel: viewModel)));
+
+      expect(
+        find.text(
+          'Done items leave the board 14 days after they are completed.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('changing the done-hiding period shows the new one', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_host(SpacesTab(viewModel: viewModel)));
+
+      await tester.tap(find.byTooltip('Change done-hiding period for Home'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '1');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      expect(repository.calls.last, 'setDoneHidingPeriod home 1');
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(
+        find.text('Done items leave the board 1 day after they are completed.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('an out-of-range period keeps the dialog open with why', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_host(SpacesTab(viewModel: viewModel)));
+
+      await tester.tap(find.byTooltip('Change done-hiding period for Home'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '0');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(
+        find.text('Enter a whole number of days from 1 to 3650.'),
+        findsOneWidget,
+      );
+      expect(repository.calls, ['list']);
+    });
   });
 
   group('LookupTab', () {

@@ -7,21 +7,51 @@ namespace Weaver.Application.Services;
 
 public class WorkItemHistoryService(IWeaverDbContext db) : IWorkItemHistoryService
 {
+    public const int DefaultPageSize = 20;
+    public const int MaxPageSize = 200;
+
     private readonly IWeaverDbContext _db = db;
 
     public async Task<IReadOnlyList<WorkItemHistoryView>> ListForWorkItemAsync(Guid workItemId, CancellationToken ct = default)
     {
-        var entries = await HistoryViewReader.ReadAsync(
-            _db,
-            _db.WorkItemHistory.Where(e => e.WorkItemId == workItemId).OrderByDescending(e => e.Id),
-            ct);
+        var entries = await HistoryViewReader.ReadAsync(_db, NewestFirst(workItemId), ct);
+        await EnsureFoundAsync(workItemId, entries, ct);
+        return entries;
+    }
 
-        // History outlives the item, so a trashed one's is still readable.
+    public async Task<WorkItemHistoryPage> ListPageForWorkItemAsync(
+        Guid workItemId,
+        int offset,
+        int limit,
+        CancellationToken ct = default)
+    {
+        if (offset < 0)
+        {
+            throw new DomainValidationException("Offset must not be negative.");
+        }
+
+        if (limit is < 1 or > MaxPageSize)
+        {
+            throw new DomainValidationException($"Limit must be between 1 and {MaxPageSize}.");
+        }
+
+        // One extra entry says whether another page follows, without counting them all.
+        var entries = await HistoryViewReader.ReadAsync(_db, NewestFirst(workItemId).Skip(offset).Take(limit + 1), ct);
+        await EnsureFoundAsync(workItemId, entries, ct);
+
+        var hasMore = entries.Count > limit;
+        return new WorkItemHistoryPage(entries.Take(limit).ToList(), hasMore ? offset + limit : null);
+    }
+
+    private IQueryable<WorkItemHistoryEntry> NewestFirst(Guid workItemId) =>
+        _db.WorkItemHistory.Where(e => e.WorkItemId == workItemId).OrderByDescending(e => e.Id);
+
+    /// <summary>History outlives the item, so a trashed one's is still readable.</summary>
+    private async Task EnsureFoundAsync(Guid workItemId, IReadOnlyCollection<WorkItemHistoryView> entries, CancellationToken ct)
+    {
         if (entries.Count == 0 && !await _db.WorkItems.IgnoreQueryFilters().AnyAsync(w => w.Id == workItemId, ct))
         {
             throw new EntityNotFoundException(nameof(WorkItem), workItemId);
         }
-
-        return entries;
     }
 }

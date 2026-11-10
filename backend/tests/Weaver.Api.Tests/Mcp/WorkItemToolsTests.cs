@@ -17,16 +17,23 @@ namespace Weaver.Api.Tests.Mcp;
 public class WorkItemToolsTests
 {
     private Mock<IWorkItemService> _workItems = null!;
+    private Mock<IWorkItemRollUpService> _rollUps = null!;
     private WorkItemTools _tools = null!;
 
     [SetUp]
     public void SetUp()
     {
         _workItems = new Mock<IWorkItemService>(MockBehavior.Strict);
-        _tools = new WorkItemTools(_workItems.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup()), new HttpCallerContext(new HttpContextAccessor()));
+        _rollUps = new Mock<IWorkItemRollUpService>(MockBehavior.Strict);
+        _rollUps.Setup(r => r.GetAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        _tools = new WorkItemTools(
+            _workItems.Object,
+            _rollUps.Object,
+            new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup()),
+            new HttpCallerContext(new HttpContextAccessor()));
     }
 
-    private static WorkItem MakeWorkItem() => WorkItem.Create(Guid.NewGuid(), "A work item", null, Guid.NewGuid(), rank: 1.0);
+    private static WorkItem MakeWorkItem() => TestWorkItems.Create("A work item");
 
     private static WorkItemSummary MakeSummary(Guid? parentId = null) =>
         new(Guid.NewGuid(), 7, "A work item", Guid.NewGuid(), "Home", parentId, "To Do", "Task", null, null, "alice", 2);
@@ -40,6 +47,21 @@ public class WorkItemToolsTests
         var result = await _tools.GetWorkItem(item.Id, ct: CancellationToken.None);
 
         Assert.That(result.Id, Is.EqualTo(item.Id));
+    }
+
+    [Test]
+    public async Task GetWorkItem_IncludesTheRolledUpTotals()
+    {
+        var item = MakeWorkItem();
+        var hours = CustomFieldDefinition.Create(Guid.NewGuid(), "Hours", CustomFieldKind.Number, 0, rollsUp: true);
+        _workItems.Setup(w => w.GetByIdAsync(item.Id, It.IsAny<CancellationToken>())).ReturnsAsync(item);
+        _rollUps.Setup(r => r.GetAsync(item.Id, It.IsAny<CancellationToken>())).ReturnsAsync([new RollUpTotal(hours, 7.5m)]);
+
+        var result = await _tools.GetWorkItem(item.Id, ct: CancellationToken.None);
+
+        Assert.That(
+            result.RollUps,
+            Is.EqualTo(new[] { new RollUpDto(hours.Id, "Hours", hours.TypeId, CustomFieldKind.Number, 7.5m) }));
     }
 
     [Test]

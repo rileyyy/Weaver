@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:weaver/features/admin/models/admin_server_settings.dart';
 import 'package:weaver/features/admin/widgets/name_dialog.dart';
+import 'package:weaver/shared/formatting/day_count.dart';
 
 /// The Server tab's row for how many days the Trash keeps items.
 class TrashRetentionTile extends StatelessWidget {
@@ -24,7 +25,7 @@ class TrashRetentionTile extends StatelessWidget {
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(days == 1 ? '1 day' : '$days days'),
+          Text(dayCount(days)),
           const Text(
             'Items in the Trash are permanently deleted after this many '
             'days.',

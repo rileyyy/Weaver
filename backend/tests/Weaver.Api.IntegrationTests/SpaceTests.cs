@@ -162,6 +162,35 @@ public class SpaceTests
     }
 
     [Test]
+    public async Task AnAdmin_SetsTheDoneHidingPeriod_WhichAgentsCanRead_ButNoOneElseCanChange()
+    {
+        var (admin, _) = await ApiClient.SignedInAdminAsync();
+        var (member, _) = await ApiClient.SignedInAsync();
+        var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadWrite);
+        var space = await (await admin.PostJsonAsync("/api/spaces", new SpaceNameRequest($"Hiding {Guid.NewGuid():N}"[..30])))
+            .ReadAsync<SpaceDto>();
+
+        var set = await admin.PutJsonAsync($"/api/spaces/{space.Id}/done-hiding-period", new SetDoneHidingPeriodRequest(30));
+        var outOfRange = await admin.PutJsonAsync($"/api/spaces/{space.Id}/done-hiding-period", new SetDoneHidingPeriodRequest(0));
+        var byMember = await member.PutJsonAsync($"/api/spaces/{space.Id}/done-hiding-period", new SetDoneHidingPeriodRequest(7));
+        var byAgent = await agent.PutJsonAsync($"/api/spaces/{space.Id}/done-hiding-period", new SetDoneHidingPeriodRequest(7));
+        await using var mcp = await ConnectAsync(agent);
+        var listed = JsonSerializer.Deserialize<List<SpaceDto>>(
+            TextOf(await mcp.CallToolAsync("list_spaces", new Dictionary<string, object?>())), ApiClient.Json)!;
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That(space.DoneHidingDays, Is.EqualTo(14));
+            Assert.That(set.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That((await set.ReadAsync<SpaceDto>()).DoneHidingDays, Is.EqualTo(30));
+            Assert.That(outOfRange.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+            Assert.That(byMember.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+            Assert.That(byAgent.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+            Assert.That(listed.Single(s => s.Id == space.Id).DoneHidingDays, Is.EqualTo(30));
+        });
+    }
+
+    [Test]
     public async Task Mcp_ListsSpaces_ButOffersNoToolToChangeThem()
     {
         var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadWrite);
@@ -175,8 +204,10 @@ public class SpaceTests
         Assert.Multiple(() =>
         {
             Assert.That(spaces.Select(s => s.Id), Does.Contain(spaceId));
+            // Moving a work item into another Space writes the item, not the Space.
             Assert.That(
-                tools.Where(t => t.Name.Contains("space")).Select(t => t.ProtocolTool.Annotations?.ReadOnlyHint),
+                tools.Where(t => t.Name.Contains("space") && !t.Name.Contains("work_item"))
+                    .Select(t => t.ProtocolTool.Annotations?.ReadOnlyHint),
                 Has.All.True);
         });
     }

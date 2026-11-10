@@ -30,9 +30,13 @@ class FakeCustomFieldAdminRepository implements CustomFieldAdminRepository {
     String typeId,
     String name,
     CustomFieldKind kind,
-    List<String> optionNames,
-  ) async {
-    calls.add('create $name ${kind.apiName} $optionNames in $typeId');
+    List<String> optionNames, {
+    required bool rollsUp,
+  }) async {
+    calls.add(
+      'create $name ${kind.apiName} $optionNames in $typeId'
+      '${_rollingUp(rollsUp)}',
+    );
     _failIfSet();
     return CustomField(
       id: 'field-$name',
@@ -44,6 +48,7 @@ class FakeCustomFieldAdminRepository implements CustomFieldAdminRepository {
         for (final option in optionNames)
           CustomFieldOption(id: 'option-$option', name: option),
       ],
+      rollsUp: rollsUp,
     );
   }
 
@@ -51,10 +56,12 @@ class FakeCustomFieldAdminRepository implements CustomFieldAdminRepository {
   Future<CustomField> update(
     String id,
     String name,
-    List<CustomFieldOptionDraft> options,
-  ) async {
+    List<CustomFieldOptionDraft> options, {
+    required bool rollsUp,
+  }) async {
     calls.add(
-      'update $id $name ${[for (final o in options) '${o.id}:${o.name}']}',
+      'update $id $name ${[for (final o in options) '${o.id}:${o.name}']}'
+      '${_rollingUp(rollsUp)}',
     );
     _failIfSet();
     final field = fields.firstWhere((f) => f.id == id);
@@ -71,8 +78,11 @@ class FakeCustomFieldAdminRepository implements CustomFieldAdminRepository {
             name: option.name,
           ),
       ],
+      rollsUp: rollsUp,
     );
   }
+
+  static String _rollingUp(bool rollsUp) => rollsUp ? ' rolling up' : '';
 
   @override
   Future<List<CustomField>> reorder(

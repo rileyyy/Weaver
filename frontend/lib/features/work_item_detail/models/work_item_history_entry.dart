@@ -154,6 +154,7 @@ class WorkItemHistoryEntry {
     'spaceId': 'Space',
     'startDate': 'Start date',
     'endDate': 'End date',
+    'completionDate': 'Completion date',
     'assignedToUserId': 'Assignee',
     'tags': 'Tags',
   };

@@ -54,13 +54,51 @@ public class JsonSerializationTests
     [Test]
     public void WorkItemDto_SerializesScheduleDatesAsCalendarDates()
     {
-        var item = WorkItem.Create(Guid.NewGuid(), "Item", null, Guid.NewGuid(), rank: 1.0);
+        var item = TestWorkItems.Create("Item");
         item.Reschedule(new DateOnly(2026, 9, 25), new DateOnly(2026, 9, 30));
 
         var json = JsonSerializer.Serialize(WorkItemDto.FromEntity(item, hasLiveBlocker: false, WorkItemNames.None), Options);
 
         Assert.That(json, Does.Contain("\"startDate\":\"2026-09-25\""));
         Assert.That(json, Does.Contain("\"endDate\":\"2026-09-30\""));
+    }
+
+    [Test]
+    public void WorkItemDto_SerializesTheCompletionDateAsACalendarDate_OrNullWhileNotDone()
+    {
+        var done = TestWorkItems.Create("Done", StatusCategory.Done);
+        var open = TestWorkItems.Create("Open");
+
+        var doneJson = JsonSerializer.Serialize(WorkItemDto.FromEntity(done, hasLiveBlocker: false, WorkItemNames.None), Options);
+        var openJson = JsonSerializer.Serialize(WorkItemDto.FromEntity(open, hasLiveBlocker: false, WorkItemNames.None), Options);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(doneJson, Does.Contain($"\"completionDate\":\"{TestWorkItems.Today:yyyy-MM-dd}\""));
+            Assert.That(openJson, Does.Contain("\"completionDate\":null"));
+        });
+    }
+
+    [Test]
+    public void WorkItemSummaryDto_CarriesTheCompletionDate()
+    {
+        var summary = new WorkItemSummary(
+            Guid.NewGuid(), 3, "Fence", Guid.NewGuid(), "Home", null, "Done", null, null, null, null, 0,
+            CompletionDate: new DateOnly(2026, 11, 2));
+
+        var json = JsonSerializer.Serialize(WorkItemSummaryDto.FromSummary(summary), Options);
+
+        Assert.That(json, Does.Contain("\"completionDate\":\"2026-11-02\""));
+    }
+
+    [Test]
+    public void SpaceDto_CarriesTheDoneHidingPeriod()
+    {
+        var space = Space.Create("Home");
+
+        var json = JsonSerializer.Serialize(SpaceDto.FromEntity(space), Options);
+
+        Assert.That(json, Is.EqualTo($$"""{"id":"{{space.Id}}","name":"Home","doneHidingDays":14}"""));
     }
 
     [Test]

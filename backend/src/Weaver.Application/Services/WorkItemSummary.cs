@@ -6,7 +6,8 @@ namespace Weaver.Application.Services;
 /// that has been purged, since only its history remains. <see cref="TrashedAtUtc"/> is set for an
 /// item in the Trash, which a read only returns when it asked for deleted items.
 /// <see cref="ParentId"/> is null for a top-level item, and for a purged one, so a reader can
-/// rebuild the tree from a flat list of summaries.
+/// rebuild the tree from a flat list of summaries. <see cref="When"/> is the item's When phrase,
+/// kept after it's resolved. <see cref="CompletionDate"/> is set while the item is Done.
 /// </summary>
 public sealed record WorkItemSummary(
     Guid Id,
@@ -21,4 +22,6 @@ public sealed record WorkItemSummary(
     DateOnly? EndDate,
     string? AssigneeName,
     int? ChildCount,
-    DateTimeOffset? TrashedAtUtc = null);
+    DateTimeOffset? TrashedAtUtc = null,
+    string? When = null,
+    DateOnly? CompletionDate = null);

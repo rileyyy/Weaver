@@ -22,11 +22,11 @@ class HierarchyColumnWidths {
         column: (this[column] + deltaX).clamp(minWidth, maxWidth),
       });
 
-  /// Width of a full row: padding, every column and the resize handle after
-  /// each. Beyond this the view scrolls horizontally.
-  double get rowWidth =>
+  /// Width of a full row of [columns]: padding, each column and the resize
+  /// handle after it. Beyond this the view scrolls horizontally.
+  double rowWidthOf(List<HierarchyColumn> columns) =>
       2 * hierarchyRowHorizontalPadding +
-      HierarchyColumn.values.fold(
+      columns.fold(
         0.0,
         (sum, column) => sum + this[column] + hierarchyResizeHandleWidth,
       );
