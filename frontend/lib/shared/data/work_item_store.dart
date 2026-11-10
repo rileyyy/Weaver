@@ -86,6 +86,9 @@ class WorkItemStore extends ChangeNotifier {
   void addSaveListener(WorkItemSaveListener listener) =>
       _saveListeners.add(listener);
 
+  void removeSaveListener(WorkItemSaveListener listener) =>
+      _saveListeners.remove(listener);
+
   void _confirm(WorkItem item) {
     _confirmed[item.id] = item;
     _savedAt[item.id] = ++_revision;
@@ -143,7 +146,8 @@ class WorkItemStore extends ChangeNotifier {
     try {
       final saved = await send(stored.version);
       _confirm(saved);
-      for (final listener in _saveListeners) {
+      // A copy, as a listener may remove itself, e.g. by closing its view.
+      for (final listener in [..._saveListeners]) {
         listener(stored, saved, reload);
       }
       return saved;

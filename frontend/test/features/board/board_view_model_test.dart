@@ -2361,4 +2361,177 @@ void main() {
       expect(() => items.remove('card-1'), returnsNormally);
     });
   });
+
+  group('the Roadmap asks the server for its own window', () {
+    final november = (
+      start: DateTime(2026, 11, 1),
+      end: DateTime(2026, 11, 30),
+    );
+    late _TestBoardRepository queried;
+    late BoardViewModel roadmap;
+
+    setUp(() async {
+      queried = _TestBoardRepository(
+        hierarchyItems: [
+          workItem('root-1', number: 1, parentId: null, statusId: 'todo'),
+          workItem('child-1', number: 2, parentId: 'root-1', statusId: 'todo'),
+          workItem('root-2', number: 3, parentId: null, statusId: 'todo'),
+        ],
+      );
+      roadmap = BoardViewModel(
+        queried,
+        WorkItemStore(),
+        MemoryLastSpaceStore(),
+      );
+      await roadmap.load();
+      await roadmap.loadHierarchy();
+      await pumpEventQueue();
+      queried.queries.clear();
+    });
+
+    test('showing a window asks for it with the header filters', () async {
+      roadmap
+        ..setSearchQuery('paint')
+        ..showRoadmapWindow(november);
+      await pumpEventQueue();
+
+      final query = queried.queries.last;
+      expect(query.text, 'paint');
+      expect(query.from, DateTime(2026, 11, 1));
+      expect(query.to, DateTime(2026, 11, 30));
+    });
+
+    test(
+      'its rows are what the server matched, under their ancestors',
+      () async {
+        queried.matchingIds = {'child-1'};
+        roadmap.showRoadmapWindow(november);
+        await pumpEventQueue();
+
+        final root = roadmap.roadmapRoots.single;
+        expect(root.item.id, 'root-1');
+        expect(root.children.single.item.id, 'child-1');
+      },
+    );
+
+    test('the Hierarchy is not narrowed by the Roadmap window', () async {
+      queried.matchingIds = {'child-1'};
+      roadmap.showRoadmapWindow(november);
+      await pumpEventQueue();
+
+      expect(roadmap.hierarchyRoots.map((n) => n.item.id), [
+        'root-1',
+        'root-2',
+      ]);
+    });
+
+    test('it shows no rows until the first answer arrives', () async {
+      final pending = queried.pendingQueries = [];
+      roadmap.showRoadmapWindow(november);
+
+      expect(roadmap.isRoadmapMatching, isTrue);
+      expect(roadmap.roadmapRoots, isEmpty);
+
+      pending.single.complete([queried.server['root-2']!]);
+      await pumpEventQueue();
+
+      expect(roadmap.isRoadmapMatching, isFalse);
+      expect(roadmap.roadmapRoots.map((n) => n.item.id), ['root-2']);
+    });
+
+    test('a failed first answer is an error the Roadmap can retry', () async {
+      queried.queryError = const ApiException('down');
+      roadmap.showRoadmapWindow(november);
+      await pumpEventQueue();
+
+      expect(roadmap.isRoadmapMatching, isFalse);
+      expect(roadmap.roadmapLoadError, isNotNull);
+
+      queried
+        ..queryError = null
+        ..matchingIds = {'root-2'};
+      await roadmap.retryRoadmap();
+
+      expect(roadmap.roadmapLoadError, isNull);
+      expect(roadmap.roadmapRoots.map((n) => n.item.id), ['root-2']);
+    });
+
+    test(
+      'a failure after an answer keeps the rows and reports it once',
+      () async {
+        queried.matchingIds = {'root-2'};
+        roadmap.showRoadmapWindow(november);
+        await pumpEventQueue();
+        queried.queryError = const ApiException('down');
+
+        roadmap.showRoadmapWindow((
+          start: DateTime(2026, 12, 1),
+          end: DateTime(2026, 12, 31),
+        ));
+        await pumpEventQueue();
+
+        expect(roadmap.roadmapLoadError, isNull);
+        expect(roadmap.moveError, isNotNull);
+        expect(roadmap.roadmapRoots.map((n) => n.item.id), ['root-2']);
+      },
+    );
+
+    test(
+      'a header range outside the window shows nothing without asking',
+      () async {
+        roadmap
+          ..setTimeFilter(start: DateTime(2027, 1, 1))
+          ..showRoadmapWindow(november);
+        await pumpEventQueue();
+
+        expect(
+          queried.queries.where((q) => q.from == DateTime(2026, 11, 1)),
+          isEmpty,
+        );
+        expect(roadmap.isRoadmapMatching, isFalse);
+        expect(roadmap.roadmapRoots, isEmpty);
+      },
+    );
+
+    test('a header filter change asks for the window again', () async {
+      roadmap.showRoadmapWindow(november);
+      await pumpEventQueue();
+      queried.queries.clear();
+
+      roadmap.toggleTagFilter('urgent');
+      await pumpEventQueue();
+
+      expect(
+        queried.queries
+            .where((q) => q.from == DateTime(2026, 11, 1))
+            .single
+            .tags,
+        {'urgent'},
+      );
+    });
+
+    test('an edit asks again while the Roadmap is open, and not after it '
+        'closes', () async {
+      roadmap.showRoadmapWindow(november);
+      await pumpEventQueue();
+      queried.queries.clear();
+
+      await roadmap.setTags('root-1', ['x']);
+      await pumpEventQueue();
+      final whileOpen = queried.queries
+          .where((q) => q.from == DateTime(2026, 11, 1))
+          .length;
+
+      roadmap.closeRoadmap();
+      queried.queries.clear();
+      await roadmap.setTags('root-1', ['y']);
+      await pumpEventQueue();
+
+      expect(whileOpen, greaterThan(0));
+      expect(
+        queried.queries.where((q) => q.from == DateTime(2026, 11, 1)),
+        isEmpty,
+      );
+    });
+  });
 }

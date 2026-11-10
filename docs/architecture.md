@@ -540,10 +540,10 @@ A number or currency field can roll up (ticket 15,
   A date left out is kept, so the only rule (start not after end, when
   both are set) is checked in `WorkItem.Reschedule` against the dates the
   item ends up with.
-- **A missing date is open-ended, not "unscheduled"** (see the time
-  filter under [Frontend](#frontend)). Milestone 16 reverses this for items
-  with no dates at all, which move to the Backlog
-  ([ADR-0003](adr/0003-when-and-backlog.md)).
+- **An item with no dates at all is unscheduled**: it's in the Backlog
+  unless it's Done, and matches no date window
+  ([ADR-0003](adr/0003-when-and-backlog.md)). An item with only one of
+  the two dates is open on the other side.
 
 ### Completion date and done-hiding
 
@@ -1441,25 +1441,43 @@ store its inputs.
   from the cached `StatusRepository`. It replaced one request per lane.
   Rank is only unique within a (Space, parent, status) cell, so the read queries
   order by `Rank, Number` to stay deterministic across columns.
-- **Search, status filter, tag filter, sort and the time-frame filter are
-  client-side today.** The board already fetches each lane's full child list,
-  and the Hierarchy/Roadmap views page through the current Space's
-  `GET /work-items/all?spaceId=` (`offset`/`limit`, at most 1000 per page, 500 by default), so these are
-  predicates and comparators over data in hand. None of them is persisted.
-  This breaks the rule that business logic stays out of the client, and is
-  replaced by the server-side query and saved Views
-  ([ADR-0006](adr/0006-server-side-query-and-views.md)).
-- **Time-frame filter semantics are interval overlap, not containment**,
-  with a missing bound (the item's or the filter's) open-ended. An item
-  with only a start date matches any frame ending at or after it; one with
-  only an end date matches any frame starting at or before it.
-  `BoardViewModel.matchesTimeFilter` implements this; its tests cover the
-  open-ended cases, where overlap and containment diverge. Both bounds are
-  inclusive whole days, each can be cleared on its own, and an inverted
-  range can't be picked (and is swapped if set programmatically). It is not a
-  sprint system: there is no fixed-length cycle, and the frame isn't
-  saved. From Milestone 16 an item with no dates is in the Backlog and
-  matches no frame ([ADR-0003](adr/0003-when-and-backlog.md)).
+- **Search, tag filter, done-hiding and the time-frame filter are asked
+  of the server's query** ([ADR-0006](adr/0006-server-side-query-and-views.md)),
+  which applies the date-window rule of
+  [ADR-0003](adr/0003-when-and-backlog.md). Hidden status columns and
+  sort only change the layout, so they stay in the client. None of them
+  is persisted.
+- **The time-frame filter is interval overlap, not containment.** Both
+  bounds are inclusive whole days, each can be cleared on its own, and an
+  inverted range can't be picked (and is swapped if set programmatically).
+  It is not a sprint system: there is no fixed-length cycle, and the frame
+  isn't saved.
+- **The Roadmap asks the server for its own window**
+  (`BoardViewModel.showRoadmapWindow`): the days its timeline shows, cut
+  to the header's range when one is set (`BoardFilters.toRoadmapQuery`;
+  intervals that pairwise overlap share a day, so the cut loses nothing).
+  The Roadmap is time-framed, so Backlog items never show there, even with
+  no header filter. Rows are the matches under their ancestors, so an
+  undated parent comes back as the parent of a match and is drawn as a
+  group row (bold title, no bar); a dated parent outside the window still
+  shows as the context of a match, with no bar in view. Moving the window
+  keeps the previous rows until the answer arrives, and closing the tab
+  (`closeRoadmap`) stops the re-asking that every edit otherwise causes.
+  `ServerMatches` holds each answer for the header and the Roadmap, and
+  drops a slower answer to an older question. If the first answer for the
+  Roadmap fails it has no rows to keep, so it shows an error with retry
+  (`roadmapLoadError`) rather than a spinner.
+- **The Backlog tab** (`BacklogViewModel`) asks for `backlogOnly` in the
+  current Space and groups the answer by parent: top-level items first,
+  then each parent by title. Parents it doesn't hold are loaded one by
+  one, as they can be dated or Done themselves and so aren't in the
+  answer. After any save, made there or anywhere else, it asks again
+  while its tab shows, so an item given dates leaves the list because the
+  server says so, not by a client rule. It listens for saves rather than every store change,
+  because its own load writes to the store. "Set dates" is a date-range
+  picker; the detail dialog's quick picks work too. It depends on
+  `BacklogRepository`, the three calls it needs, which `BoardRepository`
+  also provides.
 - **`CardSortOption.manual` has a `null` comparator** and `StatusColumn`
   skips sorting entirely in that case. Dart's `List.sort` isn't stable, so
   an always-0 comparator could reshuffle the rank order. Sorting never
@@ -1507,11 +1525,11 @@ store its inputs.
     predecessors is now latest in the cell, else before whichever old
     successor is now earliest, else at the end (`withCardRestored`). No
     other card moves, so a move that succeeded meanwhile stays.
-- **Roadmap is a hand-rolled Gantt widget** reusing
-  `BoardViewModel.hierarchyRoots`, so it gets the same search, filters and
-  collapse tree as Hierarchy. Its timeframe (zoom) and visible window are
-  separate view state and deliberately not tied to the header's time-frame
-  filter, which decides which items appear at all.
+- **Roadmap is a hand-rolled Gantt widget** built from
+  `BoardViewModel.roadmapRoots`, the same tree and sort as Hierarchy but
+  limited to what the server matched for the visible window (see
+  [Board, filters and views](#board-filters-and-views)). Its timeframe
+  (zoom) and window are view state, reset when the tab is reopened.
 - **Hierarchy columns:** the expand caret lives inside the Title column and
   indents with the title, as in a file tree, while Number and the columns
   after Title keep a fixed x position, so every resizable column stays

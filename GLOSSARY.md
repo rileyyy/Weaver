@@ -74,9 +74,9 @@ Space.
 **Agenda** *(planned)*
 : A list layout of dated work, suited to phones.
 
-**Backlog** *(planned)*
+**Backlog**
 : Every work item that isn't Done and has no dates. Time-framed layouts
-don't show Backlog items.
+don't show Backlog items. It has its own tab, grouped by parent.
 
 **When**
 : An optional free-text phrase on a work item ("before the Christmas market",

@@ -1,3 +1,5 @@
+import 'package:weaver/core/dates/calendar_days.dart';
+import 'package:weaver/core/dates/calendar_window.dart';
 import 'package:weaver/features/board/models/card_sort_option.dart';
 import 'package:weaver/shared/models/tag_match.dart';
 import 'package:weaver/shared/models/work_item_query.dart';
@@ -65,15 +67,36 @@ class BoardFilters {
   /// The server query for [spaceId] with this header's time range, search,
   /// tags and done-hiding. Hiding a status or changing the sort leaves it equal, as
   /// neither needs a new request.
-  WorkItemQuery toQuery(String spaceId) => WorkItemQuery(
-    spaceId: spaceId,
-    text: searchQuery,
-    tags: selectedTags,
-    tagMatch: tagMatch,
-    from: start,
-    to: end,
-    applyDoneHiding: !showDone,
-  );
+  WorkItemQuery toQuery(String spaceId) =>
+      _query(spaceId, from: start, to: end);
+
+  /// [toQuery] for the Roadmap showing [window]. The Roadmap is
+  /// time-framed, so it always asks for a date window (ADR-0003): the days
+  /// both [window] and the header's range cover. Null when they share no
+  /// day, so nothing can match.
+  WorkItemQuery? toRoadmapQuery(String spaceId, CalendarWindow window) {
+    final from = _later(window.start, start);
+    final to = _earlier(window.end, end);
+    if (daysBetween(from, to) < 0) return null;
+    return _query(spaceId, from: from, to: to);
+  }
+
+  WorkItemQuery _query(String spaceId, {DateTime? from, DateTime? to}) =>
+      WorkItemQuery(
+        spaceId: spaceId,
+        text: searchQuery,
+        tags: selectedTags,
+        tagMatch: tagMatch,
+        from: from,
+        to: to,
+        applyDoneHiding: !showDone,
+      );
+
+  static DateTime _later(DateTime day, DateTime? other) =>
+      other != null && daysBetween(day, other) > 0 ? dateOnly(other) : day;
+
+  static DateTime _earlier(DateTime day, DateTime? other) =>
+      other != null && daysBetween(day, other) < 0 ? dateOnly(other) : day;
 
   static Set<String> _toggled(Set<String> set, String value) =>
       Set.unmodifiable(

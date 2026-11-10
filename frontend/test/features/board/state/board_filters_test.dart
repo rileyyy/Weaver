@@ -130,4 +130,52 @@ void main() {
       expect(_asksDifferently(two.withTagMatch(TagMatch.all), two), isTrue);
     });
   });
+
+  group('the Roadmap query', () {
+    final november = (
+      start: DateTime(2026, 11, 1),
+      end: DateTime(2026, 11, 30),
+    );
+
+    test('asks for the visible window when the header has no range', () {
+      final query = none
+          .withSearchQuery('paint')
+          .toRoadmapQuery('home', november)!;
+
+      expect(query.from, DateTime(2026, 11, 1));
+      expect(query.to, DateTime(2026, 11, 30));
+      expect(query.text, 'paint');
+      expect(query.applyDoneHiding, isTrue);
+    });
+
+    test('asks for only the days both the window and the header range '
+        'cover', () {
+      final query = none
+          .withTimeRange(
+            start: DateTime(2026, 11, 20),
+            end: DateTime(2027, 1, 1),
+          )
+          .toRoadmapQuery('home', november)!;
+
+      expect(query.from, DateTime(2026, 11, 20));
+      expect(query.to, DateTime(2026, 11, 30));
+    });
+
+    test('keeps the window where the header range is open', () {
+      final query = none
+          .withTimeRange(end: DateTime(2026, 11, 10))
+          .toRoadmapQuery('home', november)!;
+
+      expect(query.from, DateTime(2026, 11, 1));
+      expect(query.to, DateTime(2026, 11, 10));
+    });
+
+    test('is null when the header range is outside the window', () {
+      final query = none
+          .withTimeRange(start: DateTime(2026, 12, 1))
+          .toRoadmapQuery('home', november);
+
+      expect(query, isNull);
+    });
+  });
 }

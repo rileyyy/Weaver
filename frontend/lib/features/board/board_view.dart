@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/core/theme/app_theme.dart';
+import 'package:weaver/features/board/backlog_view_model.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/repeating_items_view_model.dart';
 import 'package:weaver/features/board/trash_view_model.dart';
+import 'package:weaver/features/board/views/backlog/backlog_view.dart';
 import 'package:weaver/features/board/views/board_tab.dart';
 import 'package:weaver/features/board/views/header/done_filter_bar.dart';
 import 'package:weaver/features/board/views/header/header_bar.dart';
@@ -21,6 +23,7 @@ import 'package:weaver/features/board/views/trash/trash_view.dart';
 import 'package:weaver/features/board/widgets/add_tags_dialog.dart';
 import 'package:weaver/features/board/widgets/assign_dialog.dart';
 import 'package:weaver/features/board/widgets/create_work_item_dialog.dart';
+import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/navigation/admin_page_opener.dart';
 import 'package:weaver/shared/navigation/work_item_detail_opener.dart';
 import 'package:weaver/shared/widgets/load_error_view.dart';
@@ -57,6 +60,7 @@ class _BoardViewState extends State<BoardView>
   final RepeatingItemsViewModel _repeatingViewModel =
       getIt<RepeatingItemsViewModel>();
   final TrashViewModel _trashViewModel = getIt<TrashViewModel>();
+  final BacklogViewModel _backlogViewModel = getIt<BacklogViewModel>();
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
   late final TabController _tabController = TabController(
@@ -111,6 +115,7 @@ class _BoardViewState extends State<BoardView>
       ..dispose();
     _repeatingViewModel.dispose();
     _trashViewModel.dispose();
+    _backlogViewModel.dispose();
     _searchDebounce?.cancel();
     _searchController.dispose();
     _tabController
@@ -144,6 +149,7 @@ class _BoardViewState extends State<BoardView>
       if (_tabController.index == BoardTab.trash.index) {
         unawaited(_trashViewModel.load());
       }
+      _loadBacklogIfShown();
     }
     final needsHierarchyData =
         _tabController.index == BoardTab.hierarchy.index ||
@@ -151,6 +157,22 @@ class _BoardViewState extends State<BoardView>
     if (needsHierarchyData && !_viewModel.hierarchyLoaded) {
       unawaited(_viewModel.loadHierarchy());
     }
+  }
+
+  /// Reloaded on every visit, like the Trash: items created or given dates
+  /// elsewhere change what's in it.
+  void _loadBacklogIfShown() {
+    final spaceId = _viewModel.currentSpace?.id;
+    if (_tabController.index != BoardTab.backlog.index || spaceId == null) {
+      _backlogViewModel.stopRefreshing();
+      return;
+    }
+    unawaited(_backlogViewModel.load(spaceId));
+  }
+
+  Future<void> _switchSpace(Space space) async {
+    await _viewModel.switchSpace(space);
+    if (mounted) _loadBacklogIfShown();
   }
 
   /// Detail-dialog edits reach the board through the shared item store. The
@@ -346,7 +368,7 @@ class _BoardViewState extends State<BoardView>
                     isNarrow: isNarrow,
                     spaces: _viewModel.spaces,
                     currentSpace: _viewModel.currentSpace,
-                    onSwitchSpace: _viewModel.switchSpace,
+                    onSwitchSpace: _switchSpace,
                     breadcrumbs: _viewModel.breadcrumbs,
                     onSelectBreadcrumb: _viewModel.navigateToBreadcrumb,
                     drillDownTargets: _viewModel.drillDownTargets,
@@ -381,6 +403,11 @@ class _BoardViewState extends State<BoardView>
                             onItemOpened: _openDetailsById,
                             onAddTagsRequested: _openAddTagsDialog,
                           ),
+                        ),
+                        BacklogView(
+                          viewModel: _backlogViewModel,
+                          spaceId: _viewModel.currentSpace?.id,
+                          onItemOpened: _openDetailsById,
                         ),
                         ListenableBuilder(
                           listenable: _viewModel.itemChanges,

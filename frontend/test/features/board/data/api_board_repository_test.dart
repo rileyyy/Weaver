@@ -574,6 +574,14 @@ void main() {
       expect(parameters['applyDoneHiding'], ['true']);
     });
 
+    test('asks for only the Backlog when told to', () async {
+      final parameters = await sentParameters(
+        WorkItemQuery(spaceId: 'space-home', backlogOnly: true),
+      );
+
+      expect(parameters['backlogOnly'], ['true']);
+    });
+
     test('leaves done hiding out otherwise', () async {
       final parameters = await sentParameters(
         WorkItemQuery(spaceId: 'space-home', text: 'fence'),

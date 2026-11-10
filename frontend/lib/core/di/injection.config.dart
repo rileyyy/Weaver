@@ -62,9 +62,13 @@ import 'package:weaver/features/auth/data/auth_session_store.dart' as _i605;
 import 'package:weaver/features/auth/data/flutter_secure_token_store.dart'
     as _i347;
 import 'package:weaver/features/auth/data/secure_token_store.dart' as _i54;
+import 'package:weaver/features/board/backlog_view_model.dart' as _i38;
 import 'package:weaver/features/board/board_view_model.dart' as _i314;
 import 'package:weaver/features/board/data/api_board_repository.dart' as _i436;
 import 'package:weaver/features/board/data/api_trash_repository.dart' as _i797;
+import 'package:weaver/features/board/data/backlog_repository.dart' as _i885;
+import 'package:weaver/features/board/data/backlog_repository_module.dart'
+    as _i61;
 import 'package:weaver/features/board/data/board_repository.dart' as _i522;
 import 'package:weaver/features/board/data/flutter_secure_last_space_store.dart'
     as _i114;
@@ -130,6 +134,7 @@ extension GetItInjectableX on _i174.GetIt {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
     final workItemStoreModule = _$WorkItemStoreModule();
     final networkModule = _$NetworkModule();
+    final backlogRepositoryModule = _$BacklogRepositoryModule();
     gh.lazySingleton<_i723.WorkItemStore>(
       () => workItemStoreModule.workItemStore(),
     );
@@ -344,6 +349,11 @@ extension GetItInjectableX on _i174.GetIt {
         typeId,
       ),
     );
+    gh.lazySingleton<_i885.BacklogRepository>(
+      () => backlogRepositoryModule.backlogRepository(
+        gh<_i522.BoardRepository>(),
+      ),
+    );
     gh.factory<_i486.UserAdminViewModel>(
       () => _i486.UserAdminViewModel(
         gh<_i290.UserAdminRepository>(),
@@ -378,6 +388,12 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i723.WorkItemStore>(),
       ),
     );
+    gh.factory<_i38.BacklogViewModel>(
+      () => _i38.BacklogViewModel(
+        gh<_i885.BacklogRepository>(),
+        gh<_i723.WorkItemStore>(),
+      ),
+    );
     return this;
   }
 }
@@ -385,3 +401,5 @@ extension GetItInjectableX on _i174.GetIt {
 class _$WorkItemStoreModule extends _i996.WorkItemStoreModule {}
 
 class _$NetworkModule extends _i561.NetworkModule {}
+
+class _$BacklogRepositoryModule extends _i61.BacklogRepositoryModule {}

@@ -10,7 +10,11 @@ import 'package:weaver/shared/models/work_item_blocker.dart';
 
 final _windowStart = DateTime(2026, 11, 2);
 
-Widget _tile({DateTime? startDate, required bool conflicts}) => MaterialApp(
+Widget _tile({
+  DateTime? startDate,
+  required bool conflicts,
+  bool hasChildren = false,
+}) => MaterialApp(
   home: Scaffold(
     body: RoadmapRowTile(
       row: FlattenedTreeRow(
@@ -32,7 +36,19 @@ Widget _tile({DateTime? startDate, required bool conflicts}) => MaterialApp(
               ),
             ],
           ),
-          children: const [],
+          children: [
+            if (hasChildren)
+              const HierarchyNode(
+                item: HierarchyItem(
+                  id: 'trim',
+                  number: 6,
+                  parentId: 'paint',
+                  title: 'Trim',
+                  statusId: 'todo',
+                ),
+                children: [],
+              ),
+          ],
         ),
         depth: 0,
       ),
@@ -89,7 +105,41 @@ void main() {
 
     expect(find.byIcon(Icons.warning_amber_rounded), findsNothing);
   });
+
+  testWidgets('an undated parent is a group row with no bar', (tester) async {
+    await tester.pumpWidget(
+      _tile(startDate: null, conflicts: false, hasChildren: true),
+    );
+
+    expect(find.byKey(RoadmapRowTile.barKey), findsNothing);
+    expect(_titleWeight(tester), FontWeight.bold);
+    expect(find.byTooltip(RoadmapRowTile.groupRowTooltip), findsOneWidget);
+  });
+
+  testWidgets('an undated parent whose children are all hidden is still a '
+      'group row', (tester) async {
+    await tester.pumpWidget(_tile(startDate: null, conflicts: false));
+
+    expect(_titleWeight(tester), FontWeight.bold);
+  });
+
+  testWidgets('a dated parent shows its own bar', (tester) async {
+    await tester.pumpWidget(
+      _tile(
+        startDate: DateTime(2026, 11, 5),
+        conflicts: false,
+        hasChildren: true,
+      ),
+    );
+
+    expect(find.byKey(RoadmapRowTile.barKey), findsOneWidget);
+    expect(_titleWeight(tester), isNot(FontWeight.bold));
+    expect(find.byTooltip(RoadmapRowTile.groupRowTooltip), findsNothing);
+  });
 }
+
+FontWeight? _titleWeight(WidgetTester tester) =>
+    tester.widget<Text>(find.text('Paint')).style?.fontWeight;
 
 double _badgeX(WidgetTester tester) =>
     tester.getTopLeft(find.byIcon(Icons.warning_amber_rounded)).dx;

@@ -212,6 +212,7 @@ class ApiBoardRepository implements BoardRepository {
     'from': ?formatCalendarDate(query.from),
     'to': ?formatCalendarDate(query.to),
     if (query.applyDoneHiding) 'applyDoneHiding': 'true',
+    if (query.backlogOnly) 'backlogOnly': 'true',
     'limit': '$searchPageSize',
   };
 

@@ -103,12 +103,14 @@ The board filters by an arbitrary, user-chosen time frame (a from/to
 range), not a predefined cycle.
 
 A work item with at least one date matches a time-frame filter if its
-start/end window overlaps the filter's; a single missing date is
-open-ended on that side.
+start/end window overlaps the filter's. An item with only a start or
+only an end date is open on its missing side.
 
-*From Milestone 16:* a work item with no dates at all is in the Backlog
-and does not match any time frame. A parent with no dates of its own is
-still shown when any of its children match.
+A work item with no dates at all is in the Backlog (when it isn't Done)
+and matches no time frame. A parent with no dates of its own is still
+shown when any of its children match, and on the Roadmap it is a group
+row without a bar. A parent with its own dates is judged by them and
+shows its own bar.
 
 Weaver flags a dependency conflict (a blocked item starting before its
 blocker ends) but never reschedules anything itself.

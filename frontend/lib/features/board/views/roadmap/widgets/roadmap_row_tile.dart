@@ -8,7 +8,14 @@ import 'package:weaver/features/board/views/roadmap/widgets/roadmap_grid.dart';
 import 'package:weaver/features/board/widgets/dependency_conflict_badge.dart';
 import 'package:weaver/features/board/widgets/tag_badge_row.dart';
 
+/// One Roadmap row: the item's title in the tree on the left, its bar on
+/// the timeline. A parent with no dates of its own is on the Roadmap only
+/// for the items under it (ADR-0003), so it's drawn as a group row: a bold
+/// title and no bar.
 class RoadmapRowTile extends StatelessWidget {
+  static const Key barKey = ValueKey('roadmap-bar');
+  static const String groupRowTooltip =
+      'No dates of its own. Shown for the items under it.';
   static const double _indentPerLevel = 24;
   static const double _caretColumnWidth = 24;
   static const double _barHeight = 20;
@@ -61,6 +68,9 @@ class RoadmapRowTile extends StatelessWidget {
     );
     // The badge normally rides on the bar; without one in view it moves to
     // the title so a conflict is never hidden by the window.
+    // The server only lists an undated item as the parent of a match, so
+    // it's a group row even when a hidden status column empties it here.
+    final isGroupRow = item.startDate == null && item.endDate == null;
     final showTitleBadge =
         bar == null && item.blockedBy.any((blocker) => blocker.conflicts);
 
@@ -109,10 +119,7 @@ class RoadmapRowTile extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                     ],
-                    Expanded(
-                      flex: 3,
-                      child: Text(item.title, overflow: TextOverflow.ellipsis),
-                    ),
+                    Expanded(flex: 3, child: _title(item, isGroupRow)),
                     const SizedBox(width: 6),
                     Expanded(
                       flex: 2,
@@ -155,6 +162,20 @@ class RoadmapRowTile extends StatelessWidget {
     );
   }
 
+  Widget _title(HierarchyItem item, bool isGroupRow) {
+    if (!isGroupRow) {
+      return Text(item.title, overflow: TextOverflow.ellipsis);
+    }
+    return Tooltip(
+      message: groupRowTooltip,
+      child: Text(
+        item.title,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
   /// The item's schedule as a positioned [bar], clipped to the visible
   /// window — an open start/end is drawn as running off the window's edge
   /// rather than being treated as unscheduled — with its conflict badge.
@@ -173,6 +194,7 @@ class RoadmapRowTile extends StatelessWidget {
         top: (roadmapRowHeight - _barHeight) / 2,
         height: _barHeight,
         child: Container(
+          key: barKey,
           decoration: BoxDecoration(
             color:
                 statusColorFor(item.statusId) ??
