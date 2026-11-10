@@ -13,14 +13,14 @@ import 'package:weaver/features/board/views/roadmap/widgets/roadmap_row_tile.dar
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_toolbar.dart';
 import 'package:weaver/shared/widgets/load_error_view.dart';
 
-/// A Gantt-style view of the same work-item tree the Hierarchy view shows
-/// (see [BoardViewModel.hierarchyRoots] for the shared filter/sort/tree
-/// logic) — the left column mirrors Hierarchy's indentation and
-/// collapse/expand behavior, and a horizontal timeline to the right shows
-/// each item's scheduled start/end as a bar. [RoadmapTimeframe] and the
-/// visible window are pure view state, like Hierarchy's collapse set — not
-/// persisted or shared with the time-frame *filter* in the header, which is
-/// a data filter, not a display zoom level.
+/// A Gantt-style view of the items whose dates overlap the visible window
+/// (see [BoardViewModel.roadmapRoots]) — the left column mirrors
+/// Hierarchy's indentation and collapse/expand behavior, and a horizontal
+/// timeline to the right shows each item's scheduled start/end as a bar.
+/// [RoadmapTimeframe] and the visible window are view state, like
+/// Hierarchy's collapse set, and aren't persisted. The window is also what
+/// the Roadmap asks the server for, within the header's time-frame filter,
+/// so undated (Backlog) items stay off it (ADR-0003).
 class RoadmapView extends StatefulWidget {
   const RoadmapView({
     super.key,
@@ -45,24 +45,42 @@ class _RoadmapViewState extends State<RoadmapView> {
   final ScrollController _rowScroll = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    _askForWindow();
+  }
+
+  @override
   void dispose() {
+    widget.viewModel.closeRoadmap();
     _rowScroll.dispose();
     super.dispose();
   }
 
-  void _shiftWindow(int direction) {
+  void _askForWindow() => widget.viewModel.showRoadmapWindow((
+    start: _windowStart,
+    end: addDays(_windowStart, _timeframe.totalDays - 1),
+  ));
+
+  void _showWindow({DateTime? start, RoadmapTimeframe? timeframe}) {
     setState(() {
-      _windowStart = addDays(_windowStart, direction * _timeframe.totalDays);
+      _windowStart = start ?? _windowStart;
+      _timeframe = timeframe ?? _timeframe;
     });
+    _askForWindow();
   }
 
-  void _goToToday() => setState(() => _windowStart = dateOnly(DateTime.now()));
+  void _shiftWindow(int direction) => _showWindow(
+    start: addDays(_windowStart, direction * _timeframe.totalDays),
+  );
+
+  void _goToToday() => _showWindow(start: dateOnly(DateTime.now()));
 
   @override
   Widget build(BuildContext context) {
     final viewModel = widget.viewModel;
 
-    if (viewModel.isHierarchyLoading) {
+    if (viewModel.isHierarchyLoading || viewModel.isRoadmapMatching) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -72,7 +90,7 @@ class _RoadmapViewState extends State<RoadmapView> {
     }
 
     final rows = flattenTree(
-      viewModel.hierarchyRoots,
+      viewModel.roadmapRoots,
       collapsedIds: _collapsedIds,
     );
 
@@ -91,7 +109,7 @@ class _RoadmapViewState extends State<RoadmapView> {
               timeframe: _timeframe,
               rangeLabel: rangeLabel,
               onTimeframeChanged: (timeframe) =>
-                  setState(() => _timeframe = timeframe),
+                  _showWindow(timeframe: timeframe),
               onPrevious: () => _shiftWindow(-1),
               onNext: () => _shiftWindow(1),
               onToday: _goToToday,
@@ -105,7 +123,11 @@ class _RoadmapViewState extends State<RoadmapView> {
             Expanded(
               child: rows.isEmpty
                   ? const Center(
-                      child: Text('No work items match the current filters.'),
+                      child: Text(
+                        'Nothing is scheduled in this window. Undated items '
+                        'are in the Backlog.',
+                        textAlign: TextAlign.center,
+                      ),
                     )
                   : Stack(
                       children: [

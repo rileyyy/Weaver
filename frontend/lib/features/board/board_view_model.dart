@@ -20,6 +20,7 @@ import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/state/board_filters.dart';
 import 'package:weaver/features/board/state/hierarchy_roll_ups.dart';
 import 'package:weaver/features/board/state/hierarchy_tree_builder.dart';
+import 'package:weaver/features/board/state/server_matches.dart';
 import 'package:weaver/features/board/state/swimlane_edits.dart';
 import 'package:weaver/features/board/state/tag_additions.dart';
 import 'package:weaver/features/board/state/user_directory.dart';
@@ -92,16 +93,24 @@ class BoardViewModel extends ViewModel {
   int _scopeGeneration = 0;
   int _hierarchyGeneration = 0;
 
-  // The ids the server matched for the header's filters; null while no
-  // filter is set, when every item matches. Bumping the generation drops a
-  // slower answer to an older question, e.g. a search typed further since.
-  Set<String>? _matchingIds;
-  int _matchGeneration = 0;
+  // What the server matched for the header's filters; null ids while no
+  // filter is set, when every item matches.
+  late final ServerMatches _headerMatches = ServerMatches(
+    _repository.queryItems,
+  );
+
+  // What the server matched for the Roadmap's window, while the Roadmap is
+  // open; null ids until the first answer arrives.
+  late final ServerMatches _roadmapMatches = ServerMatches(
+    _repository.queryItems,
+  );
+  CalendarWindow? _roadmapWindow;
   bool _matchRefreshScheduled = false;
 
   // Derived values the views read many times per frame. Every state change
   // notifies, so they're cached until the next notification.
   List<HierarchyNode>? _hierarchyRootsCache;
+  List<HierarchyNode>? _roadmapRootsCache;
   List<HierarchyItem>? _hierarchyItemsCache;
   HierarchyRollUps? _hierarchyRollUpsCache;
   List<WorkItemStatus>? _visibleStatusesCache;
@@ -116,6 +125,7 @@ class BoardViewModel extends ViewModel {
 
   void _clearItemCaches() {
     _hierarchyRootsCache = null;
+    _roadmapRootsCache = null;
     _hierarchyItemsCache = null;
     _hierarchyRollUpsCache = null;
     _availableTagsCache = null;
@@ -304,6 +314,44 @@ class BoardViewModel extends ViewModel {
         comparator: hierarchyComparator,
       );
 
+  /// The Roadmap's root nodes: the items the server matched for the
+  /// Roadmap's window ([showRoadmapWindow]) and the header's filters, under
+  /// their ancestors, sorted like [hierarchyRoots]. An undated item is only
+  /// matched as the parent of one that is (ADR-0003), so Backlog items never
+  /// show here. Empty while the Roadmap is closed or [isRoadmapMatching].
+  List<HierarchyNode> get roadmapRoots =>
+      _roadmapRootsCache ??= buildHierarchyTree(
+        _hierarchyItems,
+        isVisible: (item) =>
+            !_filters.hiddenStatusIds.contains(item.statusId) &&
+            (_roadmapMatches.ids?.contains(item.id) ?? false),
+        comparator: hierarchyComparator,
+      );
+
+  /// True while the Roadmap is open and waiting for the first answer for it,
+  /// when there are no rows to show yet.
+  bool get isRoadmapMatching =>
+      _roadmapWindow != null && _roadmapMatches.ids == null;
+
+  /// Asks the server which items to show on the Roadmap for [window], the
+  /// calendar days its timeline shows. Asked again as the header's filters
+  /// change and items are edited, until [closeRoadmap]. Until the answer
+  /// arrives the previous window's rows stay. Doesn't notify by itself, so
+  /// the Roadmap can call it while it's built.
+  void showRoadmapWindow(CalendarWindow window) {
+    if (window == _roadmapWindow) return;
+    _roadmapWindow = window;
+    unawaited(_refreshRoadmapMatches(notify: _roadmapMatches.ids != null));
+  }
+
+  /// Stops asking for the Roadmap's window, once its tab is gone. Doesn't
+  /// notify by itself, so the Roadmap can call it while it's disposed.
+  void closeRoadmap() {
+    _roadmapWindow = null;
+    _roadmapMatches.settle(null);
+    _roadmapRootsCache = null;
+  }
+
   /// The roll-ups of every Hierarchy item: its own value and its sub-items'
   /// total of each field that rolls up. Summed from the store, so they
   /// follow every edit without a reload.
@@ -470,7 +518,8 @@ class BoardViewModel extends ViewModel {
       final data = await _repository.loadBoard(space.id, null);
       return () {
         _currentSpace = space;
-        _forgetMatches();
+        _headerMatches.settle(null);
+        _roadmapMatches.settle(null);
         _applyScope(data, asOf);
         _breadcrumbs = [_rootCrumb(space)];
         hierarchyWanted = _clearHierarchy();
@@ -772,7 +821,7 @@ class BoardViewModel extends ViewModel {
 
   void setTagMatch(TagMatch match) => _setFilters(_filters.withTagMatch(match));
 
-  bool _matches(String itemId) => _matchingIds?.contains(itemId) ?? true;
+  bool _matches(String itemId) => _headerMatches.ids?.contains(itemId) ?? true;
 
   /// Whether [card] is one the server matched for the header's time range,
   /// search, tags and done-hiding. Hidden statuses aren't checked here: the board only
@@ -820,7 +869,10 @@ class BoardViewModel extends ViewModel {
     final before = _activeQuery;
     _filters = filters;
     notifyIfActive();
-    if (_activeQuery != before) unawaited(_refreshMatches());
+    if (_activeQuery != before) {
+      unawaited(_refreshMatches());
+      unawaited(_refreshRoadmapMatches());
+    }
   }
 
   /// The question the header's filters put to the server for the current
@@ -834,46 +886,67 @@ class BoardViewModel extends ViewModel {
   /// edit (here, in the detail dialog or a reload) can change what matches.
   void _scheduleMatchRefresh() {
     final filtering = _activeQuery?.isUnfiltered == false;
-    if (_matchRefreshScheduled || !filtering) return;
+    final roadmapOpen = _roadmapWindow != null;
+    if (_matchRefreshScheduled || !(filtering || roadmapOpen)) return;
     _matchRefreshScheduled = true;
     scheduleMicrotask(() {
       _matchRefreshScheduled = false;
-      if (!isDisposed) unawaited(_refreshMatches());
+      if (isDisposed) return;
+      if (filtering) unawaited(_refreshMatches());
+      if (roadmapOpen) unawaited(_refreshRoadmapMatches());
     });
-  }
-
-  /// Drops the matches for the Space being left, and any answer still on
-  /// its way for it, so they can't hide the new Space's items.
-  void _forgetMatches() {
-    _matchGeneration++;
-    _matchingIds = null;
   }
 
   /// Asks the server which items of the current Space match the header's
   /// filters (ADR-0006). With no filter set every item matches, so nothing
-  /// is asked. A failure keeps the last answer and reports it once.
-  Future<void> _refreshMatches() async {
-    final generation = ++_matchGeneration;
+  /// is asked.
+  Future<void> _refreshMatches() {
     final query = _activeQuery;
     if (query == null || query.isUnfiltered) {
-      if (_matchingIds == null) return;
-      _matchingIds = null;
-      notifyIfActive();
-      return;
+      if (_headerMatches.settle(null)) notifyIfActive();
+      return Future.value();
     }
+    return _ask(
+      _headerMatches,
+      query,
+      failure:
+          'Could not apply the filters. Check your connection and try again.',
+    );
+  }
 
+  /// Asks the server which items the Roadmap shows for its window. A
+  /// window sharing no day with the header's range matches nothing, so
+  /// nothing is asked.
+  Future<void> _refreshRoadmapMatches({bool notify = true}) {
+    final window = _roadmapWindow;
+    final space = _currentSpace;
+    if (window == null || space == null) return Future.value();
+    final query = _filters.toRoadmapQuery(space.id, window);
+    if (query == null) {
+      if (_roadmapMatches.settle(const {}) && notify) notifyIfActive();
+      return Future.value();
+    }
+    return _ask(
+      _roadmapMatches,
+      query,
+      failure:
+          'Could not load the Roadmap. Check your connection and try again.',
+    );
+  }
+
+  /// Asks [query] of [matches], redrawing when the answer changes what
+  /// shows. A failure keeps the last answer and reports it once.
+  Future<void> _ask(
+    ServerMatches matches,
+    WorkItemQuery query, {
+    required String failure,
+  }) async {
     try {
-      final matched = await _repository.queryItems(query);
-      if (generation != _matchGeneration || isDisposed) return;
-      final ids = {for (final item in matched) item.id};
-      // Every edit asks again, and the answer is usually the same. Notifying
-      // then would redraw the whole board, undoing the per-lane rebuilds.
-      if (setEquals(ids, _matchingIds)) return;
-      _matchingIds = ids;
+      final changed = await matches.refresh(query);
+      if (!changed || isDisposed) return;
     } on ApiException {
-      if (generation != _matchGeneration || isDisposed) return;
-      _moveError =
-          'Could not apply the filters. Check your connection and try again.';
+      if (isDisposed) return;
+      _moveError = failure;
     }
     notifyIfActive();
   }

@@ -5,10 +5,10 @@ import 'package:weaver/core/dates/calendar_days.dart';
 typedef RoadmapBarSpan = ({double startDay, double endDay});
 
 /// The bar for an item scheduled [start]..[end] (both inclusive calendar
-/// days) in a window of [totalDays] starting at [windowStart]. A missing
-/// date runs off that edge of the window, the same open-ended convention
-/// as the board's time filter. Null when the item has no dates or falls
-/// entirely outside the window.
+/// days) in a window of [totalDays] starting at [windowStart]. When only
+/// one date is set, the bar runs off the window on the other side, as the
+/// date window treats it as open there. Null when the item has no dates (a
+/// group row, or a Backlog item) or falls entirely outside the window.
 RoadmapBarSpan? roadmapBarSpan({
   required DateTime windowStart,
   required int totalDays,
