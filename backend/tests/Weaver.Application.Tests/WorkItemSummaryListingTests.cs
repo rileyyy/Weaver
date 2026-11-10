@@ -129,6 +129,21 @@ public class WorkItemSummaryListingTests
     }
 
     [Test]
+    public async Task GetAncestorSummariesAsync_OnACorruptTreeWithACycle_StopsInsteadOfLooping()
+    {
+        var a = await CreateAsync("A");
+        var b = await CreateAsync("B", a.Id);
+        var item = await CreateAsync("Item", b.Id);
+        var trackedA = (await _db.WorkItems.FindAsync(a.Id))!;
+        _db.Entry(trackedA).Property(w => w.ParentId).CurrentValue = b.Id;
+        await _db.SaveChangesAsync();
+
+        var ancestors = await _service.GetAncestorSummariesAsync(item.Id);
+
+        Assert.That(ancestors.Select(s => s.Id), Is.EquivalentTo(new[] { a.Id, b.Id }));
+    }
+
+    [Test]
     public async Task GetAllSummariesAsync_PagesInRankThenNumberOrder_WithEachItemsParent()
     {
         var first = await CreateAsync("First");

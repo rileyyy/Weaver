@@ -37,4 +37,7 @@ public record WorkItemSummaryDto(
         summary.AssigneeName,
         summary.ChildCount,
         summary.TrashedAtUtc);
+
+    public static IReadOnlyList<WorkItemSummaryDto> FromSummaries(IEnumerable<WorkItemSummary> summaries) =>
+        summaries.Select(FromSummary).ToList();
 }

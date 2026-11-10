@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using Weaver.Api.Contracts;
 using Weaver.Application.Services;
@@ -16,9 +15,6 @@ public class WorkItemContextTools(
     IWorkItemHistoryService history,
     IWorkItemAttachmentService attachments)
 {
-    public const int DefaultHistoryLimit = 20;
-    public const int MaxHistoryLimit = 200;
-
     private readonly IWorkItemService _workItems = workItems;
     private readonly WorkItemDtoMapper _dtos = dtos;
     private readonly ICommentService _comments = comments;
@@ -42,27 +38,26 @@ public class WorkItemContextTools(
             "attachments. Omit for the item alone.")] IReadOnlyList<string>? include = null,
         [Description("With history included: how many of the newest entries to skip. Defaults to 0; when more " +
             "history exists, the result's nextHistoryOffset is the value to send for the next page.")] int historyOffset = 0,
-        [Description("With history included: the most entries to return, 1 to 200. Defaults to 20.")] int historyLimit = DefaultHistoryLimit,
+        [Description("With history included: the most entries to return, 1 to 200. Defaults to 20.")]
+        int historyLimit = WorkItemHistoryService.DefaultPageSize,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
             var includes = WorkItemContextIncludes.Parse(include);
-            EnsureValidHistoryPage(historyOffset, historyLimit);
             var item = await _workItems.FindByIdOrNumberAsync(id, number, ct);
 
             bool Includes(WorkItemContextInclude what) => includes.HasFlag(what);
-            (IReadOnlyList<WorkItemHistoryEntryDto> Entries, int? NextOffset)? historyPage =
-                Includes(WorkItemContextInclude.History)
-                    ? await HistoryPageAsync(item.Id, historyOffset, historyLimit, ct)
-                    : null;
+            var historyPage = Includes(WorkItemContextInclude.History)
+                ? await _history.ListPageForWorkItemAsync(item.Id, historyOffset, historyLimit, ct)
+                : null;
 
             return new WorkItemContextDto(
                 await _dtos.ToDtoAsync(item, ct),
                 Ancestors: Includes(WorkItemContextInclude.Ancestors)
-                    ? Summaries(await _workItems.GetAncestorSummariesAsync(item.Id, ct))
+                    ? WorkItemSummaryDto.FromSummaries(await _workItems.GetAncestorSummariesAsync(item.Id, ct))
                     : null,
                 Children: Includes(WorkItemContextInclude.Children)
-                    ? Summaries(await _workItems.GetChildSummariesAsync(item.Id, ct: ct))
+                    ? WorkItemSummaryDto.FromSummaries(await _workItems.GetChildSummariesAsync(item.Id, ct: ct))
                     : null,
                 Comments: Includes(WorkItemContextInclude.Comments)
                     ? (await _comments.ListForWorkItemAsync(item.Id, ct)).Select(CommentDto.FromView).ToList()
@@ -73,42 +68,10 @@ public class WorkItemContextTools(
                 UrlLinks: Includes(WorkItemContextInclude.Links)
                     ? (await _urlLinks.ListForWorkItemAsync(item.Id, ct)).Select(WorkItemUrlLinkDto.FromView).ToList()
                     : null,
-                History: historyPage?.Entries,
+                History: historyPage?.Entries.Select(WorkItemHistoryEntryDto.FromView).ToList(),
                 NextHistoryOffset: historyPage?.NextOffset,
                 Attachments: Includes(WorkItemContextInclude.Attachments)
                     ? (await _attachments.ListForWorkItemAsync(item.Id, ct)).Select(AttachmentDto.FromView).ToList()
                     : null);
         });
-
-    private static void EnsureValidHistoryPage(int offset, int limit)
-    {
-        if (offset < 0)
-        {
-            throw new McpException("historyOffset must not be negative.");
-        }
-
-        if (limit is < 1 or > MaxHistoryLimit)
-        {
-            throw new McpException($"historyLimit must be between 1 and {MaxHistoryLimit}.");
-        }
-    }
-
-    /// <summary>
-    /// Pages the whole history in memory: the service has no paged read, and one item's history
-    /// is small next to what a single page of it costs an agent to read.
-    /// </summary>
-    private async Task<(IReadOnlyList<WorkItemHistoryEntryDto> Entries, int? NextOffset)> HistoryPageAsync(
-        Guid workItemId,
-        int offset,
-        int limit,
-        CancellationToken ct)
-    {
-        var all = await _history.ListForWorkItemAsync(workItemId, ct);
-        var entries = all.Skip(offset).Take(limit).Select(WorkItemHistoryEntryDto.FromView).ToList();
-        int? nextOffset = offset + limit < all.Count ? offset + limit : null;
-        return (entries, nextOffset);
-    }
-
-    private static IReadOnlyList<WorkItemSummaryDto> Summaries(IReadOnlyList<WorkItemSummary> summaries) =>
-        summaries.Select(WorkItemSummaryDto.FromSummary).ToList();
 }

@@ -45,7 +45,7 @@ public class WorkItemTools(IWorkItemService workItems, WorkItemDtoMapper dtos, H
         [Description("The Space whose top-level work items to list when parentId is omitted. Use list_spaces to find valid ids.")] Guid? spaceId = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
-            ToSummaryDtos(await _workItems.GetChildSummariesAsync(parentId, spaceId, ct)));
+            WorkItemSummaryDto.FromSummaries(await _workItems.GetChildSummariesAsync(parentId, spaceId, ct)));
 
     [McpServerTool(Name = "list_all_work_items", ReadOnly = true)]
     [Description("Lists one page of every work item in a Space (or every Space), flat, ordered by rank " +
@@ -58,7 +58,7 @@ public class WorkItemTools(IWorkItemService workItems, WorkItemDtoMapper dtos, H
         [Description("Only list items in this Space. Omit for every Space.")] Guid? spaceId = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
-            ToSummaryDtos(await _workItems.GetAllSummariesAsync(offset, limit, spaceId, ct)));
+            WorkItemSummaryDto.FromSummaries(await _workItems.GetAllSummariesAsync(offset, limit, spaceId, ct)));
 
     [McpServerTool(Name = "create_work_item", Destructive = false)]
     [Description("Creates a new work item.")]
@@ -194,9 +194,6 @@ public class WorkItemTools(IWorkItemService workItems, WorkItemDtoMapper dtos, H
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
         TranslateWriteAsync(actorLabel, () => _workItems.SetCustomFieldsAsync(id, values, expectedVersion, ct));
-
-    private static IReadOnlyList<WorkItemSummaryDto> ToSummaryDtos(IReadOnlyList<WorkItemSummary> summaries) =>
-        summaries.Select(WorkItemSummaryDto.FromSummary).ToList();
 
     private Task<WorkItemWriteResponse> TranslateWriteAsync(string? actorLabel, Func<Task<WorkItemWriteResult>> write) =>
         McpExceptionTranslation.TranslateAsync(async () =>

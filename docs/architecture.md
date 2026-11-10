@@ -950,9 +950,10 @@ store its inputs.
   failure. Ancestors (`IWorkItemService.GetAncestorSummariesAsync`) run
   root first and children in board order, both as `WorkItemSummary`;
   trashed items are left out of both, and out of links, by the usual Trash
-  filter. History is the full `IWorkItemHistoryService` read paged in
-  memory: newest first, `historyLimit` 20 by default (at most 200), and
-  `nextHistoryOffset` says where the next page starts. Attachments are
+  filter. History is `IWorkItemHistoryService.ListPageForWorkItemAsync`:
+  newest first, paged in the query (it reads one entry past the page to
+  know whether another follows), `historyLimit` 20 by default (at most
+  200), and `nextHistoryOffset` says where the next page starts. Attachments are
   metadata only; content is `get_work_item_attachment`'s job.
 - **MCP results leave nulls out**
   (`DefaultIgnoreCondition = WhenWritingNull` in

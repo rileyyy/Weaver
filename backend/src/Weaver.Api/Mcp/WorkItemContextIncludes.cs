@@ -26,7 +26,8 @@ public static class WorkItemContextIncludes
 
     public static WorkItemContextInclude Parse(IEnumerable<string>? values)
     {
-        var requested = (values ?? []).Select(v => v.Trim()).ToList();
+        // A JSON null in the list binds as a null string; it's reported as unknown like any other bad value.
+        var requested = (values ?? []).Select(v => v?.Trim() ?? "").ToList();
         var unknown = requested.Where(v => !ByName.ContainsKey(v)).Select(v => $"\"{v}\"").ToList();
         if (unknown.Count > 0)
         {

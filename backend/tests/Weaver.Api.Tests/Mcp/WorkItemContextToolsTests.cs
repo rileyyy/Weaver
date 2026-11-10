@@ -4,6 +4,7 @@ using Weaver.Api.Contracts;
 using Weaver.Api.Mcp;
 using Weaver.Application.Services;
 using Weaver.Domain;
+using Weaver.Domain.Exceptions;
 
 namespace Weaver.Api.Tests.Mcp;
 
@@ -166,54 +167,54 @@ public class WorkItemContextToolsTests
     }
 
     [Test]
-    public async Task History_ReturnsTheNewestEntriesUpToTheLimit_AndWhereTheNextPageStarts()
+    public async Task History_IsTheRequestedPage_WithWhereTheNextPageStarts()
     {
-        HasHistory(5);
-
-        var context = await _tools.GetWorkItemContext(_item.Id, include: ["history"], historyLimit: 2);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(context.History!.Select(e => e.Id), Is.EqualTo(new long[] { 5, 4 }));
-            Assert.That(context.NextHistoryOffset, Is.EqualTo(2));
-        });
-    }
-
-    [Test]
-    public async Task History_FromAnOffset_ReturnsTheNextPage_AndNoNextOffsetOnTheLast()
-    {
-        HasHistory(5);
+        var entry = HistoryEntry(5);
+        _history.Setup(h => h.ListPageForWorkItemAsync(_item.Id, 4, 2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemHistoryPage([entry], NextOffset: 6));
 
         var context = await _tools.GetWorkItemContext(_item.Id, include: ["history"], historyOffset: 4, historyLimit: 2);
 
         Assert.Multiple(() =>
         {
-            Assert.That(context.History!.Select(e => e.Id), Is.EqualTo(new long[] { 1 }));
-            Assert.That(context.NextHistoryOffset, Is.Null);
+            Assert.That(context.History, Is.EqualTo(new[] { WorkItemHistoryEntryDto.FromView(entry) }));
+            Assert.That(context.NextHistoryOffset, Is.EqualTo(6));
         });
     }
 
     [Test]
-    public async Task History_ByDefault_IsLimitedTo20()
+    public async Task History_ByDefault_IsTheNewest20()
     {
-        HasHistory(25);
+        _history.Setup(h => h.ListPageForWorkItemAsync(_item.Id, 0, 20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemHistoryPage([HistoryEntry(1)], NextOffset: null));
 
         var context = await _tools.GetWorkItemContext(_item.Id, include: ["history"]);
 
         Assert.Multiple(() =>
         {
-            Assert.That(context.History, Has.Count.EqualTo(20));
-            Assert.That(context.NextHistoryOffset, Is.EqualTo(20));
+            Assert.That(context.History, Has.Count.EqualTo(1));
+            Assert.That(context.NextHistoryOffset, Is.Null);
         });
     }
 
-    [TestCase(0, 0)]
-    [TestCase(0, 201)]
-    [TestCase(-1, 10)]
-    public void History_WithAnInvalidPage_IsRejected(int offset, int limit)
+    [Test]
+    public void History_WithAnInvalidPage_ThrowsMcpExceptionWithTheServiceMessage()
     {
-        Assert.ThrowsAsync<McpException>(() =>
-            _tools.GetWorkItemContext(_item.Id, include: ["history"], historyOffset: offset, historyLimit: limit));
+        _history.Setup(h => h.ListPageForWorkItemAsync(_item.Id, 0, 0, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DomainValidationException("Limit must be between 1 and 200."));
+
+        var ex = Assert.ThrowsAsync<McpException>(() =>
+            _tools.GetWorkItemContext(_item.Id, include: ["history"], historyLimit: 0));
+
+        Assert.That(ex!.Message, Is.EqualTo("Limit must be between 1 and 200."));
+    }
+
+    [Test]
+    public void WithANullInclude_ListsTheValidOnes()
+    {
+        var ex = Assert.ThrowsAsync<McpException>(() => _tools.GetWorkItemContext(_item.Id, include: [null!]));
+
+        Assert.That(ex!.Message, Does.Contain("Valid values: ancestors"));
     }
 
     [Test]
@@ -232,14 +233,8 @@ public class WorkItemContextToolsTests
         });
     }
 
-    private void HasHistory(int count)
-    {
-        var newestFirst = Enumerable.Range(1, count).Reverse()
-            .Select(id => new WorkItemHistoryView(
-                id, _item.Id, DateTimeOffset.UnixEpoch, null, null, null, null, null, null, "title", null, null, null, null, null))
-            .ToList();
-        _history.Setup(h => h.ListForWorkItemAsync(_item.Id, It.IsAny<CancellationToken>())).ReturnsAsync(newestFirst);
-    }
+    private WorkItemHistoryView HistoryEntry(long id) =>
+        new(id, _item.Id, DateTimeOffset.UnixEpoch, null, null, null, null, null, null, "title", null, null, null, null, null);
 
     private static WorkItemSummary Summary(string title) =>
         new(Guid.NewGuid(), 7, title, Guid.NewGuid(), "Home", null, "To Do", "Task", null, null, null, 1);
