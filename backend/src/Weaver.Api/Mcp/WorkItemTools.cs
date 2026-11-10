@@ -27,11 +27,11 @@ public class WorkItemTools(IWorkItemService workItems, WorkItemDtoMapper dtos, H
         "one of id and number. List and search tools return summaries; use this for the rest of an item. " +
         "Fields with no value are left out.")]
     public async Task<WorkItemDto> GetWorkItem(
-        [Description("The work item's id.")] Guid? id = null,
-        [Description("The work item's Number, without the # (123 for #123).")] int? number = null,
+        [Description(WorkItemReference.IdDescription)] Guid? id = null,
+        [Description(WorkItemReference.NumberDescription)] int? number = null,
         CancellationToken ct = default)
     {
-        var item = await FindByIdOrNumberAsync(id, number, ct);
+        var item = await _workItems.FindByIdOrNumberAsync(id, number, ct);
         return await _dtos.ToDtoAsync(item, ct);
     }
 
@@ -194,16 +194,6 @@ public class WorkItemTools(IWorkItemService workItems, WorkItemDtoMapper dtos, H
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
         CancellationToken ct = default) =>
         TranslateWriteAsync(actorLabel, () => _workItems.SetCustomFieldsAsync(id, values, expectedVersion, ct));
-
-    private async Task<WorkItem> FindByIdOrNumberAsync(Guid? id, int? number, CancellationToken ct) =>
-        (id, number) switch
-        {
-            ({ } byId, null) => await _workItems.GetByIdAsync(byId, ct)
-                ?? throw new McpException($"Work item {byId} was not found."),
-            (null, { } byNumber) => await _workItems.GetByNumberAsync(byNumber, ct)
-                ?? throw new McpException($"Work item #{byNumber} was not found."),
-            _ => throw new McpException("Give exactly one of id and number."),
-        };
 
     private static IReadOnlyList<WorkItemSummaryDto> ToSummaryDtos(IReadOnlyList<WorkItemSummary> summaries) =>
         summaries.Select(WorkItemSummaryDto.FromSummary).ToList();

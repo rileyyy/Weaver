@@ -88,6 +88,57 @@ public class McpTests
         });
     }
 
+    [Test]
+    public async Task Mcp_GetWorkItemContext_ByNumber_ReturnsOnlyTheIncludes_AndLeavesTheTrashOut()
+    {
+        var (client, _) = await ApiClient.SignedInAsync();
+        var root = await client.CreateWorkItemAsync($"Kitchen {Guid.NewGuid():N}");
+        var item = await client.CreateWorkItemAsync("Cabinets", root.Id);
+        var child = await client.CreateWorkItemAsync("Hinges", item.Id);
+        var trashedChild = await client.CreateWorkItemAsync("Old handles", item.Id);
+        var linked = await client.CreateWorkItemAsync($"Drywall {Guid.NewGuid():N}");
+        var trashedLinked = await client.CreateWorkItemAsync($"Old quote {Guid.NewGuid():N}");
+        await client.PostJsonAsync($"/api/work-items/{item.Id}/links", new CreateWorkItemLinkRequest(linked.Id, WorkItemLinkRelation.BlockedBy));
+        await client.PostJsonAsync($"/api/work-items/{item.Id}/links", new CreateWorkItemLinkRequest(trashedLinked.Id, WorkItemLinkRelation.Related));
+        await client.PostJsonAsync($"/api/work-items/{item.Id}/comments", new CreateCommentRequest("Ordered"));
+        (await client.DeleteAsync($"/api/work-items/{trashedChild.Id}")).EnsureSuccessStatusCode();
+        (await client.DeleteAsync($"/api/work-items/{trashedLinked.Id}")).EnsureSuccessStatusCode();
+        await using var mcp = await ConnectAsync(client);
+
+        var result = await mcp.CallToolAsync("get_work_item_context", new Dictionary<string, object?>
+        {
+            ["number"] = item.Number,
+            ["include"] = new[] { "ancestors", "children", "comments", "links", "history" },
+            ["historyLimit"] = 1,
+        });
+        var unknown = await mcp.CallToolAsync("get_work_item_context", new Dictionary<string, object?>
+        {
+            ["id"] = item.Id,
+            ["include"] = new[] { "parents" },
+        });
+
+        Assert.That(result.IsError, Is.Not.True, () => TextOf(result));
+        var context = JsonDocument.Parse(TextOf(result)).RootElement;
+        Assert.Multiple(() =>
+        {
+            Assert.That(PropertyOf(PropertyOf(context, "item")!.Value, "id")?.GetGuid(), Is.EqualTo(item.Id));
+            Assert.That(IdsIn(context, "ancestors"), Is.EqualTo(new[] { root.Id }));
+            Assert.That(IdsIn(context, "children"), Is.EqualTo(new[] { child.Id }));
+            Assert.That(PropertyOf(context, "comments")?.GetArrayLength(), Is.EqualTo(1));
+            Assert.That(
+                PropertyOf(context, "links")!.Value.EnumerateArray().Select(l => PropertyOf(l, "linkedWorkItemId")?.GetGuid()),
+                Is.EqualTo(new Guid?[] { linked.Id }));
+            Assert.That(PropertyOf(context, "history")?.GetArrayLength(), Is.EqualTo(1));
+            Assert.That(PropertyOf(context, "nextHistoryOffset")?.GetInt32(), Is.EqualTo(1));
+            Assert.That(PropertyOf(context, "attachments"), Is.Null, "attachments weren't asked for");
+            Assert.That(unknown.IsError, Is.True);
+            Assert.That(TextOf(unknown), Does.Contain("ancestors, children, comments, links, history, attachments"));
+        });
+    }
+
+    private static IEnumerable<Guid?> IdsIn(JsonElement obj, string listName) =>
+        PropertyOf(obj, listName)!.Value.EnumerateArray().Select(e => PropertyOf(e, "id")?.GetGuid());
+
     // Agents may read the server settings but never change them (ADR-0004).
     [Test]
     public async Task Mcp_ServerSettings_AreReadableButNotWritable()
