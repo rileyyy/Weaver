@@ -939,6 +939,21 @@ store its inputs.
   without the `#`, matching `search_work_items`), exactly one of the two.
   `list_repeating_work_items` and `list_work_item_links` keep their own
   brief references to items (number, title), which never were full items.
+- **`get_work_item_context` is the one-call read.** It takes the item like
+  `get_work_item` (both resolve through `WorkItemReference`) and an
+  `include` list of `ancestors`, `children`, `comments`, `links` (work-item
+  links as `links`, URL links as `urlLinks`), `history` and `attachments`,
+  and reads only what's included. A list asked for but empty comes back as
+  `[]`; one not asked for is left out. Include values are strings checked
+  by `WorkItemContextIncludes` rather than an enum argument, so a wrong one
+  gets an error listing the valid ones instead of the SDK's generic binding
+  failure. Ancestors (`IWorkItemService.GetAncestorSummariesAsync`) run
+  root first and children in board order, both as `WorkItemSummary`;
+  trashed items are left out of both, and out of links, by the usual Trash
+  filter. History is the full `IWorkItemHistoryService` read paged in
+  memory: newest first, `historyLimit` 20 by default (at most 200), and
+  `nextHistoryOffset` says where the next page starts. Attachments are
+  metadata only; content is `get_work_item_attachment`'s job.
 - **MCP results leave nulls out**
   (`DefaultIgnoreCondition = WhenWritingNull` in
   `McpJsonSerializerOptions`); a missing property means null. REST keeps
