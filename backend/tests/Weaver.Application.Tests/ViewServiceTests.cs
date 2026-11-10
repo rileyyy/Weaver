@@ -128,6 +128,20 @@ public class ViewServiceTests
     }
 
     [Test]
+    public void UpdateAsync_OfAViewThatDoesNotExist_IsNotFound()
+    {
+        Assert.That(
+            () => _views.UpdateAsync(Guid.NewGuid(), Definition("Anything", _home.Id)),
+            Throws.TypeOf<EntityNotFoundException>());
+    }
+
+    [Test]
+    public void DeleteAsync_OfAViewThatDoesNotExist_IsNotFound()
+    {
+        Assert.That(() => _views.DeleteAsync(Guid.NewGuid()), Throws.TypeOf<EntityNotFoundException>());
+    }
+
+    [Test]
     public void DeleteAsync_OnOverview_IsRejected()
     {
         Assert.That(() => _views.DeleteAsync(View.OverviewId), Throws.TypeOf<BuiltInViewException>());

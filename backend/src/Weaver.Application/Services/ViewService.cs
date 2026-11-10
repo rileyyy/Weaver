@@ -71,20 +71,17 @@ public class ViewService(IWeaverDbContext db, ICallerContext caller, IWorkItemQu
         var userId = _caller.Current.AccountId;
         var current = await _db.DefaultViews.FirstOrDefaultAsync(d => d.UserId == userId, ct);
 
-        if (view.IsBuiltIn)
+        switch (current)
         {
-            if (current is not null)
-            {
+            case not null when view.IsBuiltIn:
                 _db.DefaultViews.Remove(current);
-            }
-        }
-        else if (current is null)
-        {
-            _db.DefaultViews.Add(DefaultView.For(userId, view.Id));
-        }
-        else
-        {
-            current.PointTo(view.Id);
+                break;
+            case not null:
+                current.PointTo(view.Id);
+                break;
+            case null when !view.IsBuiltIn:
+                _db.DefaultViews.Add(DefaultView.For(userId, view.Id));
+                break;
         }
 
         await _db.SaveChangesAsync(ct);
