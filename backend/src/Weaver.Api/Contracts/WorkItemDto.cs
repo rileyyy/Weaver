@@ -81,7 +81,9 @@ public record WorkItemDto(
         item.EndDate,
         item.When,
         item.IsWhenResolved(hasLiveBlocker: blockers.Count > 0),
-        blockers.Count == 0 ? Array.Empty<WorkItemBlockerDto>() : blockers.Select(WorkItemBlockerDto.FromBlocker).ToList(),
+        // Not a collection expression: ToArray hands back the shared empty array when nothing
+        // blocks the item, so two DTOs of the same unblocked item stay equal as records.
+        blockers.Select(WorkItemBlockerDto.FromBlocker).ToArray(),
         item.CompletionDate,
         item.RecurrenceSourceId,
         item.RecurrenceDate,
