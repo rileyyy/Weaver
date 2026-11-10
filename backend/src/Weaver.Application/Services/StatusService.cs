@@ -35,10 +35,10 @@ public class StatusService(IWeaverDbContext db, IAdminAuthorizer admins, IServer
         CancellationToken ct = default) =>
         EditAsync(actorUserId, id, async status =>
         {
-            var wasDone = status.Category == StatusCategory.Done;
+            var wasDone = status.IsDone;
             status.Rename(name);
             status.Recategorize(category, color);
-            if (wasDone != (status.Category == StatusCategory.Done))
+            if (wasDone != status.IsDone)
             {
                 await FollowRecategorizationAsync(status, ct);
             }

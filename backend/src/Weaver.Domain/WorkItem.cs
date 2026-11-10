@@ -238,7 +238,7 @@ public class WorkItem : IHasUpdatedAt
             TypeId = typeId,
             PriorityId = priorityId,
         };
-        item.FollowStatusCategory(status.Category, today);
+        item.FollowStatusCategory(status, today);
         return item;
     }
 
@@ -376,7 +376,7 @@ public class WorkItem : IHasUpdatedAt
         var changed = new ChangedFields();
         StatusId = changed.Set(WorkItemField.StatusId, StatusId, status.Id);
         Rank = changed.Set(WorkItemField.Rank, Rank, rank);
-        return [.. changed.Changes, .. FollowStatusCategory(status.Category, today)];
+        return [.. changed.Changes, .. FollowStatusCategory(status, today)];
     }
 
     /// <summary>
@@ -390,16 +390,16 @@ public class WorkItem : IHasUpdatedAt
             throw new DomainValidationException($"Status {status.Id} isn't work item {Id}'s status.");
         }
 
-        return FollowStatusCategory(status.Category, today);
+        return FollowStatusCategory(status, today);
     }
 
     /// <summary>
     /// The completion rule: an item in a Done status keeps the date it was first done on, or
     /// takes <paramref name="today"/>; an item in any other status has none.
     /// </summary>
-    private IReadOnlyList<FieldChange> FollowStatusCategory(StatusCategory category, DateOnly today)
+    private IReadOnlyList<FieldChange> FollowStatusCategory(Status status, DateOnly today)
     {
-        var completionDate = category == StatusCategory.Done ? CompletionDate ?? today : (DateOnly?)null;
+        var completionDate = status.IsDone ? CompletionDate ?? today : (DateOnly?)null;
         var changed = new ChangedFields();
         CompletionDate = changed.Set(WorkItemField.CompletionDate, CompletionDate, completionDate);
         return changed.Changes;
@@ -510,7 +510,7 @@ public class WorkItem : IHasUpdatedAt
         var changed = new ChangedFields();
         StatusId = changed.Set(WorkItemField.StatusId, StatusId, values.Status.Id);
         PriorityId = changed.Set(WorkItemField.PriorityId, PriorityId, values.PriorityId);
-        return [.. changed.Changes, .. FollowStatusCategory(values.Status.Category, today), .. ChangeType(values.TypeId)];
+        return [.. changed.Changes, .. FollowStatusCategory(values.Status, today), .. ChangeType(values.TypeId)];
     }
 
     /// <summary>Changes the item's place within its current board cell.</summary>
