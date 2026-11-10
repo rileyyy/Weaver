@@ -5,14 +5,15 @@ import 'package:weaver/features/board/views/roadmap/roadmap_bar.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_layout.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_timeframe.dart';
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_grid.dart';
+import 'package:weaver/features/board/widgets/dependency_conflict_badge.dart';
 import 'package:weaver/features/board/widgets/tag_badge_row.dart';
 
 class RoadmapRowTile extends StatelessWidget {
   static const double _indentPerLevel = 24;
   static const double _caretColumnWidth = 24;
-  static const double _rowHeight = 40;
   static const double _barHeight = 20;
   static const double _minBarWidth = 4;
+  static const double _badgeSize = 14;
 
   const RoadmapRowTile({
     super.key,
@@ -55,7 +56,7 @@ class RoadmapRowTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: SizedBox(
-        height: _rowHeight,
+        height: roadmapRowHeight,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -158,7 +159,7 @@ class RoadmapRowTile extends StatelessWidget {
       Positioned(
         left: left,
         width: width < _minBarWidth ? _minBarWidth : width,
-        top: (_rowHeight - _barHeight) / 2,
+        top: (roadmapRowHeight - _barHeight) / 2,
         height: _barHeight,
         child: Container(
           decoration: BoxDecoration(
@@ -167,6 +168,15 @@ class RoadmapRowTile extends StatelessWidget {
                 Theme.of(context).colorScheme.primary,
             borderRadius: BorderRadius.circular(4),
           ),
+        ),
+      ),
+      Positioned(
+        left: left + 2,
+        top: (roadmapRowHeight - _badgeSize) / 2 - 1,
+        child: DependencyConflictBadge(
+          blockers: item.blockedBy,
+          size: _badgeSize,
+          backdrop: Theme.of(context).colorScheme.surface,
         ),
       ),
     ];

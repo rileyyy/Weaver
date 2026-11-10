@@ -3,22 +3,26 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/widgets/add_tag_button.dart';
 import 'package:weaver/features/board/widgets/board_card.dart';
+import 'package:weaver/features/board/widgets/dependency_conflict_badge.dart';
+import 'package:weaver/shared/models/work_item_blocker.dart';
 
 Widget _card({
   Color? typeColor,
   VoidCallback? onOpenDetails,
   VoidCallback? onAddTagTapped,
+  List<WorkItemBlocker> blockedBy = const [],
 }) => MaterialApp(
   home: Scaffold(
     body: SizedBox(
       width: 208,
       child: BoardCard(
-        card: const WorkItemCard(
+        card: WorkItemCard(
           id: 'card-1',
           number: 12,
           title: 'Setup CI',
           parentId: 'lane-1',
           statusId: 'done',
+          blockedBy: blockedBy,
         ),
         height: 120,
         assigneeInitial: null,
@@ -73,5 +77,72 @@ void main() {
 
     final context = tester.element(find.byType(BoardCard));
     expect(_barColor(tester), Theme.of(context).colorScheme.outline);
+  });
+
+  testWidgets('a conflicting blocker shows the conflict badge', (tester) async {
+    await tester.pumpWidget(
+      _card(
+        blockedBy: const [
+          WorkItemBlocker(
+            id: 'drywall',
+            number: 4,
+            title: 'Drywall',
+            spaceId: 'home',
+            endDate: null,
+            conflicts: true,
+          ),
+        ],
+      ),
+    );
+
+    expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
+  });
+
+  testWidgets('a blocker without a conflict shows no badge', (tester) async {
+    await tester.pumpWidget(
+      _card(
+        blockedBy: const [
+          WorkItemBlocker(
+            id: 'drywall',
+            number: 4,
+            title: 'Drywall',
+            spaceId: 'home',
+            endDate: null,
+            conflicts: false,
+          ),
+        ],
+      ),
+    );
+
+    expect(find.byType(DependencyConflictBadge), findsOneWidget);
+    expect(find.byIcon(Icons.warning_amber_rounded), findsNothing);
+  });
+
+  testWidgets('tapping the conflict badge does not open the details', (
+    tester,
+  ) async {
+    var detailOpens = 0;
+    await tester.pumpWidget(
+      _card(
+        onOpenDetails: () => detailOpens++,
+        blockedBy: const [
+          WorkItemBlocker(
+            id: 'drywall',
+            number: 4,
+            title: 'Drywall',
+            spaceId: 'home',
+            endDate: null,
+            conflicts: true,
+          ),
+        ],
+      ),
+    );
+
+    await tester.tap(find.byIcon(Icons.warning_amber_rounded));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('Starts before #4 Drywall ends'), findsOneWidget);
+    expect(detailOpens, 0);
+    await tester.pump(const Duration(seconds: 2));
   });
 }
