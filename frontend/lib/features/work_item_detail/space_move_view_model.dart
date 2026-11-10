@@ -162,7 +162,7 @@ class SpaceMoveViewModel extends ViewModel {
           choices,
           expectedVersion: version,
         ),
-        reload: () => _repository.getItem(_item.id),
+        reload: _repository.getItem,
       );
       return true;
     } on WorkItemConflict {

@@ -110,9 +110,13 @@ not upload or delete them.
 _Avoid:_ "upload" or "document" as a name for the attachment itself. "File"
 is fine for the bytes it holds ("Attach file").
 
-**Dependency conflict** *(planned)*
+**Dependency conflict**
 : A blocked item scheduled to start before its blocker ends. Weaver flags it
-and never reschedules anything automatically.
+and never reschedules anything automatically. Starting on the blocker's end
+date isn't a conflict, because the blocker can finish and the next item
+begin on the same day, even though the Roadmap draws the end date as a full
+day. An item missing either date, or either item being Done, is never a
+conflict.
 
 **History**
 : The append-only record of every change to a work item: who made it, when,

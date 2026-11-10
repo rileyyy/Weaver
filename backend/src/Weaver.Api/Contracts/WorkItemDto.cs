@@ -8,8 +8,9 @@ namespace Weaver.Api.Contracts;
 /// <see cref="Fields"/> holds the values of the item's Type's custom fields by field id (see
 /// <see cref="CustomFieldDto"/>); a field with no value is left out. <see cref="TrashedAtUtc"/> is
 /// set only for an item in the Trash, which a read returns only when it asked for deleted items.
-/// <see cref="WhenResolved"/> depends on the item's blockers, so build it through
-/// <see cref="WorkItemDtoMapper"/>, which looks them up. <see cref="CompletionDate"/> is the day
+/// <see cref="WhenResolved"/> and <see cref="BlockedBy"/> depend on the item's live blockers, so
+/// build it through <see cref="WorkItemDtoMapper"/>, which looks them up; <see cref="BlockedBy"/>
+/// is empty, never null, when nothing blocks the item. <see cref="CompletionDate"/> is the day
 /// (in the server's time zone) the item entered a Done status, and null while it isn't Done.
 /// Each id comes with its name (the parent with its Number and title) so a reader needn't look
 /// them up; a name is null when its id is, or when the row it names is gone.
@@ -39,6 +40,7 @@ public record WorkItemDto(
     DateOnly? EndDate,
     string? When,
     bool WhenResolved,
+    IReadOnlyList<WorkItemBlockerDto> BlockedBy,
     DateOnly? CompletionDate,
     Guid? RecurrenceSourceId,
     DateOnly? RecurrenceDate,
@@ -47,12 +49,12 @@ public record WorkItemDto(
     DateTimeOffset UpdatedAtUtc,
     uint Version)
 {
-    public static WorkItemDto FromEntity(WorkItem item, bool hasLiveBlocker, WorkItemNames names) =>
-        FromEntity(item, hasLiveBlocker, names, names.WorkItem(item.ParentId));
+    public static WorkItemDto FromEntity(WorkItem item, IReadOnlyList<WorkItemBlocker> blockers, WorkItemNames names) =>
+        FromEntity(item, blockers, names, names.WorkItem(item.ParentId));
 
     private static WorkItemDto FromEntity(
         WorkItem item,
-        bool hasLiveBlocker,
+        IReadOnlyList<WorkItemBlocker> blockers,
         WorkItemNames names,
         WorkItemReference? parent) => new(
         item.Id,
@@ -78,7 +80,10 @@ public record WorkItemDto(
         item.StartDate,
         item.EndDate,
         item.When,
-        item.IsWhenResolved(hasLiveBlocker),
+        item.IsWhenResolved(hasLiveBlocker: blockers.Count > 0),
+        // Not a collection expression: ToArray hands back the shared empty array when nothing
+        // blocks the item, so two DTOs of the same unblocked item stay equal as records.
+        blockers.Select(WorkItemBlockerDto.FromBlocker).ToArray(),
         item.CompletionDate,
         item.RecurrenceSourceId,
         item.RecurrenceDate,

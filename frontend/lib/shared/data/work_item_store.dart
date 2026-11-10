@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:injectable/injectable.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/shared/data/work_item_conflict.dart';
 import 'package:weaver/shared/models/work_item.dart';
@@ -7,12 +6,19 @@ import 'package:weaver/shared/models/work_item.dart';
 /// An optimistic change to a work item, applied over its stored copy.
 typedef WorkItemEdit = WorkItem Function(WorkItem item);
 
+/// Fetches the server's current copy of the work item [id].
+typedef WorkItemReload = Future<WorkItem> Function(String id);
+
+/// Told of each save [WorkItemStore.write] completes: the stored copy the
+/// change was based on, the copy the server saved, and the write's reload.
+typedef WorkItemSaveListener =
+    void Function(WorkItem before, WorkItem saved, WorkItemReload reload);
+
 /// The app's one copy of each work item it has loaded, keyed by id and
 /// carrying the item's version. Board, Hierarchy, Roadmap and the detail
 /// dialog all read items from here and save through [write], so an edit
 /// made in one shows in all and every save sends the version it was based
 /// on.
-@lazySingleton
 class WorkItemStore extends ChangeNotifier {
   final Map<String, WorkItem> _confirmed = {};
 
@@ -31,6 +37,8 @@ class WorkItemStore extends ChangeNotifier {
   int _revision = 0;
   final Map<String, int> _savedAt = {};
 
+  final List<WorkItemSaveListener> _saveListeners = [];
+
   /// The item as it should be shown: the last server copy with any edits
   /// still being saved applied on top.
   WorkItem? operator [](String id) {
@@ -42,6 +50,9 @@ class WorkItemStore extends ChangeNotifier {
     }
     return shown;
   }
+
+  /// The server copies of every item held, without pending edits.
+  Iterable<WorkItem> get loaded => _confirmed.values;
 
   /// Moves on with every saved write. Read it before starting a load and
   /// pass it to [putAll] as `asOf`.
@@ -70,6 +81,11 @@ class WorkItemStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Calls [listener] after every save that succeeds, for whatever else a
+  /// save makes stale that the store itself doesn't know about.
+  void addSaveListener(WorkItemSaveListener listener) =>
+      _saveListeners.add(listener);
+
   void _confirm(WorkItem item) {
     _confirmed[item.id] = item;
     _savedAt[item.id] = ++_revision;
@@ -88,7 +104,7 @@ class WorkItemStore extends ChangeNotifier {
     String id, {
     WorkItemEdit? optimistic,
     required Future<WorkItem> Function(int expectedVersion) send,
-    required Future<WorkItem> Function() reload,
+    required WorkItemReload reload,
   }) {
     if (!_confirmed.containsKey(id)) {
       throw StateError('Work item $id is written before it was loaded.');
@@ -112,7 +128,7 @@ class WorkItemStore extends ChangeNotifier {
     String id,
     WorkItemEdit? optimistic,
     Future<WorkItem> Function(int expectedVersion) send,
-    Future<WorkItem> Function() reload,
+    WorkItemReload reload,
     int conflictCount,
   ) async {
     final stored = _confirmed[id];
@@ -127,6 +143,9 @@ class WorkItemStore extends ChangeNotifier {
     try {
       final saved = await send(stored.version);
       _confirm(saved);
+      for (final listener in _saveListeners) {
+        listener(stored, saved, reload);
+      }
       return saved;
     } on ApiException catch (e) {
       if (!e.isConflict) rethrow;
@@ -145,12 +164,12 @@ class WorkItemStore extends ChangeNotifier {
   Future<ApiException> _reloadAfterConflict(
     String id,
     ApiException rejection,
-    Future<WorkItem> Function() reload,
+    WorkItemReload reload,
     int sentVersion,
   ) async {
     final WorkItem latest;
     try {
-      latest = await reload();
+      latest = await reload(id);
     } on Exception {
       return _markStale(id, WorkItemConflict(rejection.message, latest: null));
     }

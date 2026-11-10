@@ -32,7 +32,7 @@ void main() {
       await store.write(
         'a',
         send: (_) async => workItem('a', statusId: 'done', version: 2),
-        reload: () => throw StateError('No conflict expected'),
+        reload: (_) => throw StateError('No conflict expected'),
       );
       store.putAll([
         workItem('a', statusId: 'todo', version: 1),
@@ -63,7 +63,7 @@ void main() {
     await store.write(
       'a',
       send: (_) async => workItem('a', version: 2),
-      reload: () => throw StateError('No conflict expected'),
+      reload: (_) => throw StateError('No conflict expected'),
     );
     store
       ..remove('a')
@@ -85,7 +85,7 @@ void main() {
             sentVersion = expectedVersion;
             return workItem('a', statusId: 'done', version: 5);
           },
-          reload: () => throw StateError('No conflict expected'),
+          reload: (_) => throw StateError('No conflict expected'),
         );
 
         expect(sentVersion, 4);
@@ -105,7 +105,7 @@ void main() {
           'a',
           optimistic: (item) => item.withStatus('done'),
           send: (_) => response.future,
-          reload: () => throw StateError('No conflict expected'),
+          reload: (_) => throw StateError('No conflict expected'),
         );
         expect(store['a']?.statusId, 'done');
 
@@ -130,7 +130,7 @@ void main() {
           sentVersions['status'] = version;
           return firstResponse.future;
         },
-        reload: () => throw StateError('No conflict expected'),
+        reload: (_) => throw StateError('No conflict expected'),
       );
       final second = store.write(
         'a',
@@ -144,7 +144,7 @@ void main() {
             version: 3,
           );
         },
-        reload: () => throw StateError('No conflict expected'),
+        reload: (_) => throw StateError('No conflict expected'),
       );
       await pumpEventQueue();
       expect(sentVersions, {'status': 1}, reason: 'tags wait for status');
@@ -171,7 +171,7 @@ void main() {
         store.write(
           'a',
           send: (_) => slow.future,
-          reload: () => throw StateError('No conflict expected'),
+          reload: (_) => throw StateError('No conflict expected'),
         ),
       );
       await store.write(
@@ -180,7 +180,7 @@ void main() {
           bSent = true;
           return workItem('b', version: 2);
         },
-        reload: () => throw StateError('No conflict expected'),
+        reload: (_) => throw StateError('No conflict expected'),
       );
 
       expect(bSent, isTrue);
@@ -200,14 +200,14 @@ void main() {
           'b',
           optimistic: (item) => item.withStatus('done'),
           send: (_) => otherResponse.future,
-          reload: () => throw StateError('No conflict expected'),
+          reload: (_) => throw StateError('No conflict expected'),
         );
 
         final write = store.write(
           'a',
           optimistic: (item) => item.withStatus('done'),
           send: (_) async => throw conflict,
-          reload: () async =>
+          reload: (_) async =>
               workItem('a', title: 'Their title', statusId: 'todo', version: 9),
         );
 
@@ -238,7 +238,7 @@ void main() {
         'a',
         optimistic: (item) => item.withStatus('done'),
         send: (_) async => throw conflict,
-        reload: () async => throw const ApiException('Offline'),
+        reload: (_) async => throw const ApiException('Offline'),
       );
 
       await expectLater(
@@ -258,12 +258,12 @@ void main() {
       final first = store.write(
         'a',
         send: (_) => firstResponse.future,
-        reload: () async => throw const ApiException('Offline'),
+        reload: (_) async => throw const ApiException('Offline'),
       );
       final queued = store.write(
         'a',
         send: (_) async => workItem('a', version: 2),
-        reload: () async => throw const ApiException('Offline'),
+        reload: (_) async => throw const ApiException('Offline'),
       );
       firstResponse.completeError(conflict);
 
@@ -281,7 +281,7 @@ void main() {
         'a',
         optimistic: (item) => item.withStatus('done'),
         send: (_) => firstResponse.future,
-        reload: () async => workItem('a', version: 9),
+        reload: (_) async => workItem('a', version: 9),
       );
       final queued = store.write(
         'a',
@@ -290,7 +290,7 @@ void main() {
           queuedSent = true;
           return workItem('a', version: 10);
         },
-        reload: () async => workItem('a', version: 9),
+        reload: (_) async => workItem('a', version: 9),
       );
       firstResponse.completeError(conflict);
 
@@ -307,7 +307,7 @@ void main() {
         store.write(
           'a',
           send: (_) async => throw conflict,
-          reload: () async => workItem('a', version: 9),
+          reload: (_) async => workItem('a', version: 9),
         ),
         throwsA(isA<WorkItemConflict>()),
       );
@@ -319,7 +319,7 @@ void main() {
           sentVersion = version;
           return workItem('a', version: 10);
         },
-        reload: () => throw StateError('No conflict expected'),
+        reload: (_) => throw StateError('No conflict expected'),
       );
 
       expect(sentVersion, 9);
@@ -338,7 +338,7 @@ void main() {
         'a',
         optimistic: (item) => item.movedToParent('b'),
         send: (_) async => throw rejection,
-        reload: () async => workItem('a', version: 3),
+        reload: (_) async => workItem('a', version: 3),
       );
 
       await expectLater(
@@ -359,7 +359,7 @@ void main() {
       final first = store.write(
         'a',
         send: (_) => firstResponse.future,
-        reload: () async => workItem('a', version: 3),
+        reload: (_) async => workItem('a', version: 3),
       );
       int? queuedVersion;
       final queued = store.write(
@@ -368,7 +368,7 @@ void main() {
           queuedVersion = version;
           return workItem('a', version: 4);
         },
-        reload: () => throw StateError('No conflict expected'),
+        reload: (_) => throw StateError('No conflict expected'),
       );
       firstResponse.completeError(rejection);
 
@@ -376,5 +376,61 @@ void main() {
       await queued;
       expect(queuedVersion, 3);
     });
+  });
+
+  group('save listeners', () {
+    test('hear each saved write with the copy it replaced', () async {
+      final store = _storeWith([workItem('a')]);
+      final heard = <(int, int)>[];
+      store.addSaveListener(
+        (before, saved, _) => heard.add((before.version, saved.version)),
+      );
+
+      await store.write(
+        'a',
+        send: (_) async => workItem('a', version: 2),
+        reload: (_) => throw StateError('No conflict expected'),
+      );
+
+      expect(heard, [(1, 2)]);
+    });
+
+    test('are passed the reload the write was given', () async {
+      final store = _storeWith([workItem('a')]);
+      WorkItemReload? heardReload;
+      store.addSaveListener((_, _, reload) => heardReload = reload);
+      Future<WorkItem> reload(String id) async => workItem(id);
+
+      await store.write(
+        'a',
+        send: (_) async => workItem('a', version: 2),
+        reload: reload,
+      );
+
+      expect(heardReload, same(reload));
+    });
+
+    test('hear nothing from a failed write', () async {
+      final store = _storeWith([workItem('a')]);
+      var heard = false;
+      store.addSaveListener((_, _, _) => heard = true);
+
+      await expectLater(
+        store.write(
+          'a',
+          send: (_) async => throw const ApiException('Offline'),
+          reload: (_) => throw StateError('No conflict expected'),
+        ),
+        throwsA(isA<ApiException>()),
+      );
+
+      expect(heard, isFalse);
+    });
+  });
+
+  test('lists the server copies it holds', () {
+    final store = _storeWith([workItem('a'), workItem('b')]);
+
+    expect([for (final item in store.loaded) item.id], ['a', 'b']);
   });
 }

@@ -11,7 +11,7 @@ public class WorkItemDtoMapperTests
     public async Task ToDtoAsync_AWhenWithALiveBlocker_IsResolved()
     {
         var item = ItemWithWhen();
-        var mapper = Mapper(new FakeWorkItemBlockers(item.Id));
+        var mapper = Mapper(FakeWorkItemBlockers.Blocking(item.Id));
 
         var dto = await mapper.ToDtoAsync(item);
 
@@ -30,33 +30,58 @@ public class WorkItemDtoMapperTests
     }
 
     [Test]
-    public async Task ToDtosAsync_AsksAboutBlockersOnce_AndOnlyForItemsWhoseWhenDependsOnThem()
+    public async Task ToDtosAsync_AsksAboutBlockersOnce_ForEveryItem()
     {
         var undated = ItemWithWhen();
         var dated = ItemWithWhen();
         dated.Reschedule(new DateOnly(2026, 11, 9), null);
         var noWhen = NewItem();
-        var blockers = new FakeWorkItemBlockers(undated.Id, dated.Id, noWhen.Id);
+        var blockers = FakeWorkItemBlockers.Blocking(undated.Id, dated.Id, noWhen.Id);
         var mapper = Mapper(blockers);
 
         var dtos = await mapper.ToDtosAsync([undated, dated, noWhen]);
 
         Assert.Multiple(() =>
         {
-            Assert.That(blockers.Requests.Single(), Is.EquivalentTo(new[] { undated.Id }));
+            Assert.That(blockers.Requests.Single(), Is.EquivalentTo(new[] { undated.Id, dated.Id, noWhen.Id }));
             Assert.That(dtos.Select(d => d.WhenResolved), Is.EqualTo(new[] { true, true, false }));
         });
     }
 
     [Test]
-    public async Task ToDtosAsync_WithNothingDependingOnBlockers_DoesNotAskAboutThem()
+    public async Task ToDtosAsync_WithNoItems_DoesNotAskAboutBlockers()
     {
         var blockers = new FakeWorkItemBlockers();
         var mapper = Mapper(blockers);
 
-        await mapper.ToDtosAsync([NewItem()]);
+        await mapper.ToDtosAsync([]);
 
         Assert.That(blockers.Requests, Is.Empty);
+    }
+
+    [Test]
+    public async Task ToDtoAsync_ListsEachBlocker_WithWhetherItConflicts()
+    {
+        var item = NewItem();
+        var drywall = new WorkItemBlocker(Guid.NewGuid(), 4, "Drywall", true);
+        var wiring = new WorkItemBlocker(Guid.NewGuid(), 7, "Wiring", false);
+        var mapper = Mapper(new FakeWorkItemBlockers(new Dictionary<Guid, IReadOnlyList<WorkItemBlocker>> { [item.Id] = [drywall, wiring] }));
+
+        var dto = await mapper.ToDtoAsync(item);
+
+        Assert.That(dto.BlockedBy, Is.EqualTo(new[]
+        {
+            new WorkItemBlockerDto(drywall.Id, 4, "Drywall", true),
+            new WorkItemBlockerDto(wiring.Id, 7, "Wiring", false),
+        }));
+    }
+
+    [Test]
+    public async Task ToDtoAsync_WithNoBlockers_HasAnEmptyBlockedByList()
+    {
+        var dto = await Mapper(new FakeWorkItemBlockers()).ToDtoAsync(NewItem());
+
+        Assert.That(dto.BlockedBy, Is.Not.Null.And.Empty);
     }
 
     [Test]
@@ -64,7 +89,7 @@ public class WorkItemDtoMapperTests
     {
         var lane = ItemWithWhen();
         var card = ItemWithWhen();
-        var blockers = new FakeWorkItemBlockers(card.Id);
+        var blockers = FakeWorkItemBlockers.Blocking(card.Id);
         var mapper = Mapper(blockers);
 
         var swimlanes = await mapper.ToSwimlaneDtosAsync([new Swimlane(lane, [card])]);
@@ -81,7 +106,7 @@ public class WorkItemDtoMapperTests
     public async Task ToPageDtoAsync_KeepsTheCursor_AndResolvesEachItem()
     {
         var item = ItemWithWhen();
-        var mapper = Mapper(new FakeWorkItemBlockers(item.Id));
+        var mapper = Mapper(FakeWorkItemBlockers.Blocking(item.Id));
 
         var page = await mapper.ToPageDtoAsync(new WorkItemQueryPage<WorkItem>([item], "next"));
 
@@ -96,7 +121,7 @@ public class WorkItemDtoMapperTests
     public async Task ToWriteResponseAsync_KeepsTheChangedFields_AndResolvesTheItem()
     {
         var item = ItemWithWhen();
-        var mapper = Mapper(new FakeWorkItemBlockers(item.Id));
+        var mapper = Mapper(FakeWorkItemBlockers.Blocking(item.Id));
 
         var response = await mapper.ToWriteResponseAsync(new WorkItemWriteResult(item, [WorkItemField.When]));
 

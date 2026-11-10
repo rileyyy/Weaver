@@ -117,25 +117,18 @@ public class WorkItem : IHasUpdatedAt
     /// <summary>
     /// Whether the When has been given concrete form: a date, or a live item blocking this one
     /// (ADR-0003). False when there is no When, since there is nothing to resolve. Blockers are
-    /// other rows, so the caller says whether there is one; see <see cref="WhenResolutionNeedsBlockers"/>.
+    /// other rows, so the caller says whether there is one; see <see cref="WhenResolutionNeedsBlockersRule"/>.
     /// </summary>
     public bool IsWhenResolved(bool hasLiveBlocker) =>
         When is not null && (StartDate is not null || EndDate is not null || hasLiveBlocker);
 
     /// <summary>
-    /// <see cref="WhenResolutionNeedsBlockers"/> as a query predicate, so a query listing
-    /// unresolved Whens applies the same rule as the items themselves.
+    /// Whether <see cref="IsWhenResolved"/> depends on blockers at all, as a query predicate, so a
+    /// query listing unresolved Whens applies the same rule as the items themselves. Such an item
+    /// that nothing live blocks is unresolved.
     /// </summary>
     public static readonly Expression<Func<WorkItem, bool>> WhenResolutionNeedsBlockersRule =
         w => w.When != null && w.StartDate == null && w.EndDate == null;
-
-    private static readonly Func<WorkItem, bool> WhenResolutionNeedsBlockersCheck = WhenResolutionNeedsBlockersRule.Compile();
-
-    /// <summary>
-    /// Whether <see cref="IsWhenResolved"/> depends on blockers at all, so readers can skip
-    /// looking them up for every other item. Such an item that nothing live blocks is unresolved.
-    /// </summary>
-    public bool WhenResolutionNeedsBlockers => WhenResolutionNeedsBlockersCheck(this);
 
     /// <summary>
     /// The repeating work item this one was generated from, and the occurrence date it was

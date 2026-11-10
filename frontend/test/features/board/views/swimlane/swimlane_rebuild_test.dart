@@ -126,7 +126,7 @@ void main() {
         workItem('card-a', title: 'Renamed', parentId: 'lane-a'),
         version + 1,
       ),
-      reload: () => throw StateError('No conflict expected'),
+      reload: (_) => throw StateError('No conflict expected'),
     );
     await tester.pump();
 

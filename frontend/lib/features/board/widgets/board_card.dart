@@ -4,6 +4,7 @@ import 'package:weaver/core/platform/touch_platform.dart';
 import 'package:weaver/core/theme/app_theme.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/widgets/assignee_avatar.dart';
+import 'package:weaver/features/board/widgets/dependency_conflict_badge.dart';
 import 'package:weaver/features/board/widgets/tag_badge_row.dart';
 
 const double _feedbackWidth = 208;
@@ -143,6 +144,10 @@ class BoardCard extends StatelessWidget {
                                         style: titleStyle,
                                       ),
                                     ),
+                                  ),
+                                  DependencyConflictBadge(
+                                    blockers: card.blockedBy,
+                                    size: titleFontSize,
                                   ),
                                 ],
                               ),

@@ -5,14 +5,15 @@ import 'package:weaver/features/board/views/roadmap/roadmap_bar.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_layout.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_timeframe.dart';
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_grid.dart';
+import 'package:weaver/features/board/widgets/dependency_conflict_badge.dart';
 import 'package:weaver/features/board/widgets/tag_badge_row.dart';
 
 class RoadmapRowTile extends StatelessWidget {
   static const double _indentPerLevel = 24;
   static const double _caretColumnWidth = 24;
-  static const double _rowHeight = 40;
   static const double _barHeight = 20;
   static const double _minBarWidth = 4;
+  static const double _badgeSize = 14;
 
   const RoadmapRowTile({
     super.key,
@@ -51,11 +52,22 @@ class RoadmapRowTile extends StatelessWidget {
       timelineWidth: timelineWidth,
       totalDays: totalDays,
     );
+    final bar = roadmapBarExtent(
+      windowStart: windowStart,
+      totalDays: totalDays,
+      timelineWidth: timelineWidth,
+      start: item.startDate,
+      end: item.endDate,
+    );
+    // The badge normally rides on the bar; without one in view it moves to
+    // the title so a conflict is never hidden by the window.
+    final showTitleBadge =
+        bar == null && item.blockedBy.any((blocker) => blocker.conflicts);
 
     return InkWell(
       onTap: onTap,
       child: SizedBox(
-        height: _rowHeight,
+        height: roadmapRowHeight,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -90,6 +102,13 @@ class RoadmapRowTile extends StatelessWidget {
                           : null,
                     ),
                     const SizedBox(width: 4),
+                    if (showTitleBadge) ...[
+                      DependencyConflictBadge(
+                        blockers: item.blockedBy,
+                        size: _badgeSize,
+                      ),
+                      const SizedBox(width: 4),
+                    ],
                     Expanded(
                       flex: 3,
                       child: Text(item.title, overflow: TextOverflow.ellipsis),
@@ -126,7 +145,7 @@ class RoadmapRowTile extends StatelessWidget {
                       width: 2,
                       child: Container(color: roadmapTodayColor),
                     ),
-                  ..._buildBar(context, item),
+                  if (bar != null) ..._buildBar(context, item, bar),
                 ],
               ),
             ),
@@ -136,29 +155,22 @@ class RoadmapRowTile extends StatelessWidget {
     );
   }
 
-  /// The item's schedule as a positioned bar, clipped to the visible
+  /// The item's schedule as a positioned [bar], clipped to the visible
   /// window — an open start/end is drawn as running off the window's edge
-  /// rather than being treated as unscheduled. Returns no widgets for an item with
-  /// neither date set, or one whose schedule falls entirely outside the
-  /// visible window.
-  List<Widget> _buildBar(BuildContext context, HierarchyItem item) {
-    final span = roadmapBarSpan(
-      windowStart: windowStart,
-      totalDays: timeframe.totalDays,
-      start: item.startDate,
-      end: item.endDate,
-    );
-    if (span == null) return const [];
-
-    final totalDays = timeframe.totalDays.toDouble();
-    final left = span.startDay / totalDays * timelineWidth;
-    final width = (span.endDay - span.startDay) / totalDays * timelineWidth;
+  /// rather than being treated as unscheduled — with its conflict badge.
+  List<Widget> _buildBar(
+    BuildContext context,
+    HierarchyItem item,
+    RoadmapBarExtent bar,
+  ) {
+    final left = bar.left;
+    final width = bar.right - bar.left;
 
     return [
       Positioned(
         left: left,
         width: width < _minBarWidth ? _minBarWidth : width,
-        top: (_rowHeight - _barHeight) / 2,
+        top: (roadmapRowHeight - _barHeight) / 2,
         height: _barHeight,
         child: Container(
           decoration: BoxDecoration(
@@ -167,6 +179,15 @@ class RoadmapRowTile extends StatelessWidget {
                 Theme.of(context).colorScheme.primary,
             borderRadius: BorderRadius.circular(4),
           ),
+        ),
+      ),
+      Positioned(
+        left: left + 2,
+        top: (roadmapRowHeight - _badgeSize) / 2 - 1,
+        child: DependencyConflictBadge(
+          blockers: item.blockedBy,
+          size: _badgeSize,
+          backdrop: Theme.of(context).colorScheme.surface,
         ),
       ),
     ];
