@@ -47,8 +47,16 @@ one currency, so a total is in that currency.
 _Avoid:_ aggregate, subtotal.
 
 **Status category**
-: To Do, Doing or Done. Every status has one. From Milestone 16,
-Done-category statuses record a completion date and drive done-hiding.
+: To Do, Doing or Done. Every status has one. Done-category statuses record
+a completion date and drive done-hiding.
+
+**Completion date**
+: The server-calendar day a work item entered a Done-category status. Moving
+between Done statuses keeps it; leaving Done clears it.
+
+**Done-hiding period**
+: Per Space, in days (default 14). The Board hides Done items completed longer
+ago than this unless "show done" is on.
 
 **View** *(planned)*
 : A saved, shared query that picks one or more Spaces, filters and a layout.
