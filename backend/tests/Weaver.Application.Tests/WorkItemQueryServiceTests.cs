@@ -645,6 +645,17 @@ public class WorkItemQueryServiceTests
             Is.EqualTo(new (Guid, Guid?)[] { (parent.Id, null), (child.Id, parent.Id) }));
     }
 
+    [Test]
+    public async Task Summaries_CarryTheWhenPhrase_SoAnAgentCanResolveIt()
+    {
+        await CreateWithWhenAsync("Paint the hall", "after drywall");
+        await CreateAsync("No When");
+
+        var page = await _query.QuerySummariesAsync(new WorkItemQuery());
+
+        Assert.That(page.Items.Select(s => s.When), Is.EqualTo(new[] { "after drywall", null }));
+    }
+
     private static DateOnly Nov(int day) => new(2026, 11, day);
 
     private async Task<WorkItem> CreateDatedAsync(string title, DateOnly? start, DateOnly? end, Guid? parentId = null)

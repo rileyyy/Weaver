@@ -6,7 +6,10 @@ using Weaver.Domain;
 
 namespace Weaver.Api.IntegrationTests;
 
-/// <summary>The When phrase over REST and MCP against Postgres, and applying a quick pick.</summary>
+/// <summary>
+/// The When phrase over REST and MCP against Postgres, applying a quick pick, and agents listing
+/// and resolving unresolved Whens.
+/// </summary>
 [TestFixture]
 public class WorkItemWhenTests
 {
@@ -73,6 +76,57 @@ public class WorkItemWhenTests
             Assert.That(reloaded.Title, Is.EqualTo("Bake for the market"));
             Assert.That(Structured(result).Item.WhenResolved, Is.False);
         });
+    }
+
+    [Test]
+    public async Task Mcp_ListUnresolvedWhenItems_ListsThem_UntilTheScheduleOrABlockedByLinkResolvesThem()
+    {
+        var space = await ApiClient.CreateSpaceAsync("Unresolved When");
+        var kitchen = await _client.CreateWorkItemAsync("Kitchen", spaceId: space);
+        var drywall = await _client.CreateWorkItemAsync("Drywall", parentId: kitchen.Id);
+        var paint = await _client.CreateWorkItemAsync("Paint the walls", parentId: kitchen.Id);
+        var gutters = await _client.CreateWorkItemAsync("Clean the gutters", spaceId: space);
+        await PatchAsync("details", paint, new { when = "after drywall" });
+        await PatchAsync("details", gutters, new { when = "next spring" });
+        await using var mcp = await ConnectAsync();
+
+        var before = await ListUnresolvedAsync(mcp, space);
+        await CallAsync(mcp, "reschedule_work_item", new() { ["id"] = gutters.Id, ["startDate"] = "2027-03-20" });
+        await CallAsync(mcp, "create_work_item_link", new()
+        {
+            ["workItemId"] = paint.Id,
+            ["targetWorkItemId"] = drywall.Id,
+            ["type"] = "BlockedBy",
+        });
+        var after = await ListUnresolvedAsync(mcp, space);
+        var reloaded = await GetAsync(paint);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(before.Items.Select(i => (i.Id, i.When)), Is.EqualTo(new[] { (paint.Id, "after drywall"), (gutters.Id, "next spring") }));
+            Assert.That(before.Items[0].ParentId, Is.EqualTo(kitchen.Id));
+            Assert.That(before.Items[0].SpaceId, Is.EqualTo(space));
+            Assert.That(before.Items[0].SpaceName, Does.StartWith("Unresolved When"));
+            Assert.That(after.Items, Is.Empty);
+            Assert.That(reloaded.When, Is.EqualTo("after drywall"));
+            Assert.That(reloaded.WhenResolved, Is.True);
+        });
+    }
+
+    private static async Task<WorkItemSummaryPageDto> ListUnresolvedAsync(McpClient mcp, Guid space)
+    {
+        var result = await mcp.CallToolAsync("list_unresolved_when_items", new Dictionary<string, object?>
+        {
+            ["spaceIds"] = new[] { space },
+        });
+        Assert.That(result.IsError, Is.Not.True, Text(result));
+        return JsonSerializer.Deserialize<WorkItemSummaryPageDto>(Text(result), ApiClient.Json)!;
+    }
+
+    private static async Task CallAsync(McpClient mcp, string tool, Dictionary<string, object?> arguments)
+    {
+        var result = await mcp.CallToolAsync(tool, arguments);
+        Assert.That(result.IsError, Is.Not.True, Text(result));
     }
 
     private async Task<WorkItemWriteResponse> PatchAsync<T>(string operation, WorkItemDto item, T body) =>
