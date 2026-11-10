@@ -12,6 +12,7 @@ class HierarchyItemTile extends StatelessWidget {
     super.key,
     required this.node,
     required this.depth,
+    required this.columns,
     required this.columnWidths,
     required this.isCollapsed,
     required this.onToggleCollapsed,
@@ -23,6 +24,7 @@ class HierarchyItemTile extends StatelessWidget {
 
   final HierarchyNode node;
   final int depth;
+  final List<HierarchyColumn> columns;
   final HierarchyColumnWidths columnWidths;
   final bool isCollapsed;
   final VoidCallback onToggleCollapsed;
@@ -42,7 +44,7 @@ class HierarchyItemTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            for (final column in HierarchyColumn.values) ...[
+            for (final column in columns) ...[
               SizedBox(width: columnWidths[column], child: _cell(column)),
               const SizedBox(width: ResizeHandle.width),
             ],

@@ -10,6 +10,7 @@ import 'package:weaver/features/board/data/board_repository.dart';
 import 'package:weaver/features/board/data/last_space_store.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/swimlane_items.dart';
+import 'package:weaver/shared/models/custom_field.dart';
 import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
@@ -51,6 +52,10 @@ class _StubBoardRepository implements BoardRepository {
 
   @override
   Future<List<WorkItem>> loadAllItems(String spaceId) => Future.value(const []);
+
+  @override
+  Future<List<CustomField>> loadCustomFields(String spaceId) =>
+      Future.value(const []);
 
   @override
   Future<List<User>> loadUsers() => Future.value(const []);

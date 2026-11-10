@@ -4,6 +4,7 @@ using Weaver.Api.Contracts;
 using Weaver.Api.Controllers;
 using Weaver.Application.Services;
 using Weaver.Domain;
+using Weaver.Domain.Exceptions;
 
 namespace Weaver.Api.Tests;
 
@@ -31,6 +32,7 @@ public class CustomFieldsControllerTests
         _fields.Setup(f => f.CreateAsync(
                 _userId, _typeId, "Floor", CustomFieldKind.SingleSelect,
                 It.Is<IReadOnlyList<string>>(o => o.SequenceEqual(new[] { "Oak" })),
+                false,
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(field);
 
@@ -51,6 +53,7 @@ public class CustomFieldsControllerTests
         _fields.Setup(f => f.CreateAsync(
                 _userId, _typeId, "Budget", CustomFieldKind.Currency,
                 It.Is<IReadOnlyList<string>>(o => o.Count == 0),
+                false,
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(field);
 
@@ -68,6 +71,7 @@ public class CustomFieldsControllerTests
                 _userId, field.Id, "Flooring",
                 It.Is<IReadOnlyList<CustomFieldOptionRevision>>(o =>
                     o.SequenceEqual(new CustomFieldOptionRevision[] { new(oak, "Oak"), new(null, "Pine") })),
+                false,
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(field);
 
@@ -75,6 +79,47 @@ public class CustomFieldsControllerTests
 
         Assert.That(result.Result, Is.TypeOf<OkObjectResult>());
         _fields.VerifyAll();
+    }
+
+    [Test]
+    public async Task CreateAndUpdate_PassWhetherTheFieldRollsUp()
+    {
+        var field = CustomFieldDefinition.Create(_typeId, "Hours", CustomFieldKind.Number, 0, rollsUp: true);
+        _fields.Setup(f => f.CreateAsync(
+                _userId, _typeId, "Hours", CustomFieldKind.Number, It.IsAny<IReadOnlyList<string>>(), true,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(field);
+        _fields.Setup(f => f.UpdateAsync(
+                _userId, field.Id, "Hours", It.IsAny<IReadOnlyList<CustomFieldOptionRevision>>(), true,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(field);
+
+        var created = await _controller.Create(new CreateCustomFieldRequest(_typeId, "Hours", CustomFieldKind.Number, RollsUp: true));
+        await _controller.Update(field.Id, new UpdateCustomFieldRequest("Hours", RollsUp: true));
+
+        Assert.That(((created.Result as CreatedAtActionResult)!.Value as CustomFieldDto)!.RollsUp, Is.True);
+        _fields.VerifyAll();
+    }
+
+    [Test]
+    public async Task GetAll_ForASpace_ListsEveryTypesFieldsInIt()
+    {
+        var spaceId = Guid.NewGuid();
+        var field = CustomFieldDefinition.Create(_typeId, "Hours", CustomFieldKind.Number, 0);
+        _fields.Setup(f => f.GetAllInSpaceAsync(spaceId, It.IsAny<CancellationToken>())).ReturnsAsync([field]);
+
+        var result = await _controller.GetAll(typeId: null, spaceId: spaceId);
+
+        var dtos = (result.Result as OkObjectResult)!.Value as IEnumerable<CustomFieldDto>;
+        Assert.That(dtos!.Single().Id, Is.EqualTo(field.Id));
+    }
+
+    [TestCase(false, false)]
+    [TestCase(true, true)]
+    public void GetAll_WithoutExactlyOneOfTypeAndSpace_IsRejected(bool withType, bool withSpace)
+    {
+        Assert.ThrowsAsync<DomainValidationException>(() => _controller.GetAll(
+            withType ? _typeId : null, withSpace ? Guid.NewGuid() : null));
     }
 
     [Test]

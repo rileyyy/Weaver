@@ -8,10 +8,12 @@ import 'package:weaver/features/board/views/hierarchy/widgets/resize_handle.dart
 class HierarchyHeaderRow extends StatelessWidget {
   const HierarchyHeaderRow({
     super.key,
+    required this.columns,
     required this.columnWidths,
     required this.onResize,
   });
 
+  final List<HierarchyColumn> columns;
   final HierarchyColumnWidths columnWidths;
   final void Function(HierarchyColumn column, double deltaX) onResize;
 
@@ -34,7 +36,7 @@ class HierarchyHeaderRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          for (final column in HierarchyColumn.values) ...[
+          for (final column in columns) ...[
             HeaderCell(
               label: column.headerLabel,
               width: columnWidths[column],

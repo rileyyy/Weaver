@@ -16,6 +16,7 @@ WorkItem workItem(
   DateTime? startDate,
   DateTime? endDate,
   List<String> tags = const [],
+  Map<String, Object?> fields = const {},
   int version = 1,
 }) => WorkItem(
   id: id,
@@ -34,6 +35,7 @@ WorkItem workItem(
   updatedAt: DateTime.utc(2026, 1, 1),
   version: version,
   tags: tags,
+  fields: fields,
 );
 
 /// [item] as the server would return it after a write: the same fields with

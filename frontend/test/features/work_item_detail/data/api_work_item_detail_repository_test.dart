@@ -145,6 +145,30 @@ void main() {
     expect(children.single.number, 7);
   });
 
+  test("loadRollUps parses each field's total of the sub-items", () async {
+    http.Request? sentRequest;
+    final client = MockClient((request) async {
+      sentRequest = request;
+      return _jsonResponse([
+        {
+          'fieldId': 'field-budget',
+          'fieldName': 'Budget',
+          'typeId': 'type-room',
+          'kind': 'Currency',
+          'total': 350.5,
+        },
+      ]);
+    });
+    final repository = _repository(client);
+
+    final rollUps = await repository.loadRollUps('item-1');
+
+    expect(sentRequest!.url.path, '/api/work-items/item-1/roll-ups');
+    expect(rollUps.single.fieldName, 'Budget');
+    expect(rollUps.single.kind, CustomFieldKind.currency);
+    expect(rollUps.single.total, 350.5);
+  });
+
   test("loadTypes parses the Space's type list", () async {
     http.Request? sentRequest;
     final client = MockClient((request) async {

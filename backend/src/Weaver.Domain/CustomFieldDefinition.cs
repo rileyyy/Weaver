@@ -46,6 +46,14 @@ public class CustomFieldDefinition : LookupValue
 
     public bool IsSelect => Kind is CustomFieldKind.SingleSelect or CustomFieldKind.MultiSelect;
 
+    /// <summary>
+    /// Whether a parent shows the sum of this field over its descendants (see <see cref="RollUp"/>).
+    /// Only number and currency fields can.
+    /// </summary>
+    public bool RollsUp { get; private set; }
+
+    public bool CanRollUp => Kind is CustomFieldKind.Number or CustomFieldKind.Currency;
+
     /// <summary>The name its changes go by in history and in a write's changed fields.</summary>
     public string ChangeName => WorkItemField.CustomField(Id);
 
@@ -54,11 +62,24 @@ public class CustomFieldDefinition : LookupValue
         string name,
         CustomFieldKind kind,
         int order,
-        IEnumerable<string>? optionNames = null)
+        IEnumerable<string>? optionNames = null,
+        bool rollsUp = false)
     {
         var field = new CustomFieldDefinition(typeId, name, kind, order);
         field.ReviseOptions((optionNames ?? []).Select(n => new CustomFieldOptionRevision(null, n)));
+        field.SetRollsUp(rollsUp);
         return field;
+    }
+
+    /// <exception cref="DomainValidationException">Turning it on for a field that isn't a number or currency.</exception>
+    public void SetRollsUp(bool rollsUp)
+    {
+        if (rollsUp && !CanRollUp)
+        {
+            throw new DomainValidationException($"Only a number or currency field can roll up; {Name} is a {Kind} field.");
+        }
+
+        RollsUp = rollsUp;
     }
 
     /// <summary>

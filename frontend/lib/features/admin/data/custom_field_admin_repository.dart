@@ -8,20 +8,24 @@ abstract class CustomFieldAdminRepository {
   Future<List<CustomField>> list(String typeId);
 
   /// Appends a field. [optionNames] are a select field's options, in order.
+  /// Only a number or currency field can have [rollsUp].
   Future<CustomField> create(
     String typeId,
     String name,
     CustomFieldKind kind,
-    List<String> optionNames,
-  );
+    List<String> optionNames, {
+    required bool rollsUp,
+  });
 
-  /// Renames the field and replaces its option list; an option left out of
-  /// [options] is removed, and items lose that choice.
+  /// Renames the field, replaces its option list and turns its roll-up on
+  /// or off; an option left out of [options] is removed, and items lose
+  /// that choice.
   Future<CustomField> update(
     String id,
     String name,
-    List<CustomFieldOptionDraft> options,
-  );
+    List<CustomFieldOptionDraft> options, {
+    required bool rollsUp,
+  });
 
   /// [orderedIds] must list every field of [typeId] once.
   Future<List<CustomField>> reorder(String typeId, List<String> orderedIds);

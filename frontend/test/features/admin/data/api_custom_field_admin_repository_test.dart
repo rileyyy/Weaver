@@ -46,12 +46,25 @@ void main() {
     expect(requests.single.url.path, '/api/custom-fields');
     expect(requests.single.url.queryParameters['typeId'], 'type-room');
     expect(fields.single.options.single.name, 'Oak');
+    expect(fields.single.rollsUp, isFalse);
+  });
+
+  test('a field that rolls up says so', () async {
+    final fields = await repository([
+      {..._fieldJson(kind: 'Number'), 'options': [], 'rollsUp': true},
+    ]).list('type-room');
+
+    expect(fields.single.rollsUp, isTrue);
   });
 
   test('create sends the kind by its API name and the options', () async {
-    await repository(
-      _fieldJson(kind: 'MultiSelect'),
-    ).create('type-room', 'Wood', CustomFieldKind.multiSelect, ['Oak']);
+    await repository(_fieldJson(kind: 'MultiSelect')).create(
+      'type-room',
+      'Wood',
+      CustomFieldKind.multiSelect,
+      ['Oak'],
+      rollsUp: false,
+    );
 
     expect(requests.single.method, 'POST');
     expect(jsonDecode(requests.single.body), {
@@ -59,6 +72,7 @@ void main() {
       'name': 'Wood',
       'kind': 'MultiSelect',
       'options': ['Oak'],
+      'rollsUp': false,
     });
   });
 
@@ -66,7 +80,7 @@ void main() {
     await repository(_fieldJson()).update('field-floor', 'Flooring', const [
       CustomFieldOptionDraft(id: 'option-oak', name: 'Oak'),
       CustomFieldOptionDraft(name: 'Tiles'),
-    ]);
+    ], rollsUp: false);
 
     expect(requests.single.method, 'PUT');
     expect(requests.single.url.path, '/api/custom-fields/field-floor');
@@ -76,7 +90,26 @@ void main() {
         {'id': 'option-oak', 'name': 'Oak'},
         {'id': null, 'name': 'Tiles'},
       ],
+      'rollsUp': false,
     });
+  });
+
+  test('create and update send whether the field rolls up', () async {
+    final repo = repository({..._fieldJson(kind: 'Number'), 'options': []});
+
+    await repo.create(
+      'type-room',
+      'Hours',
+      CustomFieldKind.number,
+      [],
+      rollsUp: true,
+    );
+    await repo.update('field-floor', 'Hours', const [], rollsUp: true);
+
+    expect(
+      [for (final request in requests) jsonDecode(request.body)['rollsUp']],
+      [true, true],
+    );
   });
 
   test('reorder puts the order for the Type', () async {

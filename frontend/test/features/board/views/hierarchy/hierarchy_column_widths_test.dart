@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/features/board/views/hierarchy/hierarchy_column.dart';
 import 'package:weaver/features/board/views/hierarchy/hierarchy_column_widths.dart';
+import 'package:weaver/features/board/views/hierarchy/hierarchy_layout.dart';
 
 void main() {
   test('every column starts at its default width', () {
@@ -36,12 +37,23 @@ void main() {
     expect(widths[HierarchyColumn.tags], HierarchyColumnWidths.maxWidth);
   });
 
-  test('rowWidth grows with the columns', () {
+  test('rowWidthOf grows with the columns', () {
+    final widths = HierarchyColumnWidths();
+    const columns = HierarchyColumn.values;
+
+    expect(
+      widths.resized(HierarchyColumn.title, 100).rowWidthOf(columns),
+      widths.rowWidthOf(columns) + 100,
+    );
+  });
+
+  test('rowWidthOf counts only the columns shown', () {
     final widths = HierarchyColumnWidths();
 
     expect(
-      widths.resized(HierarchyColumn.title, 100).rowWidth,
-      widths.rowWidth + 100,
+      widths.rowWidthOf(HierarchyColumn.values) -
+          widths.rowWidthOf(HierarchyColumn.shown(withTotals: false)),
+      widths[HierarchyColumn.totals] + hierarchyResizeHandleWidth,
     );
   });
 }

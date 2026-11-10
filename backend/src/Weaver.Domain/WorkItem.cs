@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Text.Json;
 using Weaver.Domain.Exceptions;
 
@@ -114,10 +115,19 @@ public class WorkItem : IHasUpdatedAt
         When is not null && (StartDate is not null || EndDate is not null || hasLiveBlocker);
 
     /// <summary>
-    /// Whether <see cref="IsWhenResolved"/> depends on blockers at all, so readers can skip
-    /// looking them up for every other item.
+    /// <see cref="WhenResolutionNeedsBlockers"/> as a query predicate, so a query listing
+    /// unresolved Whens applies the same rule as the items themselves.
     /// </summary>
-    public bool WhenResolutionNeedsBlockers => When is not null && StartDate is null && EndDate is null;
+    public static readonly Expression<Func<WorkItem, bool>> WhenResolutionNeedsBlockersRule =
+        w => w.When != null && w.StartDate == null && w.EndDate == null;
+
+    private static readonly Func<WorkItem, bool> WhenResolutionNeedsBlockersCheck = WhenResolutionNeedsBlockersRule.Compile();
+
+    /// <summary>
+    /// Whether <see cref="IsWhenResolved"/> depends on blockers at all, so readers can skip
+    /// looking them up for every other item. Such an item that nothing live blocks is unresolved.
+    /// </summary>
+    public bool WhenResolutionNeedsBlockers => WhenResolutionNeedsBlockersCheck(this);
 
     /// <summary>
     /// The repeating work item this one was generated from, and the occurrence date it was

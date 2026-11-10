@@ -20,6 +20,10 @@ namespace Weaver.Application.Services;
 /// <param name="From">Start of the date window, inclusive. See <see cref="IWorkItemQueryService"/> for the rule.</param>
 /// <param name="To">End of the date window, inclusive.</param>
 /// <param name="BacklogOnly">Only Backlog items: not Done and with no dates (ADR-0003).</param>
+/// <param name="UnresolvedWhenOnly">
+/// Only items whose When is unresolved: they have one, but no dates and no live item blocking
+/// them (ADR-0003, <see cref="WorkItem.IsWhenResolved"/>).
+/// </param>
 /// <param name="UpdatedSince">Only items last updated at or after this moment.</param>
 /// <param name="IncludeDeleted">
 /// Also list items in the Trash, which every other read leaves out (ADR-0007). They're marked
@@ -37,6 +41,7 @@ public sealed record WorkItemQuery(
     DateOnly? From = null,
     DateOnly? To = null,
     bool BacklogOnly = false,
+    bool UnresolvedWhenOnly = false,
     DateTimeOffset? UpdatedSince = null,
     bool IncludeDeleted = false,
     string? Cursor = null,

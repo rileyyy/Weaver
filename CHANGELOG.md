@@ -53,6 +53,48 @@ because Milestone 9's "assigned to" field needs Milestone 10's users.
 - Read-only, so read-only keys can use it. No REST endpoint and no
   migration.
 
+## 2026-11-10 — Unresolved When items over MCP
+
+`feature/unresolved-when-items-over-mcp` (ticket 28 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0003](docs/adr/0003-when-and-backlog.md)).
+
+- **`list_unresolved_when_items`** lists the work items whose When is
+  unresolved (a phrase, but no dates and no live item blocking them) as
+  summaries with the phrase, Space and parent, optionally narrowed by
+  Space and status category, paged like `search_work_items`.
+- **Resolving uses the existing writes**: `reschedule_work_item` for a
+  date, or `create_work_item_link` with `BlockedBy` for "after …"; the
+  phrase is kept and the item leaves the list. The tool's description tells
+  agents to search for a referenced item before linking and to leave
+  ambiguous phrases for a human.
+- **Summaries carry `when`** wherever they're returned (MCP lists, and the
+  REST trash and changes responses), left out over MCP when there's none.
+- No migration.
+
+## 2026-11-06 — Roll-ups of number and currency fields
+
+`feature/roll-ups` (ticket 15 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md),
+[ADR-0002](docs/adr/0002-types-and-custom-fields.md) and its amendment).
+
+- **A number or currency field can roll up**: admins tick "Roll up into
+  parents" when adding or editing it on the Admin page.
+- **A parent shows the sum over its sub-items** at every depth, of any
+  Type, next to its own value and never including it. Trashed items don't
+  count. Only sums are supported.
+- **A currency field fixes one currency**, so a total is in that
+  currency; two fields are never summed together, even with the same name.
+- **The detail dialog** shows a total under its field, and totals of
+  fields only sub-items of other Types have in "Totals of sub-items". **The
+  Hierarchy** gets a Totals column when the Space has a field that rolls
+  up.
+- **API:** `GET /api/work-items/{id}/roll-ups`,
+  `GET /api/custom-fields?spaceId=`, and `rollsUp` on custom field
+  definitions. MCP's `get_work_item` returns `rollUps`.
+- **Migration:** `AddCustomFieldRollUp` adds the `RollsUp` column, off for
+  every existing field. No reset needed.
+
 ## 2026-11-06 — Move a work item between Spaces
 
 `feature/move-item-between-spaces` (ticket 16 of

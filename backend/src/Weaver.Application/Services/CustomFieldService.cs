@@ -29,12 +29,22 @@ public class CustomFieldService(IWeaverDbContext db, IAdminAuthorizer admins, IC
             .ThenBy(f => f.Order)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<CustomFieldDefinition>> GetAllInSpaceAsync(Guid spaceId, CancellationToken ct = default) =>
+        await (
+                from field in Values.AsNoTracking()
+                join type in Db.WorkItemTypes on field.TypeId equals type.Id
+                where type.SpaceId == spaceId
+                orderby type.Order, field.Order
+                select field)
+            .ToListAsync(ct);
+
     public async Task<CustomFieldDefinition> CreateAsync(
         Guid actorUserId,
         Guid typeId,
         string name,
         CustomFieldKind kind,
         IReadOnlyList<string> optionNames,
+        bool rollsUp = false,
         CancellationToken ct = default)
     {
         if (!await Db.WorkItemTypes.AnyAsync(t => t.Id == typeId, ct))
@@ -43,7 +53,7 @@ public class CustomFieldService(IWeaverDbContext db, IAdminAuthorizer admins, IC
         }
 
         return await AddWithinAsync(
-            actorUserId, InType(typeId), order => CustomFieldDefinition.Create(typeId, name, kind, order, optionNames), ct);
+            actorUserId, InType(typeId), order => CustomFieldDefinition.Create(typeId, name, kind, order, optionNames, rollsUp), ct);
     }
 
     public Task<CustomFieldDefinition> UpdateAsync(
@@ -51,11 +61,13 @@ public class CustomFieldService(IWeaverDbContext db, IAdminAuthorizer admins, IC
         Guid id,
         string name,
         IReadOnlyList<CustomFieldOptionRevision> options,
+        bool rollsUp,
         CancellationToken ct = default) =>
         EditAsync(actorUserId, id, async field =>
         {
             field.Rename(name);
             field.ReviseOptions(options);
+            field.SetRollsUp(rollsUp);
             foreach (var item in await ItemsOfTypeAsync(field.TypeId, ct))
             {
                 History.RecordChanges(item.Id, item.PruneCustomField(field));

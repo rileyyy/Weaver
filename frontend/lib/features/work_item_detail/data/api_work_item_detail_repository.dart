@@ -16,6 +16,7 @@ import 'package:weaver/shared/data/type_repository.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
 import 'package:weaver/shared/data/work_item_search_repository.dart';
 import 'package:weaver/shared/models/custom_field.dart';
+import 'package:weaver/shared/models/roll_up.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
@@ -59,6 +60,13 @@ class ApiWorkItemDetailRepository implements WorkItemDetailRepository {
     (json) => JsonApiClient.listOf(json, WorkItemChildSummary.fromJson),
     query: {'parentId': parentId},
     failureMessage: 'Failed to load sub-items',
+  );
+
+  @override
+  Future<List<RollUp>> loadRollUps(String id) => _api.get(
+    '/work-items/$id/roll-ups',
+    (json) => JsonApiClient.listOf(json, RollUp.fromJson),
+    failureMessage: 'Failed to load the totals of sub-items',
   );
 
   @override

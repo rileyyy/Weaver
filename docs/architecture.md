@@ -272,6 +272,46 @@ Each Type defines its own fields (ticket 14,
   each Type with its fields and `set_work_item_fields` sets values; no tool
   changes a definition, and a test keeps it so.
 
+### Roll-ups
+
+A number or currency field can roll up (ticket 15,
+[ADR-0002](adr/0002-types-and-custom-fields.md) and its amendment).
+
+- **The flag is `CustomFields.RollsUp`**, set by an admin when adding or
+  editing the field. The domain refuses it on any other kind. The field
+  update takes it as a required argument: a `PUT` replaces the definition,
+  so leaving it out turns the roll-up off.
+- **Totals are summed when read, never stored** (`RollUp.Sum`): each field
+  on its own, by id, over every live descendant at any depth, through items
+  of any Type. The item's own value isn't counted; it's shown beside the
+  total. Because a currency field fixes one currency and fields are never
+  summed together, a total can't mix currencies.
+- **`WorkItemRollUpService`** finds the descendants with
+  `IWorkItemHierarchy.GetDescendantIdsAsync` (one recursive query that
+  already leaves trashed subtrees out), then loads them and their Types'
+  roll-up fields. The item's own Type's fields come first, then the other
+  Types' in Type order.
+- **Endpoints:** `GET /api/work-items/{id}/roll-ups` (one total per field
+  with a value, with its name, Type and kind) and
+  `GET /api/custom-fields?spaceId=` (every Type's fields in a Space, Types in
+  their order).
+  Over MCP, `get_work_item` returns a `WorkItemDetailDto`: the item plus
+  `rollUps`. List and search results don't carry them,
+  since that would walk every listed item's subtree.
+- **The detail dialog** loads the roll-ups with the item and again when a
+  sub-item's dialog closes. A total of one of the item's own fields shows
+  under that field's editor; totals of fields only other Types have get a
+  "Totals of sub-items" section, named with their Type.
+- **The Hierarchy sums its own tree** (`HierarchyRollUps`), from the items
+  in the shared store and the Space's fields, rather than asking the server
+  per row. It holds the whole Space, so the totals match the server's, and
+  they follow every edit without a reload. Dart adds doubles where the
+  server adds decimals, so each total is rounded to the most decimals any
+  of the field's values has (0.1 + 0.2 shows 0.3). The rule is written
+  twice, in C# and Dart, so a change to it needs both. A Totals column, shown only when
+  the Space has a field that rolls up, gives each row's own value and its
+  sub-items' total.
+
 ### Lookup management
 
 - **Statuses, Types and priorities share `LookupValue`** (`Id`, `Name`,
@@ -367,9 +407,13 @@ Each Type defines its own fields (ticket 14,
 - **`whenResolved` counts a live blocker** (ADR-0003), which is another
   row, so it's computed where items are mapped to `WorkItemDto`:
   `WorkItemDtoMapper` asks `IWorkItemBlockers` once per response, and only
-  about items whose When has no dates. The links' Trash filter means a
-  trashed blocker stops counting without the Trash having to update
-  anything.
+  about items whose When has no dates. A trashed blocker stops counting
+  without the Trash having to update anything: the links' Trash filter
+  hides it, and `BlockedWorkItems.BlockedIds` checks the blocker's Trash
+  state too, since a query that reads trashed rows lifts that filter.
+  The work-item query's `UnresolvedWhenOnly` uses the same blocked-ids
+  query and `WorkItem.WhenResolutionNeedsBlockersRule`, so
+  `list_unresolved_when_items` and `whenResolved` can't disagree.
 - Comments cascade-delete with their work item; editing is restricted to
   the author (see [Authentication](#authentication)).
 
@@ -543,9 +587,9 @@ Each Type defines its own fields (ticket 14,
   /schedule`, so there's no second way to set dates. No range starts in
   the past: on a Sunday "this weekend" is just that Sunday.
 - **`whenResolved` is computed, not stored**: true when the item has a
-  When and at least one date (`WorkItem.IsWhenResolved`). Clients and
-  agents read it rather than re-deriving the rule. A blocked-by link
-  will count too once links are typed (ticket 26).
+  When and at least one date or a live blocker
+  (`WorkItem.IsWhenResolved`). Clients and agents read it rather than
+  re-deriving the rule.
 - **DTOs only** (`Weaver.Api/Contracts`); EF entities are never
   serialised.
 - **Verbs follow the resource.** `POST` creates and answers `201` with a
@@ -929,6 +973,13 @@ store its inputs.
   [Change history](#change-history)). `search_work_items` runs the
   [work-item query](#work-item-query) and returns summaries; it's how an
   agent filters, searches text or looks up a `#Number`.
+  `list_unresolved_when_items` runs the same query with
+  `UnresolvedWhenOnly` (ADR-0003): Weaver has no LLM, so an agent reads
+  each phrase and resolves it with `reschedule_work_item` or a BlockedBy
+  `create_work_item_link`, and the item drops off the list. Its
+  description tells agents to find a referenced item with
+  `search_work_items` before linking and to leave ambiguous phrases to a
+  human. Summaries carry the `when` phrase for this.
 - **Lists return summaries; `get_work_item` returns the full item.** Every
   list tool that returns work items (`list_work_item_children`,
   `list_all_work_items`, `search_work_items`, and the item in each

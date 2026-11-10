@@ -56,7 +56,7 @@ void main() {
     final error = await viewModel.create('Wood', CustomFieldKind.multiSelect, [
       'Oak',
       'Pine',
-    ]);
+    ], rollsUp: false);
 
     expect(error, isNull);
     expect(
@@ -70,7 +70,7 @@ void main() {
     final error = await viewModel.update('field-floor', 'Flooring', const [
       CustomFieldOptionDraft(id: 'option-oak', name: 'Oak'),
       CustomFieldOptionDraft(name: 'Tiles'),
-    ]);
+    ], rollsUp: false);
 
     expect(error, isNull);
     expect(
@@ -78,6 +78,17 @@ void main() {
       'update field-floor Flooring [option-oak:Oak, null:Tiles]',
     );
     expect(viewModel.items.last.options.map((o) => o.name), ['Oak', 'Tiles']);
+  });
+
+  test('create and update pass whether the field rolls up', () async {
+    await viewModel.create('Hours', CustomFieldKind.number, [], rollsUp: true);
+    await viewModel.update('field-budget', 'Budget', const [], rollsUp: true);
+
+    expect(repository.calls.skip(1), [
+      'create Hours Number [] in type-room rolling up',
+      'update field-budget Budget [] rolling up',
+    ]);
+    expect(viewModel.items.first.rollsUp, isTrue);
   });
 
   test('move shows the new order and saves it', () async {
@@ -113,7 +124,12 @@ void main() {
       statusCode: 409,
     );
 
-    final error = await viewModel.create('Budget', CustomFieldKind.number, []);
+    final error = await viewModel.create(
+      'Budget',
+      CustomFieldKind.number,
+      [],
+      rollsUp: false,
+    );
 
     expect(error, 'Field "Budget" already exists.');
     expect(viewModel.items, hasLength(2));
