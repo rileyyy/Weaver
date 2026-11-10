@@ -5,8 +5,8 @@ namespace Weaver.Api.Contracts;
 
 /// <summary>
 /// Builds <see cref="WorkItemDto"/>s for every read and write that returns items, looking up
-/// blockers (for <see cref="WorkItemDto.WhenResolved"/>, and only for items whose When has no
-/// dates) and the names behind the items' ids once per response rather than per item.
+/// blockers (for <see cref="WorkItemDto.BlockedBy"/> and <see cref="WorkItemDto.WhenResolved"/>)
+/// and the names behind the items' ids once per response rather than per item.
 /// </summary>
 public class WorkItemDtoMapper(IWorkItemBlockers blockers, IWorkItemNameLookup names)
 {
@@ -37,16 +37,18 @@ public class WorkItemDtoMapper(IWorkItemBlockers blockers, IWorkItemNameLookup n
     private async Task<Func<WorkItem, WorkItemDto>> MapperForAsync(IEnumerable<WorkItem> items, CancellationToken ct)
     {
         var batch = items.Distinct().ToList();
-        var blocked = await BlockedAmongAsync(batch, ct);
+        var blockers = await BlockersOfAsync(batch, ct);
         var names = await _names.NamesForAsync(batch, ct);
-        return item => WorkItemDto.FromEntity(item, blocked.Contains(item.Id), names);
+        return item => WorkItemDto.FromEntity(item, blockers.GetValueOrDefault(item.Id, []), names);
     }
 
-    private async Task<IReadOnlySet<Guid>> BlockedAmongAsync(IEnumerable<WorkItem> items, CancellationToken ct)
+    private async Task<IReadOnlyDictionary<Guid, IReadOnlyList<WorkItemBlocker>>> BlockersOfAsync(
+        IReadOnlyCollection<WorkItem> items,
+        CancellationToken ct)
     {
-        var candidates = items.Where(i => i.WhenResolutionNeedsBlockers).Select(i => i.Id).Distinct().ToList();
-        return candidates.Count == 0
-            ? new HashSet<Guid>()
-            : await _blockers.BlockedAmongAsync(candidates, ct);
+        var ids = items.Select(i => i.Id).Distinct().ToList();
+        return ids.Count == 0
+            ? new Dictionary<Guid, IReadOnlyList<WorkItemBlocker>>()
+            : await _blockers.BlockersOfAsync(ids, ct);
     }
 }

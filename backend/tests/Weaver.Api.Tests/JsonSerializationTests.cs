@@ -57,7 +57,7 @@ public class JsonSerializationTests
         var item = TestWorkItems.Create("Item");
         item.Reschedule(new DateOnly(2026, 9, 25), new DateOnly(2026, 9, 30));
 
-        var json = JsonSerializer.Serialize(WorkItemDto.FromEntity(item, hasLiveBlocker: false, WorkItemNames.None), Options);
+        var json = JsonSerializer.Serialize(WorkItemDto.FromEntity(item, blockers: [], WorkItemNames.None), Options);
 
         Assert.That(json, Does.Contain("\"startDate\":\"2026-09-25\""));
         Assert.That(json, Does.Contain("\"endDate\":\"2026-09-30\""));
@@ -69,14 +69,34 @@ public class JsonSerializationTests
         var done = TestWorkItems.Create("Done", StatusCategory.Done);
         var open = TestWorkItems.Create("Open");
 
-        var doneJson = JsonSerializer.Serialize(WorkItemDto.FromEntity(done, hasLiveBlocker: false, WorkItemNames.None), Options);
-        var openJson = JsonSerializer.Serialize(WorkItemDto.FromEntity(open, hasLiveBlocker: false, WorkItemNames.None), Options);
+        var doneJson = JsonSerializer.Serialize(WorkItemDto.FromEntity(done, blockers: [], WorkItemNames.None), Options);
+        var openJson = JsonSerializer.Serialize(WorkItemDto.FromEntity(open, blockers: [], WorkItemNames.None), Options);
 
         Assert.Multiple(() =>
         {
             Assert.That(doneJson, Does.Contain($"\"completionDate\":\"{TestWorkItems.Today:yyyy-MM-dd}\""));
             Assert.That(openJson, Does.Contain("\"completionDate\":null"));
         });
+    }
+
+    [Test]
+    public void WorkItemDto_SerializesEachBlockerWithItsEndDateAsACalendarDate()
+    {
+        var item = TestWorkItems.Create("Paint");
+        var blocker = new WorkItemBlocker(Guid.NewGuid(), 4, "Drywall", Guid.NewGuid(), new DateOnly(2026, 11, 6), true);
+
+        var json = JsonSerializer.Serialize(WorkItemDto.FromEntity(item, [blocker], WorkItemNames.None), Options);
+
+        Assert.That(json, Does.Contain(
+            $"\"blockedBy\":[{{\"id\":\"{blocker.Id}\",\"number\":4,\"title\":\"Drywall\",\"spaceId\":\"{blocker.SpaceId}\",\"endDate\":\"2026-11-06\",\"conflicts\":true}}]"));
+    }
+
+    [Test]
+    public void WorkItemDto_WithNoBlockers_SerializesAnEmptyBlockedByList()
+    {
+        var json = JsonSerializer.Serialize(WorkItemDto.FromEntity(TestWorkItems.Create("Paint"), blockers: [], WorkItemNames.None), Options);
+
+        Assert.That(json, Does.Contain("\"blockedBy\":[]"));
     }
 
     [Test]

@@ -1,11 +1,17 @@
 namespace Weaver.Application.Services;
 
 /// <summary>
-/// Which work items are blocked: some live item has a blocks link to them. Readers use it to
-/// resolve <see cref="Weaver.Domain.WorkItem.IsWhenResolved"/>, one query per batch of items.
+/// Which live items block which work items, one query per batch of items. Readers use it to
+/// resolve <see cref="Weaver.Domain.WorkItem.IsWhenResolved"/> (an item is blocked when it has
+/// any blocker) and to flag dependency conflicts.
 /// </summary>
 public interface IWorkItemBlockers
 {
-    /// <summary>The ids in <paramref name="workItemIds"/> that a live item blocks.</summary>
-    Task<IReadOnlySet<Guid>> BlockedAmongAsync(IReadOnlyCollection<Guid> workItemIds, CancellationToken ct = default);
+    /// <summary>
+    /// The live blockers of each item in <paramref name="workItemIds"/>, Done ones included, by
+    /// Number. An item nothing blocks is left out.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<WorkItemBlocker>>> BlockersOfAsync(
+        IReadOnlyCollection<Guid> workItemIds,
+        CancellationToken ct = default);
 }
