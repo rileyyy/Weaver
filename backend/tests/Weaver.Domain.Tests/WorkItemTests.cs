@@ -314,8 +314,9 @@ public class WorkItemTests
     }
 
     [Test]
-    public void WhenResolutionNeedsBlockers_OnlyForAWhenWithoutDates()
+    public void WhenResolutionNeedsBlockersRule_OnlyForAWhenWithoutDates()
     {
+        var needsBlockers = WorkItem.WhenResolutionNeedsBlockersRule.Compile();
         var undated = NewItem();
         undated.UpdateDetails(new WorkItemDetailsPatch { When = "after drywall" });
         var dated = NewItem();
@@ -324,9 +325,9 @@ public class WorkItemTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(undated.WhenResolutionNeedsBlockers, Is.True);
-            Assert.That(dated.WhenResolutionNeedsBlockers, Is.False);
-            Assert.That(NewItem().WhenResolutionNeedsBlockers, Is.False);
+            Assert.That(needsBlockers(undated), Is.True);
+            Assert.That(needsBlockers(dated), Is.False);
+            Assert.That(needsBlockers(NewItem()), Is.False);
         });
     }
 
