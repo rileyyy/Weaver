@@ -9,14 +9,19 @@ import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/core/network/parallel_api_errors.dart';
 import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
-import 'package:weaver/features/board/data/last_space_store.dart';
+import 'package:weaver/features/board/data/view_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
+import 'package:weaver/features/board/models/board_section.dart';
 import 'package:weaver/features/board/models/card_sort_option.dart';
 import 'package:weaver/features/board/models/hierarchy_item.dart';
 import 'package:weaver/features/board/models/hierarchy_node.dart';
+import 'package:weaver/features/board/models/saved_view.dart';
 import 'package:weaver/features/board/models/scope_crumb.dart';
+import 'package:weaver/features/board/models/space_tree_section.dart';
 import 'package:weaver/features/board/models/swimlane.dart';
 import 'package:weaver/features/board/models/swimlane_items.dart';
+import 'package:weaver/features/board/models/view_definition.dart';
+import 'package:weaver/features/board/models/view_layout.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/state/board_filters.dart';
 import 'package:weaver/features/board/state/hierarchy_roll_ups.dart';
@@ -39,11 +44,17 @@ import 'package:weaver/shared/models/work_item_type.dart';
 
 Future<void> _noRetry() => Future.value();
 
-/// Orchestrates the board: which Space and scope are shown (loading,
-/// switching Space, drill-down, breadcrumbs, retry) and optimistic
-/// mutations. Which items match the header's filters is asked of the
-/// server's query (ADR-0006); sorting, tree building, lane edits and user
-/// lookups live in `state/` as pure units.
+/// Orchestrates the board: which View is open and which of its Spaces and
+/// scope are shown (loading, opening a View, drill-down, breadcrumbs,
+/// retry) and optimistic mutations. Which items match the header's filters
+/// is asked of the server's query (ADR-0006); sorting, tree building, lane
+/// edits and user lookups live in `state/` as pure units.
+///
+/// A View can span several Spaces. The board then shows one section per
+/// Space, each with its own status columns ([boardSections]), and the
+/// Hierarchy and Roadmap group their trees by Space ([hierarchySections],
+/// [roadmapSections]). The breadcrumb runs from the View through a Space
+/// down the drill-down path; below the View's own root it shows one Space.
 ///
 /// The items themselves live in the shared [WorkItemStore]; this keeps only
 /// the layout (which lanes, which cards in which order, which items the
@@ -57,17 +68,23 @@ Future<void> _noRetry() => Future.value();
 /// Roadmap, the tag list).
 @injectable
 class BoardViewModel extends ViewModel {
-  BoardViewModel(this._repository, this._items, this._lastSpace) {
+  BoardViewModel(this._repository, this._items, this._views) {
     _items.addListener(_onItemsChanged);
   }
 
   final BoardRepository _repository;
   final WorkItemStore _items;
-  final LastSpaceStore _lastSpace;
+  final ViewRepository _views;
 
   List<Space> _spaces = const [];
-  Space? _currentSpace;
   bool _spacesLoaded = false;
+  SavedView? _view;
+
+  // The Spaces the board shows now, in name order: the open View's, or the
+  // one Space the breadcrumb is in.
+  List<Space> _shownSpaces = const [];
+  Map<String, List<WorkItemStatus>> _statusesBySpace = const {};
+  Map<String, String> _laneSpaceIds = const {};
 
   List<WorkItemStatus> _statuses = const [];
   Map<String, WorkItemStatus> _statusById = const {};
@@ -210,6 +227,7 @@ class BoardViewModel extends ViewModel {
       if (_items[id] case final item?) HierarchyItem.fromWorkItem(item),
   ];
 
+  /// Every shown Space's statuses, Space by Space, each Space's in order.
   List<WorkItemStatus> get statuses => _statuses;
   List<Swimlane> get swimlanes => _swimlanes;
 
@@ -218,15 +236,48 @@ class BoardViewModel extends ViewModel {
   /// a notification of this view model.
   List<ValueListenable<Swimlane>> get swimlaneListenables => _laneNotifiers;
 
+  /// The board, one section per shown Space, each with its own visible
+  /// status columns and its lanes.
+  List<BoardSection> get boardSections => [
+    for (final space in _shownSpaces)
+      BoardSection(
+        space: space,
+        statuses: [
+          for (final status in _statusesBySpace[space.id] ?? const [])
+            if (!_filters.hiddenStatusIds.contains(status.id)) status,
+        ],
+        lanes: [
+          for (final lane in _laneNotifiers)
+            if (_laneSpaceIds[lane.value.parentId] == space.id) lane,
+        ],
+      ),
+  ];
+
   /// Fires after any item the board holds changes, for layouts that draw
   /// from every item rather than one lane.
   Listenable get itemChanges => _itemRevision;
 
   List<Space> get spaces => _spaces;
 
-  /// The Space the board, Hierarchy and Roadmap show. Null until [load]
-  /// has resolved one, and while no Space exists at all.
-  Space? get currentSpace => _currentSpace;
+  /// The open View. Null until [load] has opened one.
+  SavedView? get currentView => _view;
+
+  /// The Spaces the board, Hierarchy and Roadmap show now.
+  List<Space> get shownSpaces => _shownSpaces;
+
+  /// Whether more than one Space is shown, so layouts group by Space.
+  bool get spansSpaces => _shownSpaces.length > 1;
+
+  /// The one Space shown, or null while none or several are.
+  Space? get currentSpace =>
+      _shownSpaces.length == 1 ? _shownSpaces.single : null;
+
+  /// The Spaces the open View (or the header's choice since) covers; empty
+  /// for every Space.
+  Set<String> get selectedSpaceIds => _filters.spaceIds;
+
+  /// Overview's rule: only items in a Doing status or with dates show.
+  bool get scheduledOrInProgressOnly => _filters.scheduledOrInProgressOnly;
 
   /// True once a load found no Space at all: there's nothing to show until
   /// an admin creates one.
@@ -236,16 +287,21 @@ class BoardViewModel extends ViewModel {
   /// [load] resolves the user directory (best-effort — see [load]).
   List<User> get users => _users.users;
 
-  /// The path from the board's root scope down to what's currently shown,
-  /// for breadcrumb navigation. Always has at least one entry once [load]
-  /// has completed.
+  /// The path from the open View down to what's currently shown, for
+  /// breadcrumb navigation: the View (when it spans several Spaces), a
+  /// Space, then the items drilled into. Always has at least one entry once
+  /// [load] has completed.
   List<ScopeCrumb> get breadcrumbs => _breadcrumbs;
 
   bool get isLoading => _isLoading;
 
-  /// Creating needs a loaded scope to create into and to reload afterwards.
+  /// Creating needs one Space to create into and a loaded scope to reload
+  /// afterwards.
   bool get canCreateWorkItem =>
-      !_isLoading && _loadError == null && _breadcrumbs.isNotEmpty;
+      !_isLoading &&
+      _loadError == null &&
+      _breadcrumbs.isNotEmpty &&
+      currentSpace != null;
 
   /// Set when the current scope failed to load; the view replaces the
   /// board with a retry prompt while this is non-null. [retry] re-attempts
@@ -273,6 +329,17 @@ class BoardViewModel extends ViewModel {
     for (final status in _statuses)
       if (!_filters.hiddenStatusIds.contains(status.id)) status,
   ];
+
+  /// The name of the Space [statusId] belongs to, to tell apart statuses
+  /// of the same name while several Spaces are shown.
+  String? spaceNameOfStatus(String statusId) {
+    for (final space in _shownSpaces) {
+      if (_statusesBySpace[space.id]?.any((s) => s.id == statusId) ?? false) {
+        return space.name;
+      }
+    }
+    return null;
+  }
 
   /// Whether [tag] (any casing) is selected in the Filters dialog. With
   /// nothing selected no tag filter is applied — unlike [hiddenStatusIds],
@@ -316,6 +383,10 @@ class BoardViewModel extends ViewModel {
         comparator: hierarchyComparator,
       );
 
+  /// [hierarchyRoots] grouped by Space, in [shownSpaces] order, leaving out
+  /// a Space with nothing to show.
+  List<SpaceTreeSection> get hierarchySections => _bySpace(hierarchyRoots);
+
   /// The Roadmap's root nodes: the items the server matched for the
   /// Roadmap's window ([showRoadmapWindow]) and the header's filters, under
   /// their ancestors, sorted like [hierarchyRoots]. An undated item is only
@@ -329,6 +400,19 @@ class BoardViewModel extends ViewModel {
             (_roadmapMatches.ids?.contains(item.id) ?? false),
         comparator: hierarchyComparator,
       );
+
+  /// [roadmapRoots] grouped by Space, like [hierarchySections].
+  List<SpaceTreeSection> get roadmapSections => _bySpace(roadmapRoots);
+
+  List<SpaceTreeSection> _bySpace(List<HierarchyNode> roots) => [
+    for (final space in _shownSpaces)
+      if ([
+            for (final root in roots)
+              if (root.item.spaceId == space.id) root,
+          ]
+          case final spaceRoots when spaceRoots.isNotEmpty)
+        SpaceTreeSection(space: space, roots: spaceRoots),
+  ];
 
   /// True while the Roadmap is open and waiting for the first answer for it,
   /// when there are no rows to show yet.
@@ -370,10 +454,9 @@ class BoardViewModel extends ViewModel {
   HierarchyRollUps get hierarchyRollUps => _hierarchyRollUpsCache ??=
       HierarchyRollUps(_hierarchyItems, _spaceFields);
 
-  /// Loads every work item in the current Space for the Hierarchy view, and
-  /// the Space's fields for its roll-ups. Independent of the swim-lane
-  /// board's current drill-down scope — the Hierarchy view always shows the
-  /// Space's whole tree.
+  /// Loads every work item in the shown Spaces for the Hierarchy view, and
+  /// their fields for its roll-ups. Independent of the swim-lane board's
+  /// drill-down below a Space: the Hierarchy always shows whole Spaces.
   Future<void> loadHierarchy() async {
     final generation = ++_hierarchyGeneration;
     _isHierarchyLoading = true;
@@ -382,16 +465,17 @@ class BoardViewModel extends ViewModel {
 
     try {
       final asOf = _items.revision;
-      final space = _currentSpace;
-      final (items, fields) = space == null
-          ? (const <WorkItem>[], const <CustomField>[])
-          : await (
-              _repository.loadAllItems(space.id),
-              _repository.loadCustomFields(space.id),
-            ).wait;
+      final loads = await Future.wait([
+        for (final space in _shownSpaces)
+          (
+            _repository.loadAllItems(space.id),
+            _repository.loadCustomFields(space.id),
+          ).wait,
+      ]);
       if (generation != _hierarchyGeneration) return;
+      final items = [for (final (spaceItems, _) in loads) ...spaceItems];
       _hierarchyItemIds = [for (final item in items) item.id];
-      _spaceFields = fields;
+      _spaceFields = [for (final (_, fields) in loads) ...fields];
       _items.putAll(items, asOf: asOf);
     } on ParallelWaitError<Object?, Object?> catch (e) {
       rethrowNonApiErrors(asyncErrorsOf(e.errors));
@@ -421,25 +505,37 @@ class BoardViewModel extends ViewModel {
     }
     // With no Space shown there's no scope to refresh, and the first Space
     // an admin just created should open.
-    if (_currentSpace == null) return load();
+    if (_shownSpaces.isEmpty) return load();
 
     await _refreshSpaces();
     await refreshCurrentScope();
     await refreshHierarchyIfLoaded();
   }
 
-  /// Picks up renamed Spaces, keeping the current one (spaces can't be
-  /// deleted, so it's still there).
+  /// Picks up renamed Spaces, keeping the ones shown (Spaces can't be
+  /// deleted, so they're still there).
   Future<void> _refreshSpaces() async {
     try {
       final spaces = await _repository.loadSpaces();
       if (isDisposed) return;
       _spaces = spaces;
-      final current = _spaceById(spaces, _currentSpace?.id) ?? _currentSpace;
-      _currentSpace = current;
-      if (current != null && _breadcrumbs.isNotEmpty) {
-        _breadcrumbs = [_rootCrumb(current), ..._breadcrumbs.skip(1)];
-      }
+      _shownSpaces = [
+        for (final space in _shownSpaces) _spaceById(spaces, space.id) ?? space,
+      ];
+      _breadcrumbs = [
+        for (final crumb in _breadcrumbs)
+          switch (crumb) {
+            ScopeCrumb(id: null, spaceId: null) => _rootCrumb(
+              _view,
+              _spacesOf(spaces, _filters.spaceIds),
+            ),
+            ScopeCrumb(id: null, :final spaceId?) => _spaceCrumb(
+              _spaceById(spaces, spaceId) ??
+                  Space(id: spaceId, name: crumb.title),
+            ),
+            _ => crumb,
+          },
+      ];
       notifyIfActive();
     } on ApiException {
       // Keep the Spaces already loaded; only a renamed one's name goes stale.
@@ -453,8 +549,23 @@ class BoardViewModel extends ViewModel {
     return null;
   }
 
-  static ScopeCrumb _rootCrumb(Space space) =>
-      ScopeCrumb(id: null, title: space.name);
+  /// [ids]'s Spaces in [all]'s order; every Space when [ids] is empty.
+  static List<Space> _spacesOf(List<Space> all, Set<String> ids) => ids.isEmpty
+      ? all
+      : [
+          for (final space in all)
+            if (ids.contains(space.id)) space,
+        ];
+
+  static ScopeCrumb _spaceCrumb(Space space) =>
+      ScopeCrumb(id: null, title: space.name, spaceId: space.id);
+
+  /// A View of one Space starts at that Space; a View of several starts at
+  /// the View itself, above its Spaces.
+  static ScopeCrumb _rootCrumb(SavedView? view, List<Space> spaces) =>
+      spaces.length == 1
+      ? _spaceCrumb(spaces.single)
+      : ScopeCrumb(id: null, title: view?.name ?? 'All Spaces');
 
   /// Re-fetches the Hierarchy view's data only if it's already been loaded
   /// once — e.g. after a delete elsewhere on the board, so a still-unopened
@@ -479,16 +590,16 @@ class BoardViewModel extends ViewModel {
   /// [assigneeInitialFor].
   String? usernameFor(String? userId) => _users.usernameFor(userId);
 
-  /// Loads the Spaces and opens the last-used one (or the first, if that's
-  /// gone or none was remembered) at its top level.
+  /// Loads the Spaces and opens the signed-in user's default View (Overview
+  /// until they pick another) at its root.
   Future<void> load() => _changeScope(
     () async {
       final asOf = _items.revision;
       final spaces = await _repository.loadSpaces();
-      final space = _chooseSpace(spaces, await _lastSpace.readSpaceId());
-      final data = space == null
-          ? null
-          : await _repository.loadBoard(space.id, null);
+      final view = await _views.loadDefault();
+      final filters = _filters.withView(view.definition);
+      final shown = _spacesOf(spaces, filters.spaceIds);
+      final boards = await _loadBoards(shown, null);
       if (isDisposed) return () {};
       // Best-effort: a user directory failure shouldn't block the board
       // itself from loading — assignee initials just won't show.
@@ -501,14 +612,10 @@ class BoardViewModel extends ViewModel {
       return () {
         _spaces = spaces;
         _spacesLoaded = true;
-        _currentSpace = space;
-        if (data == null) {
-          _setSwimlanes(const []);
-          _breadcrumbs = const [];
-        } else {
-          _applyScope(data, asOf);
-          _breadcrumbs = [_rootCrumb(space!)];
-        }
+        _view = view;
+        _filters = filters;
+        _applyScope(shown, boards, asOf);
+        _breadcrumbs = shown.isEmpty ? const [] : [_rootCrumb(view, shown)];
         _users = UserDirectory(users);
       };
     },
@@ -516,36 +623,62 @@ class BoardViewModel extends ViewModel {
         'Could not load the board. Check your connection and try again.',
   );
 
-  static Space? _chooseSpace(List<Space> spaces, String? lastUsedId) =>
-      _spaceById(spaces, lastUsedId) ?? (spaces.isEmpty ? null : spaces.first);
+  Future<List<BoardData>> _loadBoards(List<Space> spaces, String? scopeId) =>
+      Future.wait([
+        for (final space in spaces) _repository.loadBoard(space.id, scopeId),
+      ]);
 
-  /// Shows [space]'s top level on the board (and in the Hierarchy and
-  /// Roadmap, if they were loaded), and remembers it for the next launch.
-  Future<void> switchSpace(Space space) async {
-    if (space.id == _currentSpace?.id) return;
-
-    var hierarchyWanted = false;
-    await _changeScope(() async {
-      final asOf = _items.revision;
-      final data = await _repository.loadBoard(space.id, null);
-      return () {
-        _currentSpace = space;
-        _headerMatches.settle(null);
-        _roadmapMatches.settle(null);
-        _applyScope(data, asOf);
-        _breadcrumbs = [_rootCrumb(space)];
-        hierarchyWanted = _clearHierarchy();
-      };
-    }, errorMessage: 'Could not open "${space.name}". Try again.');
-    if (isDisposed || _currentSpace?.id != space.id) return;
-
-    _scheduleMatchRefresh();
-    await _lastSpace.writeSpaceId(space.id);
-    if (hierarchyWanted) await loadHierarchy();
+  /// Opens [view]: its Spaces at their top level, and its query inputs in
+  /// place of the header's. The time range, hidden statuses and sort stay.
+  Future<void> openView(SavedView view) {
+    final filters = _filters.withView(view.definition);
+    return _navigate(
+      [_rootCrumb(view, _spacesOf(_spaces, filters.spaceIds))],
+      filters: filters,
+      view: view,
+      errorMessage: 'Could not open "${view.name}". Try again.',
+    );
   }
 
-  /// Drops the old Space's Hierarchy/Roadmap items so they never show under
-  /// the new Space, and discards a load of them still in flight. Returns
+  /// Marks [view] as the open View without reloading anything, after the
+  /// header's state was just saved as it or it was renamed.
+  void adoptView(SavedView view) {
+    _view = view;
+    _breadcrumbs = [
+      for (final crumb in _breadcrumbs)
+        crumb.id == null && crumb.spaceId == null
+            ? _rootCrumb(view, _spacesOf(_spaces, _filters.spaceIds))
+            : crumb,
+    ];
+    notifyIfActive();
+  }
+
+  /// The header's current query inputs, as a View named [name] that opens
+  /// in [layout].
+  ViewDefinition definitionFor(String name, ViewLayout layout) =>
+      _filters.toDefinition(name, layout);
+
+  /// Shows [spaceIds] (every Space when empty) at their top level, keeping
+  /// the other filters.
+  Future<void> setSpaces(Set<String> spaceIds) {
+    final filters = _filters.withSpaces(spaceIds);
+    return _navigate(
+      [_rootCrumb(_view, _spacesOf(_spaces, filters.spaceIds))],
+      filters: filters,
+      errorMessage: 'Could not show those Spaces. Try again.',
+    );
+  }
+
+  /// Shows only [space]'s top level, below the View's root.
+  Future<void> focusSpace(Space space) => _navigate([
+    if (_breadcrumbs.firstOrNull case final root?
+        when root.id == null && root.spaceId == null)
+      root,
+    _spaceCrumb(space),
+  ], errorMessage: 'Could not open "${space.name}". Try again.');
+
+  /// Drops the old Spaces' Hierarchy/Roadmap items so they never show under
+  /// the new ones, and discards a load of them still in flight. Returns
   /// whether the hierarchy had been asked for, so it can be reloaded.
   bool _clearHierarchy() {
     final wanted = _hierarchyLoaded || _isHierarchyLoading;
@@ -563,15 +696,8 @@ class BoardViewModel extends ViewModel {
   /// the detail dialog. Keeps the breadcrumb trail as it is.
   Future<void> refreshCurrentScope() {
     if (_breadcrumbs.isEmpty) return load();
-
-    final current = _breadcrumbs.last;
-    final space = _currentSpace!;
-    return _changeScope(
-      () async {
-        final asOf = _items.revision;
-        final data = await _repository.loadBoard(space.id, current.id);
-        return () => _applyScope(data, asOf);
-      },
+    return _navigate(
+      _breadcrumbs,
       errorMessage:
           'Could not refresh the board. Check your connection and try again.',
     );
@@ -581,7 +707,11 @@ class BoardViewModel extends ViewModel {
   /// level further into.
   List<ScopeCrumb> get drillDownTargets => [
     for (final lane in _swimlanes)
-      ScopeCrumb(id: lane.parentId, title: lane.title),
+      ScopeCrumb(
+        id: lane.parentId,
+        title: lane.title,
+        spaceId: _laneSpaceIds[lane.parentId],
+      ),
   ];
 
   /// Re-scopes the board to [card]'s own children — they become the new
@@ -590,15 +720,19 @@ class BoardViewModel extends ViewModel {
       drillIntoScope(ScopeCrumb(id: card.id, title: card.title));
 
   /// Re-scopes the board to [target]'s own children, typically one of
-  /// [drillDownTargets], and pushes [target] onto the breadcrumb trail.
-  Future<void> drillIntoScope(ScopeCrumb target) => _changeScope(() async {
-    final asOf = _items.revision;
-    final data = await _repository.loadBoard(_currentSpace!.id, target.id);
-    return () {
-      _applyScope(data, asOf);
-      _breadcrumbs = [..._breadcrumbs, target];
-    };
-  }, errorMessage: 'Could not open "${target.title}". Try again.');
+  /// [drillDownTargets], and pushes [target] onto the breadcrumb trail. From
+  /// a View's root, its Space is pushed first.
+  Future<void> drillIntoScope(ScopeCrumb target) {
+    final spaceId =
+        target.spaceId ?? _items[target.id ?? '']?.spaceId ?? currentSpace?.id;
+    final space = _spaceById(_spaces, spaceId);
+    final atViewRoot = _breadcrumbs.lastOrNull?.spaceId == null;
+    return _navigate([
+      ..._breadcrumbs,
+      if (atViewRoot && space != null) _spaceCrumb(space),
+      ScopeCrumb(id: target.id, title: target.title, spaceId: spaceId),
+    ], errorMessage: 'Could not open "${target.title}". Try again.');
+  }
 
   /// Jumps back to the breadcrumb at [index], discarding any deeper
   /// entries. A no-op if [index] is already the current scope.
@@ -608,17 +742,58 @@ class BoardViewModel extends ViewModel {
     }
 
     final trail = _breadcrumbs.sublist(0, index + 1);
-    final target = trail.last;
+    return _navigate(
+      trail,
+      errorMessage: 'Could not go back to "${trail.last.title}". Try again.',
+    );
+  }
 
-    return _changeScope(() async {
+  /// Shows [trail]'s last crumb with [filters] (the current ones when
+  /// null). When that changes which Spaces are shown, or the filters
+  /// change, what the server matched and the Hierarchy's items are asked
+  /// for again, so another Space's items never show.
+  Future<void> _navigate(
+    List<ScopeCrumb> trail, {
+    required String errorMessage,
+    BoardFilters? filters,
+    SavedView? view,
+  }) async {
+    final nextFilters = filters ?? _filters;
+    var reshown = false;
+    var hierarchyWanted = false;
+    await _changeScope(() async {
       final asOf = _items.revision;
-      final data = await _repository.loadBoard(_currentSpace!.id, target.id);
+      final spaces = _spacesFor(trail.last, nextFilters);
+      final boards = await _loadBoards(spaces, trail.last.id);
       return () {
-        _applyScope(data, asOf);
+        reshown = filters != null || !_sameSpaces(spaces, _shownSpaces);
+        if (view != null) _view = view;
+        _filters = nextFilters;
+        if (reshown) {
+          _headerMatches.settle(null);
+          _roadmapMatches.settle(null);
+          hierarchyWanted = _clearHierarchy();
+        }
+        _applyScope(spaces, boards, asOf);
         _breadcrumbs = trail;
       };
-    }, errorMessage: 'Could not go back to "${target.title}". Try again.');
+    }, errorMessage: errorMessage);
+    if (isDisposed || !reshown) return;
+
+    _scheduleMatchRefresh();
+    if (hierarchyWanted) await loadHierarchy();
   }
+
+  List<Space> _spacesFor(ScopeCrumb crumb, BoardFilters filters) =>
+      switch (crumb.spaceId) {
+        final spaceId? => [
+          _spaceById(_spaces, spaceId) ?? Space(id: spaceId, name: crumb.title),
+        ],
+        null => _spacesOf(_spaces, filters.spaceIds),
+      };
+
+  static bool _sameSpaces(List<Space> a, List<Space> b) =>
+      listEquals([for (final s in a) s.id], [for (final s in b) s.id]);
 
   /// Moves [card] to [newStatusId], within whichever swimlane already owns
   /// it, placing it directly before [beforeCardId] in that cell, or at the
@@ -673,14 +848,15 @@ class BoardViewModel extends ViewModel {
     );
   }
 
-  /// Moves [card] to a different swimlane (i.e. a different parent),
-  /// keeping its status — the view-model mirror of the backend's
-  /// `Reparent`. Applies the move optimistically, then rolls it back if
+  /// Moves [card] to a different swimlane (i.e. a different parent) of the
+  /// same Space, keeping its status — the view-model mirror of the
+  /// backend's `Reparent`, which never crosses a Space. Applies the move optimistically, then rolls it back if
   /// the backend rejects it.
   Future<void> reparentCard(WorkItemCard card, String newParentId) {
     if (card.parentId == newParentId ||
         !_swimlanes.hasLane(card.parentId) ||
-        !_swimlanes.hasLane(newParentId)) {
+        !_swimlanes.hasLane(newParentId) ||
+        _laneSpaceIds[card.parentId] != _laneSpaceIds[newParentId]) {
       return Future.value();
     }
 
@@ -773,7 +949,8 @@ class BoardViewModel extends ViewModel {
   void clearMoveError() => _moveError = null;
 
   /// Creates a new work item under [parentId] (null for a new top-level
-  /// item of the current Space) with [statusId], then reloads the current scope to pick it up —
+  /// item of [currentSpace], which must be set) with [statusId], then
+  /// reloads the current scope to pick it up —
   /// there's no optimistic add, since the created item's id isn't known
   /// until the repository call returns.
   ///
@@ -787,7 +964,7 @@ class BoardViewModel extends ViewModel {
     required String statusId,
   }) async {
     final scopeId = _breadcrumbs.last.id;
-    final spaceId = _currentSpace!.id;
+    final spaceId = currentSpace!.id;
     try {
       await _repository.createWorkItem(
         title: title,
@@ -805,7 +982,7 @@ class BoardViewModel extends ViewModel {
     // If the user navigated elsewhere while the create was in flight, that
     // navigation already loaded the scope they're now looking at.
     if (!isDisposed &&
-        _currentSpace?.id == spaceId &&
+        currentSpace?.id == spaceId &&
         _breadcrumbs.last.id == scopeId) {
       await refreshCurrentScope();
     }
@@ -860,6 +1037,11 @@ class BoardViewModel extends ViewModel {
   void setShowDone(bool showDone) =>
       _setFilters(_filters.withShowDone(showDone));
 
+  /// Turns Overview's rule on or off: only items in a Doing status or with
+  /// dates.
+  void setScheduledOrInProgressOnly(bool only) =>
+      _setFilters(_filters.withScheduledOrInProgressOnly(only));
+
   /// Null for [CardSortOption.manual] — see [sortComparator].
   Comparator<WorkItemCard>? get cardComparator => sortComparator(
     _filters.sortOption,
@@ -887,11 +1069,13 @@ class BoardViewModel extends ViewModel {
     }
   }
 
-  /// The question the header's filters put to the server for the current
-  /// Space; null while no Space is shown.
-  WorkItemQuery? get _activeQuery => switch (_currentSpace) {
-    final space? => _filters.toQuery(space.id),
-    null => null,
+  /// The question the header's filters put to the server for the shown
+  /// Spaces; null while no Space is shown.
+  WorkItemQuery? get _activeQuery =>
+      _shownSpaces.isEmpty ? null : _filters.toQuery(_shownSpaceIds);
+
+  Set<String> get _shownSpaceIds => {
+    for (final space in _shownSpaces) space.id,
   };
 
   /// Asks again once the current burst of item changes settles, since an
@@ -909,7 +1093,7 @@ class BoardViewModel extends ViewModel {
     });
   }
 
-  /// Asks the server which items of the current Space match the header's
+  /// Asks the server which items of the shown Spaces match the header's
   /// filters (ADR-0006). With no filter set every item matches, so nothing
   /// is asked.
   Future<void> _refreshMatches() {
@@ -931,9 +1115,8 @@ class BoardViewModel extends ViewModel {
   /// nothing is asked.
   Future<void> _refreshRoadmapMatches({bool notify = true}) {
     final window = _roadmapWindow;
-    final space = _currentSpace;
-    if (window == null || space == null) return Future.value();
-    final query = _filters.toRoadmapQuery(space.id, window);
+    if (window == null || _shownSpaces.isEmpty) return Future.value();
+    final query = _filters.toRoadmapQuery(_shownSpaceIds, window);
     if (query == null) {
       if (_roadmapMatches.settle(const {}) && notify) notifyIfActive();
       return Future.value();
@@ -1062,16 +1245,29 @@ class BoardViewModel extends ViewModel {
         : '$notSaved It now shows the latest version.';
   }
 
-  void _applyScope(BoardData data, int asOf) {
-    _statuses = [...data.statuses]..sort((a, b) => a.order.compareTo(b.order));
+  /// Shows [boards], one per Space of [spaces] in the same order.
+  void _applyScope(List<Space> spaces, List<BoardData> boards, int asOf) {
+    _shownSpaces = spaces;
+    _statusesBySpace = {
+      for (final (index, space) in spaces.indexed)
+        space.id: [...boards[index].statuses]
+          ..sort((a, b) => a.order.compareTo(b.order)),
+    };
+    _statuses = [for (final space in spaces) ...?_statusesBySpace[space.id]];
     _statusById = {for (final status in _statuses) status.id: status};
-    _typeById = {for (final type in data.types) type.id: type};
+    _typeById = {
+      for (final board in boards)
+        for (final type in board.types) type.id: type,
+    };
+    _laneSpaceIds = {
+      for (final (index, space) in spaces.indexed)
+        for (final lane in boards[index].swimlanes) lane.lane.id: space.id,
+    };
+    final lanes = [for (final board in boards) ...board.swimlanes];
     _items.putAll([
-      for (final lane in data.swimlanes) ...[lane.lane, ...lane.cards],
+      for (final lane in lanes) ...[lane.lane, ...lane.cards],
     ], asOf: asOf);
-    _setSwimlanes(
-      _drawnFromStore([for (final lane in data.swimlanes) _layoutOf(lane)]),
-    );
+    _setSwimlanes(_drawnFromStore([for (final lane in lanes) _layoutOf(lane)]));
   }
 
   static Swimlane _layoutOf(SwimlaneItems lane) => Swimlane(

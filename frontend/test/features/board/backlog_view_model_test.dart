@@ -3,6 +3,7 @@ import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/board/backlog_view_model.dart';
 import 'package:weaver/features/board/models/backlog_group.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
+import 'package:weaver/shared/models/space.dart';
 
 import '../../shared/fakes/work_items.dart';
 import 'fakes/fake_backlog_repository.dart';
@@ -14,6 +15,9 @@ List<List<String?>> _shape(List<BacklogGroup> groups) => [
   for (final group in groups)
     [group.parent?.title, for (final item in group.items) item.title],
 ];
+
+const _homeSpace = Space(id: 'home', name: 'Home');
+const _workSpace = Space(id: 'work', name: 'Work');
 
 void main() {
   late FakeBacklogRepository repository;
@@ -36,16 +40,16 @@ void main() {
   tearDown(() => viewModel.dispose());
 
   test("asks the server for only the Space's Backlog", () async {
-    await viewModel.load('home');
+    await viewModel.load(const [_homeSpace]);
 
     final query = repository.queries.single;
-    expect(query.spaceId, 'home');
+    expect(query.spaceIds, {'home'});
     expect(query.backlogOnly, isTrue);
   });
 
   test('groups items by parent, top-level items first, then parents by '
       'title', () async {
-    await viewModel.load('home');
+    await viewModel.load(const [_homeSpace]);
 
     expect(_shape(viewModel.groups), [
       [null, 'Shed', 'Garden bench'],
@@ -54,10 +58,23 @@ void main() {
     ]);
   });
 
+  test('across several Spaces, gives each its own top-level group', () async {
+    await viewModel.load(const [_homeSpace, _workSpace]);
+
+    expect(
+      [
+        for (final group in viewModel.groups)
+          if (group.parent == null) group.space?.name,
+      ],
+      ['Home', 'Work'],
+    );
+    expect(viewModel.groups[1].items.single.title, 'Other Space');
+  });
+
   test('loads only the parents it does not hold yet', () async {
     store.putAll([repository.server['house']!], asOf: store.revision);
 
-    await viewModel.load('home');
+    await viewModel.load(const [_homeSpace]);
 
     expect(repository.itemLoads, isEmpty);
     expect(viewModel.groups[1].parent?.title, 'House');
@@ -66,7 +83,7 @@ void main() {
   test('an empty Backlog has no groups', () async {
     repository.done.addAll(['paint', 'shed', 'roof', 'bench']);
 
-    await viewModel.load('home');
+    await viewModel.load(const [_homeSpace]);
 
     expect(viewModel.groups, isEmpty);
     expect(viewModel.loadError, isNull);
@@ -74,7 +91,7 @@ void main() {
 
   test('setting dates sends them with the version and moves the item out of '
       'the Backlog', () async {
-    await viewModel.load('home');
+    await viewModel.load(const [_homeSpace]);
 
     final saved = await viewModel.setDates('bench', _nov, _nov);
     await pumpEventQueue();
@@ -86,7 +103,7 @@ void main() {
   });
 
   test('dates set anywhere else move the item out too', () async {
-    await viewModel.load('home');
+    await viewModel.load(const [_homeSpace]);
 
     await store.write(
       'paint',
@@ -107,7 +124,7 @@ void main() {
   });
 
   test('an edit that leaves the item undated keeps it', () async {
-    await viewModel.load('home');
+    await viewModel.load(const [_homeSpace]);
 
     await store.write(
       'bench',
@@ -126,7 +143,7 @@ void main() {
   });
 
   test('a failed date change keeps the item and says why', () async {
-    await viewModel.load('home');
+    await viewModel.load(const [_homeSpace]);
     repository.rescheduleError = const ApiException('down');
 
     final saved = await viewModel.setDates('bench', _nov, _nov);
@@ -140,7 +157,7 @@ void main() {
   test('a failed load says so', () async {
     repository.queryError = const ApiException('down');
 
-    await viewModel.load('home');
+    await viewModel.load(const [_homeSpace]);
 
     expect(viewModel.loadError, isNotNull);
     expect(viewModel.isLoading, isFalse);
@@ -150,8 +167,8 @@ void main() {
     "a slower answer for the previous Space can't replace the new one",
     () async {
       final pending = repository.pendingQueries = [];
-      final first = viewModel.load('home');
-      final second = viewModel.load('work');
+      final first = viewModel.load(const [_homeSpace]);
+      final second = viewModel.load(const [_workSpace]);
 
       pending[1].complete([repository.server['away']!]);
       await second;
@@ -167,14 +184,14 @@ void main() {
   test(
     'a save asks nothing once refreshing stops, until the next load',
     () async {
-      await viewModel.load('home');
+      await viewModel.load(const [_homeSpace]);
       viewModel.stopRefreshing();
       repository.queries.clear();
 
       await viewModel.setDates('bench', _nov, _nov);
       await pumpEventQueue();
       final whileStopped = repository.queries.length;
-      await viewModel.load('home');
+      await viewModel.load(const [_homeSpace]);
       await viewModel.setDates('paint', _nov, _nov);
       await pumpEventQueue();
 
@@ -185,7 +202,7 @@ void main() {
 
   test('nothing is asked after it is disposed', () async {
     final other = BacklogViewModel(repository, store);
-    await other.load('home');
+    await other.load(const [_homeSpace]);
     other.dispose();
     repository.queries.clear();
 

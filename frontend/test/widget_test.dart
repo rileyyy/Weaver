@@ -7,7 +7,7 @@ import 'package:weaver/features/auth/data/auth_session_store.dart';
 import 'package:weaver/features/auth/data/secure_token_store.dart';
 import 'package:weaver/features/auth/models/auth_session.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
-import 'package:weaver/features/board/data/last_space_store.dart';
+import 'package:weaver/features/board/data/view_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/swimlane_items.dart';
 import 'package:weaver/shared/models/custom_field.dart';
@@ -20,7 +20,7 @@ import 'package:weaver/shared/models/work_item_status.dart';
 import 'package:weaver/shared/recurrence/data/recurrence_repository.dart';
 
 import 'core/network/fakes/in_memory_server_origin_store.dart';
-import 'shared/fakes/memory_last_space_store.dart';
+import 'features/board/fakes/fake_view_repository.dart';
 import 'shared/fakes/work_items.dart';
 import 'shared/recurrence/fake_recurrence_repository.dart';
 
@@ -65,10 +65,10 @@ class _StubBoardRepository implements BoardRepository {
   Future<List<WorkItem>> queryItems(WorkItemQuery query) async {
     queries.add(query);
     return [
-      for (final lane in (await loadBoard(query.spaceId, null)).swimlanes) ...[
-        lane.lane,
-        ...lane.cards,
-      ],
+      for (final lane in (await loadBoard(
+        query.spaceIds.first,
+        null,
+      )).swimlanes) ...[lane.lane, ...lane.cards],
     ];
   }
 
@@ -118,8 +118,8 @@ void main() {
     getIt
       ..unregister<BoardRepository>()
       ..registerLazySingleton<BoardRepository>(_StubBoardRepository.new)
-      ..unregister<LastSpaceStore>()
-      ..registerLazySingleton<LastSpaceStore>(MemoryLastSpaceStore.new)
+      ..unregister<ViewRepository>()
+      ..registerLazySingleton<ViewRepository>(FakeViewRepository.new)
       ..unregister<AuthRepository>()
       ..registerLazySingleton<AuthRepository>(_UnusedAuthRepository.new)
       ..unregister<SecureTokenStore>()

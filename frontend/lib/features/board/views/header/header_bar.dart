@@ -2,17 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:weaver/features/board/models/scope_crumb.dart';
 import 'package:weaver/features/board/views/header/widgets/breadcrumb_bar.dart';
 import 'package:weaver/features/board/views/header/widgets/search_and_actions.dart';
-import 'package:weaver/features/board/views/header/widgets/space_switcher.dart';
 import 'package:weaver/features/board/views/header/widgets/time_filter_bar.dart';
-import 'package:weaver/shared/models/space.dart';
 
 class HeaderBar extends StatelessWidget {
   const HeaderBar({
     super.key,
     required this.isNarrow,
-    required this.spaces,
-    required this.currentSpace,
-    required this.onSwitchSpace,
+    required this.viewMenu,
     required this.breadcrumbs,
     required this.onSelectBreadcrumb,
     required this.drillDownTargets,
@@ -30,9 +26,9 @@ class HeaderBar extends StatelessWidget {
   });
 
   final bool isNarrow;
-  final List<Space> spaces;
-  final Space? currentSpace;
-  final Future<void> Function(Space space) onSwitchSpace;
+
+  /// Picks the open View; the breadcrumb follows it.
+  final Widget viewMenu;
   final List<ScopeCrumb> breadcrumbs;
   final Future<void> Function(int index) onSelectBreadcrumb;
   final List<ScopeCrumb> drillDownTargets;
@@ -61,22 +57,12 @@ class HeaderBar extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            SpaceSwitcher(
-              spaces: spaces,
-              current: currentSpace,
-              onSwitch: onSwitchSpace,
-            ),
-            Flexible(
-              child: BreadcrumbBar(
-                breadcrumbs: breadcrumbs,
-                onSelect: onSelectBreadcrumb,
-                drillDownTargets: drillDownTargets,
-                onDrillDown: onDrillDown,
-              ),
-            ),
-          ],
+        viewMenu,
+        BreadcrumbBar(
+          breadcrumbs: breadcrumbs,
+          onSelect: onSelectBreadcrumb,
+          drillDownTargets: drillDownTargets,
+          onDrillDown: onDrillDown,
         ),
         TimeFilterBar(
           start: filterStart,

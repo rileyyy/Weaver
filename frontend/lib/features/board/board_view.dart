@@ -5,16 +5,25 @@ import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/core/theme/app_theme.dart';
 import 'package:weaver/features/board/backlog_view_model.dart';
 import 'package:weaver/features/board/board_view_model.dart';
+import 'package:weaver/features/board/models/board_section.dart';
+import 'package:weaver/features/board/models/saved_view.dart';
+import 'package:weaver/features/board/models/view_layout.dart';
 import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/repeating_items_view_model.dart';
+import 'package:weaver/features/board/saved_views_view_model.dart';
 import 'package:weaver/features/board/trash_view_model.dart';
 import 'package:weaver/features/board/views/backlog/backlog_view.dart';
 import 'package:weaver/features/board/views/board_tab.dart';
 import 'package:weaver/features/board/views/header/done_filter_bar.dart';
 import 'package:weaver/features/board/views/header/header_bar.dart';
+import 'package:weaver/features/board/views/header/scheduled_filter_bar.dart';
 import 'package:weaver/features/board/views/header/sort_bar.dart';
+import 'package:weaver/features/board/views/header/space_filter_bar.dart';
 import 'package:weaver/features/board/views/header/status_filter_bar.dart';
 import 'package:weaver/features/board/views/header/tag_filter_bar.dart';
+import 'package:weaver/features/board/views/header/widgets/view_menu.dart';
+import 'package:weaver/features/board/views/header/widgets/view_menu_action.dart';
+import 'package:weaver/features/board/views/header/widgets/view_name_dialog.dart';
 import 'package:weaver/features/board/views/hierarchy/hierarchy_view.dart';
 import 'package:weaver/features/board/views/repeating/repeating_view.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_view.dart';
@@ -23,9 +32,11 @@ import 'package:weaver/features/board/views/trash/trash_view.dart';
 import 'package:weaver/features/board/widgets/add_tags_dialog.dart';
 import 'package:weaver/features/board/widgets/assign_dialog.dart';
 import 'package:weaver/features/board/widgets/create_work_item_dialog.dart';
+import 'package:weaver/features/board/widgets/space_section_header.dart';
 import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/navigation/admin_page_opener.dart';
 import 'package:weaver/shared/navigation/work_item_detail_opener.dart';
+import 'package:weaver/shared/widgets/confirm_action.dart';
 import 'package:weaver/shared/widgets/load_error_view.dart';
 
 /// Below this width, the header collapses to a column (app name on its own
@@ -61,6 +72,7 @@ class _BoardViewState extends State<BoardView>
       getIt<RepeatingItemsViewModel>();
   final TrashViewModel _trashViewModel = getIt<TrashViewModel>();
   final BacklogViewModel _backlogViewModel = getIt<BacklogViewModel>();
+  final SavedViewsViewModel _savedViews = getIt<SavedViewsViewModel>();
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
   late final TabController _tabController = TabController(
@@ -103,9 +115,117 @@ class _BoardViewState extends State<BoardView>
   @override
   void initState() {
     super.initState();
-    unawaited(_viewModel.load());
+    unawaited(_load());
     _viewModel.addListener(_showMoveErrorIfAny);
+    _savedViews.addListener(_showViewErrorIfAny);
     _tabController.addListener(_onTabChanged);
+  }
+
+  /// Opens the user's default View, in its layout.
+  Future<void> _load() async {
+    await (_viewModel.load(), _savedViews.load()).wait;
+    if (mounted) _showOpenView();
+  }
+
+  /// After a View opens: the search box shows its text and its layout's
+  /// tab shows.
+  void _showOpenView() {
+    _searchController.text = _viewModel.searchQuery;
+    final layout = _viewModel.currentView?.definition.layout;
+    if (layout != null) _tabController.index = layout.tab.index;
+    _loadBacklogIfShown();
+  }
+
+  Future<void> _openView(SavedView view) async {
+    _searchDebounce?.cancel();
+    await _viewModel.openView(view);
+    if (mounted) _showOpenView();
+  }
+
+  Future<void> _focusSpace(Space space) async {
+    await _viewModel.focusSpace(space);
+    if (mounted) _loadBacklogIfShown();
+  }
+
+  Future<void> _setSpaces(Set<String> spaceIds) async {
+    await _viewModel.setSpaces(spaceIds);
+    if (mounted) _loadBacklogIfShown();
+  }
+
+  ViewLayout get _currentLayout =>
+      ViewLayout.ofTab(BoardTab.values[_tabController.index]);
+
+  Future<void> _onViewAction(ViewMenuAction action) async {
+    final current = _viewModel.currentView;
+    switch (action) {
+      case ViewMenuAction.saveAs:
+        await _saveAsNewView();
+      case ViewMenuAction.saveChanges when current != null:
+        final saved = await _savedViews.update(
+          current,
+          _viewModel.definitionFor(current.name, _currentLayout),
+        );
+        if (saved != null) _viewModel.adoptView(saved);
+      case ViewMenuAction.rename when current != null:
+        await _renameView(current);
+      case ViewMenuAction.makeDefault when current != null:
+        await _savedViews.setDefault(current);
+      case ViewMenuAction.delete when current != null:
+        await _deleteView(current);
+      case _:
+        break;
+    }
+  }
+
+  Future<void> _saveAsNewView() async {
+    final name = await showViewNameDialog(
+      context,
+      title: 'Save as new View',
+      confirmLabel: 'Save',
+    );
+    if (name == null) return;
+    final saved = await _savedViews.create(
+      _viewModel.definitionFor(name, _currentLayout),
+    );
+    if (saved != null) _viewModel.adoptView(saved);
+  }
+
+  Future<void> _renameView(SavedView view) async {
+    final name = await showViewNameDialog(
+      context,
+      title: 'Rename View',
+      confirmLabel: 'Rename',
+      initialName: view.name,
+    );
+    if (name == null || name == view.name) return;
+    final renamed = await _savedViews.rename(view, name);
+    if (renamed != null) _viewModel.adoptView(renamed);
+  }
+
+  /// The View is shared, so deleting it removes it for everyone; whoever
+  /// had it as their default gets Overview.
+  Future<void> _deleteView(SavedView view) async {
+    final confirmed = await confirmAction(
+      context,
+      title: 'Delete "${view.name}"?',
+      message:
+          'Views are shared, so it goes for everyone. Anyone who opens it '
+          'by default gets Overview instead.',
+      confirmLabel: 'Delete',
+      isDestructive: true,
+    );
+    if (!confirmed || !await _savedViews.delete(view)) return;
+    final overview = _savedViews.views.where((v) => v.builtIn).firstOrNull;
+    if (overview != null && mounted) await _openView(overview);
+  }
+
+  void _showViewErrorIfAny() {
+    final message = _savedViews.error;
+    if (message == null) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+    _savedViews.clearError();
   }
 
   @override
@@ -116,6 +236,9 @@ class _BoardViewState extends State<BoardView>
     _repeatingViewModel.dispose();
     _trashViewModel.dispose();
     _backlogViewModel.dispose();
+    _savedViews
+      ..removeListener(_showViewErrorIfAny)
+      ..dispose();
     _searchDebounce?.cancel();
     _searchController.dispose();
     _tabController
@@ -162,17 +285,12 @@ class _BoardViewState extends State<BoardView>
   /// Reloaded on every visit, like the Trash: items created or given dates
   /// elsewhere change what's in it.
   void _loadBacklogIfShown() {
-    final spaceId = _viewModel.currentSpace?.id;
-    if (_tabController.index != BoardTab.backlog.index || spaceId == null) {
+    final spaces = _viewModel.shownSpaces;
+    if (_tabController.index != BoardTab.backlog.index || spaces.isEmpty) {
       _backlogViewModel.stopRefreshing();
       return;
     }
-    unawaited(_backlogViewModel.load(spaceId));
-  }
-
-  Future<void> _switchSpace(Space space) async {
-    await _viewModel.switchSpace(space);
-    if (mounted) _loadBacklogIfShown();
+    unawaited(_backlogViewModel.load(spaces));
   }
 
   /// Detail-dialog edits reach the board through the shared item store. The
@@ -296,10 +414,22 @@ class _BoardViewState extends State<BoardView>
               crossAxisAlignment: CrossAxisAlignment.start,
               spacing: 8,
               children: [
+                SpaceFilterBar(
+                  spaces: _viewModel.spaces,
+                  selectedIds: _viewModel.selectedSpaceIds,
+                  onChanged: (ids) => unawaited(_setSpaces(ids)),
+                ),
+                ScheduledFilterBar(
+                  only: _viewModel.scheduledOrInProgressOnly,
+                  onChanged: _viewModel.setScheduledOrInProgressOnly,
+                ),
                 StatusFilterBar(
                   statuses: _viewModel.statuses,
                   hiddenStatusIds: _viewModel.hiddenStatusIds,
                   onToggle: _viewModel.toggleStatusVisibility,
+                  spaceNameOf: _viewModel.spansSpaces
+                      ? _viewModel.spaceNameOfStatus
+                      : null,
                 ),
                 DoneFilterBar(
                   showDone: _viewModel.showDone,
@@ -366,9 +496,16 @@ class _BoardViewState extends State<BoardView>
                 children: [
                   HeaderBar(
                     isNarrow: isNarrow,
-                    spaces: _viewModel.spaces,
-                    currentSpace: _viewModel.currentSpace,
-                    onSwitchSpace: _switchSpace,
+                    viewMenu: ListenableBuilder(
+                      listenable: _savedViews,
+                      builder: (context, _) => ViewMenu(
+                        views: _savedViews.views,
+                        current: _viewModel.currentView,
+                        defaultViewId: _savedViews.defaultViewId,
+                        onOpen: (view) => unawaited(_openView(view)),
+                        onAction: (action) => unawaited(_onViewAction(action)),
+                      ),
+                    ),
                     breadcrumbs: _viewModel.breadcrumbs,
                     onSelectBreadcrumb: _viewModel.navigateToBreadcrumb,
                     drillDownTargets: _viewModel.drillDownTargets,
@@ -402,11 +539,13 @@ class _BoardViewState extends State<BoardView>
                             viewModel: _viewModel,
                             onItemOpened: _openDetailsById,
                             onAddTagsRequested: _openAddTagsDialog,
+                            onSpaceTapped: (space) =>
+                                unawaited(_focusSpace(space)),
                           ),
                         ),
                         BacklogView(
                           viewModel: _backlogViewModel,
-                          spaceId: _viewModel.currentSpace?.id,
+                          spaces: _viewModel.shownSpaces,
                           onItemOpened: _openDetailsById,
                         ),
                         ListenableBuilder(
@@ -416,6 +555,8 @@ class _BoardViewState extends State<BoardView>
                             onItemOpened: _openDetailsById,
                             onAssignRequested: _openAssignDialog,
                             onAddTagsRequested: _openAddTagsDialog,
+                            onSpaceTapped: (space) =>
+                                unawaited(_focusSpace(space)),
                           ),
                         ),
                         RepeatingView(
@@ -480,31 +621,47 @@ class _BoardViewState extends State<BoardView>
       );
     }
 
+    final sections = _viewModel.boardSections;
     return Container(
       width: double.infinity,
       color: swimlaneBackground,
       child: SingleChildScrollView(
         child: LayoutBuilder(
-          builder: (context, constraints) => SwimlaneView(
-            width: constraints.maxWidth,
-            statuses: _viewModel.visibleStatuses,
-            swimlaneListenables: _viewModel.swimlaneListenables,
-            onCardDropped: _viewModel.moveCard,
-            onCardReparented: _viewModel.reparentCard,
-            onCardDetailsOpened: _openDetails,
-            onSwimlaneLabelTapped: _openDetailsById,
-            onAssignRequested: _openAssignDialog,
-            onAddTagsRequested: _openAddTagsDialog,
-            cardVisible: _viewModel.cardVisible,
-            cardComparator: _viewModel.cardComparator,
-            assigneeInitialFor: _viewModel.assigneeInitialFor,
-            typeColorFor: _viewModel.typeColorFor,
-            collapsedSwimlaneIds: _collapsedSwimlaneIds,
-            onToggleSwimlaneCollapsed: _toggleSwimlaneCollapsed,
-            onToggleAllSwimlanesCollapsed: _toggleAllSwimlanesCollapsed,
+          builder: (context, constraints) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final section in sections) ...[
+                if (sections.length > 1)
+                  SpaceSectionHeader(
+                    space: section.space,
+                    onTap: () => unawaited(_focusSpace(section.space)),
+                  ),
+                _buildSection(section, constraints.maxWidth),
+              ],
+            ],
           ),
         ),
       ),
     );
   }
+
+  /// One Space's lanes under its own status columns.
+  Widget _buildSection(BoardSection section, double width) => SwimlaneView(
+    width: width,
+    statuses: section.statuses,
+    swimlaneListenables: section.lanes,
+    onCardDropped: _viewModel.moveCard,
+    onCardReparented: _viewModel.reparentCard,
+    onCardDetailsOpened: _openDetails,
+    onSwimlaneLabelTapped: _openDetailsById,
+    onAssignRequested: _openAssignDialog,
+    onAddTagsRequested: _openAddTagsDialog,
+    cardVisible: _viewModel.cardVisible,
+    cardComparator: _viewModel.cardComparator,
+    assigneeInitialFor: _viewModel.assigneeInitialFor,
+    typeColorFor: _viewModel.typeColorFor,
+    collapsedSwimlaneIds: _collapsedSwimlaneIds,
+    onToggleSwimlaneCollapsed: _toggleSwimlaneCollapsed,
+    onToggleAllSwimlanesCollapsed: _toggleAllSwimlanesCollapsed,
+  );
 }

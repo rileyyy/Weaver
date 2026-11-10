@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:weaver/features/board/backlog_view_model.dart';
 import 'package:weaver/features/board/models/backlog_group.dart';
 import 'package:weaver/features/board/views/backlog/widgets/backlog_item_tile.dart';
+import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/widgets/load_error_view.dart';
 
@@ -11,21 +12,21 @@ import 'package:weaver/shared/widgets/load_error_view.dart';
 typedef DateRangeChooser =
     Future<DateTimeRange?> Function(BuildContext context, WorkItem item);
 
-/// The Backlog tab: the current Space's undated, not-Done items, grouped
+/// The Backlog tab: the shown Spaces' undated, not-Done items, grouped
 /// under their parents, each of which can be given dates.
 class BacklogView extends StatelessWidget {
   const BacklogView({
     super.key,
     required this.viewModel,
-    required this.spaceId,
+    required this.spaces,
     required this.onItemOpened,
     this.chooseDates = pickDateRange,
   });
 
   final BacklogViewModel viewModel;
 
-  /// Null while no Space is shown.
-  final String? spaceId;
+  /// Empty while no Space is shown.
+  final List<Space> spaces;
   final void Function(String workItemId) onItemOpened;
   final DateRangeChooser chooseDates;
 
@@ -51,7 +52,7 @@ class BacklogView extends StatelessWidget {
           return LoadErrorView(
             message: error,
             onRetry: () async {
-              if (spaceId case final id?) await viewModel.load(id);
+              if (spaces.isNotEmpty) await viewModel.load(spaces);
             },
           );
         }
@@ -81,7 +82,11 @@ class BacklogView extends StatelessWidget {
       ListTile(
         dense: true,
         title: Text(
-          parent == null ? 'Top level' : '#${parent.number} ${parent.title}',
+          switch ((parent, group.space)) {
+            (final parent?, _) => '#${parent.number} ${parent.title}',
+            (null, final space?) => '${space.name}: top level',
+            (null, null) => 'Top level',
+          },
           style: Theme.of(context).textTheme.titleSmall,
           overflow: TextOverflow.ellipsis,
         ),

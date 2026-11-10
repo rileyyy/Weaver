@@ -23,7 +23,7 @@ import 'package:weaver/shared/models/work_item_query.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 import 'package:weaver/shared/models/work_item_type.dart';
 
-import '../../shared/fakes/memory_last_space_store.dart';
+import '../../features/board/fakes/fake_view_repository.dart';
 import '../../shared/fakes/work_items.dart';
 
 const _todoColor = Color(0xFF1E88E5);
@@ -468,7 +468,7 @@ void main() {
   setUp(() async {
     repository = _TestBoardRepository();
     items = WorkItemStore();
-    viewModel = BoardViewModel(repository, items, MemoryLastSpaceStore());
+    viewModel = BoardViewModel(repository, items, FakeViewRepository());
     await viewModel.load();
   });
 
@@ -491,7 +491,7 @@ void main() {
     final failingViewModel = BoardViewModel(
       _FailingLoadRepository(),
       WorkItemStore(),
-      MemoryLastSpaceStore(),
+      FakeViewRepository(),
     );
     await failingViewModel.load();
 
@@ -534,7 +534,7 @@ void main() {
       final failingViewModel = BoardViewModel(
         failingRepository,
         WorkItemStore(),
-        MemoryLastSpaceStore(),
+        FakeViewRepository(),
       );
       await failingViewModel.load();
       final card = failingViewModel.swimlanes[0].cards.single;
@@ -668,7 +668,7 @@ void main() {
       final failingViewModel = BoardViewModel(
         failingRepository,
         WorkItemStore(),
-        MemoryLastSpaceStore(),
+        FakeViewRepository(),
       );
       await failingViewModel.load();
       final card = failingViewModel.swimlanes[0].cards.single;
@@ -714,7 +714,7 @@ void main() {
       final failingViewModel = BoardViewModel(
         failingRepository,
         WorkItemStore(),
-        MemoryLastSpaceStore(),
+        FakeViewRepository(),
       );
       await failingViewModel.load();
       final card = failingViewModel.swimlanes[0].cards.single;
@@ -777,7 +777,7 @@ void main() {
     final hierarchyViewModel = BoardViewModel(
       repository,
       WorkItemStore(),
-      MemoryLastSpaceStore(),
+      FakeViewRepository(),
     );
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
@@ -799,7 +799,7 @@ void main() {
       final failingViewModel = BoardViewModel(
         failingRepository,
         WorkItemStore(),
-        MemoryLastSpaceStore(),
+        FakeViewRepository(),
       );
       await failingViewModel.load();
       final card = failingViewModel.swimlanes[0].cards.single;
@@ -848,7 +848,7 @@ void main() {
     final hierarchyViewModel = BoardViewModel(
       repository,
       WorkItemStore(),
-      MemoryLastSpaceStore(),
+      FakeViewRepository(),
     );
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
@@ -867,7 +867,7 @@ void main() {
       final failingViewModel = BoardViewModel(
         failingRepository,
         WorkItemStore(),
-        MemoryLastSpaceStore(),
+        FakeViewRepository(),
       );
       await failingViewModel.load();
       final card = failingViewModel.swimlanes[0].cards.single;
@@ -915,7 +915,7 @@ void main() {
     final hierarchyViewModel = BoardViewModel(
       repository,
       WorkItemStore(),
-      MemoryLastSpaceStore(),
+      FakeViewRepository(),
     );
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
@@ -936,7 +936,7 @@ void main() {
     final failingViewModel = BoardViewModel(
       failingRepository,
       WorkItemStore(),
-      MemoryLastSpaceStore(),
+      FakeViewRepository(),
     );
     await failingViewModel.load();
     final card = failingViewModel.swimlanes[0].cards.single;
@@ -971,7 +971,7 @@ void main() {
       final failingViewModel = BoardViewModel(
         failingRepository,
         WorkItemStore(),
-        MemoryLastSpaceStore(),
+        FakeViewRepository(),
       );
       await failingViewModel.load();
 
@@ -1068,7 +1068,7 @@ void main() {
       final failingViewModel = BoardViewModel(
         _FailingLoadRepository(),
         WorkItemStore(),
-        MemoryLastSpaceStore(),
+        FakeViewRepository(),
       );
       expect(failingViewModel.canCreateWorkItem, isFalse);
 
@@ -1114,7 +1114,7 @@ void main() {
           ],
         ),
         WorkItemStore(),
-        MemoryLastSpaceStore(),
+        FakeViewRepository(),
       );
       await withUsers.load();
 
@@ -1158,7 +1158,7 @@ void main() {
       final withTags = BoardViewModel(
         repository,
         WorkItemStore(),
-        MemoryLastSpaceStore(),
+        FakeViewRepository(),
       );
       await withTags.load();
       await withTags.loadHierarchy();
@@ -1263,7 +1263,7 @@ void main() {
     final hierarchyViewModel = BoardViewModel(
       repository,
       WorkItemStore(),
-      MemoryLastSpaceStore(),
+      FakeViewRepository(),
     );
     await hierarchyViewModel.load();
     expect(hierarchyViewModel.hierarchyLoaded, isFalse);
@@ -1300,7 +1300,7 @@ void main() {
     final hierarchyViewModel = BoardViewModel(
       repository,
       store,
-      MemoryLastSpaceStore(),
+      FakeViewRepository(),
     );
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
@@ -1334,7 +1334,7 @@ void main() {
       final hierarchyViewModel = BoardViewModel(
         repository,
         WorkItemStore(),
-        MemoryLastSpaceStore(),
+        FakeViewRepository(),
       );
       await hierarchyViewModel.load();
 
@@ -1367,7 +1367,7 @@ void main() {
     final hierarchyViewModel = BoardViewModel(
       repository,
       WorkItemStore(),
-      MemoryLastSpaceStore(),
+      FakeViewRepository(),
     );
     await hierarchyViewModel.load();
     await hierarchyViewModel.loadHierarchy();
@@ -1400,7 +1400,7 @@ void main() {
       final hierarchyViewModel = BoardViewModel(
         repository,
         WorkItemStore(),
-        MemoryLastSpaceStore(),
+        FakeViewRepository(),
       );
       await hierarchyViewModel.load();
       await hierarchyViewModel.loadHierarchy();
@@ -1546,7 +1546,7 @@ void main() {
       reorderViewModel = BoardViewModel(
         reorderRepository,
         WorkItemStore(),
-        MemoryLastSpaceStore(),
+        FakeViewRepository(),
       );
       await reorderViewModel.load();
     });
@@ -1635,7 +1635,7 @@ void main() {
       reorderViewModel = BoardViewModel(
         failing,
         WorkItemStore(),
-        MemoryLastSpaceStore(),
+        FakeViewRepository(),
       );
       await reorderViewModel.load();
 
@@ -1724,7 +1724,7 @@ void main() {
       hierarchyViewModel = BoardViewModel(
         hierarchyRepository,
         WorkItemStore(),
-        MemoryLastSpaceStore(),
+        FakeViewRepository(),
       );
       await hierarchyViewModel.load();
       await hierarchyViewModel.loadHierarchy();
@@ -1777,7 +1777,7 @@ void main() {
       hierarchyViewModel = BoardViewModel(
         failing,
         WorkItemStore(),
-        MemoryLastSpaceStore(),
+        FakeViewRepository(),
       );
       await hierarchyViewModel.load();
       await hierarchyViewModel.loadHierarchy();
@@ -1807,8 +1807,8 @@ void main() {
       filtered = BoardViewModel(
         queried,
         WorkItemStore(),
-        MemoryLastSpaceStore(),
-      )..setShowDone(true);
+        FakeViewRepository(defaultView: allSpacesShowingDoneView),
+      );
       await filtered.load();
       await filtered.loadHierarchy();
     });
@@ -1831,7 +1831,7 @@ void main() {
       await pumpEventQueue();
 
       final query = queried.queries.last;
-      expect(query.spaceId, 'home');
+      expect(query.spaceIds, {'home'});
       expect(query.text, 'red');
       expect(query.from, DateTime(2026, 9, 1));
       expect(query.to, DateTime(2026, 9, 30));
@@ -1971,7 +1971,7 @@ void main() {
 
     setUp(() async {
       queried = _TestBoardRepository()..matchingIds = {'lane-a', 'lane-b'};
-      board = BoardViewModel(queried, WorkItemStore(), MemoryLastSpaceStore());
+      board = BoardViewModel(queried, WorkItemStore(), FakeViewRepository());
       await board.load();
       await pumpEventQueue();
     });
@@ -1983,7 +1983,7 @@ void main() {
     test('is on by default, asking the server to hide old Done items', () {
       expect(board.showDone, isFalse);
       expect(queried.queries.single.applyDoneHiding, isTrue);
-      expect(queried.queries.single.spaceId, 'home');
+      expect(queried.queries.single.spaceIds, {'home'});
     });
 
     test('hides the items the server leaves out', () {
@@ -2070,7 +2070,7 @@ void main() {
         final viewModel = BoardViewModel(
           repository,
           WorkItemStore(),
-          MemoryLastSpaceStore(),
+          FakeViewRepository(),
         );
         addTearDown(viewModel.dispose);
         await viewModel.load();
@@ -2094,7 +2094,7 @@ void main() {
       final viewModel = BoardViewModel(
         repository,
         WorkItemStore(),
-        MemoryLastSpaceStore(),
+        FakeViewRepository(),
       );
       addTearDown(viewModel.dispose);
       await viewModel.load();
@@ -2239,7 +2239,7 @@ void main() {
           workItem('card-1', title: 'Card 1', parentId: 'lane-a'),
         ],
       );
-      viewModel = BoardViewModel(repository, items, MemoryLastSpaceStore());
+      viewModel = BoardViewModel(repository, items, FakeViewRepository());
       await viewModel.load();
       await viewModel.loadHierarchy();
       final scopeLoads = repository.requestedScopes.length;
@@ -2378,11 +2378,7 @@ void main() {
           workItem('root-2', number: 3, parentId: null, statusId: 'todo'),
         ],
       );
-      roadmap = BoardViewModel(
-        queried,
-        WorkItemStore(),
-        MemoryLastSpaceStore(),
-      );
+      roadmap = BoardViewModel(queried, WorkItemStore(), FakeViewRepository());
       await roadmap.load();
       await roadmap.loadHierarchy();
       await pumpEventQueue();

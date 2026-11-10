@@ -71,7 +71,7 @@ class ApiBoardRepository implements BoardRepository {
 
   @override
   Future<List<WorkItem>> loadAllItems(String spaceId) =>
-      queryItems(WorkItemQuery(spaceId: spaceId));
+      queryItems(WorkItemQuery(spaceIds: {spaceId}));
 
   @override
   Future<List<CustomField>> loadCustomFields(String spaceId) => _api.get(
@@ -202,9 +202,9 @@ class ApiBoardRepository implements BoardRepository {
   );
 
   /// Leaves out every input that filters nothing, so an unfiltered query
-  /// asks only for the Space.
+  /// asks only for its Spaces.
   static Map<String, Object> _searchParameters(WorkItemQuery query) => {
-    'spaceIds': query.spaceId,
+    if (query.spaceIds.isNotEmpty) 'spaceIds': query.spaceIds.toList(),
     if (query.text.isNotEmpty) 'text': query.text,
     if (query.tags.isNotEmpty) 'tags': query.tags.toList(),
     // Any is the server's default.
@@ -213,6 +213,7 @@ class ApiBoardRepository implements BoardRepository {
     'to': ?formatCalendarDate(query.to),
     if (query.applyDoneHiding) 'applyDoneHiding': 'true',
     if (query.backlogOnly) 'backlogOnly': 'true',
+    if (query.scheduledOrInProgressOnly) 'scheduledOrInProgressOnly': 'true',
     'limit': '$searchPageSize',
   };
 

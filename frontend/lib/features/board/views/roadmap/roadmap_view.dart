@@ -3,6 +3,8 @@ import 'package:weaver/core/dates/calendar_days.dart';
 import 'package:weaver/core/dates/date_format.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/models/flattened_tree_row.dart';
+import 'package:weaver/features/board/models/space_header_row.dart';
+import 'package:weaver/features/board/models/tree_list_row.dart';
 import 'package:weaver/features/board/state/flatten_tree.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_arrows.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_layout.dart';
@@ -11,6 +13,8 @@ import 'package:weaver/features/board/views/roadmap/widgets/roadmap_dependency_a
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_header_row.dart';
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_row_tile.dart';
 import 'package:weaver/features/board/views/roadmap/widgets/roadmap_toolbar.dart';
+import 'package:weaver/features/board/widgets/space_section_header.dart';
+import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/widgets/load_error_view.dart';
 
 /// A Gantt-style view of the items whose dates overlap the visible window
@@ -20,16 +24,19 @@ import 'package:weaver/shared/widgets/load_error_view.dart';
 /// [RoadmapTimeframe] and the visible window are view state, like
 /// Hierarchy's collapse set, and aren't persisted. The window is also what
 /// the Roadmap asks the server for, within the header's time-frame filter,
-/// so undated (Backlog) items stay off it (ADR-0003).
+/// so undated (Backlog) items stay off it (ADR-0003). While several Spaces
+/// show, each Space's rows sit under a heading naming it.
 class RoadmapView extends StatefulWidget {
   const RoadmapView({
     super.key,
     required this.viewModel,
     required this.onItemOpened,
     required this.onAddTagsRequested,
+    required this.onSpaceTapped,
   });
 
   final BoardViewModel viewModel;
+  final void Function(Space space) onSpaceTapped;
   final void Function(String workItemId) onItemOpened;
   final void Function(String workItemId, List<String> currentTags)
   onAddTagsRequested;
@@ -93,10 +100,12 @@ class _RoadmapViewState extends State<RoadmapView> {
       return LoadErrorView(message: error, onRetry: viewModel.retryRoadmap);
     }
 
-    final rows = flattenTree(
-      viewModel.roadmapRoots,
-      collapsedIds: _collapsedIds,
-    );
+    final rows = viewModel.spansSpaces
+        ? flattenSections(
+            viewModel.roadmapSections,
+            collapsedIds: _collapsedIds,
+          )
+        : flattenTree(viewModel.roadmapRoots, collapsedIds: _collapsedIds);
 
     final windowEnd = addDays(_windowStart, _timeframe.totalDays);
     final rangeLabel = '${formatDate(_windowStart)} → ${formatDate(windowEnd)}';
@@ -154,7 +163,7 @@ class _RoadmapViewState extends State<RoadmapView> {
     );
   }
 
-  Widget _buildRows(List<FlattenedTreeRow> rows, double timelineWidth) {
+  Widget _buildRows(List<TreeListRow> rows, double timelineWidth) {
     final viewModel = widget.viewModel;
     return ListView.builder(
       controller: _rowScroll,
@@ -162,6 +171,14 @@ class _RoadmapViewState extends State<RoadmapView> {
       itemExtent: roadmapRowHeight,
       itemBuilder: (context, index) {
         final row = rows[index];
+        if (row is SpaceHeaderRow) {
+          return SpaceSectionHeader(
+            space: row.space,
+            height: roadmapRowHeight,
+            onTap: () => widget.onSpaceTapped(row.space),
+          );
+        }
+        row as FlattenedTreeRow;
         return RoadmapRowTile(
           row: row,
           timeframe: _timeframe,
@@ -184,14 +201,17 @@ class _RoadmapViewState extends State<RoadmapView> {
 
   Widget _buildArrows(
     BuildContext context,
-    List<FlattenedTreeRow> rows,
+    List<TreeListRow> rows,
     double timelineWidth,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
     return CustomPaint(
       painter: RoadmapDependencyArrowsPainter(
         arrows: roadmapArrows(
-          rows: [for (final row in rows) row.node.item],
+          rows: [
+            for (final row in rows)
+              row is FlattenedTreeRow ? row.node.item : null,
+          ],
           windowStart: _windowStart,
           totalDays: _timeframe.totalDays,
           timelineWidth: timelineWidth,

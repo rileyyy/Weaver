@@ -8,11 +8,16 @@ class StatusFilterBar extends StatelessWidget {
     required this.statuses,
     required this.hiddenStatusIds,
     required this.onToggle,
+    this.spaceNameOf,
   });
 
   final List<WorkItemStatus> statuses;
   final Set<String> hiddenStatusIds;
   final ValueChanged<String> onToggle;
+
+  /// The Space a status belongs to, to tell apart same-named statuses
+  /// while several Spaces are shown; null while one is.
+  final String? Function(String statusId)? spaceNameOf;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +29,10 @@ class StatusFilterBar extends StatelessWidget {
         for (final status in statuses)
           FilterChip(
             avatar: StatusDot(color: status.color),
-            label: Text(status.name),
+            label: Text(switch (spaceNameOf?.call(status.id)) {
+              final space? => '${status.name} ($space)',
+              null => status.name,
+            }),
             selected: !hiddenStatusIds.contains(status.id),
             onSelected: (_) => onToggle(status.id),
           ),

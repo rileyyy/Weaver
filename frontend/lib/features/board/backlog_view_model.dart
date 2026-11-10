@@ -7,10 +7,11 @@ import 'package:weaver/features/board/data/backlog_repository.dart';
 import 'package:weaver/features/board/models/backlog_group.dart';
 import 'package:weaver/shared/data/work_item_conflict.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
+import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_query.dart';
 
-/// The board's Backlog tab: every item of the current Space that isn't Done
+/// The board's Backlog tab: every item of the shown Spaces that isn't Done
 /// and has no dates (ADR-0003), grouped by parent, where it can be given
 /// dates. Which items are in the Backlog is the server's decision: after
 /// any save, here or anywhere else, it's asked again, so an item given
@@ -29,7 +30,7 @@ class BacklogViewModel extends ViewModel {
   final BacklogRepository _repository;
   final WorkItemStore _items;
 
-  String? _spaceId;
+  List<Space> _spaces = const [];
 
   // Whether a save asks again: only while the Backlog tab is shown, since
   // every visit loads afresh anyway.
@@ -43,8 +44,8 @@ class BacklogViewModel extends ViewModel {
   bool _reloadScheduled = false;
   List<BacklogGroup>? _groupsCache;
 
-  /// Only true for the first load of a Space; later refreshes keep showing
-  /// the list.
+  /// Only true for the first load of a set of Spaces; later refreshes keep
+  /// showing the list.
   bool get isLoading => _isLoading && !_hasLoaded;
   String? get loadError => _loadError;
 
@@ -54,8 +55,8 @@ class BacklogViewModel extends ViewModel {
 
   void clearActionError() => _actionError = null;
 
-  /// The Space's top-level Backlog items first, then the rest under their
-  /// parents, by the parent's title.
+  /// The top-level Backlog items first (one group per Space while several
+  /// are shown), then the rest under their parents, by the parent's title.
   List<BacklogGroup> get groups => _groupsCache ??= _group();
 
   @override
@@ -72,12 +73,12 @@ class BacklogViewModel extends ViewModel {
     super.dispose();
   }
 
-  /// Loads [spaceId]'s Backlog, replacing what's shown once it arrives. A
-  /// load for another Space started since wins.
-  Future<void> load(String spaceId) async {
+  /// Loads [spaces]' Backlog, replacing what's shown once it arrives. A
+  /// load for other Spaces started since wins.
+  Future<void> load(List<Space> spaces) async {
     final generation = ++_loadGeneration;
-    if (spaceId != _spaceId) _hasLoaded = false;
-    _spaceId = spaceId;
+    if (!_sameSpaces(spaces, _spaces)) _hasLoaded = false;
+    _spaces = spaces;
     _refreshing = true;
     _isLoading = true;
     _loadError = null;
@@ -85,7 +86,10 @@ class BacklogViewModel extends ViewModel {
     try {
       final asOf = _items.revision;
       final items = await _repository.queryItems(
-        WorkItemQuery(spaceId: spaceId, backlogOnly: true),
+        WorkItemQuery(
+          spaceIds: {for (final space in spaces) space.id},
+          backlogOnly: true,
+        ),
       );
       final parents = await _missingParents(items);
       if (generation != _loadGeneration || isDisposed) return;
@@ -158,16 +162,33 @@ class BacklogViewModel extends ViewModel {
         (byParent[item.parentId] ??= []).add(item);
       }
     }
-    final topLevel = byParent.remove(null);
+    final topLevel = byParent.remove(null) ?? const [];
     final underParents = [
       for (final MapEntry(key: parentId, value: items) in byParent.entries)
         BacklogGroup(parent: _items[parentId!], items: items),
     ]..sort((a, b) => _titleOf(a).compareTo(_titleOf(b)));
+    return [..._topLevelGroups(topLevel), ...underParents];
+  }
+
+  List<BacklogGroup> _topLevelGroups(List<WorkItem> topLevel) {
+    if (topLevel.isEmpty) return const [];
+    if (_spaces.length < 2) {
+      return [BacklogGroup(parent: null, items: topLevel)];
+    }
     return [
-      if (topLevel != null) BacklogGroup(parent: null, items: topLevel),
-      ...underParents,
+      for (final space in _spaces)
+        if ([
+              for (final item in topLevel)
+                if (item.spaceId == space.id) item,
+            ]
+            case final items when items.isNotEmpty)
+          BacklogGroup(parent: null, items: items, space: space),
     ];
   }
+
+  static bool _sameSpaces(List<Space> a, List<Space> b) =>
+      a.length == b.length &&
+      a.indexed.every((entry) => entry.$2.id == b[entry.$1].id);
 
   static String _titleOf(BacklogGroup group) =>
       group.parent?.title.toLowerCase() ?? '';
@@ -181,8 +202,8 @@ class BacklogViewModel extends ViewModel {
     _reloadScheduled = true;
     scheduleMicrotask(() {
       _reloadScheduled = false;
-      if (_spaceId case final spaceId? when _refreshing && !isDisposed) {
-        unawaited(load(spaceId));
+      if (_spaces.isNotEmpty && _refreshing && !isDisposed) {
+        unawaited(load(_spaces));
       }
     });
   }

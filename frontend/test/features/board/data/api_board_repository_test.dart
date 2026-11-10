@@ -557,7 +557,7 @@ void main() {
 
     test('sends only the Space and page size when unfiltered', () async {
       final parameters = await sentParameters(
-        WorkItemQuery(spaceId: 'space-home'),
+        WorkItemQuery(spaceIds: {'space-home'}),
       );
 
       expect(parameters, {
@@ -568,7 +568,7 @@ void main() {
 
     test('asks the server to hide old Done items when told to', () async {
       final parameters = await sentParameters(
-        WorkItemQuery(spaceId: 'space-home', applyDoneHiding: true),
+        WorkItemQuery(spaceIds: {'space-home'}, applyDoneHiding: true),
       );
 
       expect(parameters['applyDoneHiding'], ['true']);
@@ -576,15 +576,42 @@ void main() {
 
     test('asks for only the Backlog when told to', () async {
       final parameters = await sentParameters(
-        WorkItemQuery(spaceId: 'space-home', backlogOnly: true),
+        WorkItemQuery(spaceIds: {'space-home'}, backlogOnly: true),
       );
 
       expect(parameters['backlogOnly'], ['true']);
     });
 
+    test("asks for Overview's rule when told to", () async {
+      final parameters = await sentParameters(
+        WorkItemQuery(
+          spaceIds: {'space-home'},
+          scheduledOrInProgressOnly: true,
+        ),
+      );
+
+      expect(parameters['scheduledOrInProgressOnly'], ['true']);
+    });
+
+    test(
+      'repeats spaceIds for several Spaces, and sends none for all',
+      () async {
+        final several = await sentParameters(
+          WorkItemQuery(spaceIds: {'space-home', 'space-village'}),
+        );
+        final all = await sentParameters(WorkItemQuery(spaceIds: const {}));
+
+        expect(
+          several['spaceIds'],
+          unorderedEquals(['space-home', 'space-village']),
+        );
+        expect(all.containsKey('spaceIds'), isFalse);
+      },
+    );
+
     test('leaves done hiding out otherwise', () async {
       final parameters = await sentParameters(
-        WorkItemQuery(spaceId: 'space-home', text: 'fence'),
+        WorkItemQuery(spaceIds: {'space-home'}, text: 'fence'),
       );
 
       expect(parameters.containsKey('applyDoneHiding'), isFalse);
@@ -592,7 +619,7 @@ void main() {
 
     test('sends the text, trimmed', () async {
       final parameters = await sentParameters(
-        WorkItemQuery(spaceId: 'space-home', text: '  fence post '),
+        WorkItemQuery(spaceIds: {'space-home'}, text: '  fence post '),
       );
 
       expect(parameters['text'], ['fence post']);
@@ -600,7 +627,7 @@ void main() {
 
     test('leaves out blank text', () async {
       final parameters = await sentParameters(
-        WorkItemQuery(spaceId: 'space-home', text: '   '),
+        WorkItemQuery(spaceIds: {'space-home'}, text: '   '),
       );
 
       expect(parameters.containsKey('text'), isFalse);
@@ -608,7 +635,7 @@ void main() {
 
     test('repeats the tags key once per tag', () async {
       final parameters = await sentParameters(
-        WorkItemQuery(spaceId: 'space-home', tags: {'urgent', 'home'}),
+        WorkItemQuery(spaceIds: {'space-home'}, tags: {'urgent', 'home'}),
       );
 
       expect(parameters['tags'], unorderedEquals(['urgent', 'home']));
@@ -616,7 +643,7 @@ void main() {
 
     test('leaves tagMatch out for Any, the server default', () async {
       final parameters = await sentParameters(
-        WorkItemQuery(spaceId: 'space-home', tags: {'urgent', 'home'}),
+        WorkItemQuery(spaceIds: {'space-home'}, tags: {'urgent', 'home'}),
       );
 
       expect(parameters.containsKey('tagMatch'), isFalse);
@@ -625,7 +652,7 @@ void main() {
     test('sends tagMatch=All for All with several tags', () async {
       final parameters = await sentParameters(
         WorkItemQuery(
-          spaceId: 'space-home',
+          spaceIds: {'space-home'},
           tags: {'urgent', 'home'},
           tagMatch: TagMatch.all,
         ),
@@ -637,7 +664,7 @@ void main() {
     test('leaves tagMatch out for All with one tag', () async {
       final parameters = await sentParameters(
         WorkItemQuery(
-          spaceId: 'space-home',
+          spaceIds: {'space-home'},
           tags: {'urgent'},
           tagMatch: TagMatch.all,
         ),
@@ -652,7 +679,7 @@ void main() {
       // would send the previous day east of UTC.
       final parameters = await sentParameters(
         WorkItemQuery(
-          spaceId: 'space-home',
+          spaceIds: {'space-home'},
           from: DateTime(2026, 3, 1),
           to: DateTime(2026, 3, 31),
         ),
@@ -664,7 +691,7 @@ void main() {
 
     test('leaves out an open side of the date window', () async {
       final parameters = await sentParameters(
-        WorkItemQuery(spaceId: 'space-home', to: DateTime(2026, 3, 31)),
+        WorkItemQuery(spaceIds: {'space-home'}, to: DateTime(2026, 3, 31)),
       );
 
       expect(parameters.containsKey('from'), isFalse);
@@ -684,7 +711,7 @@ void main() {
 
       final items = await repositoryFor(
         client,
-      ).queryItems(WorkItemQuery(spaceId: 'space-home', text: 'fence'));
+      ).queryItems(WorkItemQuery(spaceIds: {'space-home'}, text: 'fence'));
 
       expect(items.map((i) => i.id), ['item-1', 'item-2']);
       expect(sent, hasLength(2));
@@ -713,7 +740,7 @@ void main() {
 
       final items = await repositoryFor(
         client,
-      ).queryItems(WorkItemQuery(spaceId: 'space-home'));
+      ).queryItems(WorkItemQuery(spaceIds: {'space-home'}));
 
       expect(items.map((i) => i.id), [
         'number-2',
@@ -733,7 +760,7 @@ void main() {
       await expectLater(
         repositoryFor(client).queryItems(
           WorkItemQuery(
-            spaceId: 'space-home',
+            spaceIds: {'space-home'},
             from: DateTime(2026, 3, 31),
             to: DateTime(2026, 3, 1),
           ),

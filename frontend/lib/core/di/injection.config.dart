@@ -66,15 +66,15 @@ import 'package:weaver/features/board/backlog_view_model.dart' as _i38;
 import 'package:weaver/features/board/board_view_model.dart' as _i314;
 import 'package:weaver/features/board/data/api_board_repository.dart' as _i436;
 import 'package:weaver/features/board/data/api_trash_repository.dart' as _i797;
+import 'package:weaver/features/board/data/api_view_repository.dart' as _i518;
 import 'package:weaver/features/board/data/backlog_repository.dart' as _i885;
 import 'package:weaver/features/board/data/backlog_repository_module.dart'
     as _i61;
 import 'package:weaver/features/board/data/board_repository.dart' as _i522;
-import 'package:weaver/features/board/data/flutter_secure_last_space_store.dart'
-    as _i114;
-import 'package:weaver/features/board/data/last_space_store.dart' as _i120;
 import 'package:weaver/features/board/data/trash_repository.dart' as _i1009;
+import 'package:weaver/features/board/data/view_repository.dart' as _i522;
 import 'package:weaver/features/board/repeating_items_view_model.dart' as _i87;
+import 'package:weaver/features/board/saved_views_view_model.dart' as _i726;
 import 'package:weaver/features/board/trash_view_model.dart' as _i773;
 import 'package:weaver/features/work_item_detail/data/api_space_move_repository.dart'
     as _i758;
@@ -144,9 +144,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i936.ServerOriginStore>(
       () => _i781.FlutterSecureServerOriginStore(),
     );
-    gh.lazySingleton<_i120.LastSpaceStore>(
-      () => _i114.FlutterSecureLastSpaceStore(),
-    );
     gh.lazySingleton<_i519.Client>(
       () => networkModule.rawHttpClient,
       instanceName: 'rawHttpClient',
@@ -200,6 +197,10 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i202.ApiEndpoint>(),
       ),
     );
+    gh.lazySingleton<_i522.ViewRepository>(
+      () =>
+          _i518.ApiViewRepository(gh<_i519.Client>(), gh<_i202.ApiEndpoint>()),
+    );
     gh.lazySingleton<_i871.WorkItemSearchRepository>(
       () => _i607.ApiWorkItemSearchRepository(
         gh<_i519.Client>(),
@@ -227,6 +228,9 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i1009.TrashRepository>(
       () =>
           _i797.ApiTrashRepository(gh<_i519.Client>(), gh<_i202.ApiEndpoint>()),
+    );
+    gh.factory<_i726.SavedViewsViewModel>(
+      () => _i726.SavedViewsViewModel(gh<_i522.ViewRepository>()),
     );
     gh.lazySingleton<_i562.UserDirectoryRepository>(
       () => _i982.ApiUserDirectoryRepository(
@@ -286,6 +290,13 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i60.RepeatSettingsViewModel>(
       () => _i60.RepeatSettingsViewModel(gh<_i65.RecurrenceRepository>()),
     );
+    gh.factory<_i314.BoardViewModel>(
+      () => _i314.BoardViewModel(
+        gh<_i522.BoardRepository>(),
+        gh<_i723.WorkItemStore>(),
+        gh<_i522.ViewRepository>(),
+      ),
+    );
     gh.lazySingleton<_i224.StatusAdminRepository>(
       () => _i550.ApiStatusAdminRepository(
         gh<_i519.Client>(),
@@ -315,13 +326,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i519.Client>(),
         gh<_i202.ApiEndpoint>(),
         gh<_i930.TypeRepository>(),
-      ),
-    );
-    gh.factory<_i314.BoardViewModel>(
-      () => _i314.BoardViewModel(
-        gh<_i522.BoardRepository>(),
-        gh<_i723.WorkItemStore>(),
-        gh<_i120.LastSpaceStore>(),
       ),
     );
     gh.factoryParam<_i281.LookupAdminViewModel, _i54.LookupKind, dynamic>(

@@ -13,6 +13,7 @@ class HierarchyItem {
     required this.parentId,
     required this.title,
     required this.statusId,
+    this.spaceId = '',
     this.description,
     this.startDate,
     this.endDate,
@@ -29,6 +30,7 @@ class HierarchyItem {
     parentId: item.parentId,
     title: item.title,
     statusId: item.statusId,
+    spaceId: item.spaceId,
     description: item.description,
     startDate: item.startDate,
     endDate: item.endDate,
@@ -48,6 +50,9 @@ class HierarchyItem {
   final String? parentId;
   final String title;
   final String statusId;
+
+  /// Which Space the item is in, for grouping a View that spans several.
+  final String spaceId;
   final String? description;
   final DateTime? startDate;
   final DateTime? endDate;
