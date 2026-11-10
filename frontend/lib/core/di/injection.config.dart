@@ -115,6 +115,7 @@ import 'package:weaver/shared/data/type_repository.dart' as _i930;
 import 'package:weaver/shared/data/user_directory_repository.dart' as _i562;
 import 'package:weaver/shared/data/work_item_search_repository.dart' as _i871;
 import 'package:weaver/shared/data/work_item_store.dart' as _i723;
+import 'package:weaver/shared/data/work_item_store_module.dart' as _i996;
 import 'package:weaver/shared/recurrence/data/api_recurrence_repository.dart'
     as _i919;
 import 'package:weaver/shared/recurrence/data/recurrence_repository.dart'
@@ -127,8 +128,11 @@ extension GetItInjectableX on _i174.GetIt {
     _i526.EnvironmentFilter? environmentFilter,
   }) {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
+    final workItemStoreModule = _$WorkItemStoreModule();
     final networkModule = _$NetworkModule();
-    gh.lazySingleton<_i723.WorkItemStore>(() => _i723.WorkItemStore());
+    gh.lazySingleton<_i723.WorkItemStore>(
+      () => workItemStoreModule.workItemStore(),
+    );
     gh.lazySingleton<_i54.SecureTokenStore>(
       () => _i347.FlutterSecureTokenStore(),
     );
@@ -377,5 +381,7 @@ extension GetItInjectableX on _i174.GetIt {
     return this;
   }
 }
+
+class _$WorkItemStoreModule extends _i996.WorkItemStoreModule {}
 
 class _$NetworkModule extends _i561.NetworkModule {}

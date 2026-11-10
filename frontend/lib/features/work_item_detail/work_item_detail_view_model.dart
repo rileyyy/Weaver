@@ -13,6 +13,7 @@ import 'package:weaver/features/work_item_detail/models/work_item_link.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_link_relation.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_url_link.dart';
+import 'package:weaver/shared/data/blocked_item_refresher.dart';
 import 'package:weaver/shared/data/current_user.dart';
 import 'package:weaver/shared/data/work_item_conflict.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
@@ -34,6 +35,10 @@ class WorkItemDetailViewModel extends ViewModel {
   final WorkItemDetailRepository _repository;
   final CurrentUser _currentUser;
   final WorkItemStore _items;
+  late final BlockedItemRefresher _blockedItems = BlockedItemRefresher(
+    _items,
+    _repository.getItem,
+  );
 
   String? _itemId;
   List<WorkItemStatus> _statuses = const [];
@@ -337,7 +342,9 @@ class WorkItemDetailViewModel extends ViewModel {
   /// already warns the user about the subtree, so this always cascades
   /// rather than asking a second time.
   ///
-  /// The item leaves the shared store, so every layout drops it.
+  /// The item leaves the shared store, so every layout drops it, and the
+  /// items it blocked are reloaded, since a trashed blocker no longer
+  /// counts towards their conflicts.
   Future<bool> deleteItem() async {
     // Queued through the store like a save, so a delete right after a save
     // sends the version that save returned rather than a stale one.
@@ -349,8 +356,10 @@ class WorkItemDetailViewModel extends ViewModel {
       );
       return item!;
     }, errorMessage: 'Could not delete this work item. Try again.');
-    if (deleted) _items.remove(_id);
-    return deleted;
+    if (!deleted) return false;
+    _items.remove(_id);
+    unawaited(_blockedItems.refreshItemsBlockedBy(_id));
+    return true;
   }
 
   Future<bool> saveTags(List<String> tags) => _save(
@@ -440,8 +449,9 @@ class WorkItemDetailViewModel extends ViewModel {
       errorMessage: 'Could not add this link. Try again.',
       serverExplainsRefusal: true,
     );
-    if (added) await _reloadItemAfterLinkChange();
-    return added;
+    if (!added) return false;
+    await _reloadAfterLinkChange(target.id, type);
+    return true;
   }
 
   /// Items in every Space that [text] matches, to pick a link's target
@@ -455,6 +465,7 @@ class WorkItemDetailViewModel extends ViewModel {
   }
 
   Future<bool> deleteLink(String linkId) async {
+    final link = _links.where((l) => l.id == linkId).firstOrNull;
     final deleted = await _mutate(() async {
       await _repository.deleteLink(linkId);
       _links = [
@@ -462,8 +473,9 @@ class WorkItemDetailViewModel extends ViewModel {
           if (l.id != linkId) l,
       ];
     }, errorMessage: 'Could not remove this link. Try again.');
-    if (deleted) await _reloadItemAfterLinkChange();
-    return deleted;
+    if (!deleted) return false;
+    await _reloadAfterLinkChange(link?.linkedWorkItemId, link?.type);
+    return true;
   }
 
   /// The server resolves a When from the item's live blockers without
@@ -471,6 +483,20 @@ class WorkItemDetailViewModel extends ViewModel {
   /// [WorkItem.whenResolved]; only a fresh copy of the item does. The link
   /// itself is already saved, so a failed reload just leaves When stale
   /// rather than reporting the link as failed.
+  ///
+  /// When this item blocks [otherId], the other item's conflicts and When
+  /// depend on the link too, so it is reloaded as well if it is held.
+  Future<void> _reloadAfterLinkChange(
+    String? otherId,
+    WorkItemLinkRelation? type,
+  ) async {
+    await Future.wait([
+      _reloadItemAfterLinkChange(),
+      if (otherId != null && type == WorkItemLinkRelation.blocks)
+        _blockedItems.refresh([otherId]),
+    ]);
+  }
+
   Future<void> _reloadItemAfterLinkChange() async {
     final asOf = _items.revision;
     try {

@@ -5,20 +5,11 @@ import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/shared/data/work_item_conflict.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
 import 'package:weaver/shared/models/work_item.dart';
-import 'package:weaver/shared/models/work_item_blocker.dart';
 
 import '../fakes/work_items.dart';
 
 WorkItemStore _storeWith(List<WorkItem> items) =>
     WorkItemStore()..putAll(items, asOf: 0);
-
-WorkItemBlocker _blocker(String id, {required bool conflicts}) =>
-    WorkItemBlocker(
-      id: id,
-      number: 1,
-      title: id,
-      conflicts: conflicts,
-    );
 
 void main() {
   test('holds one copy of each loaded item, the latest load winning', () {
@@ -160,11 +151,9 @@ void main() {
 
       firstResponse.complete(workItem('a', statusId: 'done', version: 2));
       await first;
-      expect(
-        store['a']?.tags,
-        ['urgent'],
-        reason: 'the unsaved tag edit still shows over the saved status',
-      );
+      expect(store['a']?.tags, [
+        'urgent',
+      ], reason: 'the unsaved tag edit still shows over the saved status');
 
       await second;
       expect(sentVersions, {'status': 1, 'tags': 2});
@@ -387,111 +376,59 @@ void main() {
     });
   });
 
-  // A blocked item's conflict flag depends on its blocker's dates, but
-  // moving those dates doesn't bump the blocked item's version.
-  group('a save that moves the dates', () {
-    WorkItemStore drywallBlockingPaint() => _storeWith([
-      workItem('drywall', endDate: DateTime(2026, 11, 20)),
-      workItem(
-        'paint',
-        startDate: DateTime(2026, 11, 18),
-        blockedBy: [_blocker('drywall', conflicts: true)],
-      ),
-      workItem('fence'),
-    ]);
-
-    test('reloads the items it blocks', () async {
-      final store = drywallBlockingPaint();
-      final reloaded = <String>[];
+  group('save listeners', () {
+    test('hear each saved write with the copy it replaced', () async {
+      final store = _storeWith([workItem('a')]);
+      final heard = <(int, int)>[];
+      store.addSaveListener(
+        (before, saved, _) => heard.add((before.version, saved.version)),
+      );
 
       await store.write(
-        'drywall',
-        send: (_) async =>
-            workItem('drywall', endDate: DateTime(2026, 11, 17), version: 2),
-        reload: (id) async {
-          reloaded.add(id);
-          return workItem(
-            id,
-            startDate: DateTime(2026, 11, 18),
-            blockedBy: [_blocker('drywall', conflicts: false)],
-            version: 1,
-          );
-        },
+        'a',
+        send: (_) async => workItem('a', version: 2),
+        reload: (_) => throw StateError('No conflict expected'),
       );
-      await pumpEventQueue();
 
-      expect(reloaded, ['paint']);
-      expect(store['paint']?.blockedBy.single.conflicts, isFalse);
+      expect(heard, [(1, 2)]);
     });
 
-    test('reloads them when a date is cleared too', () async {
-      final store = drywallBlockingPaint();
-      final reloaded = <String>[];
+    test('are passed the reload the write was given', () async {
+      final store = _storeWith([workItem('a')]);
+      WorkItemReload? heardReload;
+      store.addSaveListener((_, _, reload) => heardReload = reload);
+      Future<WorkItem> reload(String id) async => workItem(id);
 
       await store.write(
-        'drywall',
-        send: (_) async => workItem('drywall', version: 2),
-        reload: (id) async {
-          reloaded.add(id);
-          return workItem(id);
-        },
+        'a',
+        send: (_) async => workItem('a', version: 2),
+        reload: reload,
       );
-      await pumpEventQueue();
 
-      expect(reloaded, ['paint']);
+      expect(heardReload, same(reload));
     });
 
-    test('keeps the blocked copy when its reload fails', () async {
-      final store = drywallBlockingPaint();
+    test('hear nothing from a failed write', () async {
+      final store = _storeWith([workItem('a')]);
+      var heard = false;
+      store.addSaveListener((_, _, _) => heard = true);
 
-      final saved = await store.write(
-        'drywall',
-        send: (_) async =>
-            workItem('drywall', endDate: DateTime(2026, 11, 17), version: 2),
-        reload: (_) async => throw const ApiException('Offline'),
+      await expectLater(
+        store.write(
+          'a',
+          send: (_) async => throw const ApiException('Offline'),
+          reload: (_) => throw StateError('No conflict expected'),
+        ),
+        throwsA(isA<ApiException>()),
       );
-      await pumpEventQueue();
 
-      expect(saved.endDate, DateTime(2026, 11, 17));
-      expect(store['paint']?.blockedBy.single.conflicts, isTrue);
-    });
-
-    test('does not bring back a blocked item removed meanwhile', () async {
-      final store = drywallBlockingPaint();
-      final reload = Completer<WorkItem>();
-
-      await store.write(
-        'drywall',
-        send: (_) async =>
-            workItem('drywall', endDate: DateTime(2026, 11, 17), version: 2),
-        reload: (_) => reload.future,
-      );
-      store.remove('paint');
-      reload.complete(workItem('paint', version: 2));
-      await pumpEventQueue();
-
-      expect(store['paint'], isNull);
+      expect(heard, isFalse);
     });
   });
 
-  test('a save that leaves the dates alone reloads nothing', () async {
-    final store = _storeWith([
-      workItem('drywall', endDate: DateTime(2026, 11, 20)),
-      workItem('paint', blockedBy: [_blocker('drywall', conflicts: true)]),
-    ]);
+  test('lists the server copies it holds', () {
+    final store = _storeWith([workItem('a'), workItem('b')]);
 
-    await store.write(
-      'drywall',
-      send: (_) async => workItem(
-        'drywall',
-        statusId: 'done',
-        endDate: DateTime(2026, 11, 20),
-        version: 2,
-      ),
-      reload: (_) => throw StateError('No reload expected'),
-    );
-    await pumpEventQueue();
-
-    expect(store['paint']?.blockedBy.single.conflicts, isTrue);
+    expect([for (final item in store.loaded) item.id], ['a', 'b']);
   });
 }

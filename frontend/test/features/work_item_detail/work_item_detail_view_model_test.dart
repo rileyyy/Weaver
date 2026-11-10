@@ -21,6 +21,7 @@ import 'package:weaver/shared/models/roll_up.dart';
 import 'package:weaver/shared/models/user.dart';
 import 'package:weaver/shared/models/user_kind.dart';
 import 'package:weaver/shared/models/work_item.dart';
+import 'package:weaver/shared/models/work_item_blocker.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 import 'package:weaver/shared/models/work_item_type.dart';
 
@@ -98,6 +99,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   List<RollUp> rollUpsList = [];
   int loadCommentsCalls = 0;
   int getItemCalls = 0;
+  final List<String> getItemIds = [];
   int loadLinksCalls = 0;
   final List<String> lookupSpaceIds = [];
   Map<String, List<CustomField>> fieldsByType = {};
@@ -129,6 +131,7 @@ class _FakeRepository implements WorkItemDetailRepository {
   @override
   Future<WorkItem> getItem(String id) async {
     getItemCalls++;
+    getItemIds.add(id);
     final error = getItemError;
     // An Object so tests can simulate either an API failure or a bug.
     if (error != null) Error.throwWithStackTrace(error, StackTrace.current);
@@ -1367,6 +1370,36 @@ void main() {
     expect(repository.deleted, isTrue);
   });
 
+  // A trashed blocker isn't listed in blockedBy, so the items it blocked
+  // may no longer conflict, without their version changing.
+  test('deleteItem reloads the held items the item blocked', () async {
+    final repository = _FakeRepository()
+      ..others['paint'] = workItem('paint', version: 2);
+    final store = WorkItemStore()
+      ..putAll([
+        workItem(
+          'paint',
+          blockedBy: [
+            const WorkItemBlocker(
+              id: 'item-1',
+              number: 1,
+              title: 'A task',
+              conflicts: true,
+            ),
+          ],
+        ),
+        workItem('fence'),
+      ], asOf: 0);
+    final viewModel = WorkItemDetailViewModel(repository, _currentUser, store);
+    await viewModel.load('item-1');
+
+    await viewModel.deleteItem();
+    await pumpEventQueue();
+
+    expect(repository.getItemIds, isNot(contains('fence')));
+    expect(store['paint']?.blockedBy, isEmpty);
+  });
+
   test('deleteItem returns false and sets saveError on failure', () async {
     final repository = _FakeRepository(
       saveError: const ApiException('has children'),
@@ -1510,6 +1543,56 @@ void main() {
 
       expect(ok, isTrue);
       expect(viewModel.item!.whenResolved, isFalse);
+    });
+
+    group('the item on the other side', () {
+      late _FakeRepository repository;
+      late WorkItemStore store;
+      late WorkItemDetailViewModel viewModel;
+
+      setUp(() async {
+        repository = _FakeRepository()
+          ..others['item-2'] = _item(id: 'item-2', version: 2);
+        store = WorkItemStore()
+          ..putAll([_item(id: 'item-2', number: 2)], asOf: 0);
+        viewModel = WorkItemDetailViewModel(repository, _currentUser, store);
+        await viewModel.load('item-1');
+      });
+
+      test('is reloaded when a blocks link to it is added, since it may '
+          'now conflict', () async {
+        await viewModel.addLink(
+          _item(id: 'item-2', number: 2),
+          WorkItemLinkRelation.blocks,
+        );
+
+        expect(store['item-2']?.version, 2);
+      });
+
+      test('is reloaded when a blocks link to it is removed', () async {
+        await viewModel.addLink(
+          _item(id: 'item-2', number: 2),
+          WorkItemLinkRelation.blocks,
+        );
+        repository.others['item-2'] = _item(id: 'item-2', version: 3);
+
+        await viewModel.deleteLink(viewModel.links.single.id);
+
+        expect(store['item-2']?.version, 3);
+      });
+
+      test('is left alone when it is the blocker, whose own blockers did '
+          'not change', () async {
+        repository.getItemIds.clear();
+
+        await viewModel.addLink(
+          _item(id: 'item-2', number: 2),
+          WorkItemLinkRelation.blockedBy,
+        );
+
+        expect(repository.getItemIds, ['item-1']);
+        expect(store['item-2']?.version, 1);
+      });
     });
 
     test(

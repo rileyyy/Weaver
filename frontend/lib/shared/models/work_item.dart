@@ -109,9 +109,9 @@ class WorkItem {
   /// alone until the saved item comes back.
   final DateTime? completionDate;
 
-  /// The item's live blockers, from any Space. Changing a blocker's dates
-  /// can change [WorkItemBlocker.conflicts] without touching this item's
-  /// version, so `WorkItemStore` reloads blocked items after such a save.
+  /// The item's live blockers, from any Space. A change to a blocker or to
+  /// a blocks link can change [WorkItemBlocker.conflicts] without touching
+  /// this item's version, so `BlockedItemRefresher` reloads the item.
   final List<WorkItemBlocker> blockedBy;
 
   // The edits a layout can make before the server confirms them, each the
