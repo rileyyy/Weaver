@@ -311,6 +311,41 @@ public class McpTests
         });
     }
 
+    [Test]
+    public async Task Mcp_ListDependencyConflicts_NamesTheBlockedItemAndItsBlocker_AndRestFlagsTheLink()
+    {
+        var (human, _) = await ApiClient.SignedInAsync();
+        var spaceId = await ApiClient.CreateSpaceAsync("Conflicts");
+        var drywall = await human.CreateWorkItemAsync("Drywall", spaceId: spaceId);
+        var paint = await human.CreateWorkItemAsync("Paint", spaceId: spaceId);
+        var trim = await human.CreateWorkItemAsync("Trim", spaceId: spaceId);
+        await ScheduleAsync(human, drywall, "2026-11-02", "2026-11-06");
+        await ScheduleAsync(human, paint, "2026-11-05", "2026-11-08");
+        await ScheduleAsync(human, trim, "2026-11-06", "2026-11-09");
+        await human.PostJsonAsync($"/api/work-items/{paint.Id}/links", new CreateWorkItemLinkRequest(drywall.Id, WorkItemLinkRelation.BlockedBy));
+        await human.PostJsonAsync($"/api/work-items/{trim.Id}/links", new CreateWorkItemLinkRequest(drywall.Id, WorkItemLinkRelation.BlockedBy));
+        var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadOnly);
+        await using var mcp = await ConnectAsync(agent);
+
+        var result = await mcp.CallToolAsync("list_dependency_conflicts", new Dictionary<string, object?> { ["spaceId"] = spaceId });
+        var paintOverRest = await (await human.GetAsync($"/api/work-items/{paint.Id}")).ReadAsync<WorkItemDto>();
+        var trimOverRest = await (await human.GetAsync($"/api/work-items/{trim.Id}")).ReadAsync<WorkItemDto>();
+
+        Assert.That(result.IsError, Is.Not.True, () => TextOf(result));
+        var conflicts = JsonSerializer.Deserialize<List<DependencyConflictDto>>(TextOf(result), ApiClient.Json)!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(conflicts, Has.Count.EqualTo(1), "trim starts on drywall's end date, which isn't a conflict");
+            Assert.That(conflicts[0].Blocked.Id, Is.EqualTo(paint.Id));
+            Assert.That(conflicts[0].Blocked.StartDate, Is.EqualTo(new DateOnly(2026, 11, 5)));
+            Assert.That(conflicts[0].Blocker.Id, Is.EqualTo(drywall.Id));
+            Assert.That(conflicts[0].Blocker.EndDate, Is.EqualTo(new DateOnly(2026, 11, 6)));
+            Assert.That(conflicts[0].Blocker.SpaceName, Does.StartWith("Conflicts"));
+            Assert.That(paintOverRest.BlockedBy.Select(b => (b.Id, b.Conflicts)), Is.EqualTo(new[] { (drywall.Id, true) }));
+            Assert.That(trimOverRest.BlockedBy.Select(b => (b.Id, b.Conflicts)), Is.EqualTo(new[] { (drywall.Id, false) }));
+        });
+    }
+
     // Marking a tool ReadOnly is what lets a read-only key call it, so a write tool marked that
     // way would be a hole. Tools are named for what they do, which makes the mistake visible.
     // plan_ is a dry run: it reports what a write would do without making it.
@@ -379,6 +414,9 @@ public class McpTests
         Assert.That(result.IsError, Is.Not.True, () => string.Join("\n", result.Content.OfType<TextContentBlock>().Select(c => c.Text)));
         return JsonSerializer.Deserialize<T>(result.Content.OfType<TextContentBlock>().Single().Text, ApiClient.Json)!;
     }
+
+    private static async Task ScheduleAsync(HttpClient client, WorkItemDto item, string startDate, string endDate) =>
+        (await client.PatchJsonAsync($"/api/work-items/{item.Id}/schedule", new { startDate, endDate })).EnsureSuccessStatusCode();
 
     private static Task<McpClient> ConnectAsync(HttpClient client) =>
         McpClient.CreateAsync(new HttpClientTransport(

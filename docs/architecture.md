@@ -406,16 +406,34 @@ A number or currency field can roll up (ticket 15,
   http(s) `Url` and an optional `Label`. It cascades with its item like a
   comment, so purging the item removes it; typed links are `Restrict` on
   both ends and purge removes them itself.
-- **`whenResolved` counts a live blocker** (ADR-0003), which is another
-  row, so it's computed where items are mapped to `WorkItemDto`:
-  `WorkItemDtoMapper` asks `IWorkItemBlockers` once per response, and only
-  about items whose When has no dates. A trashed blocker stops counting
-  without the Trash having to update anything: the links' Trash filter
-  hides it, and `BlockedWorkItems.BlockedIds` checks the blocker's Trash
-  state too, since a query that reads trashed rows lifts that filter.
-  The work-item query's `UnresolvedWhenOnly` uses the same blocked-ids
-  query and `WorkItem.WhenResolutionNeedsBlockersRule`, so
+- **`whenResolved` and `blockedBy` come from live blockers** (ADR-0003,
+  ADR-0009), which are other rows, so they're computed where items are
+  mapped to `WorkItemDto`: `WorkItemDtoMapper` asks
+  `IWorkItemBlockers.BlockersOfAsync` once per response, for every item.
+  `blockedBy` lists each live blocker (Done ones too, so the Roadmap can
+  still draw their arrows) with its number, title, Space, end date and
+  whether that link is a dependency conflict; it's `[]`, never null, when
+  nothing blocks the item. An item is blocked for `whenResolved` when the
+  list isn't empty. A trashed blocker stops counting without the Trash
+  having to update anything: the links' Trash filter hides it, and
+  `BlockedWorkItems.LiveBlocksLinks` checks the blocker's Trash state too,
+  since a query that reads trashed rows lifts that filter. The work-item
+  query's `UnresolvedWhenOnly` uses the same blocked-ids query and
+  `WorkItem.WhenResolutionNeedsBlockersRule`, so
   `list_unresolved_when_items` and `whenResolved` can't disagree.
+- **A dependency conflict** (ADR-0009) is a blocked item whose `StartDate`
+  is before its live blocker's `EndDate`. Starting on the blocker's end
+  date is not a conflict (a blocker can finish and the next item begin
+  the same day), nor is a link missing either date, nor one where either
+  item is Done (read from `CompletionDate`, which is set exactly while
+  Done, to save joining Statuses). The rule is written once, in
+  `BlockedWorkItems.LiveBlocksLinkRows`, which both `blockedBy` and
+  `IDependencyConflicts` (the MCP `list_dependency_conflicts` tool) read,
+  so the badge and the list can't disagree. Weaver never changes dates in
+  response to a conflict. Known gap: changing a blocker's dates changes
+  whether the *blocked* item conflicts, but not the blocked item's
+  version or history, so changes-since-T doesn't report it (the same gap
+  `whenResolved` has).
 - Comments cascade-delete with their work item; editing is restricted to
   the author (see [Authentication](#authentication)).
 
@@ -1012,6 +1030,10 @@ store its inputs.
   description tells agents to find a referenced item with
   `search_work_items` before linking and to leave ambiguous phrases to a
   human. Summaries carry the `when` phrase for this.
+  `list_dependency_conflicts` (optionally per Space, matching either side
+  of the link) names each conflicting blocked item and its blocker with
+  their numbers, titles, Spaces and dates; its description tells agents
+  to raise a conflict with a human rather than reschedule either item.
 - **Lists return summaries; `get_work_item` returns the full item.** Every
   list tool that returns work items (`list_work_item_children`,
   `list_all_work_items`, `search_work_items`, and the item in each
