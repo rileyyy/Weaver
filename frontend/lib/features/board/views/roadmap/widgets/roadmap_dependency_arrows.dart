@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:weaver/features/board/views/roadmap/roadmap_arrows.dart';
 
@@ -68,7 +69,9 @@ class RoadmapDependencyArrowsPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(RoadmapDependencyArrowsPainter oldDelegate) =>
-      oldDelegate.arrows != arrows ||
+      // By value: the view builds a new list on every build, and the
+      // arrows are records, so equal lists mean nothing moved.
+      !listEquals(oldDelegate.arrows, arrows) ||
       oldDelegate.rowHeight != rowHeight ||
       oldDelegate.scroll != scroll ||
       oldDelegate.neutralColor != neutralColor ||

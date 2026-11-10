@@ -54,4 +54,36 @@ void main() {
         ..path(color: _neutral, style: PaintingStyle.fill),
     );
   });
+
+  group('shouldRepaint', () {
+    RoadmapDependencyArrowsPainter painter({
+      bool conflicts = false,
+      double toX = 60,
+    }) => RoadmapDependencyArrowsPainter(
+      // A fresh list each time, as the view builds one on every build.
+      arrows: [
+        (
+          from: const Offset(30, 20),
+          to: Offset(toX, 100),
+          conflicts: conflicts,
+        ),
+      ],
+      rowHeight: 40,
+      scroll: scroll,
+      neutralColor: _neutral,
+      conflictColor: _conflict,
+    );
+
+    test('is false for equal arrows in a new list', () {
+      expect(painter().shouldRepaint(painter()), isFalse);
+    });
+
+    test('is true when an arrow moves', () {
+      expect(painter(toX: 70).shouldRepaint(painter()), isTrue);
+    });
+
+    test('is true when an arrow starts or stops conflicting', () {
+      expect(painter(conflicts: true).shouldRepaint(painter()), isTrue);
+    });
+  });
 }
