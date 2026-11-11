@@ -2,27 +2,14 @@
 library;
 
 import 'package:weaver/core/dates/calendar_days.dart';
+import 'package:weaver/core/dates/date_format.dart';
 
 const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const _months = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
 
 /// [day] as `Thu 13 Nov`, with the year when it isn't [today]'s.
 String agendaDate(DateTime day, {required DateTime today}) {
   final label =
-      '${_weekdays[day.weekday - 1]} ${day.day} ${_months[day.month - 1]}';
+      '${_weekdays[day.weekday - 1]} ${day.day} ${monthAbbreviations[day.month - 1]}';
   return day.year == today.year ? label : '$label ${day.year}';
 }
 

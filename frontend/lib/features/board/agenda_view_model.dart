@@ -13,15 +13,15 @@ class AgendaViewModel extends ViewModel {
   final CalendarRepository _calendar;
 
   DateTime? _today;
-  bool _isLoading = false;
   String? _loadError;
   int _loadGeneration = 0;
 
   /// Null until the first load succeeds.
   DateTime? get today => _today;
 
-  /// Only true for the first load; a reload keeps showing the last date.
-  bool get isLoading => _isLoading && _today == null;
+  /// True until there's a date or an error to show, including before the
+  /// first [load]; a reload keeps showing the last date.
+  bool get isLoading => _today == null && _loadError == null;
 
   /// Set when there's no date to show because loading it failed. A failed
   /// reload keeps the last date rather than replacing the Agenda with this.
@@ -31,7 +31,6 @@ class AgendaViewModel extends ViewModel {
   /// since the app can stay open past midnight.
   Future<void> load() async {
     final generation = ++_loadGeneration;
-    _isLoading = true;
     _loadError = null;
     notifyIfActive();
     try {
@@ -42,11 +41,7 @@ class AgendaViewModel extends ViewModel {
       if (generation != _loadGeneration || _today != null) return;
       _loadError =
           'Could not load the Agenda. Check your connection and try again.';
-    } finally {
-      if (generation == _loadGeneration) {
-        _isLoading = false;
-        notifyIfActive();
-      }
     }
+    notifyIfActive();
   }
 }

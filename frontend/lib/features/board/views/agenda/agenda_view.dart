@@ -39,16 +39,11 @@ class AgendaView extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
         final error = boardViewModel.hierarchyLoadError ?? viewModel.loadError;
-        final today = viewModel.today;
-        if (error != null || today == null) {
-          return LoadErrorView(
-            message:
-                error ??
-                'Could not load the Agenda. Check your connection and try '
-                    'again.',
-            onRetry: _reload,
-          );
+        if (error != null) {
+          return LoadErrorView(message: error, onRetry: _reload);
         }
+        // Not loading and no error, so there's a date.
+        final today = viewModel.today!;
         final groups = groupAgenda(boardViewModel.agendaItems, today: today);
         return RefreshIndicator(
           onRefresh: _reload,

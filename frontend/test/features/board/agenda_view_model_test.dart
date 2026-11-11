@@ -5,10 +5,14 @@ import 'package:weaver/features/board/agenda_view_model.dart';
 import 'fakes/fake_calendar_repository.dart';
 
 void main() {
-  test("load asks the server for today's date", () async {
+  test("load asks the server for today's date, and it's loading until "
+      'then', () async {
     final viewModel = AgendaViewModel(FakeCalendarRepository());
+    expect(viewModel.isLoading, isTrue);
 
     await viewModel.load();
+
+    expect(viewModel.isLoading, isFalse);
 
     expect(viewModel.today, DateTime(2026, 11, 11));
     expect(viewModel.loadError, isNull);

@@ -14,3 +14,19 @@ String formatTime(DateTime time) {
   final minute = time.minute.toString().padLeft(2, '0');
   return '$hour:$minute';
 }
+
+/// English month abbreviations, January first, for compact date labels.
+const List<String> monthAbbreviations = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
