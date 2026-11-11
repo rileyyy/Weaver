@@ -113,6 +113,7 @@ public class HttpWeaverClientTests
         {
             Assert.That(request.Method, Is.EqualTo(HttpMethod.Patch));
             Assert.That(request.RequestUri!.AbsolutePath, Is.EqualTo($"/api/work-items/{id}/schedule"));
+            Assert.That(_handler.SentContentLengths.Single(), Is.Not.Null, "some proxies refuse a chunked body");
             Assert.That(request.Headers.GetValues("X-Actor-Label"), Is.EqualTo(new[] { "Runner when-resolution, confidence high" }));
             Assert.That(SameJson(body!, """{"startDate":"2026-12-01","expectedVersion":9}"""), Is.True, body);
         });

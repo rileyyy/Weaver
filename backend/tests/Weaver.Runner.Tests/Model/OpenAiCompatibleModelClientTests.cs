@@ -37,6 +37,7 @@ public class OpenAiCompatibleModelClientTests
             Assert.That(request.Method, Is.EqualTo(HttpMethod.Post));
             Assert.That(request.RequestUri, Is.EqualTo(new Uri("http://ollama.test:11434/v1/chat/completions")));
             Assert.That(request.Headers.Authorization, Is.Null);
+            Assert.That(_handler.SentContentLengths.Single(), Is.Not.Null, "some servers refuse a chunked body");
             Assert.That(JsonNode.DeepEquals(JsonNode.Parse(body!), expected), Is.True, body);
         });
     }

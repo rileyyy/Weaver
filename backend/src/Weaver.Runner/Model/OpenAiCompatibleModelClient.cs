@@ -1,5 +1,5 @@
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -25,7 +25,9 @@ public sealed class OpenAiCompatibleModelClient(HttpClient http, string model, s
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions")
         {
-            Content = JsonContent.Create(RequestBody(prompt)),
+            // Buffered rather than JsonContent's chunked stream: not every OpenAI-compatible
+            // server accepts a request body without a Content-Length.
+            Content = new StringContent(RequestBody(prompt).ToJsonString(), Encoding.UTF8, "application/json"),
         };
         if (!string.IsNullOrEmpty(_apiKey))
         {

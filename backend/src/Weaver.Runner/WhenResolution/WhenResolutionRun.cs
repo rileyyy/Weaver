@@ -92,9 +92,24 @@ public sealed class WhenResolutionRun(IWeaverClient weaver, IModelClient model, 
             return ItemOutcome.WriteFailed;
         }
 
-        _logger.LogInformation(
-            "#{Number} \"{When}\": resolved to {Start:yyyy-MM-dd}..{End:yyyy-MM-dd}, blocked by {Blocker} ({Confidence} confidence)",
-            item.Number, item.When, answer.Start, answer.End, answer.BlockedBy is null ? "nothing" : $"#{answer.BlockedBy.Number}", answer.Confidence);
+        _logger.LogInformation("#{Number} \"{When}\": resolved to {Resolution} ({Confidence} confidence)",
+            item.Number, item.When, Describe(answer), answer.Confidence);
         return ItemOutcome.Written;
+    }
+
+    private static string Describe(WhenAnswer answer)
+    {
+        var parts = new List<string>();
+        if (answer.HasDates)
+        {
+            parts.Add($"{answer.Start?.ToString("yyyy-MM-dd") ?? "?"} to {answer.End?.ToString("yyyy-MM-dd") ?? "?"}");
+        }
+
+        if (answer.BlockedBy is { } blocker)
+        {
+            parts.Add($"blocked by #{blocker.Number} {blocker.Title}");
+        }
+
+        return string.Join(", ", parts);
     }
 }

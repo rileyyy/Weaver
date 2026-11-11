@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 
 namespace Weaver.Runner.WeaverApi;
@@ -105,7 +106,7 @@ public sealed class HttpWeaverClient(HttpClient http, string agentApiKey) : IWea
     private async Task WriteAsync(HttpMethod method, string path, object body, string actorLabel, CancellationToken ct)
     {
         var request = NewRequest(method, path, actorLabel);
-        request.Content = JsonContent.Create(body, options: Json);
+        request.Content = new StringContent(JsonSerializer.Serialize(body, Json), Encoding.UTF8, "application/json");
         using var response = await SendAsync(request, ct);
         if (response.IsSuccessStatusCode)
         {
