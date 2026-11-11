@@ -195,7 +195,7 @@ public class ViewTests
     private static async Task<ViewDto> CreateAsync(HttpClient client, string name, params Guid[] spaceIds) =>
         await (await client.PostJsonAsync("/api/views", new SaveViewRequest(name, spaceIds))).ReadAsync<ViewDto>();
 
-    private static string UniqueName(string name) => $"{name} {Guid.NewGuid():N}"[..40];
+    private static string UniqueName(string name) => $"{name} {Guid.NewGuid():N}";
 
     private static string TextOf(CallToolResult result) =>
         string.Join("\n", result.Content.OfType<TextContentBlock>().Select(c => c.Text));
