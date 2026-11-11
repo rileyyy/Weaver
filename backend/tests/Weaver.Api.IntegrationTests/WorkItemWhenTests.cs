@@ -113,6 +113,29 @@ public class WorkItemWhenTests
         });
     }
 
+    [Test]
+    public async Task Search_UnresolvedWhenOnly_ListsUnresolvedItems_WithFullDetail()
+    {
+        var space = await ApiClient.CreateSpaceAsync("Unresolved When REST");
+        var kitchen = await _client.CreateWorkItemAsync("Kitchen", spaceId: space);
+        var paint = await _client.CreateWorkItemAsync("Paint the walls", parentId: kitchen.Id);
+        var scheduled = await _client.CreateWorkItemAsync("Clean the gutters", spaceId: space);
+        await _client.CreateWorkItemAsync("No phrase", spaceId: space);
+        await PatchAsync("details", paint, new { when = "after drywall" });
+        await PatchAsync("details", scheduled, new { when = "next spring" });
+        await PatchAsync("schedule", scheduled, new { startDate = "2027-03-20" });
+
+        var page = await (await _client.GetAsync($"/api/work-items/search?spaceIds={space}&unresolvedWhenOnly=true"))
+            .ReadAsync<WorkItemPageDto>();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(page.Items.Select(i => i.Id), Is.EqualTo(new[] { paint.Id }));
+            Assert.That(page.Items[0].When, Is.EqualTo("after drywall"));
+            Assert.That(page.Items[0].ParentTitle, Is.EqualTo("Kitchen"));
+        });
+    }
+
     private static async Task<WorkItemSummaryPageDto> ListUnresolvedAsync(McpClient mcp, Guid space)
     {
         var result = await mcp.CallToolAsync("list_unresolved_when_items", new Dictionary<string, object?>

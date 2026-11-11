@@ -691,7 +691,8 @@ and MCP `search_work_items` (`WorkItemSummary`s). Views store its inputs
 
 - **Inputs** (`WorkItemQuery`): Spaces, text, `number`, status
   categories, assignee, tags with `tagMatch` `Any` or `All`, Types, a
-  `from`/`to` date window, `backlogOnly`, `applyDoneHiding` (see
+  `from`/`to` date window, `backlogOnly`, `unresolvedWhenOnly`,
+  `applyDoneHiding` (see
   [Completion date](#completion-date-and-done-hiding)), `updatedSince`
   and `includeDeleted`. Each input
   left out applies no filter, the ones given AND together, and a list

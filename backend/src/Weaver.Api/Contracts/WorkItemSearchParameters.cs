@@ -35,6 +35,12 @@ public sealed class WorkItemSearchParameters
     public bool BacklogOnly { get; init; }
 
     /// <summary>
+    /// Only items whose When is unresolved: a When phrase, but no dates and no live item blocking
+    /// them. Done items are included unless <see cref="StatusCategories"/> leaves them out.
+    /// </summary>
+    public bool UnresolvedWhenOnly { get; init; }
+
+    /// <summary>
     /// Overview's rule: only items in a Doing status or with dates in the window (any dated item
     /// with no window), plus their undated ancestors.
     /// </summary>
@@ -66,6 +72,7 @@ public sealed class WorkItemSearchParameters
         From: From,
         To: To,
         BacklogOnly: BacklogOnly,
+        UnresolvedWhenOnly: UnresolvedWhenOnly,
         ScheduledOrInProgressOnly: ScheduledOrInProgressOnly,
         ApplyDoneHiding: ApplyDoneHiding,
         UpdatedSince: UpdatedSince,
