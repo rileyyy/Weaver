@@ -74,7 +74,7 @@ The next phase (Spaces, Types, Views and the Trash) is planned in
 
 | Path | What's there |
 | ---- | ------------ |
-| `backend/` | ASP.NET Core 9 API (`Weaver.Domain`, `Weaver.Application`, `Weaver.Infrastructure`, `Weaver.Api`), EF Core with PostgreSQL 16, NUnit tests. The MCP server is hosted inside the API. |
+| `backend/` | ASP.NET Core 9 API (`Weaver.Domain`, `Weaver.Application`, `Weaver.Infrastructure`, `Weaver.Api`), EF Core with PostgreSQL 16, NUnit tests. The MCP server is hosted inside the API. `Weaver.Runner` is the optional agent runner, a separate worker that calls the API. |
 | `frontend/` | Flutter app (web in production; the board is built to work on phone widths too). |
 | `docker/` | Production and dev Dockerfiles, the frontend's `nginx.conf`, and the Flutter dev entrypoint. |
 | `compose.yaml` | An example deployment of the published images (Caddy, backups). |
@@ -176,9 +176,10 @@ environment and volumes below.
 | `ghcr.io/<owner>/weaver-backend` | 8080 | The API, including `/mcp` and `/health`. Runs as a non-root user. Its only state is the attachment files under `Attachments__Path`; everything else is in PostgreSQL. |
 | `ghcr.io/<owner>/weaver-frontend` | 8080 | nginx (uid 101) serving the web app. It proxies `/api/` and `/mcp` to `http://backend:8080`, so the API must be reachable under the service name `backend`. Takes no configuration. |
 | `postgres:16-alpine` | 5432 | The database. Any PostgreSQL 16 works. |
+| `ghcr.io/<owner>/weaver-runner` | none | Optional. Does scheduled agent work with a model of your choice; see [The agent runner](#the-agent-runner-optional). |
 
 `<owner>` is the GitHub account that publishes the images, lowercased.
-Both Weaver images are tagged `latest` (newest `master` build), with a
+Each Weaver image is tagged `latest` (newest `master` build), with a
 version such as `1.2.0`, and `sha-<commit>`.
 
 **Backend environment.** `__` separates ASP.NET Core configuration
@@ -386,6 +387,76 @@ under the path `docker volume inspect <project>_attachments` reports;
 setting `ATTACHMENTS_DIR` to a host directory makes them easier to copy.
 To restore attachments, put the files back in that directory with the
 backend stopped, owned by uid 1654.
+
+### The agent runner (optional)
+
+`weaver-runner` does agent work on a schedule without anyone starting it
+([ADR-0010](docs/adr/0010-agent-runner.md)). Its one task kind so far,
+`when-resolution`, turns unresolved When phrases into dates or blocked-by
+links using a model you choose, e.g. a small local one in Ollama. Weaver
+never calls a model: the runner reads and writes through the REST API
+with an agent key like any other agent, and Weaver stores none of the
+runner's settings.
+
+For each unresolved item that isn't Done, the runner asks the model one
+question (the item, its When, today's date and the quick picks in the
+server's time zone, and a few items the phrase may be waiting for) and
+checks the JSON answer before writing anything. It only sets dates on an
+item that has none and only adds links; it never changes or removes
+anything. A bad answer for one item is logged and skipped. If the model
+or Weaver can't be reached, the run stops and the process exits with 1.
+
+**Set it up.** On the Admin page's **Agents** tab, add one agent account
+per model and task kind (e.g. "Runner: llama3.1-8b / When"), so history
+tells the models apart, and issue it a **read-write** key. Then configure
+the task, either in a JSON file mounted at `/config/runner.json`:
+
+```json
+{
+  "Tasks": {
+    "WhenResolution": {
+      "ModelEndpoint": "http://ollama:11434/v1",
+      "Model": "llama3.1:8b",
+      "WeaverUrl": "http://backend:8080",
+      "AgentApiKey": "wvr_…",
+      "Cron": "0 3 * * *",
+      "TimeZone": "Europe/Berlin"
+    }
+  }
+}
+```
+
+or in the environment, e.g. `Tasks__WhenResolution__Model=llama3.1:8b`
+(the environment wins over the file).
+
+| Setting | Required | Default | Purpose |
+| ------- | -------- | ------- | ------- |
+| `ModelEndpoint` | Yes | — | Base URL of an OpenAI-compatible API; the runner calls `<ModelEndpoint>/chat/completions`. Ollama, LM Studio, vLLM and OpenAI all work. |
+| `Model` | Yes | — | The model name the endpoint expects. |
+| `ModelApiKey` | No | none | Sent as `Authorization: Bearer …` to the model endpoint, for hosted providers. |
+| `WeaverUrl` | Yes | — | The API's base URL, e.g. `http://backend:8080` from the same compose network. |
+| `AgentApiKey` | Yes | — | The agent's read-write key. |
+| `Cron` | No | none | Five-field cron expression for when to run, e.g. `0 3 * * *` for 3am. Without one the task only runs on demand. |
+| `TimeZone` | No | the container's (`TZ`, else UTC) | IANA time zone the cron expression is read in. |
+| `JsonMode` | No | `true` | Asks the endpoint for a JSON-only reply (`response_format: json_object`). Set `false` if the endpoint refuses it. |
+| `ModelTimeoutSeconds` | No | `300` | How long one answer may take. A timeout counts as the model being unreachable. |
+
+With no arguments the runner stays up and starts each task at its cron
+times. To run a task once and exit, for a test or from an outside
+scheduler such as cron or Komodo, pass `--run when-resolution`:
+
+```sh
+docker run --rm -v ./runner.json:/config/runner.json ghcr.io/<owner>/weaver-runner --run when-resolution
+```
+
+Exit codes: `0` the run finished (some items may have been skipped), `1`
+a run stopped because the model or Weaver couldn't be reached, `2` bad
+arguments or configuration. In scheduled mode a stopped run also ends the
+process with `1`, so give the service a restart policy (e.g. `restart:
+unless-stopped`); it waits for the next scheduled time after a restart.
+
+Each write's history carries the actor label `Runner when-resolution,
+confidence <low|medium|high>`, the model's own confidence in that answer.
 
 ## Connecting an MCP client
 
