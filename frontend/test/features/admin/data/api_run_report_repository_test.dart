@@ -10,11 +10,11 @@ import '../../../core/network/fakes/fixed_api_endpoint.dart';
 
 const _endpoint = FixedApiEndpoint('http://backend.test/api');
 
-Map<String, dynamic> _runJson({String? apiKeyId = 'k1'}) => {
+Map<String, dynamic> _runJson() => {
   'accountId': 'a1',
   'accountName': 'Runner: llama / When',
-  'apiKeyId': apiKeyId,
-  'apiKeyLabel': apiKeyId == null ? null : 'nightly',
+  'apiKeyId': 'k1',
+  'apiKeyLabel': 'nightly',
   'runId': 'run 1',
   'firstChangeAtUtc': '2026-11-10T02:00:00Z',
   'lastChangeAtUtc': '2026-11-10T02:05:00Z',
@@ -62,15 +62,12 @@ void main() {
     repository = ApiRunReportRepository(client, _endpoint);
   });
 
-  test('list asks for one page and reads its runs', () async {
-    final page = await repository.list(offset: 20, limit: 10);
+  test('list asks for the page at an offset, sized by the server', () async {
+    final page = await repository.list(offset: 20);
 
     final run = page.runs.single;
     expect(requests.single.url.path, '/api/admin/runs');
-    expect(requests.single.url.queryParameters, {
-      'offset': '20',
-      'limit': '10',
-    });
+    expect(requests.single.url.queryParameters, {'offset': '20'});
     expect(page.nextOffset, 20);
     expect(run.accountName, 'Runner: llama / When');
     expect(run.apiKeyLabel, 'nightly');
@@ -97,14 +94,5 @@ void main() {
     expect(item.changes.single.change, 'When: none → next week');
     expect(item.changes.single.actorLabel, 'resolver');
     expect(item.changes.single.runId, 'run 1');
-  });
-
-  test('changes leaves the key out for a run sent without one', () async {
-    await repository.changes(RunReport.fromJson(_runJson(apiKeyId: null)));
-
-    expect(
-      requests.single.url.queryParameters.containsKey('apiKeyId'),
-      isFalse,
-    );
   });
 }

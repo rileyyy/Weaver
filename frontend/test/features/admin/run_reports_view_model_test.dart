@@ -11,8 +11,8 @@ void main() {
   setUp(() {
     repository = FakeRunReportRepository([
       for (var i = 0; i < 3; i++) runReport('run-$i'),
-    ]);
-    viewModel = RunReportsViewModel(repository, pageSize: 2);
+    ], pageSize: 2);
+    viewModel = RunReportsViewModel(repository);
   });
 
   tearDown(() => viewModel.dispose());
@@ -33,7 +33,7 @@ void main() {
 
     expect(viewModel.runs.map((r) => r.runId), ['run-0', 'run-1', 'run-2']);
     expect(viewModel.hasMore, isFalse);
-    expect(repository.calls, ['list 0+2', 'list 2+2']);
+    expect(repository.calls, ['list 0', 'list 2']);
   });
 
   test('a failed load says so', () async {

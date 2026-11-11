@@ -15,13 +15,12 @@ class ApiRunReportRepository implements RunReportRepository {
   final JsonApiClient _api;
 
   @override
-  Future<RunReportPage> list({required int offset, required int limit}) =>
-      _api.get(
-        '/admin/runs',
-        (json) => RunReportPage.fromJson(json as Map<String, dynamic>),
-        query: {'offset': '$offset', 'limit': '$limit'},
-        failureMessage: 'Failed to load the runs',
-      );
+  Future<RunReportPage> list({required int offset}) => _api.get(
+    '/admin/runs',
+    (json) => RunReportPage.fromJson(json as Map<String, dynamic>),
+    query: {'offset': '$offset'},
+    failureMessage: 'Failed to load the runs',
+  );
 
   /// The run id is free text, so it goes in the query, not the path.
   @override
@@ -30,7 +29,7 @@ class ApiRunReportRepository implements RunReportRepository {
     (json) => JsonApiClient.listOf(json, RunChangedItem.fromJson),
     query: {
       'accountId': run.accountId,
-      'apiKeyId': ?run.apiKeyId,
+      'apiKeyId': run.apiKeyId,
       'runId': run.runId,
     },
     failureMessage: 'Failed to load the run’s changes',

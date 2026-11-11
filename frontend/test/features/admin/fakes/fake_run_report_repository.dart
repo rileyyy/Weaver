@@ -54,24 +54,27 @@ WorkItemHistoryEntry runChange(
   runId: 'run-1',
 );
 
-/// Serves [runs] a page at a time, newest first as given, and each run's
-/// changes from [changesByRunId].
+/// Serves [runs] [pageSize] at a time, newest first as given, as the server
+/// pages by its own default size, and each run's changes from
+/// [changesByRunId].
 class FakeRunReportRepository implements RunReportRepository {
   FakeRunReportRepository(
     this.runs, {
+    this.pageSize = 50,
     Map<String, List<RunChangedItem>>? changes,
   }) : changesByRunId = changes ?? {};
 
   List<RunReport> runs;
+  final int pageSize;
   final Map<String, List<RunChangedItem>> changesByRunId;
   ApiException? error;
   final List<String> calls = [];
 
   @override
-  Future<RunReportPage> list({required int offset, required int limit}) async {
-    calls.add('list $offset+$limit');
+  Future<RunReportPage> list({required int offset}) async {
+    calls.add('list $offset');
     if (error case final error?) throw error;
-    final end = (offset + limit).clamp(0, runs.length);
+    final end = (offset + pageSize).clamp(0, runs.length);
     return RunReportPage(
       runs: runs.sublist(offset.clamp(0, runs.length), end),
       nextOffset: end < runs.length ? end : null,

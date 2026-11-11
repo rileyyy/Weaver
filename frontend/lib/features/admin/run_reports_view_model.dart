@@ -2,22 +2,18 @@ import 'package:injectable/injectable.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/admin/data/run_report_repository.dart';
+import 'package:weaver/features/admin/models/run_key.dart';
 import 'package:weaver/features/admin/models/run_report.dart';
 import 'package:weaver/features/admin/state/run_changes.dart';
 
 /// The Admin page's Runs tab: agent runs newest first, a page at a time, and
-/// each run's changes, loaded the first time it's expanded.
+/// each run's changes, loaded the first time it's expanded. The server sizes
+/// the pages and says where the next one starts.
 @injectable
 class RunReportsViewModel extends ViewModel {
-  RunReportsViewModel(
-    this._repository, {
-    @ignoreParam this.pageSize = defaultPageSize,
-  });
-
-  static const int defaultPageSize = 50;
+  RunReportsViewModel(this._repository);
 
   final RunReportRepository _repository;
-  final int pageSize;
 
   List<RunReport> _runs = const [];
   int? _nextOffset;
@@ -27,7 +23,7 @@ class RunReportsViewModel extends ViewModel {
   bool _isLoadingMore = false;
   String? _loadMoreError;
   int _loadGeneration = 0;
-  final Map<String, RunChanges> _changes = {};
+  final Map<RunKey, RunChanges> _changes = {};
 
   List<RunReport> get runs => _runs;
 
@@ -47,7 +43,7 @@ class RunReportsViewModel extends ViewModel {
     _loadError = null;
     notifyIfActive();
     try {
-      final page = await _repository.list(offset: 0, limit: pageSize);
+      final page = await _repository.list(offset: 0);
       if (generation != _loadGeneration) return;
       _runs = page.runs;
       _nextOffset = page.nextOffset;
@@ -72,7 +68,7 @@ class RunReportsViewModel extends ViewModel {
     _loadMoreError = null;
     notifyIfActive();
     try {
-      final page = await _repository.list(offset: offset, limit: pageSize);
+      final page = await _repository.list(offset: offset);
       if (generation != _loadGeneration) return;
       _runs = [..._runs, ...page.runs];
       _nextOffset = page.nextOffset;

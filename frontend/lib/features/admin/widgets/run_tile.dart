@@ -31,7 +31,7 @@ class RunTile extends StatelessWidget {
         [
           '${formatDate(started)} ${formatTime(started)}',
           count,
-          if (run.apiKeyLabel case final key?) 'key "$key"',
+          'key "${run.apiKeyLabel}"',
         ].join(' · '),
       ),
       onExpansionChanged: (expanded) {

@@ -93,11 +93,11 @@ void main() {
   });
 
   testWidgets('offers the next page while there is one', (tester) async {
-    repository.runs = [
+    repository = FakeRunReportRepository([
       for (var i = 0; i < 3; i++) runReport('run-$i', accountName: 'Agent $i'),
-    ];
+    ], pageSize: 2);
     viewModel.dispose();
-    viewModel = RunReportsViewModel(repository, pageSize: 2);
+    viewModel = RunReportsViewModel(repository);
     await pumpTab(tester);
     expect(find.text('Agent 2'), findsNothing);
 
