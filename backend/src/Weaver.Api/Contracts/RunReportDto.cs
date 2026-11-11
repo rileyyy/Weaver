@@ -9,8 +9,8 @@ namespace Weaver.Api.Contracts;
 public record RunReportDto(
     Guid AccountId,
     string AccountName,
-    Guid? ApiKeyId,
-    string? ApiKeyLabel,
+    Guid ApiKeyId,
+    string ApiKeyLabel,
     string RunId,
     DateTimeOffset FirstChangeAtUtc,
     DateTimeOffset LastChangeAtUtc,

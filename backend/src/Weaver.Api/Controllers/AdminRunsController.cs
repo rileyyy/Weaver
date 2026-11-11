@@ -28,15 +28,14 @@ public class AdminRunsController(IRunReportService runs) : ControllerBase
 
     /// <summary>
     /// The items one run changed, in the order it first changed each, with that run's entries.
-    /// The run id is a query parameter, not part of the path, because it's free text. Leave out
-    /// <paramref name="apiKeyId"/> for a run sent without a key.
+    /// The run id is a query parameter, not part of the path, because it's free text.
     /// </summary>
     [HttpGet("changes")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     public async Task<ActionResult<IReadOnlyList<ChangedWorkItemDto>>> ListChanges(
         [FromQuery, BindRequired] Guid accountId,
-        [FromQuery, BindRequired] string runId,
-        [FromQuery] Guid? apiKeyId = null)
+        [FromQuery, BindRequired] Guid apiKeyId,
+        [FromQuery, BindRequired] string runId)
     {
         var changes = await _runs.ListChangesAsync(new RunKey(accountId, apiKeyId, runId));
         return Ok(changes.Select(ChangedWorkItemDto.FromChange));

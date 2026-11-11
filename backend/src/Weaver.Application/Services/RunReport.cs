@@ -4,8 +4,8 @@ namespace Weaver.Application.Services;
 public sealed record RunReport(
     Guid AccountId,
     string AccountName,
-    Guid? ApiKeyId,
-    string? ApiKeyLabel,
+    Guid ApiKeyId,
+    string ApiKeyLabel,
     string RunId,
     DateTimeOffset FirstChangeAtUtc,
     DateTimeOffset LastChangeAtUtc,

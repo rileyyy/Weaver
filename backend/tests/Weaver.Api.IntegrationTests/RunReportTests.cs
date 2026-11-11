@@ -48,7 +48,7 @@ public class RunReportTests
     {
         var admin = await ApiClient.FirstAdminAsync();
 
-        var response = await admin.GetAsync($"/api/admin/runs/changes?accountId={Guid.NewGuid()}&runId=nothing");
+        var response = await admin.GetAsync($"/api/admin/runs/changes?accountId={Guid.NewGuid()}&apiKeyId={Guid.NewGuid()}&runId=nothing");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }

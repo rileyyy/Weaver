@@ -31,8 +31,7 @@ public class RunReportService(IWeaverDbContext db, IAdminAuthorizer admins, ICal
         // Ordered by the run's last entry id rather than its last timestamp: entries saved in one
         // write share a timestamp, and the id gives every page the same order. One extra run says
         // whether another page follows.
-        var groups = await _db.WorkItemHistory
-            .Where(e => e.RunId != null && e.AccountId != null)
+        var groups = await AgentRunEntries()
             .GroupBy(e => new { e.AccountId, e.ApiKeyId, e.RunId })
             .Select(g => new
             {
@@ -54,7 +53,7 @@ public class RunReportService(IWeaverDbContext db, IAdminAuthorizer admins, ICal
         var accountNames = await _db.Users
             .Where(u => accountIds.Contains(u.Id))
             .ToDictionaryAsync(u => u.Id, u => u.Username, ct);
-        var keyIds = onPage.Select(r => r.ApiKeyId).OfType<Guid>().Distinct().ToList();
+        var keyIds = onPage.Select(r => r.ApiKeyId!.Value).Distinct().ToList();
         var keyLabels = await _db.ApiKeys
             .Where(k => keyIds.Contains(k.Id))
             .ToDictionaryAsync(k => k.Id, k => k.Label, ct);
@@ -63,8 +62,8 @@ public class RunReportService(IWeaverDbContext db, IAdminAuthorizer admins, ICal
             .Select(r => new RunReport(
                 r.AccountId!.Value,
                 accountNames[r.AccountId.Value],
-                r.ApiKeyId,
-                r.ApiKeyId is { } keyId ? keyLabels.GetValueOrDefault(keyId) : null,
+                r.ApiKeyId!.Value,
+                keyLabels[r.ApiKeyId.Value],
                 r.RunId!,
                 r.FirstChangeAtUtc,
                 r.LastChangeAtUtc,
@@ -77,7 +76,7 @@ public class RunReportService(IWeaverDbContext db, IAdminAuthorizer admins, ICal
     {
         await EnsureAdminAsync(ct);
 
-        var entries = _db.WorkItemHistory.Where(e =>
+        var entries = AgentRunEntries().Where(e =>
             e.RunId == run.RunId && e.AccountId == run.AccountId && e.ApiKeyId == run.ApiKeyId);
         var itemIds = await entries
             .GroupBy(e => e.WorkItemId)
@@ -87,11 +86,18 @@ public class RunReportService(IWeaverDbContext db, IAdminAuthorizer admins, ICal
             .ToListAsync(ct);
         if (itemIds.Count == 0)
         {
-            throw new RunNotFoundException(run.RunId, run.AccountId);
+            throw new RunNotFoundException(run.RunId, run.AccountId, run.ApiKeyId);
         }
 
         return await ChangedWorkItemReader.ReadAsync(_db, entries, itemIds, ct);
     }
+
+    /// <summary>
+    /// History entries that belong to an agent's run. Only agents sign in with a key, so the key
+    /// is what keeps a human's REST write that happened to send a run id out of the reports.
+    /// </summary>
+    private IQueryable<Domain.WorkItemHistoryEntry> AgentRunEntries() =>
+        _db.WorkItemHistory.Where(e => e.RunId != null && e.AccountId != null && e.ApiKeyId != null);
 
     private Task EnsureAdminAsync(CancellationToken ct) => _admins.EnsureAdminAsync(_caller.Current.AccountId, ct);
 }

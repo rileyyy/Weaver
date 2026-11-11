@@ -84,6 +84,18 @@ public class RunReportServiceTests
     }
 
     [Test]
+    public async Task AHumansWritesWithARunId_AreNotARun()
+    {
+        var item = await CreateAsync("Paint the hall");
+        _caller.Current = new Caller(_admin.Id, null, null, RunId: "by-hand");
+        await _workItems.UpdateDetailsAsync(item.Id, new WorkItemDetailsPatch { Title = "Paint the hallway" });
+
+        var page = await AsAdmin(() => _runs.ListAsync(0, 20));
+
+        Assert.That(page.Runs, Is.Empty);
+    }
+
+    [Test]
     public async Task TheSameRunIdFromTwoAgents_IsTwoRuns()
     {
         var item = await CreateAsync("Paint the hall");
@@ -201,7 +213,21 @@ public class RunReportServiceTests
         await _workItems.UpdateDetailsAsync(item.Id, new WorkItemDetailsPatch { Title = "Renamed" });
 
         Assert.ThrowsAsync<RunNotFoundException>(() =>
-            AsAdmin(() => _runs.ListChangesAsync(new RunKey(_when.Id, ApiKeyId: null, "run-1"))));
+            AsAdmin(() => _runs.ListChangesAsync(new RunKey(_when.Id, _whenKey.Id, "run-2"))));
+    }
+
+    [Test]
+    public async Task ARunsChanges_ForARunThatDoesNotExist_NamesTheWholeRunInTheError()
+    {
+        var item = await CreateAsync("Paint the hall");
+        ActAs(_when, _whenKey, "run-1");
+        await _workItems.UpdateDetailsAsync(item.Id, new WorkItemDetailsPatch { Title = "Renamed" });
+        var otherKey = Guid.NewGuid();
+
+        var error = Assert.ThrowsAsync<RunNotFoundException>(() =>
+            AsAdmin(() => _runs.ListChangesAsync(new RunKey(_when.Id, otherKey, "run-1"))));
+
+        Assert.That(error!.Message, Does.Contain("run-1").And.Contain(_when.Id.ToString()).And.Contain(otherKey.ToString()));
     }
 
     [Test]

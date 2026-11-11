@@ -46,7 +46,7 @@ public class AdminRunsControllerTests
         _runs.Setup(s => s.ListChangesAsync(key, It.IsAny<CancellationToken>()))
             .ReturnsAsync([new ChangedWorkItem(item, Deleted: false, Restored: false, [])]);
 
-        var result = await _controller.ListChanges(key.AccountId, key.RunId, key.ApiKeyId);
+        var result = await _controller.ListChanges(key.AccountId, key.ApiKeyId, key.RunId);
 
         var changed = ((IEnumerable<ChangedWorkItemDto>)((OkObjectResult)result.Result!).Value!).Single();
         Assert.That((changed.Item.Number, changed.Item.Title), Is.EqualTo(((int?)12, "Paint the hall")));
