@@ -29,6 +29,8 @@ internal sealed class FakeWeaverClient : IWeaverClient
 
     public HashSet<Guid> RejectWritesTo { get; } = [];
 
+    public HashSet<Guid> RejectLinkReadsFor { get; } = [];
+
     public Exception? FailEveryCallWith { get; set; }
 
     public WeaverWorkItem Add(string title, string? when = null, DateOnly? start = null, DateOnly? end = null, Guid? spaceId = null)
@@ -58,10 +60,12 @@ internal sealed class FakeWeaverClient : IWeaverClient
         });
 
     public Task<IReadOnlyList<Guid>> ListLinkedItemIdsAsync(Guid workItemId, CancellationToken ct) =>
-        Answer<IReadOnlyList<Guid>>(() => Links
-            .Where(l => l.From == workItemId || l.To == workItemId)
-            .Select(l => l.From == workItemId ? l.To : l.From)
-            .ToList());
+        Answer<IReadOnlyList<Guid>>(() => RejectLinkReadsFor.Contains(workItemId)
+            ? throw new WeaverRejectedException("404 Not Found")
+            : Links
+                .Where(l => l.From == workItemId || l.To == workItemId)
+                .Select(l => l.From == workItemId ? l.To : l.From)
+                .ToList());
 
     public Task SetDatesAsync(Guid workItemId, DateOnly? start, DateOnly? end, uint expectedVersion, string actorLabel, CancellationToken ct) =>
         Answer(() =>

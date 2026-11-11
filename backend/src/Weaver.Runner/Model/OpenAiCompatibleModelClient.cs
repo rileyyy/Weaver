@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -38,12 +39,22 @@ public sealed class OpenAiCompatibleModelClient(HttpClient http, string model, s
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync(ct);
-            throw new ModelUnavailableException(
-                $"The model endpoint {_http.BaseAddress} returned {(int)response.StatusCode} {response.ReasonPhrase}: {body}");
+            var description = $"The model endpoint {_http.BaseAddress} returned {(int)response.StatusCode} {response.ReasonPhrase}: {body}";
+            throw IsAboutThisPrompt(response.StatusCode)
+                ? new ModelRejectedException(description)
+                : new ModelUnavailableException(description);
         }
 
         return ReplyText(await response.Content.ReadAsStringAsync(ct));
     }
+
+    /// <summary>
+    /// Statuses that fault this request's content, such as a prompt longer than the context
+    /// window. Any other failure (a refused key, an unknown model, a server error) would fail
+    /// every later prompt too.
+    /// </summary>
+    private static bool IsAboutThisPrompt(HttpStatusCode status) =>
+        status is HttpStatusCode.BadRequest or HttpStatusCode.RequestEntityTooLarge or HttpStatusCode.UnprocessableEntity;
 
     private JsonObject RequestBody(ModelPrompt prompt)
     {

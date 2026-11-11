@@ -403,13 +403,16 @@ question (the item, its When, today's date and the quick picks in the
 server's time zone, and a few items the phrase may be waiting for) and
 checks the JSON answer before writing anything. It only sets dates on an
 item that has none and only adds links; it never changes or removes
-anything. A bad answer for one item is logged and skipped. If the model
-or Weaver can't be reached, the run stops and the process exits with 1.
+anything. A bad answer for one item, or a request Weaver or the model
+turns down for that item alone (such as a prompt too long for the model's
+context window), is logged and skipped, and the run carries on. If the
+model or Weaver can't be reached, refuses its key or has a server error,
+the run stops and the process exits with 1.
 
 **Set it up.** On the Admin page's **Agents** tab, add one agent account
 per model and task kind (e.g. "Runner: llama3.1-8b / When"), so history
 tells the models apart, and issue it a **read-write** key. Then configure
-the task, either in a JSON file mounted at `/config/runner.json`:
+the task kind, either in a JSON file mounted at `/config/runner.json`:
 
 ```json
 {
@@ -436,13 +439,13 @@ or in the environment, e.g. `Tasks__WhenResolution__Model=llama3.1:8b`
 | `ModelApiKey` | No | none | Sent as `Authorization: Bearer …` to the model endpoint, for hosted providers. |
 | `WeaverUrl` | Yes | — | The API's base URL, e.g. `http://backend:8080` from the same compose network. |
 | `AgentApiKey` | Yes | — | The agent's read-write key. |
-| `Cron` | No | none | Five-field cron expression for when to run, e.g. `0 3 * * *` for 3am. Without one the task only runs on demand. |
+| `Cron` | No | none | Five-field cron expression for when to run, e.g. `0 3 * * *` for 3am. Without one the task kind only runs on demand. |
 | `TimeZone` | No | the container's (`TZ`, else UTC) | IANA time zone the cron expression is read in. |
 | `JsonMode` | No | `true` | Asks the endpoint for a JSON-only reply (`response_format: json_object`). Set `false` if the endpoint refuses it. |
 | `ModelTimeoutSeconds` | No | `300` | How long one answer may take. A timeout counts as the model being unreachable. |
 
-With no arguments the runner stays up and starts each task at its cron
-times. To run a task once and exit, for a test or from an outside
+With no arguments the runner stays up and starts a run of each task kind
+at its cron times. To run a task kind once and exit, for a test or from an outside
 scheduler such as cron or Komodo, pass `--run when-resolution`:
 
 ```sh

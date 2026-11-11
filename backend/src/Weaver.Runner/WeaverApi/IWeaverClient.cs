@@ -2,8 +2,9 @@ namespace Weaver.Runner.WeaverApi;
 
 /// <summary>
 /// Weaver's REST API as one agent key sees it. A failure that makes the run pointless (Weaver
-/// unreachable, the key refused) throws <see cref="WeaverUnavailableException"/>; a write Weaver
-/// turns down for one item throws <see cref="WeaverRejectedException"/>.
+/// unreachable, the key refused, a server error, or any failure of a read the whole run needs)
+/// throws <see cref="WeaverUnavailableException"/>; a read or write Weaver turns down for one
+/// item throws <see cref="WeaverRejectedException"/>.
 /// </summary>
 public interface IWeaverClient
 {

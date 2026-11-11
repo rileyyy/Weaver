@@ -1187,8 +1187,11 @@ with an agent key, so it can't do anything that key couldn't.
   is never added either. The runner has no call that removes anything.
 - **Two kinds of failure.** An unreachable model, an unreachable Weaver,
   a refused key or a server error stops the run (exit code 1), since every
-  later item would fail the same way; a write Weaver turns down (400, 404,
-  409) only skips that item. In scheduled mode a stopped run ends the
+  later item would fail the same way. A read or write Weaver turns down
+  for one item (400, 404, 409), or a prompt the model turns down (400,
+  413, 422, e.g. too long for its context window), only skips that item.
+  The reads the whole run needs (today, quick picks, the unresolved list)
+  stop it on any failure. In scheduled mode a stopped run ends the
   process too, so a missed night shows as an exited container.
 - **Seams.** `IWeaverClient` and `IModelClient` are the boundaries the
   unit tests fake; `TimeProvider` drives the cron loop (`ScheduleLoop`),

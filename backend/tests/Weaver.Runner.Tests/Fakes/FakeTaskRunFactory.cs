@@ -7,7 +7,7 @@ namespace Weaver.Runner.Tests.Fakes;
 internal sealed class FakeTaskRunFactory : ITaskRunFactory
 {
     public Func<CancellationToken, Task<RunSummary>> Run { get; set; } =
-        _ => Task.FromResult(new RunSummary(0, 0, 0, 0, 0));
+        _ => Task.FromResult(new RunSummary(0, 0, 0, 0, 0, 0));
 
     public int Starts { get; private set; }
 

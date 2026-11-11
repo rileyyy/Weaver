@@ -20,7 +20,7 @@ public class TaskRunExecutorTests
     [Test]
     public async Task ACompletedRun_Succeeds_EvenWithSkippedItems()
     {
-        _runs.Run = _ => Task.FromResult(new RunSummary(Considered: 3, Written: 1, Skipped: 1, Rejected: 1, WriteFailed: 0));
+        _runs.Run = _ => Task.FromResult(new RunSummary(Considered: 3, Written: 1, Skipped: 1, Rejected: 1, WriteFailed: 0, Failed: 1));
 
         Assert.That(await RunAsync(), Is.EqualTo(ExitCodes.Success));
     }

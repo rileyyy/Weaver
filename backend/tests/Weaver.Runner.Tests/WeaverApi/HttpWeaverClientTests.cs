@@ -160,12 +160,46 @@ public class HttpWeaverClientTests
             _client.AddBlockedByLinkAsync(Guid.NewGuid(), Guid.NewGuid(), "label", CancellationToken.None));
     }
 
-    [Test]
-    public void AFailedRead_MakesWeaverUnavailable()
+    [TestCase(HttpStatusCode.BadRequest)]
+    [TestCase(HttpStatusCode.NotFound)]
+    public void AFailedRunWideRead_MakesWeaverUnavailable(HttpStatusCode status)
     {
-        _handler.Respond = _ => StubHttpHandler.Json("{}", HttpStatusCode.BadRequest);
+        _handler.Respond = _ => StubHttpHandler.Json("{}", status);
 
-        Assert.ThrowsAsync<WeaverUnavailableException>(() => _client.GetTodayAsync(CancellationToken.None));
+        Assert.Multiple(() =>
+        {
+            Assert.ThrowsAsync<WeaverUnavailableException>(() => _client.GetTodayAsync(CancellationToken.None));
+            Assert.ThrowsAsync<WeaverUnavailableException>(() => _client.ListQuickPicksAsync(CancellationToken.None));
+            Assert.ThrowsAsync<WeaverUnavailableException>(() => _client.ListUnresolvedWhenItemsAsync(CancellationToken.None));
+        });
+    }
+
+    [TestCase(HttpStatusCode.BadRequest)]
+    [TestCase(HttpStatusCode.NotFound)]
+    [TestCase(HttpStatusCode.Conflict)]
+    public void AReadForOneItemWeaverTurnsDown_IsRejectedForThatItem(HttpStatusCode status)
+    {
+        _handler.Respond = _ => StubHttpHandler.Json("""{"title":"Not found"}""", status);
+
+        Assert.Multiple(() =>
+        {
+            Assert.ThrowsAsync<WeaverRejectedException>(() => _client.ListLinkedItemIdsAsync(Guid.NewGuid(), CancellationToken.None));
+            Assert.ThrowsAsync<WeaverRejectedException>(() => _client.SearchOpenItemsAsync("drywall", 10, CancellationToken.None));
+        });
+    }
+
+    [TestCase(HttpStatusCode.Unauthorized)]
+    [TestCase(HttpStatusCode.Forbidden)]
+    [TestCase(HttpStatusCode.ServiceUnavailable)]
+    public void ARefusedKeyOrAServerError_MakesWeaverUnavailable_EvenOnAReadForOneItem(HttpStatusCode status)
+    {
+        _handler.Respond = _ => StubHttpHandler.Json("{}", status);
+
+        Assert.Multiple(() =>
+        {
+            Assert.ThrowsAsync<WeaverUnavailableException>(() => _client.ListLinkedItemIdsAsync(Guid.NewGuid(), CancellationToken.None));
+            Assert.ThrowsAsync<WeaverUnavailableException>(() => _client.SearchOpenItemsAsync("drywall", 10, CancellationToken.None));
+        });
     }
 
     [Test]

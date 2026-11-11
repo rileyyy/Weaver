@@ -35,7 +35,8 @@ public sealed class WhenResolutionRun(IWeaverClient weaver, IModelClient model, 
             Written: outcomes.Count(o => o == ItemOutcome.Written),
             Skipped: outcomes.Count(o => o == ItemOutcome.Skipped),
             Rejected: outcomes.Count(o => o == ItemOutcome.Rejected),
-            WriteFailed: outcomes.Count(o => o == ItemOutcome.WriteFailed));
+            WriteFailed: outcomes.Count(o => o == ItemOutcome.WriteFailed),
+            Failed: outcomes.Count(o => o == ItemOutcome.Failed));
     }
 
     private async Task<ItemOutcome> ResolveAsync(
@@ -49,8 +50,11 @@ public sealed class WhenResolutionRun(IWeaverClient weaver, IModelClient model, 
             return ItemOutcome.Skipped;
         }
 
-        var candidates = await _candidates.FindAsync(item, ct);
-        var reply = await _model.CompleteAsync(WhenPrompt.Build(item, today, quickPicks, candidates), ct);
+        if (await AskAsync(item, today, quickPicks, ct) is not var (candidates, reply))
+        {
+            return ItemOutcome.Failed;
+        }
+
         var check = WhenAnswerChecker.Check(reply, today, candidates);
 
         switch (check.Outcome)
@@ -64,6 +68,23 @@ public sealed class WhenResolutionRun(IWeaverClient weaver, IModelClient model, 
                 return ItemOutcome.Rejected;
             default:
                 return await WriteAsync(item, check.Answer!, ct);
+        }
+    }
+
+    /// <summary>The candidates offered and the model's reply, or null if Weaver or the model turned down a request for this item.</summary>
+    private async Task<(IReadOnlyList<BlockerCandidate> Candidates, string Reply)?> AskAsync(
+        WeaverWorkItem item, DateOnly today, IReadOnlyList<QuickPickRange> quickPicks, CancellationToken ct)
+    {
+        try
+        {
+            var candidates = await _candidates.FindAsync(item, ct);
+            var reply = await _model.CompleteAsync(WhenPrompt.Build(item, today, quickPicks, candidates), ct);
+            return (candidates, reply);
+        }
+        catch (Exception e) when (e is WeaverRejectedException or ModelRejectedException)
+        {
+            _logger.LogWarning("#{Number} \"{When}\": failed, {Reason}", item.Number, item.When, e.Message);
+            return null;
         }
     }
 

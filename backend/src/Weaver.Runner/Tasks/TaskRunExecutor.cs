@@ -21,8 +21,8 @@ public sealed class TaskRunExecutor(ITaskRunFactory runs, ILogger<TaskRunExecuto
         {
             var summary = await _runs.Create(config).RunAsync(ct);
             _logger.LogInformation(
-                "{Kind}: run finished. {Considered} considered, {Written} written, {Skipped} skipped, {Rejected} answers rejected, {WriteFailed} writes refused",
-                config.Kind, summary.Considered, summary.Written, summary.Skipped, summary.Rejected, summary.WriteFailed);
+                "{Kind}: run finished. {Considered} considered, {Written} written, {Skipped} skipped, {Rejected} answers rejected, {WriteFailed} writes refused, {Failed} failed",
+                config.Kind, summary.Considered, summary.Written, summary.Skipped, summary.Rejected, summary.WriteFailed, summary.Failed);
             return ExitCodes.Success;
         }
         catch (Exception e) when (e is ModelUnavailableException or WeaverUnavailableException)

@@ -36,7 +36,7 @@ public class WhenResolutionRunTests
                     "Runner when-resolution, confidence high"),
             }));
             Assert.That(_weaver.LinkWrites, Is.Empty);
-            Assert.That(summary, Is.EqualTo(new RunSummary(Considered: 1, Written: 1, Skipped: 0, Rejected: 0, WriteFailed: 0)));
+            Assert.That(summary, Is.EqualTo(new RunSummary(Considered: 1, Written: 1, Skipped: 0, Rejected: 0, WriteFailed: 0, Failed: 0)));
         });
     }
 
@@ -123,7 +123,7 @@ public class WhenResolutionRunTests
         {
             Assert.That(_weaver.DateWrites.Select(w => w.WorkItemId), Is.EqualTo(new[] { gutters.Id }));
             Assert.That(_weaver.LinkWrites, Is.Empty);
-            Assert.That(summary, Is.EqualTo(new RunSummary(Considered: 2, Written: 1, Skipped: 0, Rejected: 1, WriteFailed: 0)));
+            Assert.That(summary, Is.EqualTo(new RunSummary(Considered: 2, Written: 1, Skipped: 0, Rejected: 1, WriteFailed: 0, Failed: 0)));
         });
     }
 
@@ -162,7 +162,43 @@ public class WhenResolutionRunTests
         {
             Assert.That(_weaver.LinkWrites, Is.Empty);
             Assert.That(_weaver.DateWrites.Select(w => w.WorkItemId), Is.EqualTo(new[] { gutters.Id }));
-            Assert.That(summary, Is.EqualTo(new RunSummary(Considered: 2, Written: 1, Skipped: 0, Rejected: 0, WriteFailed: 1)));
+            Assert.That(summary, Is.EqualTo(new RunSummary(Considered: 2, Written: 1, Skipped: 0, Rejected: 0, WriteFailed: 1, Failed: 0)));
+        });
+    }
+
+    [Test]
+    public async Task AReadWeaverTurnsDownForOneItem_FailsThatItem_AndTheRunCarriesOn()
+    {
+        var paint = _weaver.Add("Paint the walls", when: "after drywall");
+        var gutters = _weaver.Add("Clean the gutters", when: "next week");
+        _weaver.RejectLinkReadsFor.Add(paint.Id);
+        _model.Answer = _ => """{"start":"2026-11-16","confidence":"high"}""";
+
+        var summary = await RunAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_model.Prompts, Has.Count.EqualTo(1));
+            Assert.That(_weaver.DateWrites.Select(w => w.WorkItemId), Is.EqualTo(new[] { gutters.Id }));
+            Assert.That(summary, Is.EqualTo(new RunSummary(Considered: 2, Written: 1, Skipped: 0, Rejected: 0, WriteFailed: 0, Failed: 1)));
+        });
+    }
+
+    [Test]
+    public async Task APromptTheModelTurnsDown_FailsThatItem_AndTheRunCarriesOn()
+    {
+        _weaver.Add("Paint the walls", when: "after drywall");
+        var gutters = _weaver.Add("Clean the gutters", when: "next week");
+        _model.Answer = prompt => prompt.User.Contains("Paint the walls", StringComparison.Ordinal)
+            ? throw new ModelRejectedException("400 Bad Request: prompt too long")
+            : """{"start":"2026-11-16","confidence":"high"}""";
+
+        var summary = await RunAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_weaver.DateWrites.Select(w => w.WorkItemId), Is.EqualTo(new[] { gutters.Id }));
+            Assert.That(summary, Is.EqualTo(new RunSummary(Considered: 2, Written: 1, Skipped: 0, Rejected: 0, WriteFailed: 0, Failed: 1)));
         });
     }
 

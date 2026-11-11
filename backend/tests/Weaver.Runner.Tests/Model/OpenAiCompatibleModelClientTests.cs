@@ -65,12 +65,25 @@ public class OpenAiCompatibleModelClientTests
 
     [TestCase(HttpStatusCode.NotFound, TestName = "UnknownModel")]
     [TestCase(HttpStatusCode.Unauthorized, TestName = "KeyRefused")]
+    [TestCase(HttpStatusCode.Forbidden, TestName = "KeyNotAllowed")]
+    [TestCase(HttpStatusCode.TooManyRequests, TestName = "RateLimited")]
     [TestCase(HttpStatusCode.InternalServerError, TestName = "ServerError")]
+    [TestCase(HttpStatusCode.ServiceUnavailable, TestName = "ServerBusy")]
     public void AnErrorStatus_MakesTheModelUnavailable(HttpStatusCode status)
     {
         _handler.Respond = _ => StubHttpHandler.Json("""{"error":"model not found"}""", status);
 
         Assert.ThrowsAsync<ModelUnavailableException>(() => Client().CompleteAsync(Prompt, CancellationToken.None));
+    }
+
+    [TestCase(HttpStatusCode.BadRequest, TestName = "PromptTooLongForTheContext")]
+    [TestCase(HttpStatusCode.RequestEntityTooLarge, TestName = "PromptTooLarge")]
+    [TestCase(HttpStatusCode.UnprocessableEntity, TestName = "PromptUnprocessable")]
+    public void AStatusAboutThisPrompt_RejectsOnlyThatPrompt(HttpStatusCode status)
+    {
+        _handler.Respond = _ => StubHttpHandler.Json("""{"error":"maximum context length exceeded"}""", status);
+
+        Assert.ThrowsAsync<ModelRejectedException>(() => Client().CompleteAsync(Prompt, CancellationToken.None));
     }
 
     [Test]

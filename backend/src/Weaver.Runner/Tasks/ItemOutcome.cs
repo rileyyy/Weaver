@@ -7,4 +7,5 @@ public enum ItemOutcome
     Skipped,
     Rejected,
     WriteFailed,
+    Failed,
 }
