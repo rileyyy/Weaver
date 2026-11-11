@@ -691,7 +691,8 @@ and MCP `search_work_items` (`WorkItemSummary`s). Views store its inputs
 
 - **Inputs** (`WorkItemQuery`): Spaces, text, `number`, status
   categories, assignee, tags with `tagMatch` `Any` or `All`, Types, a
-  `from`/`to` date window, `backlogOnly`, `applyDoneHiding` (see
+  `from`/`to` date window, `backlogOnly`, `unresolvedWhenOnly`,
+  `applyDoneHiding` (see
   [Completion date](#completion-date-and-done-hiding)), `updatedSince`
   and `includeDeleted`. Each input
   left out applies no filter, the ones given AND together, and a list
@@ -1150,6 +1151,53 @@ A View is a stored instance of the work-item query plus a layout
   production it's reached through the frontend's nginx, which proxies `/mcp`
   unbuffered with a one-hour read timeout because responses can be
   server-sent event streams.
+
+## Agent runner
+
+`backend/src/Weaver.Runner` is the optional worker that does scheduled
+agent work ([ADR-0010](adr/0010-agent-runner.md)). It shares no code with
+the API: it is a client of the REST API like any other agent, signed in
+with an agent key, so it can't do anything that key couldn't.
+
+- **The runner drives; the model answers one question per item.**
+  `WhenResolutionRun` lists unresolved items (`GET
+  /api/work-items/search?unresolvedWhenOnly=true` with `statusCategories`
+  leaving out Done), and for each one builds a single prompt
+  (`WhenPrompt`): the item, its When, Space and parent, today and the quick
+  picks from the server, and up to five candidate blockers. Small models
+  can't be trusted to call tools, so they never do.
+- **Candidate blockers** (`BlockerCandidateFinder`) come from searching
+  each meaningful word of the phrase on its own. Weaver's search needs
+  every word to match, so "after drywall" would find nothing as one query;
+  time and filler words ("after", "next", "spring") are dropped. The item
+  itself and items already linked to it are left out, and candidates that
+  match more words, then those in the same Space, rank first. The model
+  names one by its Number, which a small model copies back far more
+  reliably than a GUID.
+- **Every answer is checked before anything is written**
+  (`WhenAnswerChecker`): strict JSON (the outermost braces are read, since
+  small models add code fences), `yyyy-MM-dd` dates not before the
+  server's today, end not before start, a blocker that was offered, and a
+  confidence of low, medium or high. A failed check rejects the whole
+  answer.
+- **Never overwrite.** Dates are sent only for an item that has none, only
+  the dates the answer gave, and with the `expectedVersion` read at the
+  start of the run, so a human edit made mid-run makes Weaver refuse the
+  write. Dates go before the link, so a refused date write means the link
+  is never added either. The runner has no call that removes anything.
+- **Two kinds of failure.** An unreachable model, an unreachable Weaver,
+  a refused key or a server error stops the run (exit code 1), since every
+  later item would fail the same way. A read or write Weaver turns down
+  for one item (400, 404, 409), or a prompt the model turns down (400,
+  413, 422, e.g. too long for its context window), only skips that item.
+  The reads the whole run needs (today, quick picks, the unresolved list)
+  stop it on any failure. In scheduled mode a stopped run ends the
+  process too, so a missed night shows as an exited container.
+- **Seams.** `IWeaverClient` and `IModelClient` are the boundaries the
+  unit tests fake; `TimeProvider` drives the cron loop (`ScheduleLoop`),
+  tested with `FakeTimeProvider`. Every Weaver request is built in
+  `HttpWeaverClient.NewRequest`, the one place a per-run header (ticket
+  50's run id) belongs.
 
 ## Frontend
 
@@ -1764,12 +1812,13 @@ from tsdproxy ([ADR-0008](adr/0008-images-first-deployment.md)).
 
 ### Images and GHCR naming
 
-- CI publishes `ghcr.io/<owner>/weaver-backend` and
-  `ghcr.io/<owner>/weaver-frontend`, tagged `latest` (default branch), the
+- CI publishes `ghcr.io/<owner>/weaver-backend`,
+  `ghcr.io/<owner>/weaver-frontend` and the optional
+  `ghcr.io/<owner>/weaver-runner`, tagged `latest` (default branch), the
   semver version on a `v*` tag, and `sha-<commit>` on every push, via
   `docker/metadata-action`.
 - **`github.repository_owner` keeps the account's casing, but image names
-  must be lowercase.** Both publish jobs lowercase it (`${OWNER,,}`)
+  must be lowercase.** Every publish job lowercase it (`${OWNER,,}`)
   first.
 - **The image variables are required** rather than defaulting to a
   placeholder: the old `ghcr.io/OWNER/...` default failed with an unclear
@@ -1792,7 +1841,7 @@ from tsdproxy ([ADR-0008](adr/0008-images-first-deployment.md)).
 - **`test-frontend`:** `dart format --output=none --set-exit-if-changed lib
   test`, `flutter analyze`, `flutter test --coverage` (uploaded as
   `frontend-coverage`).
-- **`publish-backend` / `publish-frontend`:** build the images on every
+- **`publish-backend` / `publish-runner` / `publish-frontend`:** build the images on every
   run, so a broken Dockerfile fails the PR, but only log in and push when
   the event isn't a pull request.
 - **Flutter is pinned to one version in three places**:
