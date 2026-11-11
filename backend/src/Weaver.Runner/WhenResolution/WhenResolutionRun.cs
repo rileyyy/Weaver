@@ -22,7 +22,7 @@ public sealed class WhenResolutionRun(IWeaverClient weaver, IModelClient model, 
         var today = await _weaver.GetTodayAsync(ct);
         var quickPicks = await _weaver.ListQuickPicksAsync(ct);
         var items = await _weaver.ListUnresolvedWhenItemsAsync(ct);
-        _logger.LogInformation("{Count} unresolved When items to look at, today is {Today:yyyy-MM-dd}", items.Count, today);
+        _logger.LogInformation("{Count} unresolved When items to look at, today is {Today}", items.Count, IsoDate.Format(today));
 
         var outcomes = new List<ItemOutcome>();
         foreach (var item in items)
@@ -123,7 +123,7 @@ public sealed class WhenResolutionRun(IWeaverClient weaver, IModelClient model, 
         var parts = new List<string>();
         if (answer.HasDates)
         {
-            parts.Add($"{answer.Start?.ToString("yyyy-MM-dd") ?? "?"} to {answer.End?.ToString("yyyy-MM-dd") ?? "?"}");
+            parts.Add($"{FormatOrUnknown(answer.Start)} to {FormatOrUnknown(answer.End)}");
         }
 
         if (answer.BlockedBy is { } blocker)
@@ -133,4 +133,6 @@ public sealed class WhenResolutionRun(IWeaverClient weaver, IModelClient model, 
 
         return string.Join(", ", parts);
     }
+
+    private static string FormatOrUnknown(DateOnly? date) => date is { } d ? IsoDate.Format(d) : "?";
 }

@@ -38,11 +38,11 @@ public static class WhenPrompt
         IReadOnlyList<BlockerCandidate> candidates)
     {
         var user = new StringBuilder();
-        user.AppendLine(CultureInfo.InvariantCulture, $"Today: {Iso(today)} ({today.DayOfWeek})");
+        user.AppendLine(CultureInfo.InvariantCulture, $"Today: {IsoDate.Format(today)} ({today.DayOfWeek})");
         user.AppendLine("Quick picks:");
         foreach (var pick in quickPicks)
         {
-            user.AppendLine(CultureInfo.InvariantCulture, $"- {pick.Pick}: {Iso(pick.StartDate)} to {Iso(pick.EndDate)}");
+            user.AppendLine(CultureInfo.InvariantCulture, $"- {pick.Pick}: {IsoDate.Format(pick.StartDate)} to {IsoDate.Format(pick.EndDate)}");
         }
 
         user.AppendLine();
@@ -74,6 +74,4 @@ public static class WhenPrompt
             user.AppendLine(CultureInfo.InvariantCulture, $"- #{candidate.Number} {candidate.Title} (Space: {candidate.SpaceName}{parent})");
         }
     }
-
-    private static string Iso(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 }

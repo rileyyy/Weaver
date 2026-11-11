@@ -40,7 +40,7 @@ public static class WhenAnswerChecker
         var end = ReadDate(root, "end", today);
         if (start is not null && end is not null && end < start)
         {
-            throw new InvalidAnswerException($"end {end:yyyy-MM-dd} is before start {start:yyyy-MM-dd}");
+            throw new InvalidAnswerException($"end {IsoDate.Format(end.Value)} is before start {IsoDate.Format(start.Value)}");
         }
 
         var blocker = ReadBlocker(root, offered);
@@ -101,15 +101,14 @@ public static class WhenAnswerChecker
             return null;
         }
 
-        if (value.ValueKind != JsonValueKind.String
-            || !DateOnly.TryParseExact(value.GetString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+        if (value.ValueKind != JsonValueKind.String || !IsoDate.TryParse(value.GetString(), out var date))
         {
-            throw new InvalidAnswerException($"{name} isn't a yyyy-MM-dd date: {value.GetRawText()}");
+            throw new InvalidAnswerException($"{name} isn't a {IsoDate.Pattern} date: {value.GetRawText()}");
         }
 
         if (date < today)
         {
-            throw new InvalidAnswerException($"{name} {date:yyyy-MM-dd} is before today {today:yyyy-MM-dd}");
+            throw new InvalidAnswerException($"{name} {IsoDate.Format(date)} is before today {IsoDate.Format(today)}");
         }
 
         return date;
