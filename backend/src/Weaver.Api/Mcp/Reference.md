@@ -49,6 +49,9 @@ is the built-in View of everything in a Doing status or with dates.
 **Board.** The swimlane layout of a View: each parent is a lane, its children
 are cards in status columns. "Board order" is the order cards appear in.
 
+**Agenda.** A list layout of dated items grouped by day: Overdue (not Done and
+ended before today), Today, then each later day, in the server's time zone.
+
 **Backlog.** Every item that isn't Done and has no dates.
 
 **When.** An optional free-text phrase on an item ("before the Christmas
