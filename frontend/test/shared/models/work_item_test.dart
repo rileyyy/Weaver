@@ -5,6 +5,7 @@ import 'package:weaver/shared/models/work_item_blocker.dart';
 Map<String, dynamic> _itemJson({
   Object? completionDate = _absent,
   Object? blockedBy = _absent,
+  Object? whenEditedSinceResolved = _absent,
 }) => {
   'id': 'item-1',
   'number': 1,
@@ -23,6 +24,8 @@ Map<String, dynamic> _itemJson({
   'version': 3,
   if (!identical(completionDate, _absent)) 'completionDate': completionDate,
   if (!identical(blockedBy, _absent)) 'blockedBy': blockedBy,
+  if (!identical(whenEditedSinceResolved, _absent))
+    'whenEditedSinceResolved': whenEditedSinceResolved,
 };
 
 const Object _absent = Object();
@@ -113,6 +116,24 @@ void main() {
         item.rescheduled(DateTime(2026, 11, 1), null).blockedBy.single.id,
         'drywall',
       );
+    });
+  });
+
+  group('whenEditedSinceResolved', () {
+    test('is read from the server', () {
+      final item = WorkItem.fromJson(_itemJson(whenEditedSinceResolved: true));
+
+      expect(item.whenEditedSinceResolved, isTrue);
+    });
+
+    test('is false from a server that predates it', () {
+      expect(WorkItem.fromJson(_itemJson()).whenEditedSinceResolved, isFalse);
+    });
+
+    test('survives an optimistic edit, until the server says otherwise', () {
+      final item = WorkItem.fromJson(_itemJson(whenEditedSinceResolved: true));
+
+      expect(item.withStatus('todo').whenEditedSinceResolved, isTrue);
     });
   });
 }

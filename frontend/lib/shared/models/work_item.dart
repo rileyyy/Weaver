@@ -27,6 +27,7 @@ class WorkItem {
     this.fields = const {},
     this.when,
     this.whenResolved = false,
+    this.whenEditedSinceResolved = false,
     this.recurrenceSourceId,
     this.recurrenceDate,
     this.completionDate,
@@ -53,6 +54,7 @@ class WorkItem {
     fields: (json['fields'] as Map<String, dynamic>?) ?? const {},
     when: json['when'] as String?,
     whenResolved: json['whenResolved'] as bool? ?? false,
+    whenEditedSinceResolved: json['whenEditedSinceResolved'] as bool? ?? false,
     recurrenceSourceId: json['recurrenceSourceId'] as String?,
     recurrenceDate: parseCalendarDate(json['recurrenceDate']),
     completionDate: parseCalendarDate(json['completionDate']),
@@ -97,6 +99,11 @@ class WorkItem {
   /// itself never turns the phrase into dates; agents and quick picks do.
   final String? when;
   final bool whenResolved;
+
+  /// The server's mark for a When a person edited after the item's dates
+  /// were set: a request for an agent to resolve it again. The old dates
+  /// stay until it does.
+  final bool whenEditedSinceResolved;
 
   /// The repeating item this one was created from, and the occurrence date
   /// it was created for; null for items created by hand.
@@ -169,6 +176,7 @@ class WorkItem {
     fields: fields,
     when: when,
     whenResolved: whenResolved,
+    whenEditedSinceResolved: whenEditedSinceResolved,
     recurrenceSourceId: recurrenceSourceId,
     recurrenceDate: recurrenceDate,
     completionDate: completionDate,
