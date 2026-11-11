@@ -16,15 +16,7 @@ public class RunReportService(IWeaverDbContext db, IAdminAuthorizer admins, ICal
 
     public async Task<RunReportPage> ListAsync(int offset, int limit, CancellationToken ct = default)
     {
-        if (offset < 0)
-        {
-            throw new DomainValidationException("Offset must not be negative.");
-        }
-
-        if (limit is < 1 or > MaxPageSize)
-        {
-            throw new DomainValidationException($"Limit must be between 1 and {MaxPageSize}.");
-        }
+        PagingGuard.EnsureValid(offset, limit, MaxPageSize);
 
         await EnsureAdminAsync(ct);
 

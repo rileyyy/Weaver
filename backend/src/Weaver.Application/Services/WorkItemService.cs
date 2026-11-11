@@ -102,15 +102,7 @@ public class WorkItemService(
 
     private IQueryable<WorkItem> AllPage(int offset, int limit, Guid? spaceId)
     {
-        if (offset < 0)
-        {
-            throw new DomainValidationException("Offset must not be negative.");
-        }
-
-        if (limit is < 1 or > MaxPageSize)
-        {
-            throw new DomainValidationException($"Limit must be between 1 and {MaxPageSize}.");
-        }
+        PagingGuard.EnsureValid(offset, limit, MaxPageSize);
 
         var items = spaceId is null ? _db.WorkItems : _db.WorkItems.Where(w => w.SpaceId == spaceId);
         return InRankOrder(items).Skip(offset).Take(limit);
