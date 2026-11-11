@@ -22,8 +22,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Mcp\ServerInstructions.md" LogicalName="Weaver.Api.Mcp.ServerInstructions.md" />
-    <EmbeddedResource Include="Mcp\Reference.md" LogicalName="Weaver.Api.Mcp.Reference.md" />
+    <EmbeddedResource Include="Mcp\ServerInstructions.md" />
+    <EmbeddedResource Include="Mcp\Reference.md" />
   </ItemGroup>
 
   <ItemGroup>

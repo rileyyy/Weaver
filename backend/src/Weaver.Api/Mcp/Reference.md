@@ -93,22 +93,26 @@ told apart.
 
 ## Conventions
 
-- **Ids and Numbers.** Tools take ids (GUIDs). Only `get_work_item` and
-  `get_work_item_context` also take a Number. Turn "#123" into an id with one
-  of those first.
+- **Ids and Numbers.** Tools take ids (GUIDs). Only `get_work_item`,
+  `get_work_item_context` and `search_work_items` also take a Number. Turn
+  "#123" into an id with one of those first.
 - **Summaries, then detail.** List and search tools return summaries with
   names and leave out empty fields. Use `get_work_item` or
   `get_work_item_context` for the rest.
 - **Patch semantics.** On `update_work_item_details`, `reschedule_work_item`,
   `set_work_item_tags` and `set_work_item_fields`, a field you leave out is
   unchanged and `null` clears it. Status, parent, assignee, tags, dates and
-  custom fields each have their own tool.
+  custom fields each have their own tool. Other tools aren't patches: leaving
+  out `userId` in `assign_work_item` unassigns the item, leaving out
+  `parentId` in `reparent_work_item` makes it top-level, and leaving out
+  `afterId` places an item first.
 - **expectedVersion.** `get_work_item` and `get_work_item_context` return an
   item's `version` (summaries don't). Pass it to a
   write as `expectedVersion`; if the item changed since, the write is rejected
-  ("changed by someone else") instead of overwriting the other change. Writes
-  return the new `version` and the list of changed fields, so you can chain
-  writes without re-reading.
+  ("changed by someone else") instead of overwriting the other change. The
+  tools that take `expectedVersion` return the item with its new `version`
+  and the list of changed fields, so you can chain writes without
+  re-reading. `create_work_item` returns the new item with its version.
 - **Dates** are calendar dates, `yyyy-MM-dd`. Moments (`since`,
   `updatedSince`) are ISO 8601 timestamps with an offset. "Today" is the
   server's time zone, from `get_server_settings`.
@@ -216,7 +220,7 @@ told apart.
    passing each write's returned `version` on to the next.
 
 ### Resolve When phrases
-1. `list_unresolved_when_items`, optionally for one Space.
+1. `list_unresolved_when_items`, optionally for some Spaces.
 2. A phrase that names a time ("next spring", "before the 20th"): work out the
    dates in the server time zone (`get_server_settings`) and call
    `reschedule_work_item`.
@@ -253,6 +257,8 @@ told apart.
    wrong. Ask first if field values would be lost.
 
 ### Delete and restore
+- Only `delete_work_item` uses the Trash. Deleting a comment, a link or a URL
+  link is permanent.
 - `delete_work_item` needs `cascade: true` for an item with children.
 - `list_trash` then `restore_work_item` brings it back, under its parent if
   that still exists.

@@ -71,10 +71,10 @@ builder.Services.Configure<MvcOptions>(options => options.Filters.Add<WriteAcces
 
 // MCP tool classes are discovered via [McpServerToolType] from this assembly (Weaver.Api,
 // the calling assembly), and the agent reference via [McpServerResourceType] — see the Mcp/
-// folder. Stateless mode means each MCP call is just a
-// normal request in the existing ASP.NET Core pipeline: same DI scope (so Weaver.DbContext-backed
-// services resolve exactly as they do for a controller), same JWT bearer auth (below), same
-// port. No separate transport/process/auth story to maintain.
+// folder. Stateless mode means each MCP call is just a normal request in the existing ASP.NET
+// Core pipeline: same DI scope (so Weaver.DbContext-backed services resolve exactly as they do
+// for a controller), same JWT bearer auth (below), same port. No separate
+// transport/process/auth story to maintain.
 builder.Services.AddMcpServer(options => options.ServerInstructions = AgentGuidance.ServerInstructions)
     .WithHttpTransport(options => options.Stateless = true)
     .WithToolsFromAssembly(serializerOptions: McpJsonSerializerOptions.Default)

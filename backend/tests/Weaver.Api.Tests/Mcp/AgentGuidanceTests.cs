@@ -9,11 +9,10 @@ namespace Weaver.Api.Tests.Mcp;
 public partial class AgentGuidanceTests
 {
     // Clients put the instructions into every conversation, so they must stay short (ticket 32).
-    // Four characters per token is the usual estimate for English text.
     private const int MaxInstructionTokens = 500;
-    private const int CharactersPerToken = 4;
 
-    private static readonly IReadOnlyList<string> ToolNames = typeof(WorkItemTools).Assembly.GetTypes()
+    private static readonly IReadOnlyList<string> ToolNames = typeof(AgentGuidance).Assembly.GetTypes()
+        .Where(t => t.GetCustomAttribute<McpServerToolTypeAttribute>() is not null)
         .SelectMany(t => t.GetMethods())
         .Select(m => m.GetCustomAttribute<McpServerToolAttribute>()?.Name)
         .OfType<string>()
@@ -28,9 +27,15 @@ public partial class AgentGuidanceTests
     [Test]
     public void ServerInstructions_StayUnderAbout500Tokens()
     {
-        var estimatedTokens = AgentGuidance.ServerInstructions.Length / CharactersPerToken;
+        Assert.That(EstimateTokens(AgentGuidance.ServerInstructions), Is.LessThanOrEqualTo(MaxInstructionTokens));
+    }
 
-        Assert.That(estimatedTokens, Is.LessThanOrEqualTo(MaxInstructionTokens));
+    [TestCase("one two three", 3)]
+    [TestCase("list_work_item_types", 7)]
+    [TestCase("\"#123\":", 5)]
+    public void EstimateTokens_CountsEveryWordPieceAndSymbol(string text, int expected)
+    {
+        Assert.That(EstimateTokens(text), Is.EqualTo(expected));
     }
 
     [Test]
@@ -39,13 +44,15 @@ public partial class AgentGuidanceTests
         Assert.That(AgentGuidance.ServerInstructions, Does.Contain(ReferenceResource.Uri));
     }
 
-    [TestCase("Space")]
-    [TestCase("Type")]
-    [TestCase("When")]
-    [TestCase("patches")]
+    [TestCase("- Space:")]
+    [TestCase("- Type:")]
+    [TestCase("- When:")]
+    [TestCase("list_unresolved_when_items")]
+    [TestCase("are patches")]
     [TestCase("expectedVersion")]
     [TestCase("actorLabel")]
     [TestCase("Ask a human")]
+    [TestCase("list_dependency_conflicts reports a conflict")]
     [TestCase("#123")]
     public void ServerInstructions_CoverTheEssentials(string topic)
     {
@@ -105,6 +112,13 @@ public partial class AgentGuidanceTests
     {
         Assert.That(ReferenceResource.Read(), Is.EqualTo(AgentGuidance.Reference));
     }
+
+    // Deliberately pessimistic: real tokenizers merge common words and often whole snake_case
+    // names, so counting every word piece and symbol as its own token stays above the real count.
+    private static int EstimateTokens(string text) => TokenPiecePattern().Count(text);
+
+    [GeneratedRegex(@"[A-Za-z]+|\d+|[^\sA-Za-z\d]")]
+    private static partial Regex TokenPiecePattern();
 
     private static IReadOnlyList<string> ToolNamesIn(string text) =>
         ToolNamePattern().Matches(text).Select(m => m.Value).Distinct().ToList();
