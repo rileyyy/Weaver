@@ -78,8 +78,11 @@ Space: every item in a Doing-category status or with dates in the window.
 It can't be changed or deleted, and it's the default View until a user
 picks another.
 
-**Agenda** *(planned)*
-: A list layout of dated work, suited to phones.
+**Agenda**
+: A list layout of dated work grouped by day, suited to phones: Overdue,
+then Today, then each later day. "Today" is the server's, in its time zone.
+An item spanning several days shows once, with its range, under the first
+day it's on from today on.
 
 **Backlog**
 : Every work item that isn't Done and has no dates. Time-framed layouts

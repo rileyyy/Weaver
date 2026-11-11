@@ -1,3 +1,5 @@
+import 'package:weaver/core/dates/date_format.dart';
+
 /// A Gantt-style timeline: how far zoomed out the timeline is, expressed as
 /// how many columns it shows and how many days each column spans (for
 /// [quarter]/[year], a column is a week/month rather than a single day, so
@@ -44,22 +46,7 @@ enum RoadmapTimeframe {
     RoadmapTimeframe.fortnight ||
     RoadmapTimeframe.month => '${unitStart.day}',
     RoadmapTimeframe.quarter =>
-      '${_monthAbbreviations[unitStart.month - 1]} ${unitStart.day}',
-    RoadmapTimeframe.year => _monthAbbreviations[unitStart.month - 1],
+      '${monthAbbreviations[unitStart.month - 1]} ${unitStart.day}',
+    RoadmapTimeframe.year => monthAbbreviations[unitStart.month - 1],
   };
 }
-
-const List<String> _monthAbbreviations = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];

@@ -64,9 +64,20 @@ void main() {
     expect(definition.layout, ViewLayout.roadmap);
   });
 
-  test('a layout this client does not know opens as the Board', () async {
+  test('reads the Agenda layout', () async {
     final repository = ApiViewRepository(
       MockClient((_) async => _json([_viewJson(layout: 'Agenda')])),
+      endpoint,
+    );
+
+    final view = (await repository.list()).single;
+
+    expect(view.definition.layout, ViewLayout.agenda);
+  });
+
+  test('a layout this client does not know opens as the Board', () async {
+    final repository = ApiViewRepository(
+      MockClient((_) async => _json([_viewJson(layout: 'Calendar')])),
       endpoint,
     );
 

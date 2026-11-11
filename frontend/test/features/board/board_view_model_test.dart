@@ -2530,4 +2530,65 @@ void main() {
       );
     });
   });
+
+  group('Agenda', () {
+    late _TestBoardRepository agendaRepository;
+    late BoardViewModel agenda;
+
+    setUp(() async {
+      agendaRepository = _TestBoardRepository(
+        hierarchyItems: [
+          workItem('undated', statusId: 'todo'),
+          workItem('dated', statusId: 'todo', endDate: DateTime(2026, 11, 12)),
+          workItem(
+            'dated done',
+            statusId: 'done',
+            startDate: DateTime(2026, 11, 12),
+          ),
+        ],
+      );
+      agenda = BoardViewModel(
+        agendaRepository,
+        WorkItemStore(),
+        FakeViewRepository(),
+      );
+      await agenda.load();
+      await agenda.loadHierarchy();
+    });
+
+    test('agendaItems are the dated items in a shown status', () {
+      expect(agenda.agendaItems.map((item) => item.id), [
+        'dated',
+        'dated done',
+      ]);
+
+      agenda.toggleStatusVisibility('done');
+
+      expect(agenda.agendaItems.map((item) => item.id), ['dated']);
+    });
+
+    test("statusesOfSpace lists a shown Space's statuses in order", () {
+      expect(agenda.statusesOfSpace('home').map((s) => s.id), ['todo', 'done']);
+      expect(agenda.statusesOfSpace('elsewhere'), isEmpty);
+    });
+
+    test('changeStatus saves the new status, placed at the top of its '
+        'column', () async {
+      await agenda.changeStatus('dated', 'done');
+
+      expect(agendaRepository.statusChanges, ['dated->done']);
+      expect(agendaRepository.statusChangeAnchors, [null]);
+      expect(agendaRepository.sentVersions, ['dated@1']);
+      expect(
+        agenda.agendaItems.firstWhere((item) => item.id == 'dated').statusId,
+        'done',
+      );
+    });
+
+    test('changeStatus to the status it already has sends nothing', () async {
+      await agenda.changeStatus('dated', 'todo');
+
+      expect(agendaRepository.statusChanges, isEmpty);
+    });
+  });
 }

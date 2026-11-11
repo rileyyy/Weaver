@@ -33,6 +33,24 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-11 — The Agenda layout
+
+`feature/agenda-layout` (ticket 24 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md)).
+
+- **The Agenda** is a new tab and View layout: the shown Spaces' dated
+  items as one list under Overdue, Today, Tomorrow and each later day.
+  The header's filters and hidden statuses apply as on the Hierarchy.
+- **Today is the server's**, from the new `GET /api/calendar/today`, so a
+  phone in another time zone agrees with the server's rules. Overdue
+  means not finished and ended before today.
+- **A multi-day item shows once**, with its range, under the first day
+  it's on from today, instead of on every day it spans.
+- Tapping an item opens it, and its status can be changed in place from
+  the list. Pull down to refresh.
+- **On a phone, Overview opens as the Agenda.** Saved Views open in their
+  own layout, and a View can now be saved with the Agenda layout.
+
 ## 2026-11-11 — MCP server instructions and the agent reference
 
 `feature/mcp-server-instructions-and-reference` (ticket 32 of

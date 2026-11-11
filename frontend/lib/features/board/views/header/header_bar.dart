@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:weaver/features/board/models/scope_crumb.dart';
+import 'package:weaver/features/board/views/board_tab.dart';
 import 'package:weaver/features/board/views/header/widgets/breadcrumb_bar.dart';
 import 'package:weaver/features/board/views/header/widgets/search_and_actions.dart';
 import 'package:weaver/features/board/views/header/widgets/time_filter_bar.dart';
@@ -127,14 +128,7 @@ class HeaderBar extends StatelessWidget {
             controller: tabController,
             isScrollable: isNarrow,
             tabAlignment: isNarrow ? TabAlignment.start : TabAlignment.fill,
-            tabs: const [
-              Tab(text: 'Swim Lanes'),
-              Tab(text: 'Roadmap'),
-              Tab(text: 'Backlog'),
-              Tab(text: 'Hierarchy'),
-              Tab(text: 'Repeating'),
-              Tab(text: 'Trash'),
-            ],
+            tabs: [for (final tab in BoardTab.values) Tab(text: tab.label)],
           ),
         ],
       ),

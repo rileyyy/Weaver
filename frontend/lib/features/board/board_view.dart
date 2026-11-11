@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/core/theme/app_theme.dart';
+import 'package:weaver/features/board/agenda_view_model.dart';
 import 'package:weaver/features/board/backlog_view_model.dart';
 import 'package:weaver/features/board/board_view_model.dart';
 import 'package:weaver/features/board/models/board_section.dart';
@@ -12,6 +13,7 @@ import 'package:weaver/features/board/models/work_item_card.dart';
 import 'package:weaver/features/board/repeating_items_view_model.dart';
 import 'package:weaver/features/board/saved_views_view_model.dart';
 import 'package:weaver/features/board/trash_view_model.dart';
+import 'package:weaver/features/board/views/agenda/agenda_view.dart';
 import 'package:weaver/features/board/views/backlog/backlog_view.dart';
 import 'package:weaver/features/board/views/board_tab.dart';
 import 'package:weaver/features/board/views/header/done_filter_bar.dart';
@@ -72,6 +74,7 @@ class _BoardViewState extends State<BoardView>
       getIt<RepeatingItemsViewModel>();
   final TrashViewModel _trashViewModel = getIt<TrashViewModel>();
   final BacklogViewModel _backlogViewModel = getIt<BacklogViewModel>();
+  final AgendaViewModel _agendaViewModel = getIt<AgendaViewModel>();
   final SavedViewsViewModel _savedViews = getIt<SavedViewsViewModel>();
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
@@ -135,9 +138,17 @@ class _BoardViewState extends State<BoardView>
   /// tab shows.
   void _showOpenView() {
     _searchController.text = _viewModel.searchQuery;
-    final layout = _viewModel.currentView?.definition.layout;
-    if (layout != null) _tabController.index = BoardTab.showing(layout).index;
+    if (_viewModel.currentView case final view?) {
+      _tabController.index = BoardTab.showing(_layoutToOpen(view)).index;
+    }
     _loadBacklogIfShown();
+  }
+
+  /// [view]'s layout, except that Overview, whose layout can't be changed,
+  /// opens as the Agenda on a phone, where a board's columns don't fit.
+  ViewLayout _layoutToOpen(SavedView view) {
+    final isPhone = MediaQuery.sizeOf(context).width < _narrowLayoutBreakpoint;
+    return view.builtIn && isPhone ? ViewLayout.agenda : view.definition.layout;
   }
 
   Future<void> _openView(SavedView view) async {
@@ -239,6 +250,7 @@ class _BoardViewState extends State<BoardView>
     _repeatingViewModel.dispose();
     _trashViewModel.dispose();
     _backlogViewModel.dispose();
+    _agendaViewModel.dispose();
     _savedViews
       ..removeListener(_showViewErrorIfAny)
       ..dispose();
@@ -275,11 +287,16 @@ class _BoardViewState extends State<BoardView>
       if (_tabController.index == BoardTab.trash.index) {
         unawaited(_trashViewModel.load());
       }
+      // Today moves on at midnight, and the app can stay open past it.
+      if (_tabController.index == BoardTab.agenda.index) {
+        unawaited(_agendaViewModel.load());
+      }
       _loadBacklogIfShown();
     }
     final needsHierarchyData =
         _tabController.index == BoardTab.hierarchy.index ||
-        _tabController.index == BoardTab.roadmap.index;
+        _tabController.index == BoardTab.roadmap.index ||
+        _tabController.index == BoardTab.agenda.index;
     if (needsHierarchyData && !_viewModel.hierarchyLoaded) {
       unawaited(_viewModel.loadHierarchy());
     }
@@ -534,6 +551,14 @@ class _BoardViewState extends State<BoardView>
                       controller: _tabController,
                       children: [
                         _buildBoardArea(context),
+                        ListenableBuilder(
+                          listenable: _viewModel.itemChanges,
+                          builder: (context, _) => AgendaView(
+                            boardViewModel: _viewModel,
+                            viewModel: _agendaViewModel,
+                            onItemOpened: _openDetailsById,
+                          ),
+                        ),
                         // Drawn from every item, so any item edit can reorder
                         // or refilter them. Only built while their tab shows.
                         ListenableBuilder(

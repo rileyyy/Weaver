@@ -8,6 +8,7 @@ import 'package:weaver/features/auth/data/auth_session_store.dart';
 import 'package:weaver/features/auth/data/secure_token_store.dart';
 import 'package:weaver/features/auth/models/auth_session.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
+import 'package:weaver/features/board/data/calendar_repository.dart';
 import 'package:weaver/features/board/data/view_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
 import 'package:weaver/features/board/models/saved_view.dart';
@@ -25,6 +26,7 @@ import 'package:weaver/shared/models/work_item_status.dart';
 import 'package:weaver/shared/recurrence/data/recurrence_repository.dart';
 
 import 'core/network/fakes/in_memory_server_origin_store.dart';
+import 'features/board/fakes/fake_calendar_repository.dart';
 import 'features/board/fakes/fake_view_repository.dart';
 import 'shared/fakes/work_items.dart';
 import 'shared/recurrence/fake_recurrence_repository.dart';
@@ -124,6 +126,22 @@ const _hierarchyView = SavedView(
   ),
 );
 
+const _overview = SavedView(
+  id: overviewId,
+  builtIn: true,
+  definition: ViewDefinition(name: 'Overview'),
+);
+
+Future<void> _openOverviewByDefault() async {
+  await getIt.unregister<ViewRepository>();
+  getIt.registerLazySingleton<ViewRepository>(
+    () => FakeViewRepository(defaultView: _overview),
+  );
+}
+
+int _shownTab(WidgetTester tester) =>
+    tester.widget<TabBar>(find.byType(TabBar)).controller!.index;
+
 void main() {
   setUp(() async {
     await getIt.reset();
@@ -143,6 +161,8 @@ void main() {
       ..registerLazySingleton<ServerOriginStore>(
         () => InMemoryServerOriginStore('https://weaver.test'),
       )
+      ..unregister<CalendarRepository>()
+      ..registerLazySingleton<CalendarRepository>(FakeCalendarRepository.new)
       ..unregister<RecurrenceRepository>()
       ..registerLazySingleton<RecurrenceRepository>(
         FakeRecurrenceRepository.new,
@@ -245,5 +265,33 @@ void main() {
     expect(saved.text, 'design');
     expect(saved.layout, ViewLayout.board);
     expect(find.text('Designs'), findsWidgets);
+  });
+
+  testWidgets('Overview opens as the Agenda on a phone', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _openOverviewByDefault();
+
+    await tester.pumpWidget(const WeaverApp());
+    await tester.pumpAndSettle();
+
+    expect(_shownTab(tester), BoardTab.agenda.index);
+  });
+
+  testWidgets('Overview opens in its own layout on a wide screen', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _openOverviewByDefault();
+
+    await tester.pumpWidget(const WeaverApp());
+    await tester.pumpAndSettle();
+
+    expect(_shownTab(tester), BoardTab.swimLanes.index);
   });
 }
