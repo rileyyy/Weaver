@@ -138,6 +138,34 @@ public class HttpWeaverClientTests
         });
     }
 
+    [Test]
+    public async Task EveryWrite_CarriesTheSameRunId_SoTheRunCanBeReviewedTogether()
+    {
+        var client = new HttpWeaverClient(new HttpClient(_handler) { BaseAddress = new Uri("http://weaver.test/") }, Key);
+
+        await client.SetDatesAsync(Guid.NewGuid(), new DateOnly(2026, 12, 1), null, 1, "label", CancellationToken.None);
+        await client.AddBlockedByLinkAsync(Guid.NewGuid(), Guid.NewGuid(), "label", CancellationToken.None);
+
+        var runIds = _handler.Requests.Select(r => r.Request.Headers.GetValues("X-Agent-Run").Single()).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(runIds.Distinct().Count(), Is.EqualTo(1));
+            Assert.That(Guid.TryParse(runIds[0], out _), Is.True, runIds[0]);
+        });
+    }
+
+    [Test]
+    public async Task EachClient_IsItsOwnRun()
+    {
+        var http = new HttpClient(_handler) { BaseAddress = new Uri("http://weaver.test/") };
+
+        await new HttpWeaverClient(http, Key).AddBlockedByLinkAsync(Guid.NewGuid(), Guid.NewGuid(), "label", CancellationToken.None);
+        await new HttpWeaverClient(http, Key).AddBlockedByLinkAsync(Guid.NewGuid(), Guid.NewGuid(), "label", CancellationToken.None);
+
+        var runIds = _handler.Requests.Select(r => r.Request.Headers.GetValues("X-Agent-Run").Single());
+        Assert.That(runIds.Distinct().Count(), Is.EqualTo(2));
+    }
+
     [TestCase(HttpStatusCode.Conflict)]
     [TestCase(HttpStatusCode.BadRequest)]
     [TestCase(HttpStatusCode.NotFound)]
