@@ -6,16 +6,24 @@
 
 **Status:** ready-for-agent
 
-- [ ] A `Weaver.Runner` .NET worker project in the backend solution, built by CI and published as an image next to the API's
-- [ ] Each task kind is configured in the runner (environment or a config file): OpenAI-compatible endpoint, model, Weaver URL, agent API key and a cron expression. Weaver stores none of it
-- [ ] The runner can run one task kind once on demand (e.g. `--run when-resolution`), for testing and for outside schedulers
-- [ ] The When task lists unresolved items over REST, leaving out Done items with `statusCategories`, and asks the model about one item at a time (see "Small models" below)
-- [ ] The runner checks every answer before writing: dates parse, aren't in the past, end isn't before start, and a `blockedBy` id is one the runner offered. Anything that fails is skipped, never partly written
-- [ ] Writes carry an actor label naming the task and the model's stated confidence
-- [ ] The runner only sets dates on items that have none and only adds links; it never changes or removes existing values
-- [ ] If the model endpoint can't be reached, the run stops and the process exits non-zero. A bad answer for one item is logged and skipped, and the run carries on
-- [ ] Unit tests cover answer checking, skip handling and the "never overwrite" rule, against a fake model and a fake Weaver client
+- [x] A `Weaver.Runner` .NET worker project in the backend solution, built by CI and published as an image next to the API's
+  - `backend/src/Weaver.Runner`, `docker/runner/Dockerfile`, and a `publish-runner` job pushing `ghcr.io/<owner>/weaver-runner`. The Dockerfile wasn't built locally (no Docker on the implementing machine); `dotnet publish` with the same flags was, so CI's PR build is the Dockerfile's first run.
+- [x] Each task kind is configured in the runner (environment or a config file): OpenAI-compatible endpoint, model, Weaver URL, agent API key and a cron expression. Weaver stores none of it
+  - `Tasks:WhenResolution:*` in `/config/runner.json` or `Tasks__WhenResolution__*` in the environment, plus optional `TimeZone`, `ModelApiKey`, `JsonMode` and `ModelTimeoutSeconds` (README, "The agent runner"). Every config problem is reported at once, exit code 2.
+- [x] The runner can run one task kind once on demand (e.g. `--run when-resolution`), for testing and for outside schedulers
+- [x] The When task lists unresolved items over REST, leaving out Done items with `statusCategories`, and asks the model about one item at a time (see "Small models" below)
+  - REST had no unresolved-When filter (only MCP's `list_unresolved_when_items`), so `GET /api/work-items/search` gained `unresolvedWhenOnly`, which the query already had. Its Postgres test `Search_UnresolvedWhenOnly_ListsUnresolvedItems_WithFullDetail` hasn't run yet (no Docker locally).
+- [x] The runner checks every answer before writing: dates parse, aren't in the past, end isn't before start, and a `blockedBy` id is one the runner offered. Anything that fails is skipped, never partly written
+  - The model names a blocker by its Number (`"blockedBy": 41`), not its id: small models copy a short number back far more reliably. "Not in the past" is against the server's today. Confidence must be low, medium or high.
+- [x] Writes carry an actor label naming the task and the model's stated confidence
+  - `Runner when-resolution, confidence high`. The model is named by the agent account, per the Decisions.
+- [x] The runner only sets dates on items that have none and only adds links; it never changes or removes existing values
+  - Dates are written with the `expectedVersion` read at the start of the run and only the dates the answer gave; items already linked to the item aren't offered as blockers.
+- [x] If the model endpoint can't be reached, the run stops and the process exits non-zero. A bad answer for one item is logged and skipped, and the run carries on
+  - Exit code 1, also in scheduled mode (the process ends; a restart policy waits for the next time). Weaver being unreachable, or refusing the key, stops the run the same way.
+- [x] Unit tests cover answer checking, skip handling and the "never overwrite" rule, against a fake model and a fake Weaver client
 - [ ] One nightly When resolution run with a local model works against Weaver, verified on the homelab
+  - Needs a human on the homelab: a runner container with an Ollama (or similar) endpoint, an agent account and read-write key. Checked so far only against a stub Weaver and stub model, which drove one blocker link and one date write through the real process.
 
 ## Decisions
 
