@@ -6,6 +6,7 @@ import 'package:weaver/features/admin/agent_admin_view_model.dart';
 import 'package:weaver/features/admin/lookup_admin_view_model.dart';
 import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/models/lookup_value.dart';
+import 'package:weaver/features/admin/run_reports_view_model.dart';
 import 'package:weaver/features/admin/server_settings_admin_view_model.dart';
 import 'package:weaver/features/admin/space_admin_view_model.dart';
 import 'package:weaver/features/admin/status_admin_view_model.dart';
@@ -15,6 +16,7 @@ import 'package:weaver/shared/models/space.dart';
 
 import '../fakes/fake_agent_admin_repository.dart';
 import '../fakes/fake_lookup_admin_repository.dart';
+import '../fakes/fake_run_report_repository.dart';
 import '../fakes/fake_server_settings_admin_repository.dart';
 import '../fakes/fake_space_admin_repository.dart';
 import '../fakes/fake_status_admin_repository.dart';
@@ -56,6 +58,13 @@ void main() {
       )
       ..registerFactory(() => AgentAdminViewModel(agents))
       ..registerFactory(
+        () => RunReportsViewModel(
+          FakeRunReportRepository([
+            runReport('run-1', accountName: 'Runner: llama / When'),
+          ]),
+        ),
+      )
+      ..registerFactory(
         () => ServerSettingsAdminViewModel(
           FakeServerSettingsAdminRepository(timeZoneId: 'Europe/Berlin'),
         ),
@@ -77,6 +86,7 @@ void main() {
       'Types',
       'Users',
       'Agents',
+      'Runs',
       'Server',
     ]) {
       expect(find.widgetWithText(Tab, tab), findsOneWidget);
@@ -101,6 +111,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Claude Code (desktop)'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(Tab, 'Runs'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Runner: llama / When'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(Tab, 'Server'));
     await tester.pumpAndSettle();

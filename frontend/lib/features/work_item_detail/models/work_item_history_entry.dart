@@ -20,6 +20,7 @@ class WorkItemHistoryEntry {
     required this.oldName,
     required this.newName,
     this.fieldName,
+    this.runId,
   });
 
   factory WorkItemHistoryEntry.fromJson(Map<String, dynamic> json) {
@@ -37,6 +38,7 @@ class WorkItemHistoryEntry {
       oldName: json['oldName'] as String?,
       newName: json['newName'] as String?,
       fieldName: json['fieldName'] as String?,
+      runId: json['runId'] as String?,
     );
   }
 
@@ -58,6 +60,9 @@ class WorkItemHistoryEntry {
   /// A custom field's current name; null for every other field, and for a
   /// custom field that has been removed since.
   final String? fieldName;
+
+  /// The run the change was part of, when the agent sent one.
+  final String? runId;
 
   String get actorName => accountName ?? 'Weaver';
 

@@ -5,12 +5,14 @@ import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/features/admin/agent_admin_view_model.dart';
 import 'package:weaver/features/admin/lookup_admin_view_model.dart';
 import 'package:weaver/features/admin/models/lookup_kind.dart';
+import 'package:weaver/features/admin/run_reports_view_model.dart';
 import 'package:weaver/features/admin/server_settings_admin_view_model.dart';
 import 'package:weaver/features/admin/space_admin_view_model.dart';
 import 'package:weaver/features/admin/status_admin_view_model.dart';
 import 'package:weaver/features/admin/user_admin_view_model.dart';
 import 'package:weaver/features/admin/views/agents_tab.dart';
 import 'package:weaver/features/admin/views/lookup_tab.dart';
+import 'package:weaver/features/admin/views/runs_tab.dart';
 import 'package:weaver/features/admin/views/server_tab.dart';
 import 'package:weaver/features/admin/views/spaces_tab.dart';
 import 'package:weaver/features/admin/views/statuses_tab.dart';
@@ -21,8 +23,8 @@ Future<void> showAdminPage(BuildContext context) => Navigator.of(
   context,
 ).push(MaterialPageRoute<void>(builder: (_) => const AdminView()));
 
-/// Spaces, statuses, priorities, Types, users, agents and server-wide
-/// settings, one tab each. Only offered to admins; the server refuses every change from
+/// Spaces, statuses, priorities, Types, users, agents, agent runs and
+/// server-wide settings, one tab each. Only offered to admins; the server refuses every change from
 /// anyone else.
 class AdminView extends StatefulWidget {
   const AdminView({super.key});
@@ -42,6 +44,7 @@ class _AdminViewState extends State<AdminView> {
   );
   final UserAdminViewModel _users = getIt<UserAdminViewModel>();
   final AgentAdminViewModel _agents = getIt<AgentAdminViewModel>();
+  final RunReportsViewModel _runs = getIt<RunReportsViewModel>();
   final ServerSettingsAdminViewModel _server =
       getIt<ServerSettingsAdminViewModel>();
 
@@ -54,6 +57,7 @@ class _AdminViewState extends State<AdminView> {
     unawaited(_spaces.load());
     unawaited(_users.load());
     unawaited(_agents.load());
+    unawaited(_runs.load());
     unawaited(_server.load());
   }
 
@@ -73,6 +77,7 @@ class _AdminViewState extends State<AdminView> {
     _types.dispose();
     _users.dispose();
     _agents.dispose();
+    _runs.dispose();
     _server.dispose();
     super.dispose();
   }
@@ -80,7 +85,7 @@ class _AdminViewState extends State<AdminView> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 7,
+      length: 8,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Admin'),
@@ -94,6 +99,7 @@ class _AdminViewState extends State<AdminView> {
               Tab(text: 'Types'),
               Tab(text: 'Users'),
               Tab(text: 'Agents'),
+              Tab(text: 'Runs'),
               Tab(text: 'Server'),
             ],
           ),
@@ -106,6 +112,7 @@ class _AdminViewState extends State<AdminView> {
             LookupTab(viewModel: _types, spaces: _spaces),
             UsersTab(viewModel: _users),
             AgentsTab(viewModel: _agents),
+            RunsTab(viewModel: _runs),
             ServerTab(viewModel: _server),
           ],
         ),
