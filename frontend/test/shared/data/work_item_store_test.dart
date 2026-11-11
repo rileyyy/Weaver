@@ -151,9 +151,11 @@ void main() {
 
       firstResponse.complete(workItem('a', statusId: 'done', version: 2));
       await first;
-      expect(store['a']?.tags, [
-        'urgent',
-      ], reason: 'the unsaved tag edit still shows over the saved status');
+      expect(
+        store['a']?.tags,
+        ['urgent'],
+        reason: 'the unsaved tag edit still shows over the saved status',
+      );
 
       await second;
       expect(sentVersions, {'status': 1, 'tags': 2});
