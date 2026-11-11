@@ -69,7 +69,8 @@ public class WorkItemTools(
             WorkItemSummaryDto.FromSummaries(await _workItems.GetAllSummariesAsync(offset, limit, spaceId, ct)));
 
     [McpServerTool(Name = "create_work_item", Destructive = false)]
-    [Description("Creates a new work item.")]
+    [Description("Creates a new work item and returns it, with its version. Dates, When, assignee, tags and " +
+        "custom fields can't be set here: set them afterwards with their own tools.")]
     public Task<WorkItemDto> CreateWorkItem(
         [Description("Title of the work item.")] string title,
         [Description("Id of the status column to place the item in: one of its Space's, from list_statuses.")] Guid statusId,
@@ -132,7 +133,7 @@ public class WorkItemTools(
             ct));
 
     [McpServerTool(Name = "update_work_item_details", Destructive = false, Idempotent = true)]
-    [Description("Changes a work item's title, description, type, priority and/or When. Independent of " +
+    [Description("Changes a work item's title, description, Type, priority and/or When. Independent of " +
         "status, parent, schedule, and assignee — use their own tools for those. Changing the Type clears the " +
         "item's custom field values. " + PatchDescription)]
     public Task<WorkItemWriteResponse> UpdateWorkItemDetails(
