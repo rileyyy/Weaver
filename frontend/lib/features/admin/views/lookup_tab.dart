@@ -6,6 +6,7 @@ import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/models/lookup_value.dart';
 import 'package:weaver/features/admin/space_admin_view_model.dart';
 import 'package:weaver/features/admin/views/type_fields_page.dart';
+import 'package:weaver/features/admin/widgets/admin_add_action.dart';
 import 'package:weaver/features/admin/widgets/admin_list_frame.dart';
 import 'package:weaver/features/admin/widgets/delete_lookup_dialog.dart';
 import 'package:weaver/features/admin/widgets/name_dialog.dart';
@@ -48,8 +49,10 @@ class LookupTab extends StatelessWidget {
         loadError: viewModel.loadError,
         onRetry: viewModel.load,
         description: _description,
-        addLabel: 'Add $singular',
-        onAdd: viewModel.hasList ? () => unawaited(_add(context)) : null,
+        addAction: AdminAddAction(
+          'Add $singular',
+          onPressed: viewModel.hasList ? () => unawaited(_add(context)) : null,
+        ),
         child: ReorderableLookupList<LookupValue>(
           items: viewModel.items,
           idOf: (value) => value.id,

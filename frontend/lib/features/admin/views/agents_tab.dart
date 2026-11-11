@@ -5,6 +5,7 @@ import 'package:weaver/features/admin/agent_admin_view_model.dart';
 import 'package:weaver/features/admin/models/agent_account.dart';
 import 'package:weaver/features/admin/models/agent_action.dart';
 import 'package:weaver/features/admin/views/agent_keys_page.dart';
+import 'package:weaver/features/admin/widgets/admin_add_action.dart';
 import 'package:weaver/features/admin/widgets/admin_list_frame.dart';
 import 'package:weaver/features/admin/widgets/agent_tile.dart';
 import 'package:weaver/features/admin/widgets/create_agent_dialog.dart';
@@ -29,9 +30,11 @@ class AgentsTab extends StatelessWidget {
         description:
             'Accounts for AI agents, one per agent runtime. They sign in '
             'with API keys instead of a password.',
-        addLabel: 'Add agent',
-        onAdd: () => unawaited(
-          showCreateAgentDialog(context, onCreate: viewModel.create),
+        addAction: AdminAddAction(
+          'Add agent',
+          onPressed: () => unawaited(
+            showCreateAgentDialog(context, onCreate: viewModel.create),
+          ),
         ),
         child: ListView.separated(
           padding: const EdgeInsets.only(bottom: 16),
