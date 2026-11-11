@@ -46,7 +46,7 @@ class FakeBacklogRepository implements BacklogRepository {
     if (queryError case final error?) throw error;
     return [
       for (final item in server.values)
-        if (item.spaceId == query.spaceId &&
+        if (query.spaceIds.contains(item.spaceId) &&
             item.startDate == null &&
             item.endDate == null &&
             !done.contains(item.id))

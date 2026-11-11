@@ -9,7 +9,7 @@ import 'package:weaver/shared/models/work_item_query.dart';
 import '../../../shared/fakes/work_items.dart';
 
 void main() {
-  final query = WorkItemQuery(spaceId: 'home', text: 'paint');
+  final query = WorkItemQuery(spaceIds: {'home'}, text: 'paint');
   late List<Completer<List<WorkItem>>> answers;
   late ServerMatches matches;
 

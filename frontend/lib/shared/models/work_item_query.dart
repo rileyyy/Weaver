@@ -8,7 +8,7 @@ import 'package:weaver/shared/models/tag_match.dart';
 /// caller can tell whether a change needs a new request.
 class WorkItemQuery {
   WorkItemQuery({
-    required this.spaceId,
+    required this.spaceIds,
     String text = '',
     this.tags = const {},
     TagMatch tagMatch = TagMatch.any,
@@ -16,11 +16,13 @@ class WorkItemQuery {
     this.to,
     this.applyDoneHiding = false,
     this.backlogOnly = false,
+    this.scheduledOrInProgressOnly = false,
   }) : text = text.trim(),
        // With fewer than two tags, Any and All return the same items.
        tagMatch = tags.length > 1 ? tagMatch : TagMatch.any;
 
-  final String spaceId;
+  /// The Spaces to search; empty for every Space.
+  final Set<String> spaceIds;
 
   /// Trimmed; empty means no text filter.
   final String text;
@@ -43,7 +45,11 @@ class WorkItemQuery {
   /// Only the Backlog: items that aren't Done and have no dates (ADR-0003).
   final bool backlogOnly;
 
-  /// True when the query matches every item of the Space, so there's no
+  /// Overview's rule: only items in a Doing status or with dates in the
+  /// window (any dated item with no window), plus their undated ancestors.
+  final bool scheduledOrInProgressOnly;
+
+  /// True when the query matches every item of its Spaces, so there's no
   /// need to ask the server which ones match.
   bool get isUnfiltered =>
       text.isEmpty &&
@@ -51,12 +57,14 @@ class WorkItemQuery {
       from == null &&
       to == null &&
       !applyDoneHiding &&
-      !backlogOnly;
+      !backlogOnly &&
+      !scheduledOrInProgressOnly;
 
   @override
   bool operator ==(Object other) =>
       other is WorkItemQuery &&
-      other.spaceId == spaceId &&
+      other.spaceIds.length == spaceIds.length &&
+      other.spaceIds.containsAll(spaceIds) &&
       other.text == text &&
       other.tags.length == tags.length &&
       other.tags.containsAll(tags) &&
@@ -64,11 +72,12 @@ class WorkItemQuery {
       other.from == from &&
       other.to == to &&
       other.applyDoneHiding == applyDoneHiding &&
-      other.backlogOnly == backlogOnly;
+      other.backlogOnly == backlogOnly &&
+      other.scheduledOrInProgressOnly == scheduledOrInProgressOnly;
 
   @override
   int get hashCode => Object.hash(
-    spaceId,
+    Object.hashAllUnordered(spaceIds),
     text,
     Object.hashAllUnordered(tags),
     tagMatch,
@@ -76,5 +85,6 @@ class WorkItemQuery {
     to,
     applyDoneHiding,
     backlogOnly,
+    scheduledOrInProgressOnly,
   );
 }

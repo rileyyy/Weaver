@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Weaver.Application.Services;
+using Weaver.Domain;
 
 namespace Weaver.Infrastructure.Tests;
 

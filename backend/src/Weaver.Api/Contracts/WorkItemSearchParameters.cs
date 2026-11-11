@@ -34,6 +34,12 @@ public sealed class WorkItemSearchParameters
 
     public bool BacklogOnly { get; init; }
 
+    /// <summary>
+    /// Overview's rule: only items in a Doing status or with dates in the window (any dated item
+    /// with no window), plus their undated ancestors.
+    /// </summary>
+    public bool ScheduledOrInProgressOnly { get; init; }
+
     /// <summary>Leave out Done items completed longer ago than their Space's done-hiding period.</summary>
     public bool ApplyDoneHiding { get; init; }
 
@@ -60,6 +66,7 @@ public sealed class WorkItemSearchParameters
         From: From,
         To: To,
         BacklogOnly: BacklogOnly,
+        ScheduledOrInProgressOnly: ScheduledOrInProgressOnly,
         ApplyDoneHiding: ApplyDoneHiding,
         UpdatedSince: UpdatedSince,
         IncludeDeleted: IncludeDeleted,

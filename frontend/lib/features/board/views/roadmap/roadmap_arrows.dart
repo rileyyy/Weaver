@@ -9,19 +9,21 @@ import 'package:weaver/features/board/views/roadmap/roadmap_bar.dart';
 typedef RoadmapArrow = ({Offset from, Offset to, bool conflicts});
 
 /// The arrows for every blocks link between two of [rows] (the visible
-/// rows, top to bottom). A link is skipped when either end isn't drawn: the
+/// rows, top to bottom; null for a row that isn't an item, such as a Space
+/// heading). A link is skipped when either end isn't drawn: the
 /// blocker is collapsed or filtered out, or the blocker's end or the
 /// blocked item's start is missing or outside the window, since an arrow
 /// to a clipped bar edge would point at the wrong day.
 List<RoadmapArrow> roadmapArrows({
-  required List<HierarchyItem> rows,
+  required List<HierarchyItem?> rows,
   required DateTime windowStart,
   required int totalDays,
   required double timelineWidth,
   required double rowHeight,
 }) {
   final rowIndexById = {
-    for (final (index, item) in rows.indexed) item.id: index,
+    for (final (index, item) in rows.indexed)
+      if (item != null) item.id: index,
   };
   double rowCentre(int index) => (index + 0.5) * rowHeight;
 
@@ -35,12 +37,13 @@ List<RoadmapArrow> roadmapArrows({
 
   final arrows = <RoadmapArrow>[];
   for (final (blockedIndex, blocked) in rows.indexed) {
+    if (blocked == null) continue;
     final blockedBar = barOf(blocked);
     if (blockedBar == null || !blockedBar.startsInWindow) continue;
     for (final blocker in blocked.blockedBy) {
       final blockerIndex = rowIndexById[blocker.id];
       if (blockerIndex == null) continue;
-      final blockerBar = barOf(rows[blockerIndex]);
+      final blockerBar = barOf(rows[blockerIndex]!);
       if (blockerBar == null || !blockerBar.endsInWindow) continue;
       arrows.add((
         from: Offset(blockerBar.right, rowCentre(blockerIndex)),

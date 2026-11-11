@@ -4,11 +4,14 @@ import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/board/backlog_view_model.dart';
 import 'package:weaver/features/board/views/backlog/backlog_view.dart';
 import 'package:weaver/shared/data/work_item_store.dart';
+import 'package:weaver/shared/models/space.dart';
 
 import '../../../../shared/fakes/work_items.dart';
 import '../../fakes/fake_backlog_repository.dart';
 
 final _nov = DateTime(2026, 11, 14);
+
+const _homeSpace = Space(id: 'home', name: 'Home');
 
 void main() {
   late FakeBacklogRepository repository;
@@ -23,7 +26,7 @@ void main() {
       workItem('bench', number: 5, title: 'Garden bench'),
     ]);
     viewModel = BacklogViewModel(repository, WorkItemStore());
-    await viewModel.load('home');
+    await viewModel.load(const [_homeSpace]);
   });
 
   tearDown(() => viewModel.dispose());
@@ -34,7 +37,7 @@ void main() {
           home: Scaffold(
             body: BacklogView(
               viewModel: viewModel,
-              spaceId: 'home',
+              spaces: const [_homeSpace],
               onItemOpened: opened.add,
               chooseDates: (_, _) async => chosen,
             ),
@@ -101,7 +104,7 @@ void main() {
 
   testWidgets('an empty Backlog says so', (tester) async {
     repository.done.addAll(['roof', 'bench']);
-    await viewModel.load('home');
+    await viewModel.load(const [_homeSpace]);
     await pump(tester);
 
     expect(find.textContaining('The Backlog is empty'), findsOneWidget);

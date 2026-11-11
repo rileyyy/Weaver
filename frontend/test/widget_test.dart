@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/app.dart';
 import 'package:weaver/core/di/injection.dart';
@@ -7,9 +8,13 @@ import 'package:weaver/features/auth/data/auth_session_store.dart';
 import 'package:weaver/features/auth/data/secure_token_store.dart';
 import 'package:weaver/features/auth/models/auth_session.dart';
 import 'package:weaver/features/board/data/board_repository.dart';
-import 'package:weaver/features/board/data/last_space_store.dart';
+import 'package:weaver/features/board/data/view_repository.dart';
 import 'package:weaver/features/board/models/board_data.dart';
+import 'package:weaver/features/board/models/saved_view.dart';
 import 'package:weaver/features/board/models/swimlane_items.dart';
+import 'package:weaver/features/board/models/view_definition.dart';
+import 'package:weaver/features/board/models/view_layout.dart';
+import 'package:weaver/features/board/views/board_tab.dart';
 import 'package:weaver/shared/models/custom_field.dart';
 import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/models/user.dart';
@@ -20,7 +25,7 @@ import 'package:weaver/shared/models/work_item_status.dart';
 import 'package:weaver/shared/recurrence/data/recurrence_repository.dart';
 
 import 'core/network/fakes/in_memory_server_origin_store.dart';
-import 'shared/fakes/memory_last_space_store.dart';
+import 'features/board/fakes/fake_view_repository.dart';
 import 'shared/fakes/work_items.dart';
 import 'shared/recurrence/fake_recurrence_repository.dart';
 
@@ -65,10 +70,10 @@ class _StubBoardRepository implements BoardRepository {
   Future<List<WorkItem>> queryItems(WorkItemQuery query) async {
     queries.add(query);
     return [
-      for (final lane in (await loadBoard(query.spaceId, null)).swimlanes) ...[
-        lane.lane,
-        ...lane.cards,
-      ],
+      for (final lane in (await loadBoard(
+        query.spaceIds.first,
+        null,
+      )).swimlanes) ...[lane.lane, ...lane.cards],
     ];
   }
 
@@ -111,6 +116,14 @@ class _InMemoryTokenStore implements SecureTokenStore {
   Future<void> clear() async => _token = null;
 }
 
+const _hierarchyView = SavedView(
+  id: 'tree',
+  definition: ViewDefinition(
+    name: 'Tree of things',
+    layout: ViewLayout.hierarchy,
+  ),
+);
+
 void main() {
   setUp(() async {
     await getIt.reset();
@@ -118,8 +131,10 @@ void main() {
     getIt
       ..unregister<BoardRepository>()
       ..registerLazySingleton<BoardRepository>(_StubBoardRepository.new)
-      ..unregister<LastSpaceStore>()
-      ..registerLazySingleton<LastSpaceStore>(MemoryLastSpaceStore.new)
+      ..unregister<ViewRepository>()
+      ..registerLazySingleton<ViewRepository>(
+        () => FakeViewRepository(views: [allSpacesView, _hierarchyView]),
+      )
       ..unregister<AuthRepository>()
       ..registerLazySingleton<AuthRepository>(_UnusedAuthRepository.new)
       ..unregister<SecureTokenStore>()
@@ -188,5 +203,47 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.queries.last.applyDoneHiding, isTrue);
     expect(repository.queries, hasLength(asked + 1));
+  });
+
+  testWidgets('switching View opens it in its layout', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const WeaverApp());
+    await tester.pumpAndSettle();
+    expect(find.text('Everything'), findsWidgets);
+
+    await tester.tap(find.byTooltip('Views'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tree of things'));
+    await tester.pumpAndSettle();
+
+    final tabs = tester.widget<TabBar>(find.byType(TabBar));
+    expect(tabs.controller!.index, BoardTab.hierarchy.index);
+    expect(find.text('Tree of things'), findsWidgets);
+  });
+
+  testWidgets('saving the header as a new View stores it and opens it', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const WeaverApp());
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'design');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Views'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save as new View…'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Designs');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    final views = getIt<ViewRepository>() as FakeViewRepository;
+    final saved = views.views.last.definition;
+    expect(saved.name, 'Designs');
+    expect(saved.text, 'design');
+    expect(saved.layout, ViewLayout.board);
+    expect(find.text('Designs'), findsWidgets);
   });
 }

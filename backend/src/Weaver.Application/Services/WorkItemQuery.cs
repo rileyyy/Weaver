@@ -24,6 +24,11 @@ namespace Weaver.Application.Services;
 /// Only items whose When is unresolved: they have one, but no dates and no live item blocking
 /// them (ADR-0003, <see cref="WorkItem.IsWhenResolved"/>).
 /// </param>
+/// <param name="ScheduledOrInProgressOnly">
+/// Only items in a Doing-category status or with dates overlapping the window (with no window,
+/// any dated item), plus the undated ancestors of those. This is Overview's rule (ADR-0006): the
+/// window narrows only the dated items, never the Doing ones.
+/// </param>
 /// <param name="ApplyDoneHiding">
 /// Leave out Done items completed longer ago than their Space's done-hiding period
 /// (<see cref="Space.DoneHidingDays"/>), counted back from the server's today. An item completed
@@ -47,6 +52,7 @@ public sealed record WorkItemQuery(
     DateOnly? To = null,
     bool BacklogOnly = false,
     bool UnresolvedWhenOnly = false,
+    bool ScheduledOrInProgressOnly = false,
     bool ApplyDoneHiding = false,
     DateTimeOffset? UpdatedSince = null,
     bool IncludeDeleted = false,
@@ -57,4 +63,7 @@ public sealed record WorkItemQuery(
     public const int MaxLimit = 1000;
 
     public bool HasDateWindow => From is not null || To is not null;
+
+    /// <summary>Whether matching needs the dated-item rule, which brings in undated ancestors.</summary>
+    public bool JudgesByDates => HasDateWindow || ScheduledOrInProgressOnly;
 }

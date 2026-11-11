@@ -15,13 +15,18 @@ import 'package:weaver/shared/models/work_item_query.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 import 'package:weaver/shared/models/work_item_type.dart';
 
-import '../../../../shared/fakes/memory_last_space_store.dart';
+import '../../../../features/board/fakes/fake_view_repository.dart';
 import '../../../../shared/fakes/work_items.dart';
 
 const _projectColor = Color(0xFFD81B60);
 
 class _HierarchyOnlyRepository implements BoardRepository {
-  _HierarchyOnlyRepository({this.customFields = const []});
+  _HierarchyOnlyRepository({
+    this.customFields = const [],
+    this.spaces = const [Space(id: 'home', name: 'Home')],
+  });
+
+  final List<Space> spaces;
 
   /// The Space's fields; when there are any, the root and child hold a
   /// budget.
@@ -35,9 +40,7 @@ class _HierarchyOnlyRepository implements BoardRepository {
       customFields.isEmpty ? const {} : {'field-budget': amount};
 
   @override
-  Future<List<Space>> loadSpaces() async => const [
-    Space(id: 'home', name: 'Home'),
-  ];
+  Future<List<Space>> loadSpaces() async => spaces;
 
   @override
   Future<BoardData> loadBoard(String spaceId, String? scopeItemId) async =>
@@ -56,30 +59,35 @@ class _HierarchyOnlyRepository implements BoardRepository {
 
   @override
   Future<List<WorkItem>> loadAllItems(String spaceId) async => [
-    workItem(
-      'root',
-      number: 1,
-      parentId: null,
-      title: 'A root item with a fairly long title',
-      statusId: 'todo',
-      typeId: 'project',
-      tags: ['urgent', 'design'],
-      fields: _budget(1000),
-    ),
-    workItem(
-      'child',
-      number: 2,
-      parentId: 'root',
-      title: 'Child',
-      statusId: 'todo',
-      fields: _budget(250),
-    ),
+    if (spaceId != 'home')
+      workItem('$spaceId-item', spaceId: spaceId, title: 'In $spaceId')
+    else ...[
+      workItem(
+        'root',
+        number: 1,
+        parentId: null,
+        title: 'A root item with a fairly long title',
+        statusId: 'todo',
+        typeId: 'project',
+        tags: ['urgent', 'design'],
+        fields: _budget(1000),
+      ),
+      workItem(
+        'child',
+        number: 2,
+        parentId: 'root',
+        title: 'Child',
+        statusId: 'todo',
+        fields: _budget(250),
+      ),
+    ],
   ];
 
   /// The board's default query hides old Done items; none of these are.
   @override
-  Future<List<WorkItem>> queryItems(WorkItemQuery query) =>
-      loadAllItems(query.spaceId);
+  Future<List<WorkItem>> queryItems(WorkItemQuery query) => Future.wait(
+    query.spaceIds.map(loadAllItems),
+  ).then((lists) => [for (final list in lists) ...list]);
 
   @override
   Future<List<User>> loadUsers() async => const [];
@@ -90,15 +98,16 @@ class _HierarchyOnlyRepository implements BoardRepository {
 
 Future<void> _pumpHierarchy(
   WidgetTester tester,
-  _HierarchyOnlyRepository repository,
-) async {
+  _HierarchyOnlyRepository repository, {
+  void Function(Space space)? onSpaceTapped,
+}) async {
   tester.view.physicalSize = const Size(1600, 800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final viewModel = BoardViewModel(
     repository,
     WorkItemStore(),
-    MemoryLastSpaceStore(),
+    FakeViewRepository(),
   );
   await viewModel.load();
   await viewModel.loadHierarchy();
@@ -110,6 +119,7 @@ Future<void> _pumpHierarchy(
           onItemOpened: (_) {},
           onAssignRequested: (_, _) {},
           onAddTagsRequested: (_, _) {},
+          onSpaceTapped: onSpaceTapped ?? (_) {},
         ),
       ),
     ),
@@ -117,6 +127,30 @@ Future<void> _pumpHierarchy(
 }
 
 void main() {
+  testWidgets("while several Spaces show, each Space's trees sit under its "
+      'heading, which opens that Space', (tester) async {
+    final tapped = <String>[];
+    await _pumpHierarchy(
+      tester,
+      _HierarchyOnlyRepository(
+        spaces: const [
+          Space(id: 'home', name: 'Home'),
+          Space(id: 'village', name: 'Village'),
+        ],
+      ),
+      onSpaceTapped: (space) => tapped.add(space.id),
+    );
+
+    final home = tester.getTopLeft(find.text('Home')).dy;
+    final root = tester.getTopLeft(find.textContaining('A root item')).dy;
+    final village = tester.getTopLeft(find.text('Village')).dy;
+    final villageItem = tester.getTopLeft(find.text('In village')).dy;
+    expect(home < root && root < village && village < villageItem, isTrue);
+
+    await tester.tap(find.text('Village'));
+    expect(tapped, ['village']);
+  });
+
   testWidgets("a Totals column shows each item's own value and its "
       "sub-items' total apart", (tester) async {
     await _pumpHierarchy(
@@ -152,7 +186,7 @@ void main() {
     final viewModel = BoardViewModel(
       _HierarchyOnlyRepository(),
       WorkItemStore(),
-      MemoryLastSpaceStore(),
+      FakeViewRepository(),
     );
     await viewModel.load();
     await viewModel.loadHierarchy();
@@ -165,6 +199,7 @@ void main() {
             onItemOpened: (_) {},
             onAssignRequested: (_, _) {},
             onAddTagsRequested: (_, _) {},
+            onSpaceTapped: (_) {},
           ),
         ),
       ),
@@ -188,7 +223,7 @@ void main() {
     final viewModel = BoardViewModel(
       _HierarchyOnlyRepository(),
       WorkItemStore(),
-      MemoryLastSpaceStore(),
+      FakeViewRepository(),
     );
     await viewModel.load();
     await viewModel.loadHierarchy();
@@ -201,6 +236,7 @@ void main() {
             onItemOpened: (_) {},
             onAssignRequested: (_, _) {},
             onAddTagsRequested: (_, _) {},
+            onSpaceTapped: (_) {},
           ),
         ),
       ),
@@ -227,7 +263,7 @@ void main() {
       final viewModel = BoardViewModel(
         _HierarchyOnlyRepository(),
         WorkItemStore(),
-        MemoryLastSpaceStore(),
+        FakeViewRepository(),
       );
       await viewModel.load();
       await viewModel.loadHierarchy();
@@ -240,6 +276,7 @@ void main() {
               onItemOpened: (_) {},
               onAssignRequested: (_, _) {},
               onAddTagsRequested: (_, _) {},
+              onSpaceTapped: (_) {},
             ),
           ),
         ),

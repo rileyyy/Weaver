@@ -132,6 +132,21 @@ namespace Weaver.Infrastructure.Migrations
                     b.ToTable("CustomFields", (string)null);
                 });
 
+            modelBuilder.Entity("Weaver.Domain.DefaultView", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ViewId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("UserId");
+
+                    b.HasIndex("ViewId");
+
+                    b.ToTable("DefaultViews");
+                });
+
             modelBuilder.Entity("Weaver.Domain.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -360,6 +375,59 @@ namespace Weaver.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("Weaver.Domain.View", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("ApplyDoneHiding")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Layout")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("ScheduledOrInProgressOnly")
+                        .HasColumnType("boolean");
+
+                    b.PrimitiveCollection<Guid[]>("SpaceIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]");
+
+                    b.Property<string>("TagMatch")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.PrimitiveCollection<string[]>("Tags")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.Property<string>("Text")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Views");
                 });
 
             modelBuilder.Entity("Weaver.Domain.WorkItem", b =>
@@ -743,6 +811,21 @@ namespace Weaver.Infrastructure.Migrations
                     b.HasOne("Weaver.Domain.WorkItemType", null)
                         .WithMany()
                         .HasForeignKey("TypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Weaver.Domain.DefaultView", b =>
+                {
+                    b.HasOne("Weaver.Domain.User", null)
+                        .WithOne()
+                        .HasForeignKey("Weaver.Domain.DefaultView", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Weaver.Domain.View", null)
+                        .WithMany()
+                        .HasForeignKey("ViewId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

@@ -58,18 +58,25 @@ between Done statuses keeps it; leaving Done clears it.
 : Per Space, in days (default 14). The Board hides Done items completed longer
 ago than this unless "show done" is on.
 
-**View** *(planned)*
-: A saved, shared query that picks one or more Spaces, filters and a layout.
-Each user picks a default View.
+**View**
+: A saved, shared query that picks one or more Spaces (or every Space),
+filters and a layout. It keeps no time range: the window is chosen when it's
+shown. Each user picks a default View, opened on launch.
+
+**Breadcrumb**
+: Where the board is: the open View (when it spans several Spaces), then a
+Space, then each item drilled into.
 
 **Board**
 : The swimlane layout of a View. Each parent is a lane and its children are
 cards that move between status columns. It isn't a stored entity (the old
 Board entity was removed in ticket 11).
 
-**Overview** *(planned)*
+**Overview**
 : The built-in View of all scheduled and in-progress work across every
-Space.
+Space: every item in a Doing-category status or with dates in the window.
+It can't be changed or deleted, and it's the default View until a user
+picks another.
 
 **Agenda** *(planned)*
 : A list layout of dated work, suited to phones.

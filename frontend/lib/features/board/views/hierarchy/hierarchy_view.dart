@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:weaver/features/board/board_view_model.dart';
+import 'package:weaver/features/board/models/flattened_tree_row.dart';
+import 'package:weaver/features/board/models/space_header_row.dart';
 import 'package:weaver/features/board/state/flatten_tree.dart';
 import 'package:weaver/features/board/views/hierarchy/hierarchy_column.dart';
 import 'package:weaver/features/board/views/hierarchy/hierarchy_column_widths.dart';
 import 'package:weaver/features/board/views/hierarchy/widgets/hierarchy_header_row.dart';
 import 'package:weaver/features/board/views/hierarchy/widgets/hierarchy_item_tile.dart';
+import 'package:weaver/features/board/widgets/space_section_header.dart';
+import 'package:weaver/shared/models/space.dart';
 import 'package:weaver/shared/widgets/load_error_view.dart';
 
 /// Every work item nested under its parent, respecting the same time/search/
 /// status filters and sort order as the swim-lane board (see
 /// [BoardViewModel.hierarchyRoots]). Loaded lazily by the board view the
-/// first time this tab is opened.
+/// first time this tab is opened. While several Spaces show, each Space's
+/// trees sit under a heading naming it.
 ///
 /// Columns, left to right: a work-item-number column, a title column (whose
 /// expand/collapse caret and text indent together by depth, as in a file
@@ -26,9 +31,11 @@ class HierarchyView extends StatefulWidget {
     required this.onItemOpened,
     required this.onAssignRequested,
     required this.onAddTagsRequested,
+    required this.onSpaceTapped,
   });
 
   final BoardViewModel viewModel;
+  final void Function(Space space) onSpaceTapped;
   final void Function(String workItemId) onItemOpened;
   final void Function(String workItemId, String? currentAssigneeId)
   onAssignRequested;
@@ -60,10 +67,12 @@ class _HierarchyViewState extends State<HierarchyView> {
       return LoadErrorView(message: error, onRetry: viewModel.loadHierarchy);
     }
 
-    final rows = flattenTree(
-      viewModel.hierarchyRoots,
-      collapsedIds: _collapsedIds,
-    );
+    final rows = viewModel.spansSpaces
+        ? flattenSections(
+            viewModel.hierarchySections,
+            collapsedIds: _collapsedIds,
+          )
+        : flattenTree(viewModel.hierarchyRoots, collapsedIds: _collapsedIds);
     final columns = HierarchyColumn.shown(
       withTotals: !viewModel.hierarchyRollUps.isEmpty,
     );
@@ -85,7 +94,13 @@ class _HierarchyViewState extends State<HierarchyView> {
                   itemCount: rows.length,
                   itemBuilder: (context, index) {
                     final row = rows[index];
-                    final node = row.node;
+                    if (row is SpaceHeaderRow) {
+                      return SpaceSectionHeader(
+                        space: row.space,
+                        onTap: () => widget.onSpaceTapped(row.space),
+                      );
+                    }
+                    final node = (row as FlattenedTreeRow).node;
                     return HierarchyItemTile(
                       node: node,
                       depth: row.depth,

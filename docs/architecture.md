@@ -101,8 +101,8 @@ and it is what allows MCP tools to reuse the same business logic (see
   unrestricted and branches can have different depths, so "level N"
   doesn't generalise. Drilling into a card on the frontend is just loading
   a different scope. The stored Board entity, which held only a name and a
-  scope item, was removed with ticket 11; the Board is now a layout, and
-  saved Views arrive with ticket 23.
+  scope item, was removed with ticket 11; the Board is now a layout of a
+  saved View (see [Views](#views)).
 - **`ChangeStatus` and `Reparent` are separate operations**
   (`ChangeStatusAsync` / `ReparentAsync`, `PUT /work-items/{id}/status` /
   `/parent`), each touching only `StatusId` or `ParentId`. That a column
@@ -686,8 +686,8 @@ A number or currency field can roll up (ticket 15,
 One query in the Application layer (`IWorkItemQueryService`,
 [ADR-0006](adr/0006-server-side-query-and-views.md)) serves `GET
 /api/work-items/search` (full `WorkItemDto`s, for Flutter from ticket 18)
-and MCP `search_work_items` (`WorkItemSummary`s). Views (ticket 23) will
-store its inputs.
+and MCP `search_work_items` (`WorkItemSummary`s). Views store its inputs
+(see [Views](#views)).
 
 - **Inputs** (`WorkItemQuery`): Spaces, text, `number`, status
   categories, assignee, tags with `tagMatch` `Any` or `All`, Types, a
@@ -722,6 +722,12 @@ store its inputs.
   over the parents of the dated matches. A window ending before it
   starts is a 400.
 - **Backlog-only** is every non-Done item with no dates.
+- **Scheduled-or-in-progress-only** is Overview's rule: every item in a
+  Doing-category status, whatever its dates, or with dates overlapping the
+  window (any dated item when there's no window). It's an OR, which the
+  other inputs can't express, so it lives inside the date-window rule:
+  undated ancestors of what it lists come along as for a window, and a
+  window narrows only the dated items, never the Doing ones.
 - **Pages by `Number`**, with an opaque cursor (`WorkItemQueryCursor`)
   holding the last Number on the page. A Number never changes and new
   items get higher ones, so items moving between pages (a rank change) or
@@ -738,6 +744,39 @@ store its inputs.
   with sequential scans off that shows the index can be used.
 - **Done-hiding runs before the date window**, like the other filters,
   so a hidden Done item can't bring its undated parent into a window.
+
+### Views
+
+A View is a stored instance of the work-item query plus a layout
+([ADR-0006](adr/0006-server-side-query-and-views.md), ticket 23).
+
+- **What a View stores** (`View`, `ViewDefinition`): a name, its Spaces
+  (`uuid[]`, empty for every Space, including Spaces created later), text,
+  tags (`text[]`, normalised by `TagList` like an item's), tag match,
+  done-hiding, scheduled-or-in-progress-only and a layout (Board,
+  Hierarchy or Roadmap; Agenda comes with ticket 24). **No time range**:
+  saved dates go stale within a week, so the window is chosen when a View
+  is shown (the header's range, the Roadmap's timeline) or run
+  (`run_view`'s `from`/`to`). Hidden status columns and sort aren't
+  stored either; they're layout, not query inputs.
+- **Views are shared.** Anyone signed in lists them, and anyone who may
+  write saves, replaces (`PUT` takes the whole definition, the name
+  included) or deletes one. Names are unique ignoring case, as for
+  Spaces.
+- **Overview is built in, not stored** (`View.Overview()`, id
+  `View.OverviewId`): every Space, scheduled-or-in-progress-only, old Done
+  items hidden, Board layout. It's listed first, read and run like any
+  View, and changing or deleting it is a 400 (`BuiltInViewException`).
+  Its name counts as taken.
+- **Each user's default View** is a `DefaultViews` row (user id as key,
+  View id), not a column on `User`, which stays about the account. No row
+  means Overview, so picking Overview removes the row. Both foreign keys
+  cascade: deleting a View sends whoever had it back to Overview.
+- **Endpoints:** `GET /api/views`, `GET/PUT/DELETE /api/views/{id}`,
+  `POST /api/views`, `GET/PUT /api/views/default` (`{ viewId }`). Over MCP
+  agents only read them: `list_views` and `run_view` (summaries, paged
+  like `search_work_items`). Views are the humans' layouts; anything a
+  View asks, an agent can ask with `search_work_items`.
 
 ### Optimistic concurrency
 
@@ -1032,6 +1071,8 @@ store its inputs.
   description tells agents to find a referenced item with
   `search_work_items` before linking and to leave ambiguous phrases to a
   human. Summaries carry the `when` phrase for this.
+  `list_views` and `run_view` list the saved Views and run one (see
+  [Views](#views)).
   `list_dependency_conflicts` (optionally per Space, matching either side
   of the link) names each conflicting blocked item and its blocker with
   their numbers, titles, Spaces and dates; its description tells agents
@@ -1291,8 +1332,9 @@ store its inputs.
   separate drag target on `SwimlaneLabel` that only accepts cards from
   *other* lanes. At model level, `WorkItemCard.copyWith` never touches
   `parentId`; `movedToParent` is the separate reparent path.
-- **Scope changes go through `_changeScope`.** `load`, `drillIntoScope`,
-  `navigateToBreadcrumb` and `refreshCurrentScope` all use it: it sets the
+- **Scope changes go through `_changeScope`.** `load`, and through
+  `_navigate` `openView`, `setSpaces`, `focusSpace`, `drillIntoScope`,
+  `navigateToBreadcrumb` and `refreshCurrentScope`, all use it: it sets the
   loading flag, catches failures into `loadError`, and records a `_retry`
   closure **only when the action fails**.
   - `retry()` re-attempts the failed navigation and is a no-op otherwise.
@@ -1302,16 +1344,24 @@ store its inputs.
   - `createWorkItem` deliberately doesn't use `_changeScope`: a failed
     create reports through `moveError` and keeps the board, and a create
     must never become the retry target.
-  - `load()` loads the Spaces and opens the last-used one
-    (`LastSpaceStore`, kept on the device in secure storage like the
-    server address), or the first if it's gone or none was remembered.
-    The root breadcrumb is the Space's top level, titled with its name;
-    later navigation reuses ids already known client-side, and a
-    breadcrumb's title is just the card title captured at drill-in.
-  - `switchSpace` goes through `_changeScope` too, resets the trail to the
-    new Space's root, remembers it, and drops the old Space's
-    Hierarchy/Roadmap items (discarding a load in flight) before reloading
-    them if they'd been asked for. Those layouts load only the current Space's items.
+  - `load()` loads the Spaces and opens the user's default View
+    (`GET /api/views/default`; Overview until they pick another). It
+    replaced remembering the last-used Space on the device: a default
+    View is chosen on purpose and follows the user to every device.
+  - **The breadcrumb runs View, Space, drill-down path**
+    (`ScopeCrumb.spaceId`). A View of several Spaces starts at its own
+    root crumb, titled with its name, showing every Space; a View of one
+    Space starts at that Space. Drilling into a lane from the View's root
+    pushes the lane's Space and then the lane; tapping a Space's heading
+    (`focusSpace`) pushes just the Space. Later navigation reuses ids
+    already known client-side, and a crumb's title is the title captured
+    at drill-in.
+  - `_navigate` shows a trail's last crumb. When that changes which
+    Spaces are shown, or new filters come with it (opening a View,
+    `setSpaces`), it drops what the server matched and the
+    Hierarchy/Roadmap items (discarding a load in flight) before asking
+    again, so another Space's items never show. Hierarchy and Roadmap load
+    the shown Spaces' items, so they follow the breadcrumb's Space.
     With no Space at all there's no scope: the board says one has to be
     created, and `refreshAfterAdminChanges` opens the first one.
 - **Generations guard against overlapping loads.** Every scope load bumps
@@ -1435,9 +1485,31 @@ store its inputs.
 
 ### Board, filters and views
 
-- **A board loads in one request.** `GET /api/work-items/swimlanes`
-  (`IWorkItemService.GetSwimlanesAsync`) returns the scope's lanes, each
-  with its cards, using two queries whatever the lane count; statuses come
+- **Views open in the header's View menu** (`ViewMenu`,
+  `SavedViewsViewModel`, ticket 23). Opening one replaces the header's
+  query inputs with the View's (`BoardFilters.withView`): its Spaces,
+  search, tags, tag match, show-done and Overview's rule; the time range,
+  hidden statuses and sort stay, since a View doesn't store them. Its
+  layout picks the tab. "Save as new View" stores the header's inputs and
+  the current tab (`BoardFilters.toDefinition`; a tab that isn't a layout
+  saves as Board), and "Save changes" overwrites the open View the same
+  way. Rename keeps the rest of the stored definition rather than the
+  header's. Overview offers neither. The Filters dialog gained the Spaces
+  shown (`SpaceFilterBar`, nothing chosen means every Space) and
+  Overview's rule (`ScheduledFilterBar`), so any header state can be
+  saved. The Dart class is `SavedView`, as Flutter already has a `View`.
+- **A board of several Spaces is one section per Space**
+  (`BoardViewModel.boardSections`): a heading, then a `SwimlaneView` with
+  that Space's own status columns and lanes, since each Space has its own
+  statuses. Lanes stay one flat list (`_laneSpaceIds` maps each lane to
+  its Space), so lane edits are unchanged; moving a card to another
+  Space's lane is refused before anything is sent, as the server would
+  refuse it. Creating needs one Space shown. The Hierarchy and Roadmap
+  group their roots by Space (`hierarchySections`, `roadmapSections`)
+  under a `SpaceHeaderRow`; the Roadmap's arrows skip those rows.
+- **A board loads in one request per Space.** `GET /api/work-items/swimlanes`
+  (`IWorkItemService.GetSwimlanesAsync`) returns one Space's scope's
+  lanes, each with its cards, using two queries whatever the lane count; statuses come
   from the cached `StatusRepository`. It replaced one request per lane.
   Rank is only unique within a (Space, parent, status) cell, so the read queries
   order by `Rank, Number` to stay deterministic across columns.
@@ -1445,8 +1517,8 @@ store its inputs.
   of the server's query** ([ADR-0006](adr/0006-server-side-query-and-views.md)),
   which applies the date-window rule of
   [ADR-0003](adr/0003-when-and-backlog.md). Hidden status columns and
-  sort only change the layout, so they stay in the client. None of them
-  is persisted.
+  sort only change the layout, so they stay in the client. Only a saved
+  View persists the query inputs, and never the time range.
 - **The time-frame filter is interval overlap, not containment.** Both
   bounds are inclusive whole days, each can be cleared on its own, and an
   inverted range can't be picked (and is swapped if set programmatically).
@@ -1468,7 +1540,8 @@ store its inputs.
   Roadmap fails it has no rows to keep, so it shows an error with retry
   (`roadmapLoadError`) rather than a spinner.
 - **The Backlog tab** (`BacklogViewModel`) asks for `backlogOnly` in the
-  current Space and groups the answer by parent: top-level items first,
+  shown Spaces and groups the answer by parent: top-level items first
+  (one group per Space while several show),
   then each parent by title. Parents it doesn't hold are loaded one by
   one, as they can be dated or Done themselves and so aren't in the
   answer. After any save, made there or anywhere else, it asks again

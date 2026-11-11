@@ -15,7 +15,7 @@ import 'package:weaver/shared/models/work_item.dart';
 import 'package:weaver/shared/models/work_item_query.dart';
 import 'package:weaver/shared/models/work_item_status.dart';
 
-import '../../../../shared/fakes/memory_last_space_store.dart';
+import '../../../../features/board/fakes/fake_view_repository.dart';
 import '../../../../shared/fakes/work_items.dart';
 
 class _TwoLaneRepository implements BoardRepository {
@@ -47,10 +47,10 @@ class _TwoLaneRepository implements BoardRepository {
   /// The board's default query hides old Done items; none of these are.
   @override
   Future<List<WorkItem>> queryItems(WorkItemQuery query) async => [
-    for (final lane in (await loadBoard(query.spaceId, null)).swimlanes) ...[
-      lane.lane,
-      ...lane.cards,
-    ],
+    for (final lane in (await loadBoard(
+      query.spaceIds.first,
+      null,
+    )).swimlanes) ...[lane.lane, ...lane.cards],
   ];
 
   @override
@@ -100,7 +100,7 @@ void main() {
     final viewModel = BoardViewModel(
       _TwoLaneRepository(),
       items,
-      MemoryLastSpaceStore(),
+      FakeViewRepository(),
     );
     addTearDown(viewModel.dispose);
     await viewModel.load();
