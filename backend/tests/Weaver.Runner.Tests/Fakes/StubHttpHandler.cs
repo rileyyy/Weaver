@@ -15,6 +15,8 @@ internal sealed class StubHttpHandler : HttpMessageHandler
 
     public List<long?> SentContentLengths { get; } = [];
 
+    public bool Disposed { get; private set; }
+
     public static HttpResponseMessage Json(string json, HttpStatusCode status = HttpStatusCode.OK) =>
         new(status) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
 
@@ -24,5 +26,11 @@ internal sealed class StubHttpHandler : HttpMessageHandler
         var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
         Requests.Add((request, body));
         return Respond(request);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        Disposed = true;
+        base.Dispose(disposing);
     }
 }
