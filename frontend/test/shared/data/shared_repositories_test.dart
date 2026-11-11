@@ -212,6 +212,13 @@ void main() {
               'kind': 'Human',
               'isAdmin': false,
             },
+            {
+              'id': 'a1',
+              'username': 'Claude research',
+              'kind': 'Agent',
+              'isAdmin': false,
+              'handle': 'claude-research',
+            },
           ]),
           200,
         );
@@ -227,7 +234,13 @@ void main() {
       await repository.loadUsers();
 
       expect(calls, 1);
-      expect(results.first.single.username, 'alice');
+      expect(results.first.first.username, 'alice');
+    });
+
+    test("reads each user's handle, if they have one", () async {
+      final users = await repository.loadUsers();
+
+      expect(users.map((u) => u.handle), [null, 'claude-research']);
     });
 
     test('fetches again after invalidate', () async {
@@ -241,7 +254,7 @@ void main() {
     test('reads the admin flag', () async {
       final users = await repository.loadUsers();
 
-      expect(users.single.isAdmin, isFalse);
+      expect(users.first.isAdmin, isFalse);
     });
 
     test('fetches again from a newly chosen server', () async {

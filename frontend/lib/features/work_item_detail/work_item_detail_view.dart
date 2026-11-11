@@ -391,6 +391,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
         const SizedBox(height: 20),
         CommentsSection(
           comments: _viewModel.comments,
+          mentionHandles: _viewModel.mentionHandles,
           isOwnComment: _viewModel.isOwnComment,
           onAdd: _viewModel.addComment,
           onEdit: _viewModel.updateComment,
