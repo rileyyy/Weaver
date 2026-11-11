@@ -9,7 +9,7 @@ Terms:
 Writing:
 - update_work_item_details, reschedule_work_item, set_work_item_tags and set_work_item_fields are patches: a field left out is unchanged; null clears it. Other tools aren't: leaving out userId in assign_work_item unassigns.
 - Send expectedVersion from your last read. If rejected because someone else changed the item, re-read it and check your change still makes sense.
-- Send actorLabel (e.g. "sub-agent: test-writer") so history can tell your parts apart.
+- Send actorLabel (e.g. "sub-agent: test-writer") so history can tell your parts apart. In an unattended run, send the same runId on every write.
 - delete_work_item moves items to the Trash (restore_work_item undoes it); other deletes are permanent. whoami shows if your key is read-only.
 
 Ask a human instead of guessing when:

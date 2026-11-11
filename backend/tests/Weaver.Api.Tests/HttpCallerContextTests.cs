@@ -67,15 +67,50 @@ public class HttpCallerContextTests
     }
 
     [Test]
-    public void Current_AfterUseActorLabel_PrefersItOverTheHeader()
+    public void Current_AfterUseAttribution_PrefersItsLabelOverTheHeader()
     {
-        var http = new DefaultHttpContext { User = SignedIn(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString())) };
+        var http = SignedInRequest();
         http.Request.Headers[HttpCallerContext.ActorLabelHeader] = "from the header";
         var context = new HttpCallerContext(new HttpContextAccessor { HttpContext = http });
 
-        context.UseActorLabel("from the tool call");
+        context.UseAttribution("from the tool call", runId: null);
 
         Assert.That(context.Current.ActorLabel, Is.EqualTo("from the tool call"));
+    }
+
+    [Test]
+    public void Current_WithARunHeader_CarriesTheRunId()
+    {
+        var http = SignedInRequest();
+        http.Request.Headers[HttpCallerContext.RunIdHeader] = "run-42";
+
+        var caller = new HttpCallerContext(new HttpContextAccessor { HttpContext = http }).Current;
+
+        Assert.That(caller.RunId, Is.EqualTo("run-42"));
+    }
+
+    [Test]
+    public void Current_AfterUseAttribution_PrefersItsRunIdOverTheHeader()
+    {
+        var http = SignedInRequest();
+        http.Request.Headers[HttpCallerContext.RunIdHeader] = "from the header";
+        var context = new HttpCallerContext(new HttpContextAccessor { HttpContext = http });
+
+        context.UseAttribution(actorLabel: null, "from the tool call");
+
+        Assert.That(context.Current.RunId, Is.EqualTo("from the tool call"));
+    }
+
+    [Test]
+    public void Current_AfterUseAttributionWithoutARunId_FallsBackToTheHeader()
+    {
+        var http = SignedInRequest();
+        http.Request.Headers[HttpCallerContext.RunIdHeader] = "set on the connection";
+        var context = new HttpCallerContext(new HttpContextAccessor { HttpContext = http });
+
+        context.UseAttribution("sub-agent: test-writer", runId: null);
+
+        Assert.That(context.Current.RunId, Is.EqualTo("set on the connection"));
     }
 
     [Test]
@@ -101,6 +136,9 @@ public class HttpCallerContextTests
 
         Assert.Throws<InvalidAccessTokenException>(() => _ = context.Current);
     }
+
+    private static DefaultHttpContext SignedInRequest() =>
+        new() { User = SignedIn(new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString())) };
 
     private static ClaimsPrincipal SignedIn(params Claim[] claims) =>
         new(new ClaimsIdentity(claims, authenticationType: "Test"));

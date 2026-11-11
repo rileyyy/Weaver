@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:weaver/features/admin/models/admin_user.dart';
 import 'package:weaver/features/admin/models/user_action.dart';
 import 'package:weaver/features/admin/user_admin_view_model.dart';
+import 'package:weaver/features/admin/widgets/admin_add_action.dart';
 import 'package:weaver/features/admin/widgets/admin_list_frame.dart';
 import 'package:weaver/features/admin/widgets/create_user_dialog.dart';
 import 'package:weaver/features/admin/widgets/name_dialog.dart';
@@ -29,9 +30,11 @@ class UsersTab extends StatelessWidget {
             'The people who can sign in; agents are on the Agents tab. '
             'Deactivated accounts keep their comments but can’t sign in or '
             'be assigned work.',
-        addLabel: 'Add user',
-        onAdd: () => unawaited(
-          showCreateUserDialog(context, onCreate: viewModel.create),
+        addAction: AdminAddAction(
+          'Add user',
+          onPressed: () => unawaited(
+            showCreateUserDialog(context, onCreate: viewModel.create),
+          ),
         ),
         child: ListView.separated(
           padding: const EdgeInsets.only(bottom: 16),

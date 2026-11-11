@@ -34,6 +34,9 @@ public class WorkItemHistoryEntry : IHasCreatedAt
 
     public string? ActorLabel { get; private set; }
 
+    /// <summary>The run this change was part of, when the agent sent one (ADR-0010).</summary>
+    public string? RunId { get; private set; }
+
     public string Field { get; private set; }
 
     public string? OldValue { get; private set; }
@@ -55,6 +58,7 @@ public class WorkItemHistoryEntry : IHasCreatedAt
             AccountId = actor.AccountId,
             ApiKeyId = actor.ApiKeyId,
             ActorLabel = actor.ActorLabel,
+            RunId = actor.RunId,
             Field = field,
             OldValue = oldValueJson,
             NewValue = newValueJson,

@@ -32,8 +32,40 @@ public class HistoryActorTests
     }
 
     [Test]
+    public void Create_TrimsTheRunId()
+    {
+        var actor = HistoryActor.Create(Guid.NewGuid(), Guid.NewGuid(), null, " nightly-2026-11-11 ");
+
+        Assert.That(actor.RunId, Is.EqualTo("nightly-2026-11-11"));
+    }
+
+    [TestCase("")]
+    [TestCase("   ")]
+    [TestCase(null)]
+    public void Create_WithABlankRunId_HasNoRunId(string? runId)
+    {
+        var actor = HistoryActor.Create(Guid.NewGuid(), null, null, runId);
+
+        Assert.That(actor.RunId, Is.Null);
+    }
+
+    [Test]
+    public void Create_WithATooLongRunId_IsRejected()
+    {
+        var runId = new string('x', HistoryActor.RunIdMaxLength + 1);
+
+        Assert.Throws<DomainValidationException>(() => HistoryActor.Create(Guid.NewGuid(), null, null, runId));
+    }
+
+    [Test]
+    public void Create_WithoutARunId_HasNone()
+    {
+        Assert.That(HistoryActor.Create(Guid.NewGuid(), null, "label").RunId, Is.Null);
+    }
+
+    [Test]
     public void System_HasNoAccountKeyOrLabel()
     {
-        Assert.That(HistoryActor.System, Is.EqualTo(HistoryActor.Create(null, null, null)));
+        Assert.That(HistoryActor.System, Is.EqualTo(HistoryActor.Create(null, null, null, null)));
     }
 }

@@ -40,6 +40,7 @@ internal static class HistoryViewReader
                 r.Entry.ApiKeyId,
                 r.ApiKeyLabel,
                 r.Entry.ActorLabel,
+                r.Entry.RunId,
                 r.Entry.Field,
                 Parse(r.Entry.OldValue),
                 Parse(r.Entry.NewValue),

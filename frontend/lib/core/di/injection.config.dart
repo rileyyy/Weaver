@@ -29,6 +29,8 @@ import 'package:weaver/features/admin/data/api_custom_field_admin_repository.dar
     as _i977;
 import 'package:weaver/features/admin/data/api_lookup_admin_repository.dart'
     as _i427;
+import 'package:weaver/features/admin/data/api_run_report_repository.dart'
+    as _i337;
 import 'package:weaver/features/admin/data/api_server_settings_admin_repository.dart'
     as _i365;
 import 'package:weaver/features/admin/data/api_space_admin_repository.dart'
@@ -41,6 +43,8 @@ import 'package:weaver/features/admin/data/custom_field_admin_repository.dart'
     as _i1046;
 import 'package:weaver/features/admin/data/lookup_admin_repository.dart'
     as _i377;
+import 'package:weaver/features/admin/data/run_report_repository.dart'
+    as _i1065;
 import 'package:weaver/features/admin/data/server_settings_admin_repository.dart'
     as _i300;
 import 'package:weaver/features/admin/data/space_admin_repository.dart'
@@ -50,6 +54,7 @@ import 'package:weaver/features/admin/data/status_admin_repository.dart'
 import 'package:weaver/features/admin/data/user_admin_repository.dart' as _i290;
 import 'package:weaver/features/admin/lookup_admin_view_model.dart' as _i281;
 import 'package:weaver/features/admin/models/lookup_kind.dart' as _i54;
+import 'package:weaver/features/admin/run_reports_view_model.dart' as _i185;
 import 'package:weaver/features/admin/server_settings_admin_view_model.dart'
     as _i338;
 import 'package:weaver/features/admin/space_admin_view_model.dart' as _i742;
@@ -195,6 +200,12 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i202.ApiEndpoint>(),
       ),
     );
+    gh.lazySingleton<_i1065.RunReportRepository>(
+      () => _i337.ApiRunReportRepository(
+        gh<_i519.Client>(),
+        gh<_i202.ApiEndpoint>(),
+      ),
+    );
     gh.lazySingleton<_i447.SpaceAdminRepository>(
       () => _i775.ApiSpaceAdminRepository(
         gh<_i519.Client>(),
@@ -222,6 +233,9 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i519.Client>(),
         gh<_i202.ApiEndpoint>(),
       ),
+    );
+    gh.factory<_i185.RunReportsViewModel>(
+      () => _i185.RunReportsViewModel(gh<_i1065.RunReportRepository>()),
     );
     gh.lazySingleton<_i65.RecurrenceRepository>(
       () => _i919.ApiRecurrenceRepository(

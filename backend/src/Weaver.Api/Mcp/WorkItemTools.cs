@@ -81,10 +81,11 @@ public class WorkItemTools(
         [Description("Id of the work item priority: one of its Space's, from list_work_item_priorities. Optional.")] Guid? priorityId = null,
         [Description("Id of the Space to create a top-level item in. Use list_spaces to find valid ids. Required without parentId; with one, omit it or send the parent's.")] Guid? spaceId = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
-            _caller.UseActorLabel(actorLabel);
+            _caller.UseAttribution(actorLabel, runId);
             var item = await _workItems.CreateAsync(title, description, parentId, statusId, afterId, typeId, priorityId, spaceId, ct);
             return await _dtos.ToDtoAsync(item, ct);
         });
@@ -98,8 +99,9 @@ public class WorkItemTools(
         [Description("Id of an existing sibling (same parent and status) to place this item immediately after. Omit to place it first.")] Guid? afterId = null,
         [Description(ExpectedVersionArgument.Description)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default) =>
-        TranslateWriteAsync(actorLabel, () => _workItems.ChangeStatusAsync(id, statusId, afterId, expectedVersion, ct));
+        TranslateWriteAsync(actorLabel, runId, () => _workItems.ChangeStatusAsync(id, statusId, afterId, expectedVersion, ct));
 
     [McpServerTool(Name = "reparent_work_item", Destructive = false, Idempotent = true)]
     [Description("Moves a work item to a different parent, keeping its current status and Space. Cannot change " +
@@ -111,8 +113,9 @@ public class WorkItemTools(
         [Description("Id of an existing sibling under the new parent (same status) to place this item immediately after. Omit to place it first.")] Guid? afterId = null,
         [Description(ExpectedVersionArgument.Description)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default) =>
-        TranslateWriteAsync(actorLabel, () => _workItems.ReparentAsync(id, parentId, afterId, expectedVersion, ct));
+        TranslateWriteAsync(actorLabel, runId, () => _workItems.ReparentAsync(id, parentId, afterId, expectedVersion, ct));
 
     [McpServerTool(Name = "reschedule_work_item", Destructive = false, Idempotent = true)]
     [Description("Changes a work item's scheduled start and/or end date, independently of status and " +
@@ -124,8 +127,9 @@ public class WorkItemTools(
         [Description("New end date (yyyy-MM-dd, a calendar date), or null to clear it.")] DateOnly? endDate = null,
         [Description(ExpectedVersionArgument.Description)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default) =>
-        TranslateWriteAsync(actorLabel, () => _workItems.RescheduleAsync(
+        TranslateWriteAsync(actorLabel, runId, () => _workItems.RescheduleAsync(
             id,
             context.Supplied(nameof(startDate), startDate),
             context.Supplied(nameof(endDate), endDate),
@@ -148,6 +152,7 @@ public class WorkItemTools(
             "(create_work_item_link); the phrase is kept. list_unresolved_when_items lists the unresolved ones.")] string? when = null,
         [Description(ExpectedVersionArgument.Description)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default)
     {
         var patch = new WorkItemDetailsPatch
@@ -158,7 +163,7 @@ public class WorkItemTools(
             PriorityId = context.Supplied(nameof(priorityId), priorityId),
             When = context.Supplied(nameof(when), when),
         };
-        return TranslateWriteAsync(actorLabel, () => _workItems.UpdateDetailsAsync(id, patch, expectedVersion, ct));
+        return TranslateWriteAsync(actorLabel, runId, () => _workItems.UpdateDetailsAsync(id, patch, expectedVersion, ct));
     }
 
     [McpServerTool(Name = "assign_work_item", Destructive = false, Idempotent = true)]
@@ -168,8 +173,9 @@ public class WorkItemTools(
         [Description("Id of the user to assign. Omit to unassign.")] Guid? userId = null,
         [Description(ExpectedVersionArgument.Description)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default) =>
-        TranslateWriteAsync(actorLabel, () => _workItems.AssignAsync(id, userId, expectedVersion, ct));
+        TranslateWriteAsync(actorLabel, runId, () => _workItems.AssignAsync(id, userId, expectedVersion, ct));
 
     [McpServerTool(Name = "set_work_item_tags", Destructive = false, Idempotent = true)]
     [Description("Replaces a work item's full tag list, independently of every other field. Tags are " +
@@ -180,13 +186,14 @@ public class WorkItemTools(
         [Description("The complete new list of tags, replacing the existing list entirely. Null or an empty list clears the tags; omitted leaves them unchanged.")] IReadOnlyList<string>? tags = null,
         [Description(ExpectedVersionArgument.Description)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default)
     {
         var supplied = context.Supplied(nameof(tags), tags);
         var patch = supplied.HasValue
             ? new Optional<IReadOnlyList<string>>(supplied.Value ?? [])
             : Optional<IReadOnlyList<string>>.Unset;
-        return TranslateWriteAsync(actorLabel, () => _workItems.SetTagsAsync(id, patch, expectedVersion, ct));
+        return TranslateWriteAsync(actorLabel, runId, () => _workItems.SetTagsAsync(id, patch, expectedVersion, ct));
     }
 
     [McpServerTool(Name = "set_work_item_fields", Destructive = false, Idempotent = true)]
@@ -202,13 +209,14 @@ public class WorkItemTools(
         IReadOnlyDictionary<Guid, JsonElement> values,
         [Description(ExpectedVersionArgument.Description)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default) =>
-        TranslateWriteAsync(actorLabel, () => _workItems.SetCustomFieldsAsync(id, values, expectedVersion, ct));
+        TranslateWriteAsync(actorLabel, runId, () => _workItems.SetCustomFieldsAsync(id, values, expectedVersion, ct));
 
-    private Task<WorkItemWriteResponse> TranslateWriteAsync(string? actorLabel, Func<Task<WorkItemWriteResult>> write) =>
+    private Task<WorkItemWriteResponse> TranslateWriteAsync(string? actorLabel, string? runId, Func<Task<WorkItemWriteResult>> write) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
-            _caller.UseActorLabel(actorLabel);
+            _caller.UseAttribution(actorLabel, runId);
             return await _dtos.ToWriteResponseAsync(await write());
         });
 }

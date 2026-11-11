@@ -5,6 +5,7 @@ import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/features/admin/agent_keys_view_model.dart';
 import 'package:weaver/features/admin/models/agent_account.dart';
 import 'package:weaver/features/admin/models/api_key.dart';
+import 'package:weaver/features/admin/widgets/admin_add_action.dart';
 import 'package:weaver/features/admin/widgets/admin_list_frame.dart';
 import 'package:weaver/features/admin/widgets/api_key_tile.dart';
 import 'package:weaver/features/admin/widgets/issue_key_dialog.dart';
@@ -66,12 +67,14 @@ class _AgentKeysPageState extends State<AgentKeysPage> {
           description:
               'The keys this agent signs in with. Each key is shown once, '
               'when it’s issued. Revoked keys stay listed.',
-          addLabel: 'Issue key',
-          onAdd: () => unawaited(
-            showIssueKeyDialog(
-              context,
-              agentName: widget.agent.name,
-              onIssue: _viewModel.issueKey,
+          addAction: AdminAddAction(
+            'Issue key',
+            onPressed: () => unawaited(
+              showIssueKeyDialog(
+                context,
+                agentName: widget.agent.name,
+                onIssue: _viewModel.issueKey,
+              ),
             ),
           ),
           child: ListView.separated(

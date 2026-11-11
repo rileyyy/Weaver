@@ -25,15 +25,7 @@ public class WorkItemHistoryService(IWeaverDbContext db) : IWorkItemHistoryServi
         int limit,
         CancellationToken ct = default)
     {
-        if (offset < 0)
-        {
-            throw new DomainValidationException("Offset must not be negative.");
-        }
-
-        if (limit is < 1 or > MaxPageSize)
-        {
-            throw new DomainValidationException($"Limit must be between 1 and {MaxPageSize}.");
-        }
+        PagingGuard.EnsureValid(offset, limit, MaxPageSize);
 
         // One extra entry says whether another page follows, without counting them all.
         var entries = await HistoryViewReader.ReadAsync(_db, NewestFirst(workItemId).Skip(offset).Take(limit + 1), ct);

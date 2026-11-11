@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:weaver/core/di/injection.dart';
 import 'package:weaver/features/admin/custom_field_admin_view_model.dart';
+import 'package:weaver/features/admin/widgets/admin_add_action.dart';
 import 'package:weaver/features/admin/widgets/admin_list_frame.dart';
 import 'package:weaver/features/admin/widgets/custom_field_dialog.dart';
 import 'package:weaver/features/admin/widgets/reorderable_lookup_list.dart';
@@ -78,8 +79,10 @@ class _TypeFieldsPageState extends State<TypeFieldsPage> {
           description:
               'Every ${widget.typeName} item has these fields. Changing an '
               'item’s Type clears its values. Drag to reorder.',
-          addLabel: 'Add field',
-          onAdd: () => unawaited(_add(context)),
+          addAction: AdminAddAction(
+            'Add field',
+            onPressed: () => unawaited(_add(context)),
+          ),
           child: ReorderableLookupList<CustomField>(
             items: _viewModel.items,
             idOf: (field) => field.id,

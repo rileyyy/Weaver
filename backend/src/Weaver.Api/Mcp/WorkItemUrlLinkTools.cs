@@ -31,10 +31,11 @@ public class WorkItemUrlLinkTools(IWorkItemUrlLinkService urlLinks, HttpCallerCo
         [Description("An absolute http or https address, at most 2048 characters.")] string url,
         [Description("A short name to show instead of the address, at most 200 characters. Optional.")] string? label = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
-            _caller.UseActorLabel(actorLabel);
+            _caller.UseAttribution(actorLabel, runId);
             var link = await _urlLinks.CreateAsync(workItemId, url, label, ct);
             return WorkItemUrlLinkDto.FromView(link);
         });
@@ -44,10 +45,11 @@ public class WorkItemUrlLinkTools(IWorkItemUrlLinkService urlLinks, HttpCallerCo
     public Task DeleteWorkItemUrlLink(
         [Description("The URL link's id, from list_work_item_url_links.")] Guid id,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(() =>
         {
-            _caller.UseActorLabel(actorLabel);
+            _caller.UseAttribution(actorLabel, runId);
             return _urlLinks.DeleteAsync(id, ct);
         });
 }

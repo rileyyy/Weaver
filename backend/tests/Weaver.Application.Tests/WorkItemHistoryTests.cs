@@ -94,6 +94,23 @@ public class WorkItemHistoryTests
     }
 
     [Test]
+    public async Task Write_RecordsTheRunIdTheCallerSent()
+    {
+        var item = await CreateAsync("Task");
+        _caller.Current = new Caller(_alice.Id, Guid.NewGuid(), ActorLabel: null, ApiKeyScope.ReadWrite, " run-1 ");
+
+        await _workItems.UpdateDetailsAsync(item.Id, new WorkItemDetailsPatch { Title = "Renamed" });
+
+        var entries = await _history.ListForWorkItemAsync(item.Id);
+        Assert.That(entries.Select(e => (e.Field, e.RunId)), Is.EqualTo(new[]
+        {
+            (WorkItemField.Title, (string?)"run-1"),
+            (WorkItemField.SpaceId, null),
+            (WorkItemHistoryField.Created, null),
+        }));
+    }
+
+    [Test]
     public async Task UpdateDetails_RecordsEachChangedFieldWithItsOldAndNewValue()
     {
         var item = await CreateAsync("Task");

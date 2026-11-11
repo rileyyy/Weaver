@@ -34,35 +34,8 @@ public class WorkItemChangesService(IWeaverDbContext db, ICallerContext caller) 
             ? new WorkItemChangesCursor(onPage[^1].FirstEntryId).Encode()
             : null;
 
-        var items = await ChangedItemsAsync(entries, onPage.Select(p => p.WorkItemId).ToList(), ct);
+        var items = await ChangedWorkItemReader.ReadAsync(_db, entries, onPage.Select(p => p.WorkItemId).ToList(), ct);
         return new WorkItemChangesPage(items, nextCursor);
-    }
-
-    private async Task<List<ChangedWorkItem>> ChangedItemsAsync(
-        IQueryable<WorkItemHistoryEntry> entries,
-        List<Guid> itemIds,
-        CancellationToken ct)
-    {
-        var withRows = await RowSummariesAsync(itemIds, ct);
-        var purged = await PurgedSummariesAsync(itemIds.Where(id => !withRows.ContainsKey(id)).ToList(), ct);
-        var changes = (await HistoryViewReader.ReadAsync(
-                _db, entries.Where(e => itemIds.Contains(e.WorkItemId)).OrderBy(e => e.Id), ct))
-            .ToLookup(c => c.WorkItemId);
-
-        return itemIds
-            .Select(id =>
-            {
-                var itemChanges = changes[id].ToList();
-                if (!withRows.TryGetValue(id, out var summary))
-                {
-                    return new ChangedWorkItem(purged[id], Deleted: true, Restored: false, itemChanges);
-                }
-
-                var trashed = summary.TrashedAtUtc is not null;
-                var restored = !trashed && itemChanges.Any(c => c.Field == WorkItemHistoryField.Restored);
-                return new ChangedWorkItem(summary, Deleted: trashed, Restored: restored, itemChanges);
-            })
-            .ToList();
     }
 
     private async Task<IQueryable<WorkItemHistoryEntry>> EntriesSinceAsync(WorkItemChangesQuery query, CancellationToken ct)
@@ -104,38 +77,5 @@ public class WorkItemChangesService(IWeaverDbContext db, ICallerContext caller) 
 
         return entries.Where(e =>
             rows.Any(w => w.Id == e.WorkItemId && w.SpaceId == spaceId) || purgedInSpace.Contains(e.WorkItemId));
-    }
-
-    /// <summary>Trashed rows included: a trashed item's summary is still its row, number and all.</summary>
-    private async Task<Dictionary<Guid, WorkItemSummary>> RowSummariesAsync(List<Guid> itemIds, CancellationToken ct) =>
-        await _db.WorkItems
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .Where(w => itemIds.Contains(w.Id))
-            .Summarize()
-            .ToDictionaryAsync(s => s.Id, ct);
-
-    /// <summary>
-    /// A purged item has no row left, so its summary is rebuilt from its history: the title it
-    /// had when deleted and the Space it was last in.
-    /// </summary>
-    private async Task<Dictionary<Guid, WorkItemSummary>> PurgedSummariesAsync(List<Guid> itemIds, CancellationToken ct)
-    {
-        if (itemIds.Count == 0)
-        {
-            return [];
-        }
-
-        var traces = await DeletedItemTrace.LoadAsync(_db, itemIds, ct);
-        var spaceIds = traces.Values.Select(t => t.SpaceId).OfType<Guid>().Distinct().ToList();
-        var spaceNames = await _db.Spaces
-            .Where(s => spaceIds.Contains(s.Id))
-            .ToDictionaryAsync(s => s.Id, s => s.Name, ct);
-
-        return itemIds
-            .Select(id => traces.GetValueOrDefault(id) ?? DeletedItemTrace.Unknown(id))
-            .ToDictionary(
-                t => t.WorkItemId,
-                t => t.ToSummary(t.SpaceId is { } spaceId ? spaceNames.GetValueOrDefault(spaceId) : null));
     }
 }

@@ -8,7 +8,7 @@ using Weaver.Domain;
 namespace Weaver.Api.IntegrationTests;
 
 /// <summary>
-/// History over REST and MCP against Postgres: who is recorded (account, key, actor label),
+/// History over REST and MCP against Postgres: who is recorded (account, key, actor label, run id),
 /// that it's in the same transaction as the write, and that it outlives a delete.
 /// </summary>
 [TestFixture]
@@ -134,19 +134,74 @@ public class WorkItemHistoryTests
         });
     }
 
-    [Test]
-    public async Task EveryMcpWriteTool_TakesAnOptionalActorLabel()
+    [TestCase("actorLabel")]
+    [TestCase("runId")]
+    public async Task EveryMcpWriteTool_TakesTheOptionalArgument(string argument)
     {
         var (client, _) = await ApiClient.SignedInAsync();
         await using var mcp = await ConnectAsync(client);
 
         var tools = await mcp.ListToolsAsync();
 
-        var writesWithoutLabel = tools
+        var writesWithoutIt = tools
             .Where(t => t.ProtocolTool.Annotations?.ReadOnlyHint != true)
-            .Where(t => !t.JsonSchema.GetProperty("properties").TryGetProperty("actorLabel", out _))
+            .Where(t => !t.JsonSchema.GetProperty("properties").TryGetProperty(argument, out _))
             .Select(t => t.Name);
-        Assert.That(writesWithoutLabel, Is.Empty);
+        Assert.That(writesWithoutIt, Is.Empty);
+    }
+
+    [Test]
+    public async Task RestWrites_RecordTheAgentRunHeader()
+    {
+        var (client, _) = await ApiClient.SignedInAsync();
+        var item = await client.CreateWorkItemAsync("Task");
+        client.DefaultRequestHeaders.Add("X-Agent-Run", "run-from-rest");
+
+        (await client.PatchJsonAsync($"/api/work-items/{item.Id}/details", new { title = "Renamed" })).EnsureSuccessStatusCode();
+
+        var history = await HistoryAsync(client, item.Id);
+        Assert.That(history.Select(e => (e.Field, e.RunId)), Is.EqualTo(new[]
+        {
+            ("title", (string?)"run-from-rest"),
+            ("spaceId", null),
+            ("created", null),
+        }));
+    }
+
+    [Test]
+    public async Task ATooLongRunId_IsRejectedAndRecordsNothing()
+    {
+        var (client, _) = await ApiClient.SignedInAsync();
+        var item = await client.CreateWorkItemAsync("Task");
+        client.DefaultRequestHeaders.Add("X-Agent-Run", new string('x', HistoryActor.RunIdMaxLength + 1));
+
+        var response = await client.PatchJsonAsync($"/api/work-items/{item.Id}/details", new { title = "Renamed" });
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        Assert.That((await HistoryAsync(client, item.Id)).Select(e => e.Field), Is.EqualTo(new[] { "spaceId", "created" }));
+    }
+
+    [Test]
+    public async Task McpWrites_RecordTheRunIdArgument()
+    {
+        var (client, _) = await ApiClient.SignedInAsync();
+        var item = await client.CreateWorkItemAsync("Task");
+        await using var mcp = await ConnectAsync(client);
+
+        await CallAsync(mcp, "update_work_item_details", new()
+        {
+            ["id"] = item.Id,
+            ["title"] = "Renamed in a run",
+            ["runId"] = "run-from-mcp",
+        });
+        await CallAsync(mcp, "add_comment", new() { ["workItemId"] = item.Id, ["body"] = "Done", ["runId"] = "run-from-mcp" });
+
+        var history = await HistoryAsync(client, item.Id);
+        Assert.That(history.Take(2).Select(e => (e.Field, e.RunId)), Is.EqualTo(new[]
+        {
+            ("comment", (string?)"run-from-mcp"),
+            ("title", "run-from-mcp"),
+        }));
     }
 
     [Test]

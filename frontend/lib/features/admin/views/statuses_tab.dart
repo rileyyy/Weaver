@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:weaver/features/admin/models/admin_status.dart';
 import 'package:weaver/features/admin/space_admin_view_model.dart';
 import 'package:weaver/features/admin/status_admin_view_model.dart';
+import 'package:weaver/features/admin/widgets/admin_add_action.dart';
 import 'package:weaver/features/admin/widgets/admin_list_frame.dart';
 import 'package:weaver/features/admin/widgets/delete_lookup_dialog.dart';
 import 'package:weaver/features/admin/widgets/reorderable_lookup_list.dart';
@@ -35,11 +36,14 @@ class StatusesTab extends StatelessWidget {
         description:
             'Statuses are the board’s columns in this Space, shown in this '
             'order. Drag to reorder.',
-        addLabel: 'Add status',
-        onAdd: viewModel.hasList
-            ? () =>
-                  unawaited(showStatusDialog(context, onSave: viewModel.create))
-            : null,
+        addAction: AdminAddAction(
+          'Add status',
+          onPressed: viewModel.hasList
+              ? () => unawaited(
+                  showStatusDialog(context, onSave: viewModel.create),
+                )
+              : null,
+        ),
         child: ReorderableLookupList<AdminStatus>(
           items: viewModel.items,
           idOf: (status) => status.id,

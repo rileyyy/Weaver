@@ -444,8 +444,9 @@ A number or currency field can roll up (ticket 15,
 - **Every change to a work item appends a `WorkItemHistoryEntry`**
   ([ADR-0005](adr/0005-change-history.md)): create, every field change,
   status, parent, comments, links, repetition and delete. It records when,
-  the account, the API key (agents), the actor label, the field, and the
-  old and new value as JSON in the shape the field has in the API (`jsonb`).
+  the account, the API key (agents), the actor label, the run id (when an
+  agent sent one: free text, at most 100 characters, like the label), the
+  field, and the old and new value as JSON in the shape the field has in the API (`jsonb`).
   Field changes use `WorkItemField` names; the rest use
   `WorkItemHistoryField` (`created`, `deleted`, `comment`, `link`,
   `recurrence`), which documents what each one's values hold.
@@ -520,12 +521,24 @@ A number or currency field can roll up (ticket 15,
   - Over MCP, nulls are left out like everywhere else in tool results,
     except an entry's `oldValue`/`newValue`: a null there is what the
     entry records, so it's always written.
+- **Run reports** (`GET /api/admin/runs`, `RunReportService`, admins
+  only; [ADR-0010](adr/0010-agent-runner.md)) group the entries that carry
+  a run id and an API key by account, key and run id, newest first by the
+  run's last entry `Id`, paged by offset. Only agents sign in with a key,
+  so a human's REST write that sends `X-Agent-Run` is never a run. A run is
+  named by all three, since run ids are free text and two agents could
+  send the same one.
+  `GET /api/admin/runs/changes` returns one run's items as
+  `ChangedWorkItem`s (shared with "changes since T" through
+  `ChangedWorkItemReader`), in the order the run first changed each, with
+  only that run's entries. A run that changed nothing has no entries, so
+  it never appears.
 - **Anything new that changes a work item must record history**: a new
   field, a new operation, Spaces and Types, custom fields, When, Trash
   restore, attachments. Return `FieldChange`s from the domain method and
   pass them to the recorder in the service, and give every new MCP write
-  tool an `actorLabel` argument (an integration test fails a write tool
-  without one).
+  tool `actorLabel` and `runId` arguments (an integration test fails a
+  write tool without either).
 
 ### Schedule dates
 
@@ -894,14 +907,15 @@ A View is a stored instance of the work-item query plus a layout
   `CommentAuthorMismatchException` (403) for anyone but the author. The
   author of a new comment is the caller too.
 - **`ICallerContext` (Application) says who is calling**: account, API key
-  and its scope (for an agent signed in with one) and actor label.
+  and its scope (for an agent signed in with one), actor label and run id.
   `HttpCallerContext` (Api, scoped) reads the first three from the
   authenticated principal's `sub`, `weaver_api_key_id` and
   `weaver_api_key_scope` claims, so REST and MCP share one mapping.
-  The actor label comes from the `X-Actor-Label` header on REST, or from an
-  MCP tool's `actorLabel` argument, which the tool hands over with
-  `UseActorLabel` (an MCP client sets headers per connection, not per
-  call). It's read lazily and throws `InvalidAccessTokenException` without a
+  The actor label and run id come from the `X-Actor-Label` and
+  `X-Agent-Run` headers on REST, or from an MCP tool's `actorLabel` and
+  `runId` arguments, which the tool hands over with `UseAttribution` (an MCP
+  client sets headers per connection, not per call). An argument left out
+  falls back to the header. It's read lazily and throws `InvalidAccessTokenException` without a
   signed-in caller, so the background worker can still resolve the services.
   Every service that changes a work item takes it as a required argument,
   because its history names the caller. The lookup services and
@@ -1046,7 +1060,9 @@ A View is a stored instance of the work-item query plus a layout
   from `ICallerContext`, so no tool passes a user id.
 - **Every tool that changes a work item takes an optional `actorLabel`**
   (at most 100 characters) and passes it to `HttpCallerContext`, so its
-  history entry shows which part of an agent made the change.
+  history entry shows which part of an agent made the change. It takes an
+  optional `runId` the same way, so one run's changes can be reported
+  together (ticket 50).
 - **Coverage:** work items, Spaces, statuses, Types, priorities, users,
   comments, links, repeating items and server settings. Spaces, lookups,
   users and server settings (`get_server_settings`) are read-only over MCP, and agents

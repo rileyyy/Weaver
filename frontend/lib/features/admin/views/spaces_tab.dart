@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:weaver/features/admin/space_admin_view_model.dart';
+import 'package:weaver/features/admin/widgets/admin_add_action.dart';
 import 'package:weaver/features/admin/widgets/admin_list_frame.dart';
 import 'package:weaver/features/admin/widgets/name_dialog.dart';
 import 'package:weaver/features/admin/widgets/space_tile.dart';
@@ -25,14 +26,16 @@ class SpacesTab extends StatelessWidget {
         description:
             'Every work item belongs to one Space, such as Home or Software. '
             'Items can only be moved under items in the same Space.',
-        addLabel: 'Add Space',
-        onAdd: () => unawaited(
-          showNameDialog(
-            context,
-            title: 'Add Space',
-            label: 'Name',
-            submitLabel: 'Add',
-            onSave: viewModel.create,
+        addAction: AdminAddAction(
+          'Add Space',
+          onPressed: () => unawaited(
+            showNameDialog(
+              context,
+              title: 'Add Space',
+              label: 'Name',
+              submitLabel: 'Add',
+              onSave: viewModel.create,
+            ),
           ),
         ),
         child: ListView.separated(

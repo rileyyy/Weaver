@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:weaver/features/admin/widgets/admin_add_action.dart';
 import 'package:weaver/shared/widgets/load_error_view.dart';
 
 /// Every Admin tab's layout: the loading and error states, then an optional
 /// [header] (such as a Space picker), a short explanation and an add button
-/// above the list. A null [onAdd] disables the button. Kept to a readable width
-/// on wide screens.
+/// above the list. A null [addAction] leaves the button out, for a tab that
+/// only reports. Kept to a readable width on wide screens.
 class AdminListFrame extends StatelessWidget {
   const AdminListFrame({
     super.key,
@@ -12,9 +13,8 @@ class AdminListFrame extends StatelessWidget {
     required this.loadError,
     required this.onRetry,
     required this.description,
-    required this.addLabel,
-    required this.onAdd,
     required this.child,
+    this.addAction,
     this.header,
   });
 
@@ -22,8 +22,7 @@ class AdminListFrame extends StatelessWidget {
   final String? loadError;
   final Future<void> Function() onRetry;
   final String description;
-  final String addLabel;
-  final VoidCallback? onAdd;
+  final AdminAddAction? addAction;
   final Widget child;
   final Widget? header;
 
@@ -56,11 +55,12 @@ class AdminListFrame extends StatelessWidget {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(description),
-                  FilledButton.icon(
-                    onPressed: onAdd,
-                    icon: const Icon(Icons.add),
-                    label: Text(addLabel),
-                  ),
+                  if (addAction case final addAction?)
+                    FilledButton.icon(
+                      onPressed: addAction.onPressed,
+                      icon: const Icon(Icons.add),
+                      label: Text(addAction.label),
+                    ),
                 ],
               ),
             ),

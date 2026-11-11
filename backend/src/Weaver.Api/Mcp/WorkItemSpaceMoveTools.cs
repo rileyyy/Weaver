@@ -52,10 +52,11 @@ public class WorkItemSpaceMoveTools(IWorkItemSpaceMoveService moves, WorkItemDto
         IReadOnlyDictionary<Guid, Guid?>? priorityMap = null,
         [Description(ExpectedVersionArgument.Description)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
-            _caller.UseActorLabel(actorLabel);
+            _caller.UseAttribution(actorLabel, runId);
             var maps = SpaceMoveMaps.From(statusMap, typeMap, priorityMap);
             var result = await _moves.MoveAsync(id, targetSpaceId, parentId, maps, expectedVersion, ct);
             return await _dtos.ToWriteResponseAsync(result);

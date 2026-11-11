@@ -49,16 +49,17 @@ public class CommentToolsTests
     }
 
     [Test]
-    public async Task AddComment_PassesTheActorLabelToTheCallerContext()
+    public async Task AddComment_PassesTheActorLabelAndRunIdToTheCallerContext()
     {
         var workItemId = Guid.NewGuid();
         var comment = MakeComment(workItemId, _userId);
         _comments.Setup(c => c.CreateAsync(workItemId, "Hello", It.IsAny<CancellationToken>())).ReturnsAsync(comment);
 
-        var result = await _tools.AddComment(workItemId, "Hello", "sub-agent: reviewer", CancellationToken.None);
+        var result = await _tools.AddComment(workItemId, "Hello", "sub-agent: reviewer", "run-7", CancellationToken.None);
 
         Assert.That(result.Id, Is.EqualTo(comment.Id));
         Assert.That(_caller.Current.ActorLabel, Is.EqualTo("sub-agent: reviewer"));
+        Assert.That(_caller.Current.RunId, Is.EqualTo("run-7"));
         _comments.VerifyAll();
     }
 
