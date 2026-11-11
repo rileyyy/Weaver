@@ -401,6 +401,17 @@ class BoardViewModel extends ViewModel {
         comparator: hierarchyComparator,
       );
 
+  /// The items the Agenda groups by day: every loaded item of the shown
+  /// Spaces with a date that the server matched for the header's filters
+  /// and that's in a shown status. Loaded with the Hierarchy.
+  List<WorkItem> get agendaItems => [
+    for (final id in _hierarchyItemIds)
+      if (_items[id] case final item?)
+        if ((item.startDate != null || item.endDate != null) &&
+            _shownWith(item.statusId, item.id))
+          item,
+  ];
+
   /// [roadmapRoots] grouped by Space, like [hierarchySections].
   List<SpaceTreeSection> get roadmapSections => _bySpace(roadmapRoots);
 
@@ -574,6 +585,10 @@ class BoardViewModel extends ViewModel {
       _hierarchyLoaded ? loadHierarchy() : Future.value();
 
   String? statusNameFor(String statusId) => _statusById[statusId]?.name;
+
+  /// [spaceId]'s statuses in order, or none when that Space isn't shown.
+  List<WorkItemStatus> statusesOfSpace(String spaceId) =>
+      _statusesBySpace[spaceId] ?? const [];
 
   Color? statusColorFor(String statusId) => _statusById[statusId]?.color;
 
@@ -846,6 +861,28 @@ class BoardViewModel extends ViewModel {
     );
   }
 
+  /// Moves the work item [workItemId] to [statusId] from a layout with no
+  /// columns to drop into, such as the Agenda. It goes to the top of its new
+  /// column, as from the detail dialog. Applies optimistically, then rolls
+  /// back if the backend rejects it.
+  Future<void> changeStatus(String workItemId, String statusId) {
+    final item = _items[workItemId];
+    if (item == null || item.statusId == statusId) return Future.value();
+    return _save(
+      workItemId,
+      optimistic: (item) => item.withStatus(statusId),
+      send: (version) => _repository.changeStatus(
+        workItemId,
+        statusId,
+        afterId: null,
+        expectedVersion: version,
+      ),
+      title: item.title,
+      errorMessage:
+          'Could not change the status of "${item.title}". Try again.',
+    );
+  }
+
   /// Moves [card] to a different swimlane (i.e. a different parent) of the
   /// same Space, keeping its status — the view-model mirror of the
   /// backend's `Reparent`, which never crosses a Space. Applies the move optimistically, then rolls it back if
@@ -1018,7 +1055,10 @@ class BoardViewModel extends ViewModel {
   /// Whether [item] should be shown in the Hierarchy view; unlike
   /// [cardVisible] this also checks [hiddenStatusIds].
   bool hierarchyItemVisible(HierarchyItem item) =>
-      !_filters.hiddenStatusIds.contains(item.statusId) && _matches(item.id);
+      _shownWith(item.statusId, item.id);
+
+  bool _shownWith(String statusId, String itemId) =>
+      !_filters.hiddenStatusIds.contains(statusId) && _matches(itemId);
 
   /// Shows or hides [statusId]'s column. Purely a display toggle.
   void toggleStatusVisibility(String statusId) =>

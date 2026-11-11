@@ -62,15 +62,19 @@ import 'package:weaver/features/auth/data/auth_session_store.dart' as _i605;
 import 'package:weaver/features/auth/data/flutter_secure_token_store.dart'
     as _i347;
 import 'package:weaver/features/auth/data/secure_token_store.dart' as _i54;
+import 'package:weaver/features/board/agenda_view_model.dart' as _i1031;
 import 'package:weaver/features/board/backlog_view_model.dart' as _i38;
 import 'package:weaver/features/board/board_view_model.dart' as _i314;
 import 'package:weaver/features/board/data/api_board_repository.dart' as _i436;
+import 'package:weaver/features/board/data/api_calendar_repository.dart'
+    as _i13;
 import 'package:weaver/features/board/data/api_trash_repository.dart' as _i797;
 import 'package:weaver/features/board/data/api_view_repository.dart' as _i518;
 import 'package:weaver/features/board/data/backlog_repository.dart' as _i885;
 import 'package:weaver/features/board/data/backlog_repository_module.dart'
     as _i61;
 import 'package:weaver/features/board/data/board_repository.dart' as _i522;
+import 'package:weaver/features/board/data/calendar_repository.dart' as _i35;
 import 'package:weaver/features/board/data/trash_repository.dart' as _i1009;
 import 'package:weaver/features/board/data/view_repository.dart' as _i522;
 import 'package:weaver/features/board/repeating_items_view_model.dart' as _i87;
@@ -207,6 +211,12 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i202.ApiEndpoint>(),
       ),
     );
+    gh.lazySingleton<_i35.CalendarRepository>(
+      () => _i13.ApiCalendarRepository(
+        gh<_i519.Client>(),
+        gh<_i202.ApiEndpoint>(),
+      ),
+    );
     gh.lazySingleton<_i814.WorkItemHistoryRepository>(
       () => _i511.ApiWorkItemHistoryRepository(
         gh<_i519.Client>(),
@@ -256,6 +266,9 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i519.Client>(),
         gh<_i202.ApiEndpoint>(),
       ),
+    );
+    gh.factory<_i1031.AgendaViewModel>(
+      () => _i1031.AgendaViewModel(gh<_i35.CalendarRepository>()),
     );
     gh.lazySingleton<_i300.ServerSettingsAdminRepository>(
       () => _i365.ApiServerSettingsAdminRepository(
