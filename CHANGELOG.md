@@ -33,6 +33,22 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-11 — MCP server instructions and the agent reference
+
+`feature/mcp-server-instructions-and-reference` (ticket 32 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md)).
+
+- **Agents get instructions on connecting**: under about 500 tokens on
+  Spaces, Types, finding items by `#Number`, the When workflow, patch
+  semantics, `expectedVersion`, the actor label, and when to ask a human.
+- **The `weaver://reference` resource** holds the rest: the vocabulary,
+  what every tool is for, and step-by-step workflows. Read-only keys can
+  read it.
+- Tests keep both short and current: the instructions stay within budget,
+  and adding a tool fails a test until the reference describes it.
+- `create_work_item` now says what it can't set and that it returns the
+  version.
+
 ## 2026-11-10 — Saved Views, Overview and a default View
 
 `feature/saved-views-backend` and, stacked on it,

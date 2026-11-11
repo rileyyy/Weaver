@@ -3,6 +3,7 @@ using System.Text.Json;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using Weaver.Api.Contracts;
+using Weaver.Api.Mcp;
 using Weaver.Domain;
 using static Weaver.Api.IntegrationTests.McpJson;
 
@@ -348,7 +349,8 @@ public class McpTests
 
     // Marking a tool ReadOnly is what lets a read-only key call it, so a write tool marked that
     // way would be a hole. Tools are named for what they do, which makes the mistake visible.
-    // plan_ is a dry run: it reports what a write would do without making it.
+    // plan_ is a dry run: it reports what a write would do without making it. run_view runs a
+    // saved query; it's named alone rather than allowing run_, which could hide a write later.
     [Test]
     public async Task Mcp_OnlyReadingToolsAreMarkedReadOnly()
     {
@@ -365,7 +367,7 @@ public class McpTests
                 readOnly,
                 Has.All.Matches<string>(n =>
                     n.StartsWith("list_") || n.StartsWith("get_") || n.StartsWith("search_") || n.StartsWith("plan_")
-                    || n == "whoami"));
+                    || n == "whoami" || n == "run_view"));
         });
     }
 
@@ -402,6 +404,26 @@ public class McpTests
         {
             Assert.That(names, Does.Contain("restore_work_item"));
             Assert.That(names, Has.None.Contains("purge").And.None.Contains("empty"));
+        });
+    }
+
+    // A read-only key must still reach the guidance: an agent reads it before it knows what it may do.
+    [Test]
+    public async Task Mcp_SendsTheInstructions_AndServesTheReference_EvenToAReadOnlyKey()
+    {
+        var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadOnly);
+        await using var mcp = await ConnectAsync(agent);
+
+        var resources = await mcp.ListResourcesAsync();
+        var reference = await mcp.ReadResourceAsync(ReferenceResource.Uri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mcp.ServerInstructions, Is.EqualTo(AgentGuidance.ServerInstructions));
+            Assert.That(resources.Select(r => r.Uri), Does.Contain(ReferenceResource.Uri));
+            Assert.That(
+                reference.Contents.OfType<TextResourceContents>().Single().Text,
+                Is.EqualTo(AgentGuidance.Reference));
         });
     }
 

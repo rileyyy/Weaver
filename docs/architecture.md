@@ -1103,6 +1103,18 @@ A View is a stored instance of the work-item query plus a layout
   know whether another follows), `historyLimit` 20 by default (at most
   200), and `nextHistoryOffset` says where the next page starts. Attachments are
   metadata only; content is `get_work_item_attachment`'s job.
+- **Agents learn Weaver from the server itself.** `AddMcpServer` sends
+  `Mcp/ServerInstructions.md` as the server instructions, which clients put
+  into every conversation, so they stay under about 500 tokens: what
+  Weaver's terms mean, patch semantics, `expectedVersion`, the actor label,
+  and when to ask a human. The fuller `Mcp/Reference.md` (vocabulary from
+  the glossary, every tool, step-by-step workflows) is the MCP resource
+  `weaver://reference` (`ReferenceResource`), read on demand. Both are
+  embedded Markdown read through `AgentGuidance`. `AgentGuidanceTests`
+  holds the instructions to the token budget and checks that both name
+  only real tools and that the reference lists every tool, so adding a tool
+  means adding it to `Reference.md`. Resources aren't tool calls, so a
+  read-only key reads the reference too.
 - **MCP results leave nulls out**
   (`DefaultIgnoreCondition = WhenWritingNull` in
   `McpJsonSerializerOptions`); a missing property means null. REST keeps

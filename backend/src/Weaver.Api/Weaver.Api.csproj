@@ -22,6 +22,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Mcp\ServerInstructions.md" />
+    <EmbeddedResource Include="Mcp\Reference.md" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="Weaver.Api.Tests" />
   </ItemGroup>
 
