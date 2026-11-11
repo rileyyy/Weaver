@@ -521,6 +521,16 @@ A number or currency field can roll up (ticket 15,
   - Over MCP, nulls are left out like everywhere else in tool results,
     except an entry's `oldValue`/`newValue`: a null there is what the
     entry records, so it's always written.
+- **Run reports** (`GET /api/admin/runs`, `RunReportService`, admins
+  only; [ADR-0010](adr/0010-agent-runner.md)) group the entries that carry
+  a run id by account, key and run id, newest first by the run's last
+  entry `Id`, paged by offset. A run is named by all three, since run ids
+  are free text and two agents could send the same one.
+  `GET /api/admin/runs/changes` returns one run's items as
+  `ChangedWorkItem`s (shared with "changes since T" through
+  `ChangedWorkItemReader`), in the order the run first changed each, with
+  only that run's entries. A run that changed nothing has no entries, so
+  it never appears.
 - **Anything new that changes a work item must record history**: a new
   field, a new operation, Spaces and Types, custom fields, When, Trash
   restore, attachments. Return `FieldChange`s from the domain method and
