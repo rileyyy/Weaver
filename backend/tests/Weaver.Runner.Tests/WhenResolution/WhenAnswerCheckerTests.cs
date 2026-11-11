@@ -16,7 +16,7 @@ public class WhenAnswerCheckerTests
         Assert.Multiple(() =>
         {
             Assert.That(check.Outcome, Is.EqualTo(WhenAnswerOutcome.Resolve));
-            Assert.That(check.Answer, Is.EqualTo(new WhenAnswer(new DateOnly(2026, 12, 1), new DateOnly(2026, 12, 6), null, "high")));
+            Assert.That(check.Answer, Is.EqualTo(new WhenAnswer(new DateOnly(2026, 12, 1), new DateOnly(2026, 12, 6), null, WhenConfidence.High)));
         });
     }
 
@@ -40,7 +40,7 @@ public class WhenAnswerCheckerTests
     {
         var check = Check("""{"start":"2026-12-01","end":null,"blockedBy":41,"confidence":"low"}""");
 
-        Assert.That(check.Answer, Is.EqualTo(new WhenAnswer(new DateOnly(2026, 12, 1), null, Drywall, "low")));
+        Assert.That(check.Answer, Is.EqualTo(new WhenAnswer(new DateOnly(2026, 12, 1), null, Drywall, WhenConfidence.Low)));
     }
 
     [Test]
@@ -52,11 +52,14 @@ public class WhenAnswerCheckerTests
     }
 
     [Test]
-    public void ConfidenceIsNormalisedToLowerCase()
+    [TestCase("low", WhenConfidence.Low)]
+    [TestCase("Medium", WhenConfidence.Medium)]
+    [TestCase(" HIGH ", WhenConfidence.High)]
+    public void Confidence_IsReadIgnoringCaseAndSpace(string stated, WhenConfidence expected)
     {
-        var check = Check("""{"start":"2026-12-01","confidence":"HIGH"}""");
+        var check = Check($$"""{"start":"2026-12-01","confidence":"{{stated}}"}""");
 
-        Assert.That(check.Answer!.Confidence, Is.EqualTo("high"));
+        Assert.That(check.Answer!.Confidence, Is.EqualTo(expected));
     }
 
     [Test]
@@ -107,6 +110,7 @@ public class WhenAnswerCheckerTests
     [TestCase("""{"blockedBy":"drywall","confidence":"high"}""", TestName = "BlockerNotANumber")]
     [TestCase("""{"start":"2026-12-01"}""", TestName = "NoConfidence")]
     [TestCase("""{"start":"2026-12-01","confidence":"certain"}""", TestName = "UnknownConfidence")]
+    [TestCase("""{"start":"2026-12-01","confidence":"2"}""", TestName = "ConfidenceAsANumber")]
     [TestCase("""{"start":null,"end":null,"blockedBy":null,"confidence":"high"}""", TestName = "NothingToWrite")]
     [TestCase("""{"skip":""}""", TestName = "EmptySkip")]
     public void AFailedCheck_RejectsTheWholeAnswer(string raw)

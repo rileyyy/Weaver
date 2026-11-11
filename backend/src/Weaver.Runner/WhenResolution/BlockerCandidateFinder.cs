@@ -54,7 +54,7 @@ public sealed class BlockerCandidateFinder(IWeaverClient weaver)
             .ThenByDescending(m => m.Item.SpaceId == item.SpaceId)
             .ThenBy(m => m.Item.Number)
             .Take(MaxCandidates)
-            .Select(m => new BlockerCandidate(m.Item.Id, m.Item.Number, m.Item.Title, m.Item.SpaceName, m.Item.ParentTitle))
+            .Select(m => BlockerCandidate.From(m.Item))
             .ToList();
     }
 

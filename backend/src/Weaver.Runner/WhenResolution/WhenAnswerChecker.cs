@@ -10,8 +10,6 @@ namespace Weaver.Runner.WhenResolution;
 /// </summary>
 public static class WhenAnswerChecker
 {
-    private static readonly string[] Confidences = ["low", "medium", "high"];
-
     public static WhenAnswerCheck Check(string rawAnswer, DateOnly today, IReadOnlyList<BlockerCandidate> offered)
     {
         if (!TryReadObject(rawAnswer, out var root))
@@ -132,14 +130,18 @@ public static class WhenAnswerChecker
             ?? throw new InvalidAnswerException($"blockedBy {value.GetRawText()} isn't one of the offered items");
     }
 
-    private static string ReadConfidence(JsonElement root)
+    private static WhenConfidence ReadConfidence(JsonElement root)
     {
-        var confidence = root.TryGetProperty("confidence", out var value) && value.ValueKind == JsonValueKind.String
+        var stated = root.TryGetProperty("confidence", out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString()!.Trim().ToLowerInvariant()
             : null;
 
-        return confidence is not null && Confidences.Contains(confidence)
-            ? confidence
-            : throw new InvalidAnswerException("confidence must be low, medium or high");
+        return stated switch
+        {
+            "low" => WhenConfidence.Low,
+            "medium" => WhenConfidence.Medium,
+            "high" => WhenConfidence.High,
+            _ => throw new InvalidAnswerException("confidence must be low, medium or high"),
+        };
     }
 }

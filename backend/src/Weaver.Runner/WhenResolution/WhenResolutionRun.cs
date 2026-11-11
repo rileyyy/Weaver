@@ -94,7 +94,7 @@ public sealed class WhenResolutionRun(IWeaverClient weaver, IModelClient model, 
     /// </summary>
     private async Task<ItemOutcome> WriteAsync(WeaverWorkItem item, WhenAnswer answer, CancellationToken ct)
     {
-        var actorLabel = $"Runner {TaskKind.WhenResolution.CommandName}, confidence {answer.Confidence}";
+        var actorLabel = $"Runner {TaskKind.WhenResolution.CommandName}, confidence {answer.Confidence.ToString().ToLowerInvariant()}";
         try
         {
             if (answer.HasDates)
