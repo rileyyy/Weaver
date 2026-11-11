@@ -28,16 +28,19 @@ public class AgentAccountService(
             .ToListAsync(ct);
     }
 
-    public async Task<User> CreateAsync(string name, string? description, CancellationToken ct = default)
+    public async Task<User> CreateAsync(string name, string? description, string? handle, CancellationToken ct = default)
     {
         await EnsureAdminAsync(ct);
 
         var agent = User.CreateAgent(name, description);
+        agent.SetHandle(handle);
         // Agents share the username index with humans, so a name can't belong to both.
         if (await _db.Users.AnyAsync(u => u.NormalizedUsername == agent.NormalizedUsername, ct))
         {
             throw new UsernameTakenException(agent.Username);
         }
+
+        await EnsureHandleFreeAsync(agent, ct);
 
         _db.Users.Add(agent);
         try
@@ -46,7 +49,26 @@ public class AgentAccountService(
         }
         catch (UniqueConstraintViolationException ex)
         {
-            throw new UsernameTakenException(agent.Username, ex);
+            throw await RaceLostExceptionAsync(agent, ex, ct);
+        }
+
+        return agent;
+    }
+
+    public async Task<User> SetHandleAsync(Guid agentId, string? handle, CancellationToken ct = default)
+    {
+        await EnsureAdminAsync(ct);
+        var agent = await FindAgentAsync(agentId, ct);
+
+        agent.SetHandle(handle);
+        await EnsureHandleFreeAsync(agent, ct);
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (UniqueConstraintViolationException ex)
+        {
+            throw new HandleTakenException(agent.Handle!, ex);
         }
 
         return agent;
@@ -100,6 +122,23 @@ public class AgentAccountService(
 
         await _db.SaveChangesAsync(ct);
     }
+
+    private async Task EnsureHandleFreeAsync(User account, CancellationToken ct)
+    {
+        if (account.Handle is { } handle && await IsHandleTakenAsync(account, handle, ct))
+        {
+            throw new HandleTakenException(handle);
+        }
+    }
+
+    private Task<bool> IsHandleTakenAsync(User account, string handle, CancellationToken ct) =>
+        _db.Users.AnyAsync(u => u.Handle == handle && u.Id != account.Id, ct);
+
+    /// <summary>A save that lost a race names whichever unique value the other save took first.</summary>
+    private async Task<DomainException> RaceLostExceptionAsync(User agent, Exception ex, CancellationToken ct) =>
+        agent.Handle is { } handle && await IsHandleTakenAsync(agent, handle, ct)
+            ? new HandleTakenException(handle, ex)
+            : new UsernameTakenException(agent.Username, ex);
 
     private async Task<User> FindAgentAsync(Guid agentId, CancellationToken ct)
     {

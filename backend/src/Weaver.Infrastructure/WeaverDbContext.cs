@@ -36,6 +36,8 @@ public class WeaverDbContext(DbContextOptions<WeaverDbContext> options) : DbCont
 
     public DbSet<Comment> Comments => Set<Comment>();
 
+    public DbSet<CommentMention> CommentMentions => Set<CommentMention>();
+
     public DbSet<WorkItemLink> WorkItemLinks => Set<WorkItemLink>();
 
     public DbSet<WorkItemUrlLink> WorkItemUrlLinks => Set<WorkItemUrlLink>();
@@ -101,6 +103,7 @@ public class WeaverDbContext(DbContextOptions<WeaverDbContext> options) : DbCont
         modelBuilder.ApplyConfiguration(new CustomFieldDefinitionConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemPriorityConfiguration());
         modelBuilder.ApplyConfiguration(new CommentConfiguration());
+        modelBuilder.ApplyConfiguration(new CommentMentionConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemLinkConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemUrlLinkConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemAttachmentConfiguration());

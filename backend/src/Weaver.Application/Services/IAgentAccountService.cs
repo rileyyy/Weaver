@@ -11,7 +11,14 @@ public interface IAgentAccountService
     /// <summary>Every agent account, including deactivated ones.</summary>
     Task<IReadOnlyList<User>> ListAsync(CancellationToken ct = default);
 
-    Task<User> CreateAsync(string name, string? description, CancellationToken ct = default);
+    /// <summary>A null or blank <paramref name="handle"/> leaves the agent without one.</summary>
+    Task<User> CreateAsync(string name, string? description, string? handle, CancellationToken ct = default);
+
+    /// <summary>
+    /// Gives the agent the <c>@</c> handle comments mention it by, or clears it when blank.
+    /// Throws <see cref="Weaver.Domain.Exceptions.HandleTakenException"/> if another account has it.
+    /// </summary>
+    Task<User> SetHandleAsync(Guid agentId, string? handle, CancellationToken ct = default);
 
     /// <summary>
     /// A deactivated agent's keys stop working but aren't revoked, so reactivating it brings
