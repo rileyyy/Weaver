@@ -3,6 +3,7 @@ import 'package:weaver/features/admin/models/agent_account.dart';
 /// What the Agents tab's row menu offers.
 enum AgentAction {
   manageKeys('Manage keys'),
+  setHandle('Set handle'),
   deactivate('Deactivate'),
   reactivate('Reactivate');
 
@@ -12,6 +13,7 @@ enum AgentAction {
 
   static List<AgentAction> availableFor(AgentAccount agent) => [
     manageKeys,
+    setHandle,
     agent.isActive ? deactivate : reactivate,
   ];
 }

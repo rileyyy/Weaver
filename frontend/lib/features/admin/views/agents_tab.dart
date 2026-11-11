@@ -9,6 +9,7 @@ import 'package:weaver/features/admin/widgets/admin_add_action.dart';
 import 'package:weaver/features/admin/widgets/admin_list_frame.dart';
 import 'package:weaver/features/admin/widgets/agent_tile.dart';
 import 'package:weaver/features/admin/widgets/create_agent_dialog.dart';
+import 'package:weaver/features/admin/widgets/handle_dialog.dart';
 import 'package:weaver/features/admin/widgets/show_admin_error.dart';
 import 'package:weaver/shared/widgets/confirm_action.dart';
 
@@ -62,6 +63,13 @@ class AgentsTab extends StatelessWidget {
     switch (action) {
       case AgentAction.manageKeys:
         await showAgentKeysPage(context, agent);
+      case AgentAction.setHandle:
+        await showHandleDialog(
+          context,
+          agentName: agent.name,
+          currentHandle: agent.handle,
+          onSave: (handle) => viewModel.setHandle(agent.id, handle),
+        );
       case AgentAction.reactivate:
         showAdminError(
           messenger,

@@ -19,6 +19,7 @@ class AgentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final description = agent.description;
+    final handle = agent.handle;
     return ListTile(
       onTap: onTap,
       leading: const CircleAvatar(child: Icon(Icons.smart_toy_outlined)),
@@ -32,6 +33,7 @@ class AgentTile extends StatelessWidget {
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (handle != null) Text('@$handle'),
           if (description != null)
             Text(description, maxLines: 2, overflow: TextOverflow.ellipsis),
           if (!agent.isActive)

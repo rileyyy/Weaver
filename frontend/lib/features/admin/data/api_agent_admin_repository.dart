@@ -9,9 +9,10 @@ import 'package:weaver/features/admin/models/api_key_scope.dart';
 import 'package:weaver/features/admin/models/issued_api_key.dart';
 import 'package:weaver/shared/data/user_directory_repository.dart';
 
-/// Creating or (de)activating an agent drops the shared user directory
-/// cache, so assignee pickers pick the change up next time they load. Key
-/// changes don't affect the directory.
+/// Creating or (de)activating an agent, or changing its handle, drops the
+/// shared user directory cache, so assignee pickers and the comment box pick
+/// the change up next time they load. Key changes don't affect the
+/// directory.
 @LazySingleton(as: AgentAdminRepository)
 class ApiAgentAdminRepository implements AgentAdminRepository {
   ApiAgentAdminRepository(
@@ -34,13 +35,27 @@ class ApiAgentAdminRepository implements AgentAdminRepository {
   );
 
   @override
-  Future<AgentAccount> create({required String name, String? description}) =>
+  Future<AgentAccount> create({
+    required String name,
+    String? description,
+    String? handle,
+  }) => _invalidatingDirectory(
+    _api.post(
+      '/admin/agents',
+      {'name': name, 'description': description, 'handle': handle},
+      _agent,
+      failureMessage: 'Failed to add the agent',
+    ),
+  );
+
+  @override
+  Future<AgentAccount> setHandle(String id, String? handle) =>
       _invalidatingDirectory(
-        _api.post(
-          '/admin/agents',
-          {'name': name, 'description': description},
+        _api.put(
+          '/admin/agents/$id/handle',
+          {'handle': handle},
           _agent,
-          failureMessage: 'Failed to add the agent',
+          failureMessage: 'Failed to set the handle',
         ),
       );
 
