@@ -18,7 +18,7 @@ public class WorkItemsControllerTests
     public void SetUp()
     {
         _workItems = new Mock<IWorkItemService>(MockBehavior.Strict);
-        _controller = new WorkItemsController(_workItems.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup()));
+        _controller = new WorkItemsController(_workItems.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup(), new FakeWorkItemWhenEdits()));
     }
 
     private static WorkItem MakeWorkItem() => TestWorkItems.Create("Task");

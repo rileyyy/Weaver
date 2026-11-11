@@ -1,5 +1,6 @@
 using Weaver.Runner.Scheduling;
 using Weaver.Runner.Tasks;
+using Weaver.Runner.WhenResolution;
 
 namespace Weaver.Runner.Configuration;
 
@@ -17,4 +18,8 @@ public sealed record TaskConfig(
     string AgentApiKey,
     CronSchedule? Schedule,
     bool JsonMode,
-    TimeSpan ModelTimeout);
+    TimeSpan ModelTimeout)
+{
+    /// <summary>Read for every kind but only used by <see cref="TaskKind.WhenResolution"/>.</summary>
+    public WhenResolutionOptions WhenResolution { get; init; } = new();
+}

@@ -7,21 +7,28 @@ namespace Weaver.Runner.WhenResolution;
 
 /// <summary>
 /// One When resolution run (ADR-0010): the runner lists the unresolved items, asks the model
-/// about one at a time, checks each answer and writes only what passed. It only ever sets dates
-/// on an item that has none and adds links; it never changes or removes anything.
+/// about one at a time, checks each answer and writes only what passed. It sets dates on an item
+/// that has none and adds links. The one change it may make, and only when
+/// <see cref="WhenResolutionOptions.ReplaceDatesWhenPhraseEdited"/> is on, is replacing the dates
+/// of an item Weaver marks as edited since resolved. It never removes anything.
 /// </summary>
-public sealed class WhenResolutionRun(IWeaverClient weaver, IModelClient model, ILogger<WhenResolutionRun> logger) : ITaskRun
+public sealed class WhenResolutionRun(
+    IWeaverClient weaver,
+    IModelClient model,
+    ILogger<WhenResolutionRun> logger,
+    WhenResolutionOptions options) : ITaskRun
 {
     private readonly IWeaverClient _weaver = weaver;
     private readonly IModelClient _model = model;
     private readonly ILogger<WhenResolutionRun> _logger = logger;
+    private readonly WhenResolutionOptions _options = options;
     private readonly BlockerCandidateFinder _candidates = new(weaver);
 
     public async Task<RunSummary> RunAsync(CancellationToken ct)
     {
         var today = await _weaver.GetTodayAsync(ct);
         var quickPicks = await _weaver.ListQuickPicksAsync(ct);
-        var items = await _weaver.ListUnresolvedWhenItemsAsync(ct);
+        var items = await _weaver.ListUnresolvedWhenItemsAsync(_options.ReplaceDatesWhenPhraseEdited, ct);
         _logger.LogInformation("{Count} unresolved When items to look at, today is {Today}", items.Count, IsoDate.Format(today));
 
         var outcomes = new List<ItemOutcome>();
@@ -42,9 +49,9 @@ public sealed class WhenResolutionRun(IWeaverClient weaver, IModelClient model, 
     private async Task<ItemOutcome> ResolveAsync(
         WeaverWorkItem item, DateOnly today, IReadOnlyList<QuickPickRange> quickPicks, CancellationToken ct)
     {
-        // Weaver's list already leaves dated items out; checking again here keeps "never
-        // overwrite" true even if that rule or the list changes.
-        if (item.HasDates)
+        // Weaver's list already leaves out dated items that aren't edited; checking again here
+        // keeps "never overwrite" true even if that rule or the list changes.
+        if (item.HasDates && !MayReplaceDates(item))
         {
             _logger.LogInformation("#{Number}: skipped, it already has dates", item.Number);
             return ItemOutcome.Skipped;
@@ -99,7 +106,7 @@ public sealed class WhenResolutionRun(IWeaverClient weaver, IModelClient model, 
         {
             if (answer.HasDates)
             {
-                await _weaver.SetDatesAsync(item.Id, answer.Start, answer.End, item.Version, actorLabel, ct);
+                await WriteDatesAsync(item, answer, actorLabel, ct);
             }
 
             if (answer.BlockedBy is { } blocker)
@@ -117,6 +124,18 @@ public sealed class WhenResolutionRun(IWeaverClient weaver, IModelClient model, 
             item.Number, item.When, Describe(answer), answer.Confidence);
         return ItemOutcome.Written;
     }
+
+    private bool MayReplaceDates(WeaverWorkItem item) =>
+        _options.ReplaceDatesWhenPhraseEdited && item.WhenEditedSinceResolved;
+
+    /// <summary>
+    /// A replacement sends both dates, so an old date the answer left out doesn't survive into
+    /// the new range; an item with none gets only the dates the answer gave.
+    /// </summary>
+    private Task WriteDatesAsync(WeaverWorkItem item, WhenAnswer answer, string actorLabel, CancellationToken ct) =>
+        item.HasDates
+            ? _weaver.ReplaceDatesAsync(item.Id, answer.Start, answer.End, item.Version, actorLabel, ct)
+            : _weaver.SetDatesAsync(item.Id, answer.Start, answer.End, item.Version, actorLabel, ct);
 
     private static string Describe(WhenAnswer answer)
     {

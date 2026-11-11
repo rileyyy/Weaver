@@ -24,6 +24,11 @@ namespace Weaver.Application.Services;
 /// Only items whose When is unresolved: they have one, but no dates and no live item blocking
 /// them (ADR-0003, <see cref="WorkItem.IsWhenResolved"/>).
 /// </param>
+/// <param name="IncludeEditedWhen">
+/// With <see cref="UnresolvedWhenOnly"/>, also list items whose When a human edited after their
+/// dates were last set (ticket 49), marked by <see cref="WorkItemSummary.WhenEditedSinceResolved"/>.
+/// It only widens that filter, so asking for it alone is rejected.
+/// </param>
 /// <param name="ScheduledOrInProgressOnly">
 /// Only items in a Doing-category status or with dates overlapping the window (with no window,
 /// any dated item), plus the undated ancestors of those. This is Overview's rule (ADR-0006): the
@@ -52,6 +57,7 @@ public sealed record WorkItemQuery(
     DateOnly? To = null,
     bool BacklogOnly = false,
     bool UnresolvedWhenOnly = false,
+    bool IncludeEditedWhen = false,
     bool ScheduledOrInProgressOnly = false,
     bool ApplyDoneHiding = false,
     DateTimeOffset? UpdatedSince = null,

@@ -484,6 +484,7 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
         WhenField(
           when: item.when,
           resolved: item.whenResolved,
+          awaitingReResolution: item.whenEditedSinceResolved,
           onSave: _viewModel.saveWhen,
           onQuickPick: _viewModel.applyQuickPick,
         ),

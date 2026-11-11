@@ -446,6 +446,7 @@ or in the environment, e.g. `Tasks__WhenResolution__Model=llama3.1:8b`
 | `TimeZone` | No | the container's (`TZ`, else UTC) | IANA time zone the cron expression is read in. |
 | `JsonMode` | No | `true` | Asks the endpoint for a JSON-only reply (`response_format: json_object`). Set `false` if the endpoint refuses it. |
 | `ModelTimeoutSeconds` | No | `300` | How long one answer may take. A timeout counts as the model being unreachable. |
+| `ReplaceDatesWhenPhraseEdited` | No | `false` | `WhenResolution` only. Also resolve items whose When a person edited after their dates were set (shown as "awaiting re-resolution"), replacing those dates. Links are never removed. |
 
 With no arguments the runner stays up and starts a run of each task kind
 at its cron times. To run a task kind once and exit, for a test or from an outside

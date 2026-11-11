@@ -53,7 +53,7 @@ public class WorkItemTrashService(
             roots = roots.Where(w => w.SpaceId == space);
         }
 
-        var summaries = await roots.AsNoTracking().OrderByDescending(w => w.TrashedAtUtc).Summarize().ToListAsync(ct);
+        var summaries = await roots.AsNoTracking().OrderByDescending(w => w.TrashedAtUtc).Summarize(_db).ToListAsync(ct);
         var rootIds = summaries.Select(s => s.Id).ToList();
         var itemCounts = await Trash()
             .Where(w => w.TrashRootId != null && rootIds.Contains(w.TrashRootId.Value))

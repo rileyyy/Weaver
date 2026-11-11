@@ -13,12 +13,17 @@ class WhenField extends StatefulWidget {
     super.key,
     required this.when,
     required this.resolved,
+    this.awaitingReResolution = false,
     required this.onSave,
     required this.onQuickPick,
   });
 
   final String? when;
   final bool resolved;
+
+  /// The phrase was edited after the dates were set, so they may no longer
+  /// match it until an agent resolves it again.
+  final bool awaitingReResolution;
 
   /// Called with the field's text when it may have changed; returns
   /// whether it was saved.
@@ -101,7 +106,10 @@ class _WhenFieldState extends State<WhenField> {
             const FieldLabel('When'),
             const Spacer(),
             if (widget.when != null)
-              WhenResolvedBadge(resolved: widget.resolved),
+              WhenResolvedBadge(
+                resolved: widget.resolved,
+                awaitingReResolution: widget.awaitingReResolution,
+              ),
           ],
         ),
         TextField(

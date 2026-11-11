@@ -35,7 +35,7 @@ public class WorkItemContextToolsTests
         _attachments = new Mock<IWorkItemAttachmentService>(MockBehavior.Strict);
         _tools = new WorkItemContextTools(
             _workItems.Object,
-            new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup()),
+            new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup(), new FakeWorkItemWhenEdits()),
             _comments.Object,
             _links.Object,
             _urlLinks.Object,

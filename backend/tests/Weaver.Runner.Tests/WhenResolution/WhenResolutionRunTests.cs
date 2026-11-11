@@ -209,7 +209,7 @@ public class WhenResolutionRunTests
         _weaver.Add("Clean the gutters", when: "next week");
         _model.Answer = _ => throw new ModelUnavailableException("connection refused");
 
-        Assert.ThrowsAsync<ModelUnavailableException>(RunAsync);
+        Assert.ThrowsAsync<ModelUnavailableException>(() => RunAsync());
         Assert.Multiple(() =>
         {
             Assert.That(_model.Prompts, Has.Count.EqualTo(1));
@@ -222,9 +222,98 @@ public class WhenResolutionRunTests
     {
         _weaver.FailEveryCallWith = new WeaverUnavailableException("connection refused");
 
-        Assert.ThrowsAsync<WeaverUnavailableException>(RunAsync);
+        Assert.ThrowsAsync<WeaverUnavailableException>(() => RunAsync());
     }
 
-    private Task<RunSummary> RunAsync() =>
-        new WhenResolutionRun(_weaver, _model, NullLogger<WhenResolutionRun>.Instance).RunAsync(CancellationToken.None);
+    [Test]
+    public async Task ByDefault_EditedItemsAreNotAskedFor_AndTheirDatesAreNeverReplaced()
+    {
+        _weaver.Add("Fence", when: "next summer", start: new DateOnly(2027, 3, 20), editedSinceResolved: true);
+        _model.Answer = _ => """{"start":"2027-06-20","confidence":"high"}""";
+
+        var summary = await RunAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_weaver.UnresolvedListings, Is.EqualTo(new[] { false }));
+            Assert.That(_model.Prompts, Is.Empty);
+            Assert.That(_weaver.DateWrites, Is.Empty);
+            Assert.That(summary.Skipped, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task WithReplaceDatesWhenPhraseEdited_AnEditedItemsDatesAreReplaced_BothOfThem()
+    {
+        var fence = _weaver.Add(
+            "Fence", when: "from next summer", start: new DateOnly(2027, 3, 20), end: new DateOnly(2027, 3, 22),
+            editedSinceResolved: true);
+        _model.Answer = _ => """{"start":"2027-06-20","confidence":"high"}""";
+
+        var summary = await RunAsync(replaceDatesWhenPhraseEdited: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_weaver.UnresolvedListings, Is.EqualTo(new[] { true }));
+            Assert.That(_weaver.DateWrites, Is.EqualTo(new[]
+            {
+                new DateWrite(fence.Id, new DateOnly(2027, 6, 20), null, fence.Version,
+                    "Runner when-resolution, confidence high", Replaces: true),
+            }));
+            Assert.That(summary.Written, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task WithReplaceDatesWhenPhraseEdited_ADatedItemThatIsNotEdited_IsNeverWritten_OrAskedAbout()
+    {
+        _weaver.Add("Fence", when: "next spring", start: new DateOnly(2027, 3, 20), editedSinceResolved: false);
+        _model.Answer = _ => """{"start":"2027-06-20","confidence":"high"}""";
+
+        var summary = await RunAsync(replaceDatesWhenPhraseEdited: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_model.Prompts, Is.Empty);
+            Assert.That(_weaver.DateWrites, Is.Empty);
+            Assert.That(summary.Skipped, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task WithReplaceDatesWhenPhraseEdited_AnUndatedItem_StillOnlyGetsTheDatesGiven()
+    {
+        var gutters = _weaver.Add("Clean the gutters", when: "from next week");
+        _model.Answer = _ => """{"start":"2026-11-16","confidence":"low"}""";
+
+        await RunAsync(replaceDatesWhenPhraseEdited: true);
+
+        Assert.That(_weaver.DateWrites.Single(), Is.EqualTo(
+            new DateWrite(gutters.Id, new DateOnly(2026, 11, 16), null, gutters.Version, "Runner when-resolution, confidence low")));
+    }
+
+    [Test]
+    public async Task WithReplaceDatesWhenPhraseEdited_ABlockerForAnEditedItem_IsAdded_AndItsDatesKept()
+    {
+        var drywall = _weaver.Add("Drywall");
+        var paint = _weaver.Add(
+            "Paint the walls", when: "after drywall", start: new DateOnly(2027, 3, 20), editedSinceResolved: true);
+        _model.Answer = _ => $$"""{"blockedBy":{{drywall.Number}},"confidence":"medium"}""";
+
+        await RunAsync(replaceDatesWhenPhraseEdited: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_weaver.LinkWrites.Select(l => (l.WorkItemId, l.BlockerId)), Is.EqualTo(new[] { (paint.Id, drywall.Id) }));
+            Assert.That(_weaver.DateWrites, Is.Empty);
+        });
+    }
+
+    private Task<RunSummary> RunAsync(bool replaceDatesWhenPhraseEdited = false) =>
+        new WhenResolutionRun(
+                _weaver,
+                _model,
+                NullLogger<WhenResolutionRun>.Instance,
+                new WhenResolutionOptions(replaceDatesWhenPhraseEdited))
+            .RunAsync(CancellationToken.None);
 }

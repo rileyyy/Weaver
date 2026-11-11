@@ -136,11 +136,47 @@ public class WorkItemWhenTests
         });
     }
 
-    private static async Task<WorkItemSummaryPageDto> ListUnresolvedAsync(McpClient mcp, Guid space)
+    [Test]
+    public async Task AHumanEditingAResolvedWhen_ListsItAsEdited_UntilItsDatesAreSetAgain()
+    {
+        var space = await ApiClient.CreateSpaceAsync("Edited When");
+        var fence = await _client.CreateWorkItemAsync("Fence", spaceId: space);
+        await _client.CreateWorkItemAsync("Unrelated", spaceId: space);
+        var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadWrite);
+        await PatchAsync("details", fence, new { when = "next spring" });
+        await agent.PatchJsonAsync($"/api/work-items/{fence.Id}/schedule", new { startDate = "2027-03-20" });
+        await PatchAsync("details", fence, new { when = "next summer" });
+        await using var mcp = await ConnectAsync();
+
+        var rest = await SearchUnresolvedAsync(space, includeEdited: true);
+        var restWithoutEdited = await SearchUnresolvedAsync(space, includeEdited: false);
+        var overMcp = await ListUnresolvedAsync(mcp, space, includeEdited: true);
+        var item = await GetAsync(fence);
+        await agent.PatchJsonAsync($"/api/work-items/{fence.Id}/schedule", new { startDate = "2027-06-20" });
+        var afterReResolving = await SearchUnresolvedAsync(space, includeEdited: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rest.Items.Select(i => (i.Id, i.WhenEditedSinceResolved)), Is.EqualTo(new[] { (fence.Id, true) }));
+            Assert.That(restWithoutEdited.Items, Is.Empty);
+            Assert.That(overMcp.Items.Select(i => (i.Id, i.WhenEditedSinceResolved)), Is.EqualTo(new[] { (fence.Id, true) }));
+            Assert.That(item.WhenEditedSinceResolved, Is.True);
+            Assert.That(item.StartDate, Is.EqualTo(new DateOnly(2027, 3, 20)));
+            Assert.That(afterReResolving.Items, Is.Empty);
+        });
+    }
+
+    private async Task<WorkItemPageDto> SearchUnresolvedAsync(Guid space, bool includeEdited) =>
+        await (await _client.GetAsync(
+                $"/api/work-items/search?spaceIds={space}&unresolvedWhenOnly=true&includeEdited={includeEdited}"))
+            .ReadAsync<WorkItemPageDto>();
+
+    private static async Task<WorkItemSummaryPageDto> ListUnresolvedAsync(McpClient mcp, Guid space, bool includeEdited = false)
     {
         var result = await mcp.CallToolAsync("list_unresolved_when_items", new Dictionary<string, object?>
         {
             ["spaceIds"] = new[] { space },
+            ["includeEdited"] = includeEdited,
         });
         Assert.That(result.IsError, Is.Not.True, Text(result));
         return JsonSerializer.Deserialize<WorkItemSummaryPageDto>(Text(result), ApiClient.Json)!;

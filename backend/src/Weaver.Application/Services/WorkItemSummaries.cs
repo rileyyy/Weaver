@@ -1,3 +1,4 @@
+using Weaver.Application.Persistence;
 using Weaver.Domain;
 
 namespace Weaver.Application.Services;
@@ -5,8 +6,12 @@ namespace Weaver.Application.Services;
 /// <summary>Work items with a row (live or trashed) as <see cref="WorkItemSummary"/>, in one projection with no lookup per item.</summary>
 internal static class WorkItemSummaries
 {
-    public static IQueryable<WorkItemSummary> Summarize(this IQueryable<WorkItem> items) =>
-        items.Select(w => new WorkItemSummary(
+    /// <param name="items">Items read from <paramref name="db"/>.</param>
+    /// <param name="db">Where the history behind <see cref="WorkItemSummary.WhenEditedSinceResolved"/> is read.</param>
+    public static IQueryable<WorkItemSummary> Summarize(this IQueryable<WorkItem> items, IWeaverDbContext db)
+    {
+        var whenEdited = db.WhenEditedSinceResolvedIds();
+        return items.Select(w => new WorkItemSummary(
             w.Id,
             w.Number,
             w.Title,
@@ -23,5 +28,7 @@ internal static class WorkItemSummaries
             w.Children.Count(c => c.TrashedAtUtc == null),
             w.TrashedAtUtc,
             w.When,
-            w.CompletionDate));
+            w.CompletionDate,
+            whenEdited.Contains(w.Id)));
+    }
 }

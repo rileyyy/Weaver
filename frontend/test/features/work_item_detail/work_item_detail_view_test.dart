@@ -47,6 +47,9 @@ class _FakeRepository implements WorkItemDetailRepository {
   String statusId = 'todo';
   int version = 1;
   DateTime? completionDate;
+  String? when;
+  DateTime? startDate;
+  bool whenEditedSinceResolved = false;
   final List<(String, int)> statusSaves = [];
   final List<(String?, int)> parentSaves = [];
   final List<String> searches = [];
@@ -85,12 +88,15 @@ class _FakeRepository implements WorkItemDetailRepository {
         typeId: null,
         priorityId: null,
         assignedToUserId: null,
-        startDate: null,
+        startDate: startDate,
         endDate: null,
         createdAt: DateTime(2026, 9, 1),
         updatedAt: DateTime(2026, 9, 1),
         version: version,
         completionDate: completionDate,
+        when: when,
+        whenResolved: when != null && startDate != null,
+        whenEditedSinceResolved: whenEditedSinceResolved,
       );
 
   @override
@@ -380,6 +386,19 @@ void main() {
       find.text('Created 2026-09-01 · Updated 2026-09-01'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('a When edited since it was resolved awaits re-resolution', (
+    tester,
+  ) async {
+    final repository = _FakeRepository()
+      ..when = 'next summer'
+      ..startDate = DateTime(2027, 3, 20)
+      ..whenEditedSinceResolved = true;
+
+    await _openDetails(tester, repository: repository);
+
+    expect(find.text('Awaiting re-resolution'), findsOneWidget);
   });
 
   testWidgets('closing without edits needs no confirmation', (tester) async {
