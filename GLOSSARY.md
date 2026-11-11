@@ -158,7 +158,26 @@ has no password and signs in with API keys.
 : A long-lived, revocable credential for an agent account. It has a label
 and a scope: **read-only** or **read-write**.
 
+_Avoid:_ "license" for an agent's permissions. They come from its agent
+account and the scope of its API key.
+
 **Actor label**
 : Optional free text an agent sends with a write (e.g. "sub-agent:
 test-writer"). History records it, so sub-agents that share one connection
 can be told apart.
+
+**Runner**
+: The optional `Weaver.Runner` image that does scheduled agent work. It
+calls models; the Weaver API never does. See ADR-0010.
+
+**Task kind**
+: One job the runner can do, such as When resolution. Each has its own
+model, agent key and schedule in the runner's config.
+
+**Run**
+: One pass of an agent over its work, such as one night's When resolution.
+Its writes share a run id, so they can be reported and reviewed together.
+
+**Handle**
+: An agent account's unique `@` name (e.g. `claude-research`), used to
+mention it in a comment.
