@@ -18,10 +18,10 @@ public sealed class ScheduleLoop(TaskRunExecutor executor, TimeProvider time, IL
     private readonly TimeProvider _time = time;
     private readonly ILogger<ScheduleLoop> _logger = logger;
 
-    public async Task<int> RunAsync(IReadOnlyList<TaskConfig> tasks, CancellationToken stoppingToken)
+    public async Task<int> RunAsync(IReadOnlyList<TaskConfig> scheduledKinds, CancellationToken stoppingToken)
     {
         using var stopAll = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-        var loops = tasks.Select(t => RunTaskAsync(t, stopAll.Token)).ToList();
+        var loops = scheduledKinds.Select(k => RunKindAsync(k, stopAll.Token)).ToList();
         while (loops.Count > 0)
         {
             var finished = await Task.WhenAny(loops);
@@ -38,24 +38,24 @@ public sealed class ScheduleLoop(TaskRunExecutor executor, TimeProvider time, IL
         return ExitCodes.Success;
     }
 
-    private async Task<int> RunTaskAsync(TaskConfig task, CancellationToken ct)
+    private async Task<int> RunKindAsync(TaskConfig kindConfig, CancellationToken ct)
     {
-        var schedule = task.Schedule!;
+        var schedule = kindConfig.Schedule!;
         try
         {
             while (schedule.Next(_time.GetUtcNow()) is { } next)
             {
                 _logger.LogInformation("{Kind}: next run at {Next:yyyy-MM-dd HH:mm} ({TimeZone})",
-                    task.Kind, TimeZoneInfo.ConvertTime(next, schedule.TimeZone), schedule.TimeZone.Id);
+                    kindConfig.Kind, TimeZoneInfo.ConvertTime(next, schedule.TimeZone), schedule.TimeZone.Id);
                 await WaitUntilAsync(next, ct);
-                var exitCode = await _executor.RunAsync(task, ct);
+                var exitCode = await _executor.RunAsync(kindConfig, ct);
                 if (exitCode != ExitCodes.Success)
                 {
                     return exitCode;
                 }
             }
 
-            _logger.LogWarning("{Kind}: its cron expression has no further times", task.Kind);
+            _logger.LogWarning("{Kind}: its cron expression has no further times", kindConfig.Kind);
             return ExitCodes.Success;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)

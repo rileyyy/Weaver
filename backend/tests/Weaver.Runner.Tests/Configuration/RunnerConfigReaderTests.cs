@@ -20,18 +20,18 @@ public class RunnerConfigReaderTests
     [Test]
     public void ACompleteTask_IsRead_WithDefaultsForTheOptionalSettings()
     {
-        var task = Read(Complete).For(TaskKind.WhenResolution)!;
+        var kindConfig = Read(Complete).For(TaskKind.WhenResolution)!;
 
         Assert.Multiple(() =>
         {
-            Assert.That(task.ModelEndpoint, Is.EqualTo(new Uri("http://ollama:11434/v1/")));
-            Assert.That(task.Model, Is.EqualTo("llama3.1:8b"));
-            Assert.That(task.ModelApiKey, Is.Null);
-            Assert.That(task.WeaverUrl, Is.EqualTo(new Uri("http://backend:8080/")));
-            Assert.That(task.AgentApiKey, Is.EqualTo("wvr_abc"));
-            Assert.That(task.JsonMode, Is.True);
-            Assert.That(task.ModelTimeout, Is.EqualTo(TimeSpan.FromMinutes(5)));
-            Assert.That(task.Schedule!.Next(new DateTimeOffset(2026, 11, 11, 10, 0, 0, TimeSpan.Zero)),
+            Assert.That(kindConfig.ModelEndpoint, Is.EqualTo(new Uri("http://ollama:11434/v1/")));
+            Assert.That(kindConfig.Model, Is.EqualTo("llama3.1:8b"));
+            Assert.That(kindConfig.ModelApiKey, Is.Null);
+            Assert.That(kindConfig.WeaverUrl, Is.EqualTo(new Uri("http://backend:8080/")));
+            Assert.That(kindConfig.AgentApiKey, Is.EqualTo("wvr_abc"));
+            Assert.That(kindConfig.JsonMode, Is.True);
+            Assert.That(kindConfig.ModelTimeout, Is.EqualTo(TimeSpan.FromMinutes(5)));
+            Assert.That(kindConfig.Schedule!.Next(new DateTimeOffset(2026, 11, 11, 10, 0, 0, TimeSpan.Zero)),
                 Is.EqualTo(new DateTimeOffset(2026, 11, 12, 2, 0, 0, TimeSpan.Zero)));
         });
     }
@@ -39,7 +39,7 @@ public class RunnerConfigReaderTests
     [Test]
     public void OptionalSettings_CanBeSet()
     {
-        var task = Read(With(new()
+        var kindConfig = Read(With(new()
         {
             ["Tasks:WhenResolution:ModelApiKey"] = "sk-test",
             ["Tasks:WhenResolution:JsonMode"] = "false",
@@ -48,18 +48,18 @@ public class RunnerConfigReaderTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(task.ModelApiKey, Is.EqualTo("sk-test"));
-            Assert.That(task.JsonMode, Is.False);
-            Assert.That(task.ModelTimeout, Is.EqualTo(TimeSpan.FromSeconds(30)));
+            Assert.That(kindConfig.ModelApiKey, Is.EqualTo("sk-test"));
+            Assert.That(kindConfig.JsonMode, Is.False);
+            Assert.That(kindConfig.ModelTimeout, Is.EqualTo(TimeSpan.FromSeconds(30)));
         });
     }
 
     [Test]
     public void WithoutACron_TheTaskCanOnlyBeRunOnDemand()
     {
-        var task = Read(With(new() { ["Tasks:WhenResolution:Cron"] = null })).For(TaskKind.WhenResolution)!;
+        var kindConfig = Read(With(new() { ["Tasks:WhenResolution:Cron"] = null })).For(TaskKind.WhenResolution)!;
 
-        Assert.That(task.Schedule, Is.Null);
+        Assert.That(kindConfig.Schedule, Is.Null);
     }
 
     [Test]

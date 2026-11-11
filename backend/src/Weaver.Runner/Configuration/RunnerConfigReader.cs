@@ -18,7 +18,7 @@ public static class RunnerConfigReader
     public static RunnerConfig Read(IConfiguration configuration)
     {
         var problems = new List<string>();
-        var tasks = new List<TaskConfig>();
+        var kindConfigs = new List<TaskConfig>();
         foreach (var section in configuration.GetSection("Tasks").GetChildren())
         {
             var kind = TaskKind.FromConfigKey(section.Key);
@@ -28,16 +28,16 @@ public static class RunnerConfigReader
                 continue;
             }
 
-            if (ReadTask(kind, section, problems) is { } task)
+            if (ReadKind(kind, section, problems) is { } kindConfig)
             {
-                tasks.Add(task);
+                kindConfigs.Add(kindConfig);
             }
         }
 
-        return problems.Count > 0 ? throw new RunnerConfigException(problems) : new RunnerConfig(tasks);
+        return problems.Count > 0 ? throw new RunnerConfigException(problems) : new RunnerConfig(kindConfigs);
     }
 
-    private static TaskConfig? ReadTask(TaskKind kind, IConfigurationSection section, List<string> problems)
+    private static TaskConfig? ReadKind(TaskKind kind, IConfigurationSection section, List<string> problems)
     {
         var problemsBefore = problems.Count;
         var modelEndpoint = RequiredUrl(section, "ModelEndpoint", problems);

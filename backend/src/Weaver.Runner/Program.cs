@@ -50,8 +50,8 @@ builder.Services.AddSingleton<ScheduleLoop>();
 
 if (command.Mode == RunnerMode.RunOnce)
 {
-    var task = config.For(command.Kind!);
-    if (task is null)
+    var kindConfig = config.For(command.Kind!);
+    if (kindConfig is null)
     {
         Console.Error.WriteLine($"Task kind {command.Kind} isn't configured: set Tasks:{command.Kind!.ConfigKey} in runner.json or the environment.");
         return ExitCodes.BadSetup;
@@ -63,7 +63,7 @@ if (command.Mode == RunnerMode.RunOnce)
     using var sigterm = PosixSignalRegistration.Create(PosixSignal.SIGTERM, Stop);
     try
     {
-        return await host.Services.GetRequiredService<TaskRunExecutor>().RunAsync(task, stop.Token);
+        return await host.Services.GetRequiredService<TaskRunExecutor>().RunAsync(kindConfig, stop.Token);
     }
     catch (OperationCanceledException) when (stop.IsCancellationRequested)
     {
@@ -79,7 +79,7 @@ if (command.Mode == RunnerMode.RunOnce)
 
 if (!config.Tasks.Any(t => t.Schedule is not null))
 {
-    Console.Error.WriteLine("No task kind has a Cron schedule. Set one, or use --run <kind> to run a task once.");
+    Console.Error.WriteLine("No task kind has a Cron schedule. Set one, or use --run <kind> to run a task kind once.");
     return ExitCodes.BadSetup;
 }
 

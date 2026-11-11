@@ -31,7 +31,7 @@ public class ScheduleLoopTests
     }
 
     [Test]
-    public async Task ATask_RunsAtEachScheduledTime_AndNotBefore()
+    public async Task ATaskKind_RunsAtEachScheduledTime_AndNotBefore()
     {
         var loop = StartLoop("0 3 * * *");
 
