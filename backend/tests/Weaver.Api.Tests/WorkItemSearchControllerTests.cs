@@ -31,6 +31,7 @@ public class WorkItemSearchControllerTests
             To = new DateOnly(2026, 11, 30),
             BacklogOnly = true,
             UnresolvedWhenOnly = true,
+            IncludeEdited = true,
             ScheduledOrInProgressOnly = true,
             ApplyDoneHiding = true,
             UpdatedSince = since,
@@ -44,7 +45,7 @@ public class WorkItemSearchControllerTests
             .Callback<WorkItemQuery, CancellationToken>((q, _) => received = q)
             .ReturnsAsync(new WorkItemQueryPage<WorkItem>([], "next"));
 
-        var result = await new WorkItemSearchController(service.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup())).Search(parameters);
+        var result = await new WorkItemSearchController(service.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup(), new FakeWorkItemWhenEdits())).Search(parameters);
 
         var page = (WorkItemPageDto)((OkObjectResult)result.Result!).Value!;
         Assert.Multiple(() =>
@@ -62,6 +63,7 @@ public class WorkItemSearchControllerTests
             Assert.That(received.To, Is.EqualTo(new DateOnly(2026, 11, 30)));
             Assert.That(received.BacklogOnly, Is.True);
             Assert.That(received.UnresolvedWhenOnly, Is.True);
+            Assert.That(received.IncludeEditedWhen, Is.True);
             Assert.That(received.ScheduledOrInProgressOnly, Is.True);
             Assert.That(received.ApplyDoneHiding, Is.True);
             Assert.That(received.UpdatedSince, Is.EqualTo(since));

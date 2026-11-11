@@ -18,7 +18,7 @@ public class WorkItemSpaceMoveControllerTests
     {
         _moves = new Mock<IWorkItemSpaceMoveService>(MockBehavior.Strict);
         _controller = new WorkItemSpaceMoveController(
-            _moves.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup()));
+            _moves.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup(), new FakeWorkItemWhenEdits()));
     }
 
     public static SpaceMovePlan MakePlan(Guid id, Guid targetSpaceId) => new(

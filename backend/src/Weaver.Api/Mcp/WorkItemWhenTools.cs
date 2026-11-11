@@ -31,6 +31,9 @@ public class WorkItemWhenTools(IWorkItemQueryService query)
         [Description("Only items whose status is in one of these categories: ToDo, Doing, Done. Omit for all of them.")] IReadOnlyList<StatusCategory>? statusCategories = null,
         [Description("The nextCursor from the previous page. Omit for the first page.")] string? cursor = null,
         [Description("Items per page, 1 to 1000. Defaults to 50.")] int limit = WorkItemQuery.DefaultLimit,
+        [Description("Also list items whose When a human edited after their dates were set: a request to " +
+            "resolve it again. They keep their old dates and come with whenEditedSinceResolved true. Replace " +
+            "their dates with reschedule_work_item; never remove their links.")] bool includeEdited = false,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
@@ -39,6 +42,7 @@ public class WorkItemWhenTools(IWorkItemQueryService query)
                     SpaceIds: spaceIds,
                     StatusCategories: statusCategories,
                     UnresolvedWhenOnly: true,
+                    IncludeEditedWhen: includeEdited,
                     Cursor: cursor,
                     Limit: limit),
                 ct);

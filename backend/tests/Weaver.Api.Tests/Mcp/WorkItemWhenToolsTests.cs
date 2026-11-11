@@ -46,6 +46,31 @@ public class WorkItemWhenToolsTests
             Assert.That(received.Cursor, Is.EqualTo("abc"));
             Assert.That(received.Limit, Is.EqualTo(5));
             Assert.That(received.IncludeDeleted, Is.False);
+            Assert.That(received.IncludeEditedWhen, Is.False);
+            Assert.That(item.WhenEditedSinceResolved, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task ListUnresolvedWhenItems_WithIncludeEdited_AsksForEditedItemsToo_AndMarksThem()
+    {
+        var summary = new WorkItemSummary(
+            Guid.NewGuid(), 12, "Paint the hall", Guid.NewGuid(), "Home", null, "To Do", null,
+            new DateOnly(2026, 11, 10), null, null, 0, When: "next summer", WhenEditedSinceResolved: true);
+        WorkItemQuery? received = null;
+        var service = new Mock<IWorkItemQueryService>(MockBehavior.Strict);
+        service
+            .Setup(s => s.QuerySummariesAsync(It.IsAny<WorkItemQuery>(), It.IsAny<CancellationToken>()))
+            .Callback<WorkItemQuery, CancellationToken>((q, _) => received = q)
+            .ReturnsAsync(new WorkItemQueryPage<WorkItemSummary>([summary], null));
+
+        var page = await new WorkItemWhenTools(service.Object).ListUnresolvedWhenItems(includeEdited: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(received!.UnresolvedWhenOnly, Is.True);
+            Assert.That(received.IncludeEditedWhen, Is.True);
+            Assert.That(page.Items.Single().WhenEditedSinceResolved, Is.True);
         });
     }
 

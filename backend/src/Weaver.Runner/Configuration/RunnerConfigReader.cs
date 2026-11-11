@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.Extensions.Configuration;
 using Weaver.Runner.Scheduling;
 using Weaver.Runner.Tasks;
+using Weaver.Runner.WhenResolution;
 
 namespace Weaver.Runner.Configuration;
 
@@ -46,8 +47,10 @@ public static class RunnerConfigReader
         var agentApiKey = Required(section, "AgentApiKey", problems);
         var timeZone = ReadTimeZone(section, problems);
         var schedule = ReadSchedule(section, timeZone, problems);
-        var jsonMode = ReadJsonMode(section, problems);
+        var jsonMode = ReadBool(section, "JsonMode", defaultValue: true, problems);
         var timeout = ReadModelTimeout(section, problems);
+        var whenResolution = new WhenResolutionOptions(
+            ReadBool(section, "ReplaceDatesWhenPhraseEdited", defaultValue: false, problems));
 
         return problems.Count > problemsBefore
             ? null
@@ -60,7 +63,10 @@ public static class RunnerConfigReader
                 agentApiKey!,
                 schedule,
                 jsonMode,
-                timeout);
+                timeout)
+            {
+                WhenResolution = whenResolution,
+            };
     }
 
     private static string? Optional(IConfigurationSection section, string key) =>
@@ -136,21 +142,21 @@ public static class RunnerConfigReader
         return schedule;
     }
 
-    private static bool ReadJsonMode(IConfigurationSection section, List<string> problems)
+    private static bool ReadBool(IConfigurationSection section, string key, bool defaultValue, List<string> problems)
     {
-        var value = Optional(section, "JsonMode");
+        var value = Optional(section, key);
         if (value is null)
         {
-            return true;
+            return defaultValue;
         }
 
-        if (!bool.TryParse(value, out var jsonMode))
+        if (!bool.TryParse(value, out var parsed))
         {
-            problems.Add($"{section.Path}:JsonMode must be true or false");
-            return true;
+            problems.Add($"{section.Path}:{key} must be true or false");
+            return defaultValue;
         }
 
-        return jsonMode;
+        return parsed;
     }
 
     private static TimeSpan ReadModelTimeout(IConfigurationSection section, List<string> problems)

@@ -25,6 +25,9 @@ internal sealed class FakeWeaverClient : IWeaverClient
 
     public List<DateWrite> DateWrites { get; } = [];
 
+    /// <summary>The includeEdited flag of each call listing unresolved items.</summary>
+    public List<bool> UnresolvedListings { get; } = [];
+
     public List<LinkWrite> LinkWrites { get; } = [];
 
     public HashSet<Guid> RejectWritesTo { get; } = [];
@@ -33,10 +36,16 @@ internal sealed class FakeWeaverClient : IWeaverClient
 
     public Exception? FailEveryCallWith { get; set; }
 
-    public WeaverWorkItem Add(string title, string? when = null, DateOnly? start = null, DateOnly? end = null, Guid? spaceId = null)
+    public WeaverWorkItem Add(
+        string title,
+        string? when = null,
+        DateOnly? start = null,
+        DateOnly? end = null,
+        Guid? spaceId = null,
+        bool editedSinceResolved = false)
     {
         var item = new WeaverWorkItem(
-            Guid.NewGuid(), Items.Count + 1, title, when, spaceId ?? Space, "Home", null, null, start, end, 7);
+            Guid.NewGuid(), Items.Count + 1, title, when, spaceId ?? Space, "Home", null, null, start, end, 7, editedSinceResolved);
         Items.Add(item);
         return item;
     }
@@ -48,8 +57,16 @@ internal sealed class FakeWeaverClient : IWeaverClient
     public Task<IReadOnlyList<QuickPickRange>> ListQuickPicksAsync(CancellationToken ct) =>
         Answer<IReadOnlyList<QuickPickRange>>(() => QuickPicks);
 
-    public Task<IReadOnlyList<WeaverWorkItem>> ListUnresolvedWhenItemsAsync(CancellationToken ct) =>
-        Answer<IReadOnlyList<WeaverWorkItem>>(() => Items.Where(i => i.When is not null).ToList());
+    /// <summary>
+    /// Every item with a When, dated and edited ones too even when Weaver wouldn't list them, so
+    /// tests show the run's own guard against overwriting dates.
+    /// </summary>
+    public Task<IReadOnlyList<WeaverWorkItem>> ListUnresolvedWhenItemsAsync(bool includeEdited, CancellationToken ct) =>
+        Answer<IReadOnlyList<WeaverWorkItem>>(() =>
+        {
+            UnresolvedListings.Add(includeEdited);
+            return Items.Where(i => i.When is not null).ToList();
+        });
 
     public Task<IReadOnlyList<WeaverWorkItem>> SearchOpenItemsAsync(string text, int limit, CancellationToken ct) =>
         Answer<IReadOnlyList<WeaverWorkItem>>(() =>
@@ -72,6 +89,14 @@ internal sealed class FakeWeaverClient : IWeaverClient
         {
             Reject(workItemId);
             DateWrites.Add(new DateWrite(workItemId, start, end, expectedVersion, actorLabel));
+            return true;
+        });
+
+    public Task ReplaceDatesAsync(Guid workItemId, DateOnly? start, DateOnly? end, uint expectedVersion, string actorLabel, CancellationToken ct) =>
+        Answer(() =>
+        {
+            Reject(workItemId);
+            DateWrites.Add(new DateWrite(workItemId, start, end, expectedVersion, actorLabel, Replaces: true));
             return true;
         });
 

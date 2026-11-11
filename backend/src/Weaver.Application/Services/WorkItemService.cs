@@ -37,7 +37,7 @@ public class WorkItemService(
         Guid? parentId,
         Guid? spaceId = null,
         CancellationToken ct = default) =>
-        await InRankOrder(ChildrenQuery(parentId, spaceId)).Summarize().ToListAsync(ct);
+        await InRankOrder(ChildrenQuery(parentId, spaceId)).Summarize(_db).ToListAsync(ct);
 
     public async Task<IReadOnlyList<WorkItemSummary>> GetAncestorSummariesAsync(Guid id, CancellationToken ct = default)
     {
@@ -48,7 +48,7 @@ public class WorkItemService(
                 .IgnoreQueryFilters()
                 .AsNoTracking()
                 .Where(w => chainIds.Contains(w.Id))
-                .Summarize()
+                .Summarize(_db)
                 .ToListAsync(ct))
             .ToDictionary(s => s.Id);
 
@@ -98,7 +98,7 @@ public class WorkItemService(
         int limit,
         Guid? spaceId = null,
         CancellationToken ct = default) =>
-        await AllPage(offset, limit, spaceId).Summarize().ToListAsync(ct);
+        await AllPage(offset, limit, spaceId).Summarize(_db).ToListAsync(ct);
 
     private IQueryable<WorkItem> AllPage(int offset, int limit, Guid? spaceId)
     {

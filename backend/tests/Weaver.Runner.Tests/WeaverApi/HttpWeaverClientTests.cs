@@ -32,7 +32,7 @@ public class HttpWeaverClientTests
             ? StubHttpHandler.Json($$"""{"items":[{{Item(second, 2)}}],"nextCursor":null}""")
             : StubHttpHandler.Json($$"""{"items":[{{Item(first, 1)}}],"nextCursor":"c1"}""");
 
-        var items = await _client.ListUnresolvedWhenItemsAsync(CancellationToken.None);
+        var items = await _client.ListUnresolvedWhenItemsAsync(includeEdited: false, CancellationToken.None);
 
         var queries = _handler.Requests.Select(r => r.Request.RequestUri!.PathAndQuery).ToList();
         Assert.Multiple(() =>
@@ -41,8 +41,27 @@ public class HttpWeaverClientTests
             Assert.That(queries[0], Does.StartWith("/api/work-items/search?")
                 .And.Contain("unresolvedWhenOnly=true")
                 .And.Contain("statusCategories=ToDo&statusCategories=Doing")
-                .And.Not.Contain("Done"));
+                .And.Not.Contain("Done")
+                .And.Not.Contain("includeEdited"));
             Assert.That(queries[1], Does.Contain("cursor=c1"));
+        });
+    }
+
+    [Test]
+    public async Task UnresolvedItems_WithIncludeEdited_AskForEditedItemsOnEveryPage_AndReadTheMark()
+    {
+        var id = Guid.NewGuid();
+        _handler.Respond = request => request.RequestUri!.Query.Contains("cursor=")
+            ? StubHttpHandler.Json($$"""{"items":[],"nextCursor":null}""")
+            : StubHttpHandler.Json($$"""{"items":[{{Item(id, 1, whenEditedSinceResolved: true)}}],"nextCursor":"c1"}""");
+
+        var items = await _client.ListUnresolvedWhenItemsAsync(includeEdited: true, CancellationToken.None);
+
+        var queries = _handler.Requests.Select(r => r.Request.RequestUri!.Query).ToList();
+        Assert.Multiple(() =>
+        {
+            Assert.That(items.Single().WhenEditedSinceResolved, Is.True);
+            Assert.That(queries, Has.All.Contain("unresolvedWhenOnly=true&includeEdited=true"));
         });
     }
 
@@ -52,7 +71,7 @@ public class HttpWeaverClientTests
         var id = Guid.NewGuid();
         _handler.Respond = _ => StubHttpHandler.Json($$"""{"items":[{{Item(id, 42)}}],"nextCursor":null}""");
 
-        var item = (await _client.ListUnresolvedWhenItemsAsync(CancellationToken.None)).Single();
+        var item = (await _client.ListUnresolvedWhenItemsAsync(includeEdited: false, CancellationToken.None)).Single();
 
         Assert.That(item, Is.EqualTo(new WeaverWorkItem(
             id, 42, "Paint", "after drywall", SpaceId, "Home", 40, "Kitchen", null, new DateOnly(2026, 12, 6), 9)));
@@ -120,6 +139,23 @@ public class HttpWeaverClientTests
     }
 
     [Test]
+    public async Task ReplaceDates_SendsBothDates_ClearingOneTheAnswerLeftOut()
+    {
+        var id = Guid.NewGuid();
+
+        await _client.ReplaceDatesAsync(id, new DateOnly(2027, 6, 20), null, 9, "Runner when-resolution, confidence high", CancellationToken.None);
+
+        var (request, body) = _handler.Requests.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(request.Method, Is.EqualTo(HttpMethod.Patch));
+            Assert.That(request.RequestUri!.AbsolutePath, Is.EqualTo($"/api/work-items/{id}/schedule"));
+            Assert.That(request.Headers.GetValues("X-Actor-Label"), Is.EqualTo(new[] { "Runner when-resolution, confidence high" }));
+            Assert.That(SameJson(body!, """{"startDate":"2027-06-20","endDate":null,"expectedVersion":9}"""), Is.True, body);
+        });
+    }
+
+    [Test]
     public async Task AddBlockedByLink_PostsABlockedByLink_WithTheActorLabel()
     {
         var id = Guid.NewGuid();
@@ -170,7 +206,7 @@ public class HttpWeaverClientTests
         {
             Assert.ThrowsAsync<WeaverUnavailableException>(() => _client.GetTodayAsync(CancellationToken.None));
             Assert.ThrowsAsync<WeaverUnavailableException>(() => _client.ListQuickPicksAsync(CancellationToken.None));
-            Assert.ThrowsAsync<WeaverUnavailableException>(() => _client.ListUnresolvedWhenItemsAsync(CancellationToken.None));
+            Assert.ThrowsAsync<WeaverUnavailableException>(() => _client.ListUnresolvedWhenItemsAsync(includeEdited: false, CancellationToken.None));
         });
     }
 
@@ -215,10 +251,11 @@ public class HttpWeaverClientTests
 
     private static readonly Guid SpaceId = Guid.NewGuid();
 
-    private static string Item(Guid id, int number) =>
+    private static string Item(Guid id, int number, bool whenEditedSinceResolved = false) =>
         $$"""
         {"id":"{{id}}","number":{{number}},"title":"Paint","when":"after drywall","spaceId":"{{SpaceId}}",
          "spaceName":"Home","parentId":"{{Guid.NewGuid()}}","parentNumber":40,"parentTitle":"Kitchen",
-         "startDate":null,"endDate":"2026-12-06","whenResolved":false,"version":9,"tags":[]}
+         "startDate":null,"endDate":"2026-12-06","whenResolved":false,
+         "whenEditedSinceResolved":{{(whenEditedSinceResolved ? "true" : "false")}},"version":9,"tags":[]}
         """;
 }

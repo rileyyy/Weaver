@@ -8,6 +8,8 @@ namespace Weaver.Application.Services;
 /// <see cref="ParentId"/> is null for a top-level item, and for a purged one, so a reader can
 /// rebuild the tree from a flat list of summaries. <see cref="When"/> is the item's When phrase,
 /// kept after it's resolved. <see cref="CompletionDate"/> is set while the item is Done.
+/// <see cref="WhenEditedSinceResolved"/> is set when a human edited the When after the item's
+/// dates were last set, asking for it to be resolved again (ticket 49).
 /// </summary>
 public sealed record WorkItemSummary(
     Guid Id,
@@ -24,4 +26,5 @@ public sealed record WorkItemSummary(
     int? ChildCount,
     DateTimeOffset? TrashedAtUtc = null,
     string? When = null,
-    DateOnly? CompletionDate = null);
+    DateOnly? CompletionDate = null,
+    bool WhenEditedSinceResolved = false);

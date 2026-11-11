@@ -52,7 +52,7 @@ internal static class ChangedWorkItemReader
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(w => itemIds.Contains(w.Id))
-            .Summarize()
+            .Summarize(db)
             .ToDictionaryAsync(s => s.Id, ct);
 
     /// <summary>

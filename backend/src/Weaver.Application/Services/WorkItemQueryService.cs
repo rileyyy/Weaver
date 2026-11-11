@@ -26,7 +26,7 @@ public class WorkItemQueryService(
     public async Task<WorkItemQueryPage<WorkItemSummary>> QuerySummariesAsync(WorkItemQuery query, CancellationToken ct = default)
     {
         var page = await PageAsync(query, ct);
-        var items = await page.Items.AsNoTracking().Summarize().ToListAsync(ct);
+        var items = await page.Items.AsNoTracking().Summarize(_db).ToListAsync(ct);
         return new WorkItemQueryPage<WorkItemSummary>(items, page.NextCursor);
     }
 
@@ -66,7 +66,7 @@ public class WorkItemQueryService(
         items = OfTypes(items, query.TypeIds);
         items = UpdatedSince(items, query.UpdatedSince);
         items = InBacklog(items, query.BacklogOnly);
-        items = WithUnresolvedWhen(items, query.UnresolvedWhenOnly);
+        items = WithUnresolvedWhen(items, query);
         items = await WithoutHiddenDoneAsync(items, query.ApplyDoneHiding, ct);
         return query.JudgesByDates ? await ByDatesAsync(items, query, ct) : items;
     }
@@ -140,15 +140,25 @@ public class WorkItemQueryService(
             ? items.Where(w => w.StartDate == null && w.EndDate == null && w.Status!.Category != StatusCategory.Done)
             : items;
 
-    private IQueryable<WorkItem> WithUnresolvedWhen(IQueryable<WorkItem> items, bool unresolvedWhenOnly)
+    private IQueryable<WorkItem> WithUnresolvedWhen(IQueryable<WorkItem> items, WorkItemQuery query)
     {
-        if (!unresolvedWhenOnly)
+        if (!query.UnresolvedWhenOnly)
         {
-            return items;
+            return query.IncludeEditedWhen
+                ? throw new DomainValidationException("Include edited only applies with unresolved When only.")
+                : items;
         }
 
         var blocked = _db.WorkItemLinks.BlockedIds();
-        return items.Where(WorkItem.WhenResolutionNeedsBlockersRule).Where(w => !blocked.Contains(w.Id));
+        if (!query.IncludeEditedWhen)
+        {
+            return items.Where(WorkItem.WhenResolutionNeedsBlockersRule).Where(w => !blocked.Contains(w.Id));
+        }
+
+        // As id sets so the two rules can be OR-ed; each follows the outer query's Trash filter.
+        var unresolved = _db.WorkItems.Where(WorkItem.WhenResolutionNeedsBlockersRule).Where(w => !blocked.Contains(w.Id)).Select(w => w.Id);
+        var edited = _db.WhenEditedSinceResolvedIds();
+        return items.Where(w => unresolved.Contains(w.Id) || edited.Contains(w.Id));
     }
 
     private static IQueryable<WorkItem> InSpaces(IQueryable<WorkItem> items, IReadOnlyList<Guid>? spaceIds) =>

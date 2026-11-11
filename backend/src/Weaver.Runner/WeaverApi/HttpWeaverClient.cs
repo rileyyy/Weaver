@@ -27,13 +27,14 @@ public sealed class HttpWeaverClient(HttpClient http, string agentApiKey) : IWea
     public Task<IReadOnlyList<QuickPickRange>> ListQuickPicksAsync(CancellationToken ct) =>
         ReadRunWideAsync<IReadOnlyList<QuickPickRange>>("api/quick-picks", ct);
 
-    public async Task<IReadOnlyList<WeaverWorkItem>> ListUnresolvedWhenItemsAsync(CancellationToken ct)
+    public async Task<IReadOnlyList<WeaverWorkItem>> ListUnresolvedWhenItemsAsync(bool includeEdited, CancellationToken ct)
     {
         var items = new List<WeaverWorkItem>();
+        var filter = includeEdited ? "unresolvedWhenOnly=true&includeEdited=true" : "unresolvedWhenOnly=true";
         string? cursor = null;
         do
         {
-            var query = $"api/work-items/search?unresolvedWhenOnly=true&{NotDone}&limit={PageSize}";
+            var query = $"api/work-items/search?{filter}&{NotDone}&limit={PageSize}";
             if (cursor is not null)
             {
                 query += $"&cursor={Uri.EscapeDataString(cursor)}";
@@ -75,6 +76,15 @@ public sealed class HttpWeaverClient(HttpClient http, string agentApiKey) : IWea
 
         return WriteAsync(HttpMethod.Patch, $"api/work-items/{workItemId}/schedule", body, actorLabel, ct);
     }
+
+    public Task ReplaceDatesAsync(
+        Guid workItemId, DateOnly? start, DateOnly? end, uint expectedVersion, string actorLabel, CancellationToken ct) =>
+        WriteAsync(
+            HttpMethod.Patch,
+            $"api/work-items/{workItemId}/schedule",
+            new { startDate = start, endDate = end, expectedVersion },
+            actorLabel,
+            ct);
 
     public Task AddBlockedByLinkAsync(Guid workItemId, Guid blockerId, string actorLabel, CancellationToken ct) =>
         WriteAsync(

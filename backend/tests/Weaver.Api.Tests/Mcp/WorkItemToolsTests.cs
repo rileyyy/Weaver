@@ -29,7 +29,7 @@ public class WorkItemToolsTests
         _tools = new WorkItemTools(
             _workItems.Object,
             _rollUps.Object,
-            new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup()),
+            new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup(), new FakeWorkItemWhenEdits()),
             new HttpCallerContext(new HttpContextAccessor()));
     }
 

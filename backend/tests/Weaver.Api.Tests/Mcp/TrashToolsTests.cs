@@ -22,7 +22,7 @@ public class TrashToolsTests
     public void SetUp()
     {
         _trash = new Mock<IWorkItemTrashService>(MockBehavior.Strict);
-        _tools = new TrashTools(_trash.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup()), new HttpCallerContext(new HttpContextAccessor()));
+        _tools = new TrashTools(_trash.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup(), new FakeWorkItemWhenEdits()), new HttpCallerContext(new HttpContextAccessor()));
     }
 
     private static McpServerToolAttribute ToolOf(string method) =>

@@ -231,8 +231,26 @@ public class WorkItemDtoMapperTests
         });
     }
 
+    [Test]
+    public async Task ToDtosAsync_MarksItemsWhoseWhenWasEditedSinceResolved_InOneLookup()
+    {
+        var edited = ItemWithWhen();
+        edited.Reschedule(new DateOnly(2026, 11, 9), null);
+        var other = ItemWithWhen();
+        var whenEdits = new FakeWorkItemWhenEdits(edited.Id);
+
+        var dtos = await new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup(), whenEdits)
+            .ToDtosAsync([edited, other]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(whenEdits.Requests.Single(), Is.EquivalentTo(new[] { edited.Id, other.Id }));
+            Assert.That(dtos.Select(d => d.WhenEditedSinceResolved), Is.EqualTo(new[] { true, false }));
+        });
+    }
+
     private static WorkItemDtoMapper Mapper(IWorkItemBlockers blockers, IWorkItemNameLookup? names = null) =>
-        new(blockers, names ?? new FakeWorkItemNameLookup());
+        new(blockers, names ?? new FakeWorkItemNameLookup(), new FakeWorkItemWhenEdits());
 
     private static WorkItem NewItem() => TestWorkItems.Create("Paint");
 
