@@ -41,10 +41,11 @@ public class WorkItemLinkTools(IWorkItemLinkService links, HttpCallerContext cal
         [Description("Id of the work item to link it to.")] Guid targetWorkItemId,
         [Description(TypeDescription)] WorkItemLinkRelation type,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
-            _caller.UseActorLabel(actorLabel);
+            _caller.UseAttribution(actorLabel, runId);
             var link = await _links.CreateAsync(workItemId, targetWorkItemId, type, ct);
             return WorkItemLinkDto.FromView(link);
         });
@@ -54,10 +55,11 @@ public class WorkItemLinkTools(IWorkItemLinkService links, HttpCallerContext cal
     public Task DeleteWorkItemLink(
         [Description("The link's id, from list_work_item_links.")] Guid id,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(() =>
         {
-            _caller.UseActorLabel(actorLabel);
+            _caller.UseAttribution(actorLabel, runId);
             return _links.DeleteAsync(id, ct);
         });
 }

@@ -13,6 +13,7 @@ public class WorkItemHistoryEntryConfiguration : IEntityTypeConfiguration<WorkIt
         builder.Property(e => e.Id).UseIdentityAlwaysColumn();
         builder.Property(e => e.Field).IsRequired().HasMaxLength(50);
         builder.Property(e => e.ActorLabel).HasMaxLength(HistoryActor.ActorLabelMaxLength);
+        builder.Property(e => e.RunId).HasMaxLength(HistoryActor.RunIdMaxLength);
         builder.Property(e => e.OldValue).HasColumnType("jsonb");
         builder.Property(e => e.NewValue).HasColumnType("jsonb");
 
@@ -21,6 +22,9 @@ public class WorkItemHistoryEntryConfiguration : IEntityTypeConfiguration<WorkIt
 
         // "Changes since T" (ticket 31) reads across every item by time.
         builder.HasIndex(e => e.CreatedAtUtc);
+
+        // Run reports (ticket 50) group by run. Most entries have none, so only those that do are indexed.
+        builder.HasIndex(e => e.RunId).HasFilter("\"RunId\" IS NOT NULL");
 
         // Restrict, like a comment's author: an account (or an agent's key) with history can't
         // be hard-deleted, only deactivated or revoked, so "who" never silently disappears.

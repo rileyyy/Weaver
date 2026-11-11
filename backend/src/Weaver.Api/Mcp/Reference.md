@@ -94,6 +94,10 @@ purge it.
 test-writer"). History records it, so sub-agents sharing one connection can be
 told apart.
 
+**Run id.** Optional text you send with every write of one unattended run (e.g.
+a GUID made when the run starts), at most 100 characters. History records it,
+and admins review each run's changes together.
+
 ## Conventions
 
 - **Ids and Numbers.** Tools take ids (GUIDs). Only `get_work_item`,

@@ -6,8 +6,8 @@
 
 **Status:** needs-triage
 
-- [ ] MCP write tools take an optional `runId` argument and REST writes accept an `X-Agent-Run` header, carried the same way as the actor label
-- [ ] History stores the run id in a new nullable column, and history DTOs return it
+- [x] MCP write tools take an optional `runId` argument and REST writes accept an `X-Agent-Run` header, carried the same way as the actor label
+- [x] History stores the run id in a new nullable column, and history DTOs return it
 - [ ] An admin-only endpoint lists runs (agent account, key, run id, first and last change, number of changes), newest first, paged
 - [ ] The Admin page has a Runs view: one collapsed row per run showing agent and date, expanding to the changes (item, field, old → new, actor label)
 - [ ] The runner (ticket 46) generates one run id per run and sends it on every write

@@ -8,16 +8,20 @@ namespace Weaver.Api.Auth;
 /// the same request pipeline, so this one mapping serves both.
 /// </summary>
 /// <remarks>
-/// The actor label comes from the <see cref="ActorLabelHeader"/> header on REST writes. MCP
-/// tools take it as an argument instead, because a client sets its headers once per
-/// connection, not per call, and pass it on with <see cref="UseActorLabel"/>.
+/// The actor label and run id come from the <see cref="ActorLabelHeader"/> and
+/// <see cref="RunIdHeader"/> headers on REST writes. MCP tools take them as arguments instead,
+/// because a client sets its headers once per connection, not per call, and pass them on with
+/// <see cref="UseAttribution"/>. An argument left out falls back to the header, so an MCP
+/// client may still set either one for its whole connection.
 /// </remarks>
 public sealed class HttpCallerContext(IHttpContextAccessor httpContextAccessor) : ICallerContext
 {
     public const string ActorLabelHeader = "X-Actor-Label";
+    public const string RunIdHeader = "X-Agent-Run";
 
     private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
     private string? _actorLabel;
+    private string? _runId;
 
     public Caller Current
     {
@@ -25,15 +29,20 @@ public sealed class HttpCallerContext(IHttpContextAccessor httpContextAccessor) 
         {
             var httpContext = _httpContextAccessor.HttpContext ?? throw new InvalidAccessTokenException();
             var principal = httpContext.User;
-            var actorLabel = _actorLabel ?? httpContext.Request.Headers[ActorLabelHeader].FirstOrDefault();
+            var headers = httpContext.Request.Headers;
             return new Caller(
                 principal.GetUserId(),
                 principal.GetApiKeyId(),
-                actorLabel,
-                principal.GetApiKeyScope());
+                _actorLabel ?? headers[ActorLabelHeader].FirstOrDefault(),
+                principal.GetApiKeyScope(),
+                _runId ?? headers[RunIdHeader].FirstOrDefault());
         }
     }
 
-    /// <summary>Sets the label for the rest of this request, over any header.</summary>
-    public void UseActorLabel(string? actorLabel) => _actorLabel = actorLabel;
+    /// <summary>Sets the actor label and run id for the rest of this request, over any header.</summary>
+    public void UseAttribution(string? actorLabel, string? runId)
+    {
+        _actorLabel = actorLabel;
+        _runId = runId;
+    }
 }

@@ -234,7 +234,7 @@ public class WorkItemContextToolsTests
     }
 
     private WorkItemHistoryView HistoryEntry(long id) =>
-        new(id, _item.Id, DateTimeOffset.UnixEpoch, null, null, null, null, null, null, "title", null, null, null, null, null);
+        new(id, _item.Id, DateTimeOffset.UnixEpoch, null, null, null, null, null, null, null, "title", null, null, null, null, null);
 
     private static WorkItemSummary Summary(string title) =>
         new(Guid.NewGuid(), 7, title, Guid.NewGuid(), "Home", null, "To Do", "Task", null, null, null, 1);

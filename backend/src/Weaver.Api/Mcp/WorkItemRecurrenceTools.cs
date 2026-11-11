@@ -45,10 +45,11 @@ public class WorkItemRecurrenceTools(IWorkItemRecurrenceService recurrences, Htt
         [Description("First date the schedule can fall on (yyyy-MM-dd).")] DateOnly startDate,
         [Description("Last date the schedule can fall on (yyyy-MM-dd). Omit to repeat indefinitely.")] DateOnly? endDate,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
-            _caller.UseActorLabel(actorLabel);
+            _caller.UseAttribution(actorLabel, runId);
             var recurrence = await _recurrences.SetAsync(workItemId, frequency, daysOfWeek ?? [], startDate, endDate, ct);
             return WorkItemRecurrenceDto.FromModel(recurrence);
         });
@@ -58,10 +59,11 @@ public class WorkItemRecurrenceTools(IWorkItemRecurrenceService recurrences, Htt
     public Task RemoveWorkItemRecurrence(
         [Description("The work item's id.")] Guid workItemId,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(() =>
         {
-            _caller.UseActorLabel(actorLabel);
+            _caller.UseAttribution(actorLabel, runId);
             return _recurrences.RemoveAsync(workItemId, ct);
         });
 }

@@ -12,7 +12,8 @@ namespace Weaver.Api.Contracts;
 /// that field has in the API; <see cref="OldName"/>/<see cref="NewName"/> name an id value
 /// (a status, user or other item) while it still exists. A custom field's changes go by
 /// <c>fields.&lt;fieldId&gt;</c>, with <see cref="FieldName"/> its current name (null for other
-/// fields, or a field since removed). A null account is Weaver itself.
+/// fields, or a field since removed). A null account is Weaver itself. <see cref="RunId"/> groups
+/// the changes one agent run made (ADR-0010).
 /// </summary>
 /// <remarks>
 /// The values are written even when null, including over MCP, which otherwise leaves nulls out:
@@ -29,6 +30,7 @@ public record WorkItemHistoryEntryDto(
     Guid? ApiKeyId,
     string? ApiKeyLabel,
     string? ActorLabel,
+    string? RunId,
     string Field,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] JsonElement? OldValue,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] JsonElement? NewValue,
@@ -46,6 +48,7 @@ public record WorkItemHistoryEntryDto(
         view.ApiKeyId,
         view.ApiKeyLabel,
         view.ActorLabel,
+        view.RunId,
         view.Field,
         view.OldValue,
         view.NewValue,

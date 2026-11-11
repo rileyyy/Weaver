@@ -45,7 +45,7 @@ public class McpJsonSerializerOptionsTests
     public void AHistoryEntrysValues_StayEvenWhenNull()
     {
         var cleared = new WorkItemHistoryEntryDto(
-            1, Guid.NewGuid(), DateTimeOffset.UnixEpoch, null, null, null, null, null, null,
+            1, Guid.NewGuid(), DateTimeOffset.UnixEpoch, null, null, null, null, null, null, null,
             "description", JsonDocument.Parse("\"Old text\"").RootElement, NewValue: null, null, null, null);
 
         var json = Serialize(cleared);

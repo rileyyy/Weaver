@@ -28,10 +28,11 @@ public class CommentTools(ICommentService comments, HttpCallerContext caller)
         [Description("The work item's id.")] Guid workItemId,
         [Description("The comment's text.")] string body,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
-            _caller.UseActorLabel(actorLabel);
+            _caller.UseAttribution(actorLabel, runId);
             var comment = await _comments.CreateAsync(workItemId, body, ct);
             return CommentDto.FromView(comment);
         });
@@ -42,10 +43,11 @@ public class CommentTools(ICommentService comments, HttpCallerContext caller)
         [Description("The comment's id.")] Guid id,
         [Description("The comment's new text.")] string body,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
-            _caller.UseActorLabel(actorLabel);
+            _caller.UseAttribution(actorLabel, runId);
             var comment = await _comments.UpdateAsync(id, body, ct);
             return CommentDto.FromView(comment);
         });
@@ -55,10 +57,11 @@ public class CommentTools(ICommentService comments, HttpCallerContext caller)
     public Task DeleteComment(
         [Description("The comment's id.")] Guid id,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(() =>
         {
-            _caller.UseActorLabel(actorLabel);
+            _caller.UseAttribution(actorLabel, runId);
             return _comments.DeleteAsync(id, ct);
         });
 }

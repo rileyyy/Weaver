@@ -27,10 +27,11 @@ public class TrashTools(IWorkItemTrashService trash, WorkItemDtoMapper dtos, Htt
         [Description("Must be true to delete a work item that has children; this also deletes the entire subtree.")] bool cascade = false,
         [Description(ExpectedVersionArgument.Description)] uint? expectedVersion = null,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(() =>
         {
-            _caller.UseActorLabel(actorLabel);
+            _caller.UseAttribution(actorLabel, runId);
             return _trash.MoveToTrashAsync(id, cascade, expectedVersion, ct);
         });
 
@@ -55,10 +56,11 @@ public class TrashTools(IWorkItemTrashService trash, WorkItemDtoMapper dtos, Htt
     public Task<WorkItemDto> RestoreWorkItem(
         [Description("The deleted work item's id, from list_trash.")] Guid id,
         [Description(ActorLabelArgument.Description)] string? actorLabel = null,
+        [Description(RunIdArgument.Description)] string? runId = null,
         CancellationToken ct = default) =>
         McpExceptionTranslation.TranslateAsync(async () =>
         {
-            _caller.UseActorLabel(actorLabel);
+            _caller.UseAttribution(actorLabel, runId);
             return await _dtos.ToDtoAsync(await _trash.RestoreAsync(id, ct), ct);
         });
 }

@@ -617,6 +617,10 @@ namespace Weaver.Infrastructure.Migrations
                     b.Property<string>("OldValue")
                         .HasColumnType("jsonb");
 
+                    b.Property<string>("RunId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<Guid>("WorkItemId")
                         .HasColumnType("uuid");
 
@@ -627,6 +631,9 @@ namespace Weaver.Infrastructure.Migrations
                     b.HasIndex("ApiKeyId");
 
                     b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("RunId")
+                        .HasFilter("\"RunId\" IS NOT NULL");
 
                     b.HasIndex("WorkItemId", "Id");
 
