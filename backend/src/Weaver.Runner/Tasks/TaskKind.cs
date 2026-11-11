@@ -9,7 +9,10 @@ public sealed record TaskKind(string CommandName, string ConfigKey)
 {
     public static readonly TaskKind WhenResolution = new("when-resolution", "WhenResolution");
 
-    public static IReadOnlyList<TaskKind> All { get; } = [WhenResolution];
+    /// <summary>Answers the agent account's pending <c>@</c> mentions in comments (ticket 51).</summary>
+    public static readonly TaskKind Mentions = new("mentions", "Mentions");
+
+    public static IReadOnlyList<TaskKind> All { get; } = [WhenResolution, Mentions];
 
     public static TaskKind? FromCommandName(string name) =>
         All.FirstOrDefault(k => string.Equals(k.CommandName, name, StringComparison.OrdinalIgnoreCase));

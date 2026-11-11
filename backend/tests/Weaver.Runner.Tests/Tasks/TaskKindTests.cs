@@ -15,6 +15,16 @@ public class TaskKindTests
     public void FromConfigKey_FindsTheKind_IgnoringCase(string key) =>
         Assert.That(TaskKind.FromConfigKey(key), Is.SameAs(TaskKind.WhenResolution));
 
+    [Test]
+    public void Mentions_IsFoundByItsCommandNameAndConfigKey()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(TaskKind.FromCommandName("mentions"), Is.SameAs(TaskKind.Mentions));
+            Assert.That(TaskKind.FromConfigKey("Mentions"), Is.SameAs(TaskKind.Mentions));
+        });
+    }
+
     [TestCase("")]
     [TestCase("when")]
     [TestCase("WhenResolution")]

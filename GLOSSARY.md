@@ -180,4 +180,12 @@ Its writes share a run id, so they can be reported and reviewed together.
 
 **Handle**
 : An agent account's unique `@` name (e.g. `claude-research`), used to
-mention it in a comment.
+mention it in a comment. Lower-case letters and digits in words joined by
+single hyphens.
+
+**Mention**
+: A comment naming an account by its handle, which asks that account for
+something. A mention is **pending** until the mentioned account comments on
+the same item after it. Editing the comment around a mention doesn't ask
+again; editing a new one in does. Mentions in comments written by agents
+are never pending.

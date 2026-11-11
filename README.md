@@ -44,7 +44,8 @@ the API.
   priority, assignee, status, schedule, sub-items, and a sequential `#N`
   number.
 - **Tags, comments and links.** Free-text tags; comments editable by their
-  author; typed links between work items (related, blocks, duplicates),
+  author, and able to ask an agent for something by `@`-mentioning its
+  handle; typed links between work items (related, blocks, duplicates),
   across Spaces, and URL links to things outside Weaver.
 - **Attachments.** Files attached to a work item from its detail dialog,
   to download or delete later. They're kept on their own storage path,
@@ -391,9 +392,11 @@ backend stopped, owned by uid 1654.
 ### The agent runner (optional)
 
 `weaver-runner` does agent work on a schedule without anyone starting it
-([ADR-0010](docs/adr/0010-agent-runner.md)). Its one task kind so far,
-`when-resolution`, turns unresolved When phrases into dates or blocked-by
-links using a model you choose, e.g. a small local one in Ollama. Weaver
+([ADR-0010](docs/adr/0010-agent-runner.md)). It has two task kinds:
+`when-resolution` turns unresolved When phrases into dates or blocked-by
+links, and `mentions` answers comments that `@`-mention its agent account
+(see below). Each uses a model you choose, e.g. a small local one in
+Ollama for When resolution and a larger hosted one for mentions. Weaver
 never calls a model: the runner reads and writes through the REST API
 with an agent key like any other agent, and Weaver stores none of the
 runner's settings.
@@ -460,6 +463,29 @@ unless-stopped`); it waits for the next scheduled time after a restart.
 
 Each write's history carries the actor label `Runner when-resolution,
 confidence <low|medium|high>`, the model's own confidence in that answer.
+Every write in one run also carries the same run id, so the Admin page's
+**Runs** tab shows each run's changes together.
+
+**Answering `@` mentions.** Give the task kind's agent account a
+**handle** on the Agents tab (e.g. `claude-research`); people then ask it
+for something by mentioning it in a comment ("@claude-research find three
+quotes for this"), and the comment box suggests handles as they type.
+Choosing the handle chooses the model, since each agent account is
+configured with its own. Configure it like When resolution, under
+`Tasks:Mentions` (`Tasks__Mentions__*`), and run it on demand with
+`--run mentions`.
+
+Each run lists the agent's pending mentions: comments that mention it and
+that it hasn't replied to on the same item since. For each, the model sees
+the item and its comments up to the request, and may only add: sub-items,
+URL links, and dates on an item that has none. A request that needs an
+existing value changed gets a reply proposing the change instead. The
+runner always replies, even to say it couldn't help (a bad answer, or a
+prompt the model turned down), because the reply is what clears the
+mention; the reply lists what was added and anything Weaver refused.
+Mentions in comments written by agents are never pending, so agents can't
+set each other off in a loop. Its writes carry the actor label `Runner
+mentions`.
 
 ## Connecting an MCP client
 

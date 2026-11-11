@@ -98,7 +98,7 @@ public class RunnerConfigReaderTests
     {
         var error = Assert.Throws<RunnerConfigException>(() => Read(With(new() { ["Tasks:Research:Model"] = "x" })))!;
 
-        Assert.That(error.Problems, Is.EqualTo(new[] { "Tasks:Research isn't a task kind; known: WhenResolution" }));
+        Assert.That(error.Problems, Is.EqualTo(new[] { "Tasks:Research isn't a task kind; known: WhenResolution, Mentions" }));
     }
 
     private static Dictionary<string, string?> With(Dictionary<string, string?> overrides)

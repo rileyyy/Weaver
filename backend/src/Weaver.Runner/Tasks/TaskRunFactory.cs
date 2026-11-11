@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Weaver.Runner.Configuration;
+using Weaver.Runner.Mentions;
 using Weaver.Runner.Model;
 using Weaver.Runner.WeaverApi;
 using Weaver.Runner.WhenResolution;
@@ -22,11 +23,14 @@ public sealed class TaskRunFactory : ITaskRunFactory, IDisposable
     /// <summary>Recycles connections so a long-running runner notices a model or Weaver moving to a new address.</summary>
     private static readonly TimeSpan ConnectionLifetime = TimeSpan.FromMinutes(15);
 
-    private static readonly IReadOnlyDictionary<TaskKind, Func<IWeaverClient, IModelClient, ILoggerFactory, ITaskRun>> Runs =
-        new Dictionary<TaskKind, Func<IWeaverClient, IModelClient, ILoggerFactory, ITaskRun>>
+    /// <summary>Each run gets a new Weaver client over the kind's shared HTTP client, so each run has its own run id.</summary>
+    private static readonly IReadOnlyDictionary<TaskKind, Func<HttpClient, string, IModelClient, ILoggerFactory, ITaskRun>> Runs =
+        new Dictionary<TaskKind, Func<HttpClient, string, IModelClient, ILoggerFactory, ITaskRun>>
         {
-            [TaskKind.WhenResolution] = (weaver, model, loggers) =>
-                new WhenResolutionRun(weaver, model, loggers.CreateLogger<WhenResolutionRun>()),
+            [TaskKind.WhenResolution] = (weaverHttp, agentApiKey, model, loggers) =>
+                new WhenResolutionRun(new HttpWeaverClient(weaverHttp, agentApiKey), model, loggers.CreateLogger<WhenResolutionRun>()),
+            [TaskKind.Mentions] = (weaverHttp, agentApiKey, model, loggers) =>
+                new MentionsRun(new HttpMentionsWeaverClient(weaverHttp, agentApiKey), model, loggers.CreateLogger<MentionsRun>()),
         };
 
     private readonly ILoggerFactory _loggers;
@@ -54,9 +58,8 @@ public sealed class TaskRunFactory : ITaskRunFactory, IDisposable
         var (weaverHttp, modelHttp) = _clients.GetOrAdd(config.Kind, _ => (
             _newClient(config.WeaverUrl, WeaverTimeout),
             _newClient(config.ModelEndpoint, config.ModelTimeout)));
-        var weaver = new HttpWeaverClient(weaverHttp, config.AgentApiKey);
         var model = new OpenAiCompatibleModelClient(modelHttp, config.Model, config.ModelApiKey, config.JsonMode);
-        return newRun(weaver, model, _loggers);
+        return newRun(weaverHttp, config.AgentApiKey, model, _loggers);
     }
 
     public void Dispose()
