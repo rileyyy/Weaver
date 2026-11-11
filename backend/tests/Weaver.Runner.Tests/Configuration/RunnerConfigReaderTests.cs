@@ -31,6 +31,7 @@ public class RunnerConfigReaderTests
             Assert.That(kindConfig.AgentApiKey, Is.EqualTo("wvr_abc"));
             Assert.That(kindConfig.JsonMode, Is.True);
             Assert.That(kindConfig.ModelTimeout, Is.EqualTo(TimeSpan.FromMinutes(5)));
+            Assert.That(kindConfig.WhenResolution.ReplaceDatesWhenPhraseEdited, Is.False);
             Assert.That(kindConfig.Schedule!.Next(new DateTimeOffset(2026, 11, 11, 10, 0, 0, TimeSpan.Zero)),
                 Is.EqualTo(new DateTimeOffset(2026, 11, 12, 2, 0, 0, TimeSpan.Zero)));
         });
@@ -44,6 +45,7 @@ public class RunnerConfigReaderTests
             ["Tasks:WhenResolution:ModelApiKey"] = "sk-test",
             ["Tasks:WhenResolution:JsonMode"] = "false",
             ["Tasks:WhenResolution:ModelTimeoutSeconds"] = "30",
+            ["Tasks:WhenResolution:ReplaceDatesWhenPhraseEdited"] = "true",
         })).For(TaskKind.WhenResolution)!;
 
         Assert.Multiple(() =>
@@ -51,6 +53,7 @@ public class RunnerConfigReaderTests
             Assert.That(kindConfig.ModelApiKey, Is.EqualTo("sk-test"));
             Assert.That(kindConfig.JsonMode, Is.False);
             Assert.That(kindConfig.ModelTimeout, Is.EqualTo(TimeSpan.FromSeconds(30)));
+            Assert.That(kindConfig.WhenResolution.ReplaceDatesWhenPhraseEdited, Is.True);
         });
     }
 
@@ -78,6 +81,7 @@ public class RunnerConfigReaderTests
             ["Tasks:WhenResolution:TimeZone"] = "Mars/Olympus",
             ["Tasks:WhenResolution:ModelTimeoutSeconds"] = "0",
             ["Tasks:WhenResolution:JsonMode"] = "maybe",
+            ["Tasks:WhenResolution:ReplaceDatesWhenPhraseEdited"] = "sometimes",
         }))!;
 
         Assert.That(error.Problems, Is.EquivalentTo(new[]
@@ -90,6 +94,7 @@ public class RunnerConfigReaderTests
             "Tasks:WhenResolution:TimeZone isn't a known time zone: Mars/Olympus",
             "Tasks:WhenResolution:ModelTimeoutSeconds must be a whole number above 0",
             "Tasks:WhenResolution:JsonMode must be true or false",
+            "Tasks:WhenResolution:ReplaceDatesWhenPhraseEdited must be true or false",
         }));
     }
 

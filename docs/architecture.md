@@ -1211,6 +1211,13 @@ with an agent key, so it can't do anything that key couldn't.
   start of the run, so a human edit made mid-run makes Weaver refuse the
   write. Dates go before the link, so a refused date write means the link
   is never added either. The runner has no call that removes anything.
+- **The one replacement** (ticket 49, opt-in with
+  `ReplaceDatesWhenPhraseEdited`): the run then lists with
+  `includeEdited=true`, and an item Weaver marks
+  `whenEditedSinceResolved` may have its dates replaced. A replacement
+  sends both dates (`ReplaceDatesAsync`), so an old date the answer left
+  out is cleared rather than kept in a mismatched range. Any other dated
+  item is still skipped by the run itself, whatever Weaver listed.
 - **Two kinds of failure.** An unreachable model, an unreachable Weaver,
   a refused key or a server error stops the run (exit code 1), since every
   later item would fail the same way. A read or write Weaver turns down

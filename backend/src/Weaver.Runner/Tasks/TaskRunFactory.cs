@@ -22,11 +22,11 @@ public sealed class TaskRunFactory : ITaskRunFactory, IDisposable
     /// <summary>Recycles connections so a long-running runner notices a model or Weaver moving to a new address.</summary>
     private static readonly TimeSpan ConnectionLifetime = TimeSpan.FromMinutes(15);
 
-    private static readonly IReadOnlyDictionary<TaskKind, Func<IWeaverClient, IModelClient, ILoggerFactory, ITaskRun>> Runs =
-        new Dictionary<TaskKind, Func<IWeaverClient, IModelClient, ILoggerFactory, ITaskRun>>
+    private static readonly IReadOnlyDictionary<TaskKind, Func<TaskConfig, IWeaverClient, IModelClient, ILoggerFactory, ITaskRun>> Runs =
+        new Dictionary<TaskKind, Func<TaskConfig, IWeaverClient, IModelClient, ILoggerFactory, ITaskRun>>
         {
-            [TaskKind.WhenResolution] = (weaver, model, loggers) =>
-                new WhenResolutionRun(weaver, model, loggers.CreateLogger<WhenResolutionRun>()),
+            [TaskKind.WhenResolution] = (config, weaver, model, loggers) =>
+                new WhenResolutionRun(weaver, model, loggers.CreateLogger<WhenResolutionRun>(), config.WhenResolution),
         };
 
     private readonly ILoggerFactory _loggers;
@@ -56,7 +56,7 @@ public sealed class TaskRunFactory : ITaskRunFactory, IDisposable
             _newClient(config.ModelEndpoint, config.ModelTimeout)));
         var weaver = new HttpWeaverClient(weaverHttp, config.AgentApiKey);
         var model = new OpenAiCompatibleModelClient(modelHttp, config.Model, config.ModelApiKey, config.JsonMode);
-        return newRun(weaver, model, _loggers);
+        return newRun(config, weaver, model, _loggers);
     }
 
     public void Dispose()
