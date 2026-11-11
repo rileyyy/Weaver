@@ -41,6 +41,12 @@ public sealed class WorkItemSearchParameters
     public bool UnresolvedWhenOnly { get; init; }
 
     /// <summary>
+    /// With <see cref="UnresolvedWhenOnly"/>, also list items whose When a human edited after
+    /// their dates were last set, each with <c>whenEditedSinceResolved</c> true. Rejected alone.
+    /// </summary>
+    public bool IncludeEdited { get; init; }
+
+    /// <summary>
     /// Overview's rule: only items in a Doing status or with dates in the window (any dated item
     /// with no window), plus their undated ancestors.
     /// </summary>
@@ -73,6 +79,7 @@ public sealed class WorkItemSearchParameters
         To: To,
         BacklogOnly: BacklogOnly,
         UnresolvedWhenOnly: UnresolvedWhenOnly,
+        IncludeEditedWhen: IncludeEdited,
         ScheduledOrInProgressOnly: ScheduledOrInProgressOnly,
         ApplyDoneHiding: ApplyDoneHiding,
         UpdatedSince: UpdatedSince,

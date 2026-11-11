@@ -704,13 +704,23 @@ and MCP `search_work_items` (`WorkItemSummary`s). Views store its inputs
 
 - **Inputs** (`WorkItemQuery`): Spaces, text, `number`, status
   categories, assignee, tags with `tagMatch` `Any` or `All`, Types, a
-  `from`/`to` date window, `backlogOnly`, `unresolvedWhenOnly`,
-  `applyDoneHiding` (see
+  `from`/`to` date window, `backlogOnly`, `unresolvedWhenOnly` (with
+  `includeEdited`, see below), `applyDoneHiding` (see
   [Completion date](#completion-date-and-done-hiding)), `updatedSince`
   and `includeDeleted`. Each input
   left out applies no filter, the ones given AND together, and a list
   input matches any of its values. Over REST a list repeats its key
   (`?tags=a&tags=b`).
+- **Edited since resolved** (ticket 49, ADR-0010's one exception): an
+  item whose When a human edited after its start or end date last
+  changed keeps its dates, so it stays on the Board, and is marked
+  `whenEditedSinceResolved` on every `WorkItemDto` and summary.
+  `WhenEditsSinceResolved` is the one rule, worked out from history (by
+  entry id, so it never depends on clock ties): only a human account's
+  When edit counts, and an item with no dates never qualifies, so a
+  When resolved by a blocked-by link alone is left to a human.
+  `includeEdited` (REST, and `list_unresolved_when_items` over MCP) adds
+  these items to `unresolvedWhenOnly`; on its own it's rejected.
 - **`#123` resolves directly**: text that is just `#` and digits looks up
   that Number instead of searching.
 - **Text search is Postgres full-text search** with the `simple`

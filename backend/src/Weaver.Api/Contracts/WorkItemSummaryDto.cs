@@ -8,6 +8,8 @@ namespace Weaver.Api.Contracts;
 /// the Trash. <see cref="ParentId"/> is null for a top-level item. Full detail comes from
 /// <c>get_work_item</c>. <see cref="When"/> is the item's When phrase, which stays after it's
 /// resolved. <see cref="CompletionDate"/> is the day the item was finished, set while it's Done.
+/// <see cref="WhenEditedSinceResolved"/> is true when a human edited the When after the item's
+/// dates were last set: its dates are kept until an agent resolves it again.
 /// </summary>
 public record WorkItemSummaryDto(
     Guid Id,
@@ -24,7 +26,8 @@ public record WorkItemSummaryDto(
     int? ChildCount,
     DateTimeOffset? TrashedAtUtc,
     string? When,
-    DateOnly? CompletionDate)
+    DateOnly? CompletionDate,
+    bool WhenEditedSinceResolved)
 {
     public static WorkItemSummaryDto FromSummary(WorkItemSummary summary) => new(
         summary.Id,
@@ -41,7 +44,8 @@ public record WorkItemSummaryDto(
         summary.ChildCount,
         summary.TrashedAtUtc,
         summary.When,
-        summary.CompletionDate);
+        summary.CompletionDate,
+        summary.WhenEditedSinceResolved);
 
     public static IReadOnlyList<WorkItemSummaryDto> FromSummaries(IEnumerable<WorkItemSummary> summaries) =>
         summaries.Select(FromSummary).ToList();

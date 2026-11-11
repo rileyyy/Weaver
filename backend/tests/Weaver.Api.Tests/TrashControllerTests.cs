@@ -19,7 +19,7 @@ public class TrashControllerTests
     {
         _trash = new Mock<IWorkItemTrashService>(MockBehavior.Strict);
         _purge = new Mock<IWorkItemPurgeService>(MockBehavior.Strict);
-        _controller = new TrashController(_trash.Object, _purge.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup()));
+        _controller = new TrashController(_trash.Object, _purge.Object, new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup(), new FakeWorkItemWhenEdits()));
     }
 
     public static TrashedWorkItem MakeTrashed(Guid id) => new(

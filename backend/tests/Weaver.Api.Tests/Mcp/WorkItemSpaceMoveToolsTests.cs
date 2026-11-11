@@ -24,7 +24,7 @@ public class WorkItemSpaceMoveToolsTests
         _moves = new Mock<IWorkItemSpaceMoveService>(MockBehavior.Strict);
         _tools = new WorkItemSpaceMoveTools(
             _moves.Object,
-            new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup()),
+            new WorkItemDtoMapper(new FakeWorkItemBlockers(), new FakeWorkItemNameLookup(), new FakeWorkItemWhenEdits()),
             new HttpCallerContext(new HttpContextAccessor()));
     }
 
