@@ -523,9 +523,11 @@ A number or currency field can roll up (ticket 15,
     entry records, so it's always written.
 - **Run reports** (`GET /api/admin/runs`, `RunReportService`, admins
   only; [ADR-0010](adr/0010-agent-runner.md)) group the entries that carry
-  a run id by account, key and run id, newest first by the run's last
-  entry `Id`, paged by offset. A run is named by all three, since run ids
-  are free text and two agents could send the same one.
+  a run id and an API key by account, key and run id, newest first by the
+  run's last entry `Id`, paged by offset. Only agents sign in with a key,
+  so a human's REST write that sends `X-Agent-Run` is never a run. A run is
+  named by all three, since run ids are free text and two agents could
+  send the same one.
   `GET /api/admin/runs/changes` returns one run's items as
   `ChangedWorkItem`s (shared with "changes since T" through
   `ChangedWorkItemReader`), in the order the run first changed each, with
