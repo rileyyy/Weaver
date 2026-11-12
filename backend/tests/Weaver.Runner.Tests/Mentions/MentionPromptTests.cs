@@ -15,7 +15,8 @@ public class MentionPromptTests
     private static WeaverComment Comment(string author, string body, int minute) =>
         new(Guid.NewGuid(), Guid.NewGuid(), author, body, Noon.AddMinutes(minute));
 
-    private static WeaverPendingMention MentionOf(WeaverComment comment) => new(comment, Guid.NewGuid(), 7, "Kitchen quotes");
+    private static WeaverPendingMention MentionOf(WeaverComment comment) =>
+        new(comment, Guid.NewGuid(), 7, "Kitchen quotes", comment.CreatedAtUtc);
 
     [Test]
     public void TheItemsDatesAreShown_SoTheModelKnowsWhetherItMayAddThem()

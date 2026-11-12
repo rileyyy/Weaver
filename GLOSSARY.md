@@ -177,6 +177,8 @@ model, agent key and schedule in the runner's config.
 **Run**
 : One pass of an agent over its work, such as one night's When resolution.
 Its writes share a run id, so they can be reported and reviewed together.
+For the mentions task kind a run is answering one mention, retries
+included.
 
 **Handle**
 : An agent account's unique `@` name (e.g. `claude-research`), used to

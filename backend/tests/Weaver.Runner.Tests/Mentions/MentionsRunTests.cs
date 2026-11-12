@@ -205,6 +205,149 @@ public class MentionsRunTests
     }
 
     [Test]
+    public async Task EveryWriteForAMention_CarriesThatMentionsRunId()
+    {
+        var item = _weaver.AddItem("Kitchen quotes");
+        var mention = _weaver.Mention(item, "@claude-research plan this");
+        _model.Answer = _ =>
+            """{"reply":"Planned.","subItems":["Call"],"links":[{"url":"https://a.example/"}],"start":"2026-11-16"}""";
+
+        await _run.RunAsync(CancellationToken.None);
+
+        var runId = $"mention {mention.Comment.Id}";
+        Assert.Multiple(() =>
+        {
+            Assert.That(MentionsRun.RunIdFor(mention), Is.EqualTo(runId));
+            Assert.That(_weaver.SubItems.Single().RunId, Is.EqualTo(runId));
+            Assert.That(_weaver.UrlLinks.Single().RunId, Is.EqualTo(runId));
+            Assert.That(_weaver.Replies.Single().RunId, Is.EqualTo(runId));
+            Assert.That(_weaver.History.Where(h => h.Entry.Field == "startDate").Single().Entry.RunId, Is.EqualTo(runId));
+        });
+    }
+
+    [Test]
+    public async Task ARetryAfterARefusedReply_AddsNothingAgain_AndItsReplyListsWhatTheFirstAttemptAdded()
+    {
+        var item = _weaver.AddItem("Kitchen quotes");
+        _weaver.Mention(item, "@claude-research plan this for next week");
+        _weaver.RejectRepliesTo.Add(item.Id);
+        _model.Answer = _ =>
+            """
+            {"reply":"Here's a plan.",
+             "subItems":["Call Fitters Ltd","Call Kitchens R Us"],
+             "links":[{"url":"https://fitters.example/quote","label":"Fitters Ltd"}],
+             "start":"2026-11-16","end":"2026-11-20"}
+            """;
+        var first = await _run.RunAsync(CancellationToken.None);
+
+        _weaver.RejectRepliesTo.Clear();
+        // A retry asks the model again, which may well word its answer differently.
+        _model.Answer = _ =>
+            """
+            {"reply":"Here's the plan again.",
+             "subItems":["Phone Fitters Ltd for a quote"],
+             "links":[{"url":"https://kitchens.example/"}],
+             "start":"2026-11-17","end":"2026-11-21"}
+            """;
+        var retry = await _run.RunAsync(CancellationToken.None);
+
+        var reply = _weaver.Replies.Single().Body;
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.WriteFailed, Is.EqualTo(1));
+            Assert.That(retry.Written, Is.EqualTo(1));
+            Assert.That(_weaver.SubItems.Select(s => s.Title), Is.EqualTo(new[] { "Call Fitters Ltd", "Call Kitchens R Us" }));
+            Assert.That(_weaver.UrlLinks.Select(l => l.Url), Is.EqualTo(new[] { "https://fitters.example/quote" }));
+            Assert.That(_weaver.DateWrites, Has.Count.EqualTo(1));
+            Assert.That(reply, Does.StartWith("Here's the plan again."));
+            Assert.That(reply, Does.Contain("Added:\n- dates 2026-11-16 to 2026-11-20"));
+            Assert.That(reply, Does.Contain("#101 Call Fitters Ltd").And.Contain("#102 Call Kitchens R Us"));
+            Assert.That(reply, Does.Contain("link Fitters Ltd: https://fitters.example/quote"));
+            Assert.That(reply, Does.Not.Contain("Proposed").And.Not.Contain("Not done"));
+            Assert.That(reply, Does.Not.Contain("Phone Fitters").And.Not.Contain("kitchens.example").And.Not.Contain("2026-11-17"));
+            Assert.That(_weaver.Pending, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task ARetryAfterAnAttemptThatStoppedPartWay_AddsWhatThatAttemptDidntGetTo()
+    {
+        var item = _weaver.AddItem("Kitchen quotes");
+        var mention = _weaver.Mention(item, "@claude-research plan this");
+        await _weaver.SetDatesAsync(
+            item.Id, new DateOnly(2026, 11, 16), null, item.Version, MentionsRun.ActorLabel, MentionsRun.RunIdFor(mention), CancellationToken.None);
+        _model.Answer = _ => """{"reply":"Planned.","subItems":["Call"],"start":"2026-11-16"}""";
+
+        await _run.RunAsync(CancellationToken.None);
+
+        var reply = _weaver.Replies.Single().Body;
+        Assert.Multiple(() =>
+        {
+            Assert.That(_weaver.DateWrites, Has.Count.EqualTo(1));
+            Assert.That(_weaver.SubItems.Single().Title, Is.EqualTo("Call"));
+            Assert.That(reply, Does.Contain("dates 2026-11-16 to ?").And.Contain("#101 Call"));
+            Assert.That(reply, Does.Not.Contain("Proposed"));
+        });
+    }
+
+    [Test]
+    public async Task ARetryWhoseAnswerFails_StillListsWhatTheFirstAttemptAdded()
+    {
+        var item = _weaver.AddItem("Kitchen quotes");
+        _weaver.Mention(item, "@claude-research add a step");
+        _weaver.RejectRepliesTo.Add(item.Id);
+        _model.Answer = _ => """{"reply":"Added.","subItems":["Call"]}""";
+        await _run.RunAsync(CancellationToken.None);
+
+        _weaver.RejectRepliesTo.Clear();
+        _model.Answer = _ => "not JSON";
+        var retry = await _run.RunAsync(CancellationToken.None);
+
+        var reply = _weaver.Replies.Single().Body;
+        Assert.Multiple(() =>
+        {
+            Assert.That(retry.Rejected, Is.EqualTo(1));
+            Assert.That(reply, Does.StartWith("I couldn't answer this request").And.Contain("Added:\n- sub-item #101 Call"));
+        });
+    }
+
+    [Test]
+    public async Task SomeoneElsesSubItem_IsntTakenForAnEarlierAttempts()
+    {
+        var item = _weaver.AddItem("Kitchen quotes");
+        _weaver.Mention(item, "@claude-research add a step");
+        _weaver.AddChildByHand(item.Id, "Riley's own step");
+        _model.Answer = _ => """{"reply":"Added.","subItems":["Call"]}""";
+
+        await _run.RunAsync(CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_weaver.SubItems.Single().Title, Is.EqualTo("Call"));
+            Assert.That(_weaver.Replies.Single().Body, Does.Not.Contain("Riley's own step"));
+        });
+    }
+
+    [Test]
+    public async Task AMentionAddedBackAfterAReply_IsANewRequest()
+    {
+        var item = _weaver.AddItem("Kitchen quotes");
+        var mention = _weaver.Mention(item, "@claude-research add a step");
+        _model.Answer = _ => """{"reply":"Added.","subItems":["Call"]}""";
+        await _run.RunAsync(CancellationToken.None);
+
+        _weaver.Remention(item, mention.Comment);
+        _model.Answer = _ => """{"reply":"Added another.","subItems":["Email"]}""";
+        await _run.RunAsync(CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_weaver.SubItems.Select(s => s.Title), Is.EqualTo(new[] { "Call", "Email" }));
+            Assert.That(_weaver.Replies[1].Body, Does.Not.Contain("Call"));
+        });
+    }
+
+    [Test]
     public void AnUnreachableModel_StopsTheRun_WithoutReplying()
     {
         var item = _weaver.AddItem("Kitchen quotes");

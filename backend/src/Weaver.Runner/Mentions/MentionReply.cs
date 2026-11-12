@@ -18,9 +18,11 @@ public sealed class MentionReply
     private readonly List<string> _added = [];
     private readonly List<string> _notDone = [];
 
-    /// <summary>The reply when there's no answer to give, which still clears the mention.</summary>
-    public static string CouldNotAnswer(string reason) =>
-        TextShortener.Shorten($"I couldn't answer this request: {reason}", MaxLength);
+    /// <summary>
+    /// The reply when there's no answer to give, which still clears the mention, with anything
+    /// already noted as added (by an earlier attempt at the same mention).
+    /// </summary>
+    public string RenderCouldNotAnswer(string reason) => Render($"I couldn't answer this request: {reason}");
 
     public void Added(string what) => _added.Add(what);
 
@@ -32,7 +34,7 @@ public sealed class MentionReply
         AppendSection(notes, "Added:", _added);
         AppendSection(notes, "Not done:", _notDone);
         // The whole comment is shortened too: a reply Weaver refuses as too long would leave the
-        // mention pending, and the next run would add everything again.
+        // mention pending, and every later run would be refused the same way.
         var reply = TextShortener.Shorten(modelReply, Math.Max(MinReplyLength, MaxLength - notes.Length));
         return TextShortener.Shorten(reply + notes, MaxLength);
     }

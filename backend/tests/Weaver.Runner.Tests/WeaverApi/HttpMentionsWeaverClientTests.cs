@@ -9,7 +9,7 @@ namespace Weaver.Runner.Tests.WeaverApi;
 public class HttpMentionsWeaverClientTests
 {
     private const string Key = "wvr_test";
-    private const string RunId = "run-1";
+    private const string RunId = "mention 1";
     private StubHttpHandler _handler = null!;
     private HttpMentionsWeaverClient _client = null!;
 
@@ -18,7 +18,7 @@ public class HttpMentionsWeaverClientTests
     {
         _handler = new StubHttpHandler();
         _client = new HttpMentionsWeaverClient(
-            new HttpClient(_handler) { BaseAddress = new Uri("http://weaver.test/") }, Key, RunId);
+            new HttpClient(_handler) { BaseAddress = new Uri("http://weaver.test/") }, Key);
     }
 
     [TearDown]
@@ -46,6 +46,7 @@ public class HttpMentionsWeaverClientTests
             Assert.That(pending.Comment.Body, Is.EqualTo("@claude help"));
             Assert.That(pending.WorkItemId, Is.EqualTo(itemId));
             Assert.That(pending.WorkItemNumber, Is.EqualTo(42));
+            Assert.That(pending.MentionedAtUtc, Is.EqualTo(new DateTimeOffset(2026, 11, 11, 12, 0, 0, TimeSpan.Zero)));
         });
     }
 
@@ -87,7 +88,7 @@ public class HttpMentionsWeaverClientTests
         var status = Guid.NewGuid();
         _handler.Respond = _ => StubHttpHandler.Json($$"""{"id":"{{Guid.NewGuid()}}","number":57}""", HttpStatusCode.Created);
 
-        var number = await _client.AddSubItemAsync(parent, "Call fitters", status, "Runner mentions", CancellationToken.None);
+        var number = await _client.AddSubItemAsync(parent, "Call fitters", status, "Runner mentions", RunId, CancellationToken.None);
 
         var (request, body) = _handler.Requests.Single();
         Assert.Multiple(() =>
@@ -104,8 +105,8 @@ public class HttpMentionsWeaverClientTests
         var item = Guid.NewGuid();
         _handler.Respond = _ => StubHttpHandler.Json("{}", HttpStatusCode.Created);
 
-        await _client.AddCommentAsync(item, "Here you go.", "Runner mentions", CancellationToken.None);
-        await _client.AddUrlLinkAsync(item, "https://a.example/", "Quote", "Runner mentions", CancellationToken.None);
+        await _client.AddCommentAsync(item, "Here you go.", "Runner mentions", RunId, CancellationToken.None);
+        await _client.AddUrlLinkAsync(item, "https://a.example/", "Quote", "Runner mentions", RunId, CancellationToken.None);
 
         Assert.Multiple(() =>
         {
@@ -122,12 +123,66 @@ public class HttpMentionsWeaverClientTests
     }
 
     [Test]
+    public async Task EachWrite_CarriesTheRunIdItWasGiven()
+    {
+        var item = Guid.NewGuid();
+        _handler.Respond = _ => StubHttpHandler.Json("{}", HttpStatusCode.Created);
+
+        await _client.AddCommentAsync(item, "One.", "Runner mentions", "mention 1", CancellationToken.None);
+        await _client.AddCommentAsync(item, "Two.", "Runner mentions", "mention 2", CancellationToken.None);
+
+        Assert.That(_handler.Requests.Select(r => r.Request.Headers.GetValues("X-Agent-Run").Single()),
+            Is.EqualTo(new[] { "mention 1", "mention 2" }));
+    }
+
+    [Test]
+    public async Task History_IsReadWithEachEntrysRunIdAndNewValue()
+    {
+        var item = Guid.NewGuid();
+        _handler.Respond = _ => StubHttpHandler.Json(
+            $$"""
+            [{"id":2,"workItemId":"{{item}}","changedAtUtc":"2026-11-11T12:05:00+00:00","runId":"mention 1",
+              "field":"urlLink","oldValue":null,"newValue":{"url":"https://a.example/","label":"Quote"} },
+             {"id":1,"workItemId":"{{item}}","changedAtUtc":"2026-11-11T12:04:00+00:00","runId":null,
+              "field":"startDate","oldValue":null,"newValue":"2026-11-16"}]
+            """);
+
+        var history = await _client.ListHistoryAsync(item, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_handler.Requests.Single().Request.RequestUri!.AbsolutePath, Is.EqualTo($"/api/work-items/{item}/history"));
+            Assert.That(history.Select(e => (e.Field, e.RunId)), Is.EqualTo(new[] { ("urlLink", "mention 1"), ("startDate", (string?)null) }));
+            Assert.That(history[0].NewValue!.Value.GetProperty("url").GetString(), Is.EqualTo("https://a.example/"));
+            Assert.That(history[1].NewValue!.Value.GetString(), Is.EqualTo("2026-11-16"));
+            Assert.That(history[0].ChangedAtUtc, Is.EqualTo(new DateTimeOffset(2026, 11, 11, 12, 5, 0, TimeSpan.Zero)));
+        });
+    }
+
+    [Test]
+    public async Task SubItems_AreTheItemsChildren()
+    {
+        var parent = Guid.NewGuid();
+        var child = Guid.NewGuid();
+        _handler.Respond = _ => StubHttpHandler.Json(
+            $$"""[{"id":"{{child}}","number":57,"title":"Call fitters","parentId":"{{parent}}","createdAtUtc":"2026-11-11T12:05:00+00:00"}]""");
+
+        var subItem = (await _client.ListSubItemsAsync(parent, CancellationToken.None)).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_handler.Requests.Single().Request.RequestUri!.PathAndQuery, Is.EqualTo($"/api/work-items?parentId={parent}"));
+            Assert.That(subItem, Is.EqualTo(new WeaverSubItem(child, 57, "Call fitters", new DateTimeOffset(2026, 11, 11, 12, 5, 0, TimeSpan.Zero))));
+        });
+    }
+
+    [Test]
     public void ARefusedReply_IsRejectedForThatMention()
     {
         _handler.Respond = _ => StubHttpHandler.Json("""{"title":"Not found"}""", HttpStatusCode.NotFound);
 
         Assert.ThrowsAsync<WeaverRejectedException>(() =>
-            _client.AddCommentAsync(Guid.NewGuid(), "Here you go.", "Runner mentions", CancellationToken.None));
+            _client.AddCommentAsync(Guid.NewGuid(), "Here you go.", "Runner mentions", RunId, CancellationToken.None));
     }
 
     private static bool SameJson(string actual, string expected) =>

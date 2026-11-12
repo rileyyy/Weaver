@@ -11,8 +11,9 @@ namespace Weaver.Runner.WeaverApi;
 /// tagging writes with the actor label and the run id (ticket 50), and sorting failures into
 /// <see cref="WeaverUnavailableException"/> (stop the run) and <see cref="WeaverRejectedException"/>
 /// (skip the one item). <paramref name="http"/> must have Weaver's URL as its base address.
+/// <paramref name="runId"/> is null only for an instance that just reads; see <see cref="WithRunId"/>.
 /// </summary>
-internal sealed class WeaverRest(HttpClient http, string agentApiKey, string runId)
+internal sealed class WeaverRest(HttpClient http, string agentApiKey, string? runId)
 {
     public const string ActorLabelHeader = "X-Actor-Label";
     public const string RunIdHeader = "X-Agent-Run";
@@ -21,7 +22,10 @@ internal sealed class WeaverRest(HttpClient http, string agentApiKey, string run
 
     private readonly HttpClient _http = http;
     private readonly string _agentApiKey = agentApiKey;
-    private readonly string _runId = runId;
+    private readonly string? _runId = runId;
+
+    /// <summary>The same connection, tagging its writes with another run id.</summary>
+    public WeaverRest WithRunId(string runId) => new(_http, _agentApiKey, runId);
 
     /// <summary>A read the whole run needs, so any failure of it stops the run.</summary>
     public async Task<T> ReadRunWideAsync<T>(string path, CancellationToken ct)
@@ -64,7 +68,11 @@ internal sealed class WeaverRest(HttpClient http, string agentApiKey, string run
     {
         var request = NewRequest(method, path);
         request.Headers.Add(ActorLabelHeader, actorLabel);
-        request.Headers.Add(RunIdHeader, _runId);
+        if (_runId is not null)
+        {
+            request.Headers.Add(RunIdHeader, _runId);
+        }
+
         // Buffered rather than JsonContent's chunked stream: some proxies refuse a request body
         // without a Content-Length.
         request.Content = new StringContent(JsonSerializer.Serialize(body, Json), Encoding.UTF8, "application/json");

@@ -486,7 +486,11 @@ prompt the model turned down), because the reply is what clears the
 mention; the reply lists what was added and anything Weaver refused.
 Mentions in comments written by agents are never pending, so agents can't
 set each other off in a loop. Its writes carry the actor label `Runner
-mentions`.
+mentions` and, rather than one run id per run, the run id `mention
+<comment id>`, so the **Runs** tab shows each answered mention as one run.
+That also makes answering safe to retry: if the reply can't be posted, the
+next run finds what it already added for that mention, doesn't add it
+again, and lists it in its reply.
 
 ## Connecting an MCP client
 
