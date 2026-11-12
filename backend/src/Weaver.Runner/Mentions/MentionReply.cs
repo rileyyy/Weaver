@@ -1,4 +1,5 @@
 using System.Text;
+using Weaver.Runner.Model;
 
 namespace Weaver.Runner.Mentions;
 
@@ -19,11 +20,11 @@ public sealed class MentionReply
 
     /// <summary>The reply when there's no answer to give, which still clears the mention.</summary>
     public static string CouldNotAnswer(string reason) =>
-        Shorten($"I couldn't answer this request: {reason}", MaxLength);
+        TextShortener.Shorten($"I couldn't answer this request: {reason}", MaxLength);
 
     public void Added(string what) => _added.Add(what);
 
-    public void NotDone(string what, string why) => _notDone.Add($"{what}: {Shorten(why, MaxReasonLength)}");
+    public void NotDone(string what, string why) => _notDone.Add($"{what}: {TextShortener.Shorten(why, MaxReasonLength)}");
 
     public string Render(string modelReply)
     {
@@ -32,7 +33,8 @@ public sealed class MentionReply
         AppendSection(notes, "Not done:", _notDone);
         // The whole comment is shortened too: a reply Weaver refuses as too long would leave the
         // mention pending, and the next run would add everything again.
-        return Shorten(Shorten(modelReply, Math.Max(MinReplyLength, MaxLength - notes.Length)) + notes, MaxLength);
+        var reply = TextShortener.Shorten(modelReply, Math.Max(MinReplyLength, MaxLength - notes.Length));
+        return TextShortener.Shorten(reply + notes, MaxLength);
     }
 
     private static void AppendSection(StringBuilder notes, string heading, List<string> lines)
@@ -48,7 +50,4 @@ public sealed class MentionReply
             notes.Append("\n- ").Append(line);
         }
     }
-
-    private static string Shorten(string text, int max) =>
-        text.Length <= max ? text : text[..Math.Max(0, max - 1)] + "…";
 }

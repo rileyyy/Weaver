@@ -30,6 +30,16 @@ public class IsoDateTests
         Assert.That(IsoDate.TryParse(text, out _), Is.False);
 
     [Test]
+    public void FormatOrOpen_GivesADate_OrAQuestionMarkForAnOpenEnd()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(IsoDate.FormatOrOpen(new DateOnly(2026, 11, 11)), Is.EqualTo("2026-11-11"));
+            Assert.That(IsoDate.FormatOrOpen(null), Is.EqualTo("?"));
+        });
+    }
+
+    [Test]
     public void TheCultureCheckIsMeaningful() =>
         Assert.That(new DateOnly(2026, 11, 11).ToString("yyyy", new CultureInfo("th-TH")), Is.Not.EqualTo("2026"));
 }

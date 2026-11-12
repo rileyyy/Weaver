@@ -56,7 +56,7 @@ public static class MentionPrompt
         AppendThread(user, mention.Comment, comments);
         user.AppendLine();
         user.AppendLine(CultureInfo.InvariantCulture, $"The request to answer is this comment from {mention.Comment.AuthorUsername}:");
-        user.AppendLine(Shorten(mention.Comment.Body, MaxCommentLength));
+        user.AppendLine(TextShortener.Shorten(mention.Comment.Body, MaxCommentLength));
         return new ModelPrompt(Instructions, user.ToString());
     }
 
@@ -74,7 +74,7 @@ public static class MentionPrompt
         if (!string.IsNullOrWhiteSpace(item.Description))
         {
             user.AppendLine("Description:");
-            user.AppendLine(Shorten(item.Description, MaxDescriptionLength));
+            user.AppendLine(TextShortener.Shorten(item.Description, MaxDescriptionLength));
         }
     }
 
@@ -88,16 +88,12 @@ public static class MentionPrompt
         user.AppendLine("Comments, oldest first:");
         foreach (var comment in thread)
         {
-            user.AppendLine(CultureInfo.InvariantCulture, $"- {comment.AuthorUsername}: {Shorten(comment.Body, MaxCommentLength)}");
+            user.AppendLine(CultureInfo.InvariantCulture, $"- {comment.AuthorUsername}: {TextShortener.Shorten(comment.Body, MaxCommentLength)}");
         }
     }
 
     private static string DescribeDates(WeaverItemDetail item) =>
         item.HasDates
-            ? $"{FormatOrOpen(item.StartDate)} to {FormatOrOpen(item.EndDate)}"
+            ? $"{IsoDate.FormatOrOpen(item.StartDate)} to {IsoDate.FormatOrOpen(item.EndDate)}"
             : "none";
-
-    private static string FormatOrOpen(DateOnly? date) => date is { } d ? IsoDate.Format(d) : "?";
-
-    private static string Shorten(string text, int max) => text.Length <= max ? text : text[..max] + "…";
 }

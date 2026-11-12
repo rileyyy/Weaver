@@ -122,7 +122,7 @@ public sealed class MentionsRun(IMentionsWeaverClient weaver, IModelClient model
     /// <summary>Autonomous agents never change existing values (ADR-0010), so dates on a dated item are only proposed.</summary>
     private Task SetDatesAsync(WeaverItemDetail item, MentionAnswer answer, MentionReply reply, CancellationToken ct)
     {
-        var what = $"dates {FormatOrOpen(answer.Start)} to {FormatOrOpen(answer.End)}";
+        var what = $"dates {IsoDate.FormatOrOpen(answer.Start)} to {IsoDate.FormatOrOpen(answer.End)}";
         if (item.HasDates)
         {
             reply.NotDone(what, "Proposed only. The item already has dates, and I don't change existing values; a person can set them");
@@ -177,6 +177,4 @@ public sealed class MentionsRun(IMentionsWeaverClient weaver, IModelClient model
     }
 
     private static string Describe(MentionLink link) => link.Label is null ? link.Url : $"{link.Label}: {link.Url}";
-
-    private static string FormatOrOpen(DateOnly? date) => date is { } d ? IsoDate.Format(d) : "?";
 }
