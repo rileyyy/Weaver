@@ -29,13 +29,17 @@ public class AdminAgentsController(IAgentAccountService agents) : ControllerBase
     [ProducesResponseType<AgentAccountDto>(StatusCodes.Status201Created)]
     public async Task<ActionResult<AgentAccountDto>> Create(CreateAgentAccountRequest request)
     {
-        var agent = await _agents.CreateAsync(request.Name, request.Description);
+        var agent = await _agents.CreateAsync(request.Name, request.Description, request.Handle);
         return CreatedAtAction(nameof(GetAll), AgentAccountDto.FromEntity(agent));
     }
 
     [HttpPut("{id:guid}/active")]
     public async Task<ActionResult<AgentAccountDto>> SetActive(Guid id, SetUserActiveRequest request) =>
         Ok(AgentAccountDto.FromEntity(await _agents.SetActiveAsync(id, request.IsActive)));
+
+    [HttpPut("{id:guid}/handle")]
+    public async Task<ActionResult<AgentAccountDto>> SetHandle(Guid id, SetHandleRequest request) =>
+        Ok(AgentAccountDto.FromEntity(await _agents.SetHandleAsync(id, request.Handle)));
 
     [HttpGet("{id:guid}/keys")]
     public async Task<ActionResult<IReadOnlyList<ApiKeyDto>>> GetKeys(Guid id)

@@ -40,6 +40,8 @@ public interface IWeaverDbContext
 
     DbSet<Comment> Comments { get; }
 
+    DbSet<CommentMention> CommentMentions { get; }
+
     DbSet<WorkItemLink> WorkItemLinks { get; }
 
     DbSet<WorkItemUrlLink> WorkItemUrlLinks { get; }

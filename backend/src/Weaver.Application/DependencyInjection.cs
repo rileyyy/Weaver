@@ -25,6 +25,7 @@ public static class DependencyInjection
             .AddScoped<ICallerIdentityService, CallerIdentityService>()
             .AddScoped<IFirstAdminBootstrapper, FirstAdminBootstrapper>()
             .AddScoped<ICommentService, CommentService>()
+            .AddScoped<IMentionService, MentionService>()
             .AddScoped<IWorkItemLinkService, WorkItemLinkService>()
             .AddScoped<IWorkItemUrlLinkService, WorkItemUrlLinkService>()
             .AddScoped<IWorkItemAttachmentService, WorkItemAttachmentService>()

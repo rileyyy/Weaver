@@ -186,10 +186,12 @@ class _FakeRepository implements WorkItemDetailRepository {
     ];
   }
 
-  @override
-  Future<List<User>> loadUsers() async => const [
+  List<User> users = const [
     User(id: 'user-1', username: 'alice', kind: UserKind.human),
   ];
+
+  @override
+  Future<List<User>> loadUsers() async => users;
 
   @override
   Future<WorkItem> updateDetails(
@@ -558,6 +560,35 @@ void main() {
     expect(viewModel.types, hasLength(1));
     expect(viewModel.priorities.single.name, 'High');
     expect(viewModel.users, hasLength(1));
+  });
+
+  test('mentionHandles are the handles of the users that have one', () async {
+    final repository = _FakeRepository()
+      ..users = const [
+        User(id: 'user-1', username: 'alice', kind: UserKind.human),
+        User(
+          id: 'agent-2',
+          username: 'Llama',
+          kind: UserKind.agent,
+          handle: 'llama',
+        ),
+        User(
+          id: 'agent-1',
+          username: 'Claude research',
+          kind: UserKind.agent,
+          handle: 'claude-research',
+        ),
+        User(id: 'agent-3', username: 'No handle', kind: UserKind.agent),
+      ];
+    final viewModel = WorkItemDetailViewModel(
+      repository,
+      _currentUser,
+      WorkItemStore(),
+    );
+
+    await viewModel.load('item-1');
+
+    expect(viewModel.mentionHandles, ['claude-research', 'llama']);
   });
 
   test(

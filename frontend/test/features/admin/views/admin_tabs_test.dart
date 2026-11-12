@@ -448,6 +448,70 @@ void main() {
       expect(find.text('Codex (CI)'), findsOneWidget);
     });
 
+    testWidgets('adding an agent can give it a handle', (tester) async {
+      await tester.pumpWidget(_host(AgentsTab(viewModel: viewModel)));
+
+      await tester.tap(find.text('Add agent'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Name'),
+        'Claude research',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Handle (optional)'),
+        'claude-research',
+      );
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+      await tester.pumpAndSettle();
+
+      expect(
+        repository.calls.single,
+        'create Claude research - @claude-research',
+      );
+      expect(find.text('@claude-research'), findsOneWidget);
+    });
+
+    testWidgets('setting a handle shows it on the agent', (tester) async {
+      await tester.pumpWidget(_host(AgentsTab(viewModel: viewModel)));
+
+      await tester.tap(find.byTooltip('Actions for Claude Code (desktop)'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Set handle'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Handle'),
+        'claude',
+      );
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      expect(repository.calls.single, 'setHandle a1 claude');
+      expect(find.text('@claude'), findsOneWidget);
+    });
+
+    testWidgets('an invalid handle keeps the dialog open with the rule', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_host(AgentsTab(viewModel: viewModel)));
+
+      await tester.tap(find.byTooltip('Actions for Claude Code (desktop)'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Set handle'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Handle'),
+        'Claude Code',
+      );
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('lower-case'), findsOneWidget);
+      expect(repository.calls, isEmpty);
+    });
+
     testWidgets('deactivating says keys are kept, then deactivates', (
       tester,
     ) async {

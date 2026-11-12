@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Weaver.Runner.Mentions;
 using Weaver.Runner.Tasks;
 using Weaver.Runner.Tests.Fakes;
 using Weaver.Runner.WhenResolution;
@@ -25,6 +26,15 @@ public class TaskRunFactoryTests
         using var factory = NewFactory();
 
         Assert.That(factory.Create(TestConfigs.WhenResolution()), Is.InstanceOf<WhenResolutionRun>());
+    }
+
+    [Test]
+    public void Mentions_GetsAMentionsRun()
+    {
+        using var factory = NewFactory();
+        var config = TestConfigs.WhenResolution() with { Kind = TaskKind.Mentions };
+
+        Assert.That(factory.Create(config), Is.InstanceOf<MentionsRun>());
     }
 
     [Test]

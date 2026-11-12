@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_comment.dart';
 import 'package:weaver/features/work_item_detail/widgets/comment_tile.dart';
-import 'package:weaver/features/work_item_detail/widgets/text_entry_row.dart';
+import 'package:weaver/features/work_item_detail/widgets/mention_text_entry.dart';
 import 'package:weaver/shared/widgets/field_label.dart';
 
 class CommentsSection extends StatelessWidget {
@@ -14,6 +14,7 @@ class CommentsSection extends StatelessWidget {
     required this.onAdd,
     required this.onEdit,
     required this.onDelete,
+    this.mentionHandles = const [],
   });
 
   final List<WorkItemComment> comments;
@@ -21,6 +22,9 @@ class CommentsSection extends StatelessWidget {
   final Future<bool> Function(String body) onAdd;
   final Future<bool> Function(String commentId, String body) onEdit;
   final Future<bool> Function(String commentId) onDelete;
+
+  /// The handles a new comment can `@` mention, suggested as they're typed.
+  final List<String> mentionHandles;
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +41,8 @@ class CommentsSection extends StatelessWidget {
             onEdit: (body) => unawaited(onEdit(comment.id, body)),
           ),
         const SizedBox(height: 8),
-        TextEntryRow(
+        MentionTextEntry(
+          handles: mentionHandles,
           hintText: 'Add a comment',
           buttonLabel: 'Post',
           maxLines: 3,

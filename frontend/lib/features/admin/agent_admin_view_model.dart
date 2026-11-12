@@ -4,6 +4,7 @@ import 'package:weaver/core/presentation/view_model.dart';
 import 'package:weaver/features/admin/data/agent_admin_repository.dart';
 import 'package:weaver/features/admin/models/agent_account.dart';
 import 'package:weaver/features/admin/state/admin_error_message.dart';
+import 'package:weaver/shared/models/handle.dart';
 
 /// The Admin page's Agents tab. Each change returns null on success, or why
 /// it failed for the dialog or snackbar that asked for it.
@@ -46,25 +47,42 @@ class AgentAdminViewModel extends ViewModel {
     }
   }
 
-  Future<String?> create({required String name, required String description}) {
+  Future<String?> create({
+    required String name,
+    required String description,
+    String handle = '',
+  }) {
     final trimmedName = name.trim();
     if (trimmedName.isEmpty) return Future.value('Enter a name.');
-    final trimmedDescription = description.trim();
+    final trimmedHandle = _blankAsNull(handle);
+    final problem = trimmedHandle == null ? null : handleProblem(trimmedHandle);
+    if (problem != null) return Future.value(problem);
     return _attempt(
       () => _repository.create(
         name: trimmedName,
-        description: trimmedDescription.isEmpty ? null : trimmedDescription,
+        description: _blankAsNull(description),
+        handle: trimmedHandle,
       ),
       onSuccess: (created) => _agents = _sorted([..._agents, created]),
       fallbackError: 'Could not add the agent. Try again.',
     );
   }
 
+  /// A blank [handle] clears it, so the agent can no longer be mentioned.
+  Future<String?> setHandle(String id, String handle) {
+    final trimmed = _blankAsNull(handle);
+    final problem = trimmed == null ? null : handleProblem(trimmed);
+    if (problem != null) return Future.value(problem);
+    return _attempt(
+      () => _repository.setHandle(id, trimmed),
+      onSuccess: _replace,
+      fallbackError: 'Could not set the handle. Try again.',
+    );
+  }
+
   Future<String?> setActive(String id, {required bool isActive}) => _attempt(
     () => _repository.setActive(id, isActive: isActive),
-    onSuccess: (updated) => _agents = [
-      for (final agent in _agents) agent.id == updated.id ? updated : agent,
-    ],
+    onSuccess: _replace,
     fallbackError: isActive
         ? 'Could not reactivate the agent. Try again.'
         : 'Could not deactivate the agent. Try again.',
@@ -82,6 +100,15 @@ class AgentAdminViewModel extends ViewModel {
     } on ApiException catch (e) {
       return adminErrorMessage(e, fallbackError);
     }
+  }
+
+  void _replace(AgentAccount updated) => _agents = [
+    for (final agent in _agents) agent.id == updated.id ? updated : agent,
+  ];
+
+  static String? _blankAsNull(String text) {
+    final trimmed = text.trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 
   /// The server's order: case-insensitive by name.

@@ -8,7 +8,15 @@ import 'package:weaver/features/admin/models/issued_api_key.dart';
 abstract class AgentAdminRepository {
   Future<List<AgentAccount>> list();
 
-  Future<AgentAccount> create({required String name, String? description});
+  Future<AgentAccount> create({
+    required String name,
+    String? description,
+    String? handle,
+  });
+
+  /// A null [handle] clears it. The server answers 409 if another account
+  /// has it.
+  Future<AgentAccount> setHandle(String id, String? handle);
 
   /// Doesn't revoke the agent's keys; they stop working while it's inactive.
   Future<AgentAccount> setActive(String id, {required bool isActive});

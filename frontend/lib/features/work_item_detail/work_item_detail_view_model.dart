@@ -77,6 +77,10 @@ class WorkItemDetailViewModel extends ViewModel {
   /// Type.
   List<CustomField> get customFields => _customFields;
   List<User> get users => _users;
+
+  /// What a new comment can `@` mention: the active accounts with a handle.
+  List<String> get mentionHandles =>
+      [for (final user in _users) ?user.handle]..sort();
   List<WorkItemComment> get comments => _comments;
   List<WorkItemLink> get links => _links;
   List<WorkItemUrlLink> get urlLinks => _urlLinks;

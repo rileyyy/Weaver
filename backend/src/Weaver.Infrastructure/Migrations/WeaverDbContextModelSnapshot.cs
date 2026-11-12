@@ -95,6 +95,24 @@ namespace Weaver.Infrastructure.Migrations
                     b.ToTable("Comments");
                 });
 
+            modelBuilder.Entity("Weaver.Domain.CommentMention", b =>
+                {
+                    b.Property<Guid>("CommentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MentionedUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("CommentId", "MentionedUserId");
+
+                    b.HasIndex("MentionedUserId");
+
+                    b.ToTable("CommentMentions");
+                });
+
             modelBuilder.Entity("Weaver.Domain.CustomFieldDefinition", b =>
                 {
                     b.Property<Guid>("Id")
@@ -343,6 +361,10 @@ namespace Weaver.Infrastructure.Migrations
                     b.Property<int>("FailedLoginAttempts")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Handle")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<bool>("IsAdmin")
                         .HasColumnType("boolean");
 
@@ -370,6 +392,9 @@ namespace Weaver.Infrastructure.Migrations
                         .HasColumnType("character varying(50)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Handle")
+                        .IsUnique();
 
                     b.HasIndex("NormalizedUsername")
                         .IsUnique();
@@ -811,6 +836,25 @@ namespace Weaver.Infrastructure.Migrations
                     b.Navigation("AuthorUser");
 
                     b.Navigation("WorkItem");
+                });
+
+            modelBuilder.Entity("Weaver.Domain.CommentMention", b =>
+                {
+                    b.HasOne("Weaver.Domain.Comment", "Comment")
+                        .WithMany()
+                        .HasForeignKey("CommentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Weaver.Domain.User", "MentionedUser")
+                        .WithMany()
+                        .HasForeignKey("MentionedUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Comment");
+
+                    b.Navigation("MentionedUser");
                 });
 
             modelBuilder.Entity("Weaver.Domain.CustomFieldDefinition", b =>

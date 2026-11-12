@@ -82,6 +82,72 @@ void main() {
     expect(viewModel.agents[1].isActive, isFalse);
   });
 
+  test('create sends a handle when one is given', () async {
+    final error = await viewModel.create(
+      name: 'Claude research',
+      description: '',
+      handle: ' claude-research ',
+    );
+
+    expect(error, isNull);
+    expect(
+      repository.calls.single,
+      'create Claude research - @claude-research',
+    );
+    expect(
+      viewModel.agents.singleWhere((a) => a.name == 'Claude research').handle,
+      'claude-research',
+    );
+  });
+
+  test('create with an invalid handle says why without a request', () async {
+    final error = await viewModel.create(
+      name: 'Claude research',
+      description: '',
+      handle: 'Claude Research',
+    );
+
+    expect(error, contains('lower-case'));
+    expect(repository.calls, isEmpty);
+  });
+
+  test('setHandle replaces the agent with the server copy', () async {
+    final error = await viewModel.setHandle('a2', ' triage ');
+
+    expect(error, isNull);
+    expect(repository.calls.single, 'setHandle a2 triage');
+    expect(viewModel.agents[1].handle, 'triage');
+  });
+
+  test('a blank handle clears it', () async {
+    await viewModel.setHandle('a2', 'triage');
+    repository.calls.clear();
+
+    final error = await viewModel.setHandle('a2', '  ');
+
+    expect(error, isNull);
+    expect(repository.calls.single, 'setHandle a2 -');
+    expect(viewModel.agents[1].handle, isNull);
+  });
+
+  test('setHandle with an invalid handle says why without a request', () async {
+    final error = await viewModel.setHandle('a2', 'no spaces');
+
+    expect(error, isNotNull);
+    expect(repository.calls, isEmpty);
+  });
+
+  test('a handle another agent has reports the server message', () async {
+    repository.error = const ApiException(
+      "Handle '@triage' is already taken.",
+      statusCode: 409,
+    );
+
+    final error = await viewModel.setHandle('a2', 'triage');
+
+    expect(error, contains('already taken'));
+  });
+
   test('a failed setActive falls back to a generic message', () async {
     repository.error = const ApiException('down', statusCode: 503);
 

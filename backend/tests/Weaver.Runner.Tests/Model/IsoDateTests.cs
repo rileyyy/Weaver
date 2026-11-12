@@ -1,7 +1,7 @@
 using System.Globalization;
-using Weaver.Runner.WhenResolution;
+using Weaver.Runner.Model;
 
-namespace Weaver.Runner.Tests.WhenResolution;
+namespace Weaver.Runner.Tests.Model;
 
 [TestFixture]
 public class IsoDateTests
@@ -28,6 +28,16 @@ public class IsoDateTests
     [TestCase(null)]
     public void TryParse_RefusesAnythingElse(string? text) =>
         Assert.That(IsoDate.TryParse(text, out _), Is.False);
+
+    [Test]
+    public void FormatOrOpen_GivesADate_OrAQuestionMarkForAnOpenEnd()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(IsoDate.FormatOrOpen(new DateOnly(2026, 11, 11)), Is.EqualTo("2026-11-11"));
+            Assert.That(IsoDate.FormatOrOpen(null), Is.EqualTo("?"));
+        });
+    }
 
     [Test]
     public void TheCultureCheckIsMeaningful() =>

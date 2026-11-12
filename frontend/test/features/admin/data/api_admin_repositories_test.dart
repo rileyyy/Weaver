@@ -398,14 +398,28 @@ void main() {
     });
 
     test('create posts the agent and drops the directory', () async {
-      await repository.create(name: 'Claude Code', description: 'Laptop');
+      await repository.create(
+        name: 'Claude Code',
+        description: 'Laptop',
+        handle: 'claude',
+      );
 
       expect(requests.single.method, 'POST');
       expect(requests.single.url.path, '/api/admin/agents');
       expect(jsonDecode(requests.single.body), {
         'name': 'Claude Code',
         'description': 'Laptop',
+        'handle': 'claude',
       });
+      expect(directory.invalidations, 1);
+    });
+
+    test('setHandle puts the handle and drops the directory', () async {
+      await repository.setHandle('a1', null);
+
+      expect(requests.single.method, 'PUT');
+      expect(requests.single.url.path, '/api/admin/agents/a1/handle');
+      expect(jsonDecode(requests.single.body), {'handle': null});
       expect(directory.invalidations, 1);
     });
 

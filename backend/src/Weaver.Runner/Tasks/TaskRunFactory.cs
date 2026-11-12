@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Weaver.Runner.Configuration;
+using Weaver.Runner.Mentions;
 using Weaver.Runner.Model;
 using Weaver.Runner.WeaverApi;
 using Weaver.Runner.WhenResolution;
@@ -22,11 +23,18 @@ public sealed class TaskRunFactory : ITaskRunFactory, IDisposable
     /// <summary>Recycles connections so a long-running runner notices a model or Weaver moving to a new address.</summary>
     private static readonly TimeSpan ConnectionLifetime = TimeSpan.FromMinutes(15);
 
-    private static readonly IReadOnlyDictionary<TaskKind, Func<TaskConfig, IWeaverClient, IModelClient, ILoggerFactory, ITaskRun>> Runs =
-        new Dictionary<TaskKind, Func<TaskConfig, IWeaverClient, IModelClient, ILoggerFactory, ITaskRun>>
+    /// <summary>Each run gets a new Weaver client over the kind's shared HTTP client, so each run has its own run id.</summary>
+    private static readonly IReadOnlyDictionary<TaskKind, Func<TaskConfig, HttpClient, IModelClient, ILoggerFactory, ITaskRun>> Runs =
+        new Dictionary<TaskKind, Func<TaskConfig, HttpClient, IModelClient, ILoggerFactory, ITaskRun>>
         {
-            [TaskKind.WhenResolution] = (config, weaver, model, loggers) =>
-                new WhenResolutionRun(weaver, model, loggers.CreateLogger<WhenResolutionRun>(), config.WhenResolution),
+            [TaskKind.WhenResolution] = (config, weaverHttp, model, loggers) =>
+                new WhenResolutionRun(
+                    new HttpWeaverClient(weaverHttp, config.AgentApiKey),
+                    model,
+                    loggers.CreateLogger<WhenResolutionRun>(),
+                    config.WhenResolution),
+            [TaskKind.Mentions] = (config, weaverHttp, model, loggers) =>
+                new MentionsRun(new HttpMentionsWeaverClient(weaverHttp, config.AgentApiKey), model, loggers.CreateLogger<MentionsRun>()),
         };
 
     private readonly ILoggerFactory _loggers;
@@ -54,9 +62,8 @@ public sealed class TaskRunFactory : ITaskRunFactory, IDisposable
         var (weaverHttp, modelHttp) = _clients.GetOrAdd(config.Kind, _ => (
             _newClient(config.WeaverUrl, WeaverTimeout),
             _newClient(config.ModelEndpoint, config.ModelTimeout)));
-        var weaver = new HttpWeaverClient(weaverHttp, config.AgentApiKey);
         var model = new OpenAiCompatibleModelClient(modelHttp, config.Model, config.ModelApiKey, config.JsonMode);
-        return newRun(config, weaver, model, _loggers);
+        return newRun(config, weaverHttp, model, _loggers);
     }
 
     public void Dispose()

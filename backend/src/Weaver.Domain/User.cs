@@ -34,6 +34,13 @@ public class User : IHasUpdatedAt
     /// <summary>What an agent account is for, e.g. which machine it runs on. Humans have none.</summary>
     public string? Description { get; private set; }
 
+    /// <summary>
+    /// The account's unique <c>@</c> name for mentions in comments, or null if it can't be
+    /// mentioned. Only agents are given one today; it lives on every account so human mentions
+    /// (ticket 44) can use it too.
+    /// </summary>
+    public string? Handle { get; private set; }
+
     /// <summary>May manage lookups (statuses, priorities, types) and other users.</summary>
     public bool IsAdmin { get; private set; }
 
@@ -105,6 +112,12 @@ public class User : IHasUpdatedAt
     {
         Username = username;
         NormalizedUsername = normalizedUsername;
+    }
+
+    /// <summary>A blank handle clears it. Uniqueness needs the other rows, so it's the service's.</summary>
+    public void SetHandle(string? handle)
+    {
+        Handle = Weaver.Domain.Handle.Normalize(handle);
     }
 
     /// <summary>

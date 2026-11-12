@@ -9,10 +9,12 @@ AgentAccount agentAccount(
   String id, {
   String? name,
   String? description,
+  String? handle,
   bool isActive = true,
 }) => AgentAccount(
   id: id,
   name: name ?? id,
+  handle: handle,
   description: description,
   isActive: isActive,
   createdAt: DateTime(2026, 11),
@@ -59,12 +61,36 @@ class FakeAgentAdminRepository implements AgentAdminRepository {
   Future<AgentAccount> create({
     required String name,
     String? description,
+    String? handle,
   }) async {
-    calls.add('create $name ${description ?? '-'}');
+    calls.add(
+      'create $name ${description ?? '-'}${handle == null ? '' : ' @$handle'}',
+    );
     _failIfSet();
-    final created = agentAccount('new', name: name, description: description);
+    final created = agentAccount(
+      'new',
+      name: name,
+      description: description,
+      handle: handle,
+    );
     agents = [...agents, created];
     return created;
+  }
+
+  @override
+  Future<AgentAccount> setHandle(String id, String? handle) async {
+    calls.add('setHandle $id ${handle ?? '-'}');
+    _failIfSet();
+    final agent = agents.firstWhere((agent) => agent.id == id);
+    final updated = agentAccount(
+      id,
+      name: agent.name,
+      description: agent.description,
+      handle: handle,
+      isActive: agent.isActive,
+    );
+    agents = [for (final a in agents) a.id == id ? updated : a];
+    return updated;
   }
 
   @override

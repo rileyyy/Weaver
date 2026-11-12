@@ -12,6 +12,7 @@ public class CommentService(IWeaverDbContext db, TimeProvider clock, ICallerCont
     private readonly TimeProvider _clock = clock;
     private readonly ICallerContext _caller = caller;
     private readonly WorkItemHistoryRecorder _history = new WorkItemHistoryRecorder(db, caller);
+    private readonly CommentMentionRecorder _mentions = new CommentMentionRecorder(db);
 
     public async Task<IReadOnlyList<CommentView>> ListForWorkItemAsync(Guid workItemId, CancellationToken ct = default) =>
         await Project(_db.Comments.Where(c => c.WorkItemId == workItemId).OrderBy(c => c.CreatedAtUtc))
@@ -30,6 +31,7 @@ public class CommentService(IWeaverDbContext db, TimeProvider clock, ICallerCont
         var comment = Comment.Create(workItemId, _caller.Current.AccountId, body);
 
         _db.Comments.Add(comment);
+        await _mentions.RecordAsync(comment, ct);
         _history.Record(workItemId, WorkItemHistoryField.Comment, null, comment.Body);
         await _db.SaveChangesAsync(ct);
         return await GetViewAsync(comment.Id, ct);
@@ -44,6 +46,7 @@ public class CommentService(IWeaverDbContext db, TimeProvider clock, ICallerCont
         comment.Edit(_caller.Current.AccountId, body, _clock.GetUtcNow());
         if (comment.Body != previousBody)
         {
+            await _mentions.RecordAsync(comment, ct);
             _history.Record(comment.WorkItemId, WorkItemHistoryField.Comment, previousBody, comment.Body);
         }
 

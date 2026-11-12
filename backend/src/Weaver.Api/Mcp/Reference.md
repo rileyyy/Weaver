@@ -188,6 +188,8 @@ and admins review each run's changes together.
 - `add_comment`: comment as your account.
 - `update_comment`: edit your own comment.
 - `delete_comment`: delete your own comment.
+- `list_pending_mentions`: comments that mention your `@handle` and that you
+  haven't answered yet.
 - `list_work_item_attachments`: an item's attachments' metadata.
 - `get_work_item_attachment`: fetch one attachment's content (up to 5 MB).
 
@@ -238,6 +240,16 @@ and admins review each run's changes together.
 4. If the phrase is ambiguous, matches several items or dates, or matches
    none, leave it unresolved and ask a human (or comment on the item). The
    phrase is always kept.
+
+### Answer @ mentions
+1. `list_pending_mentions`: each is a comment asking your account for
+   something, on the item it names.
+2. Read the item and its comments (`get_work_item_context`) and do what the
+   comment asks, only adding: comments, links, sub-items, and dates on an item
+   that has none. If it needs an existing value changed, don't change it:
+   propose the change in your reply.
+3. Always reply with `add_comment` on that item, even to say you couldn't do
+   it. Your reply is what clears the mention.
 
 ### Report dependency conflicts
 1. `list_dependency_conflicts`, optionally for one Space.

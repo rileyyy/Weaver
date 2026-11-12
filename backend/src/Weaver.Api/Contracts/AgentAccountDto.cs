@@ -5,6 +5,7 @@ namespace Weaver.Api.Contracts;
 public record AgentAccountDto(
     Guid Id,
     string Name,
+    string? Handle,
     string? Description,
     bool IsActive,
     DateTimeOffset CreatedAtUtc)
@@ -12,6 +13,7 @@ public record AgentAccountDto(
     public static AgentAccountDto FromEntity(User agent) => new(
         agent.Id,
         agent.Username,
+        agent.Handle,
         agent.Description,
         agent.IsActive,
         agent.CreatedAtUtc);
