@@ -4,7 +4,7 @@
 
 **Blocked by:** 50
 
-**Status:** needs-triage
+**Status:** ready-for-agent
 
 To decide before this is ready:
 
@@ -13,3 +13,9 @@ To decide before this is ready:
 - Whether the undo is itself recorded as a run in history
 
 - [ ] Rules agreed and written into this ticket
+
+## Decisions
+
+- If a human changed the field that the undo would change, skip that field. If a human changed a different part, continue the undo.
+- Undo should not remove comments, they are a useful part of public history
+- The undo should be recorded into history
