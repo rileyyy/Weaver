@@ -93,7 +93,10 @@ public class AttachmentTests
             Assert.That(thumbnail.Content.Headers.ContentType?.MediaType, Is.EqualTo("image/webp"));
             Assert.That(thumbnail.Content.Headers.ContentDisposition, Is.Null);
             Assert.That(thumbnail.Headers.GetValues("X-Content-Type-Options"), Is.EqualTo(new[] { "nosniff" }));
-            Assert.That(thumbnail.Headers.CacheControl?.ToString(), Is.EqualTo("private, max-age=31536000, immutable"));
+            // Directive by directive: the parsed header's ToString() reorders them.
+            Assert.That(thumbnail.Headers.CacheControl?.Private, Is.True);
+            Assert.That(thumbnail.Headers.CacheControl?.MaxAge, Is.EqualTo(TimeSpan.FromDays(365)));
+            Assert.That(thumbnail.Headers.CacheControl?.Extensions.Select(e => e.Name), Does.Contain("immutable"));
             Assert.That(Image.DetectFormat(bytes), Is.EqualTo(WebpFormat.Instance));
             Assert.That(Image.Identify(bytes).Size, Is.EqualTo(new Size(320, 240)));
         });
