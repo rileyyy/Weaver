@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:weaver/features/admin/models/run_undo_change.dart';
+import 'package:weaver/features/admin/models/run_undo_outcome.dart';
+import 'package:weaver/features/admin/models/run_undo_result.dart';
 import 'package:weaver/features/admin/run_reports_view_model.dart';
 import 'package:weaver/features/admin/views/runs_tab.dart';
 
@@ -113,5 +116,66 @@ void main() {
     await pumpTab(tester);
 
     expect(find.textContaining('No runs yet'), findsOneWidget);
+  });
+
+  testWidgets('undoing a run asks first, then says what was left alone', (
+    tester,
+  ) async {
+    repository.undoResult = const RunUndoResult([
+      RunUndoChange(
+        number: 12,
+        title: 'Paint the hall',
+        field: 'startDate',
+        outcome: RunUndoOutcome.undone,
+      ),
+      RunUndoChange(
+        number: 12,
+        title: 'Paint the hall',
+        field: 'comment',
+        outcome: RunUndoOutcome.kept,
+      ),
+      RunUndoChange(
+        number: 12,
+        title: 'Paint the hall',
+        field: 'when',
+        outcome: RunUndoOutcome.changedSince,
+      ),
+    ]);
+    await pumpTab(tester);
+    await tester.tap(find.text('Runner: llama / When'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Undo this run'));
+    await tester.pumpAndSettle();
+    expect(find.text('Undo this run?'), findsOneWidget);
+    expect(repository.calls, isNot(contains('undo run-1')));
+    await tester.tap(find.text('Undo run'));
+    await tester.pumpAndSettle();
+
+    expect(repository.calls, contains('undo run-1'));
+    expect(
+      find.text('Undone: 1 change. Kept 1 comment. Left 1 as they are:'),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        '#12 Paint the hall, When: not undone, changed by someone since',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('cancelling the undo changes nothing', (tester) async {
+    await pumpTab(tester);
+    await tester.tap(find.text('Runner: llama / When'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Undo this run'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(repository.calls, isNot(contains('undo run-1')));
+    expect(find.text('Undo this run'), findsOneWidget);
   });
 }

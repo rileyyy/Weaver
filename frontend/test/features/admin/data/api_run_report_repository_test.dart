@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:weaver/features/admin/data/api_run_report_repository.dart';
 import 'package:weaver/features/admin/models/run_report.dart';
+import 'package:weaver/features/admin/models/run_undo_outcome.dart';
 
 import '../../../core/network/fakes/fixed_api_endpoint.dart';
 
@@ -41,6 +42,25 @@ Map<String, dynamic> _changedItemJson() => {
   ],
 };
 
+Map<String, dynamic> _undoJson() => {
+  'changes': [
+    {
+      'workItemId': 'w1',
+      'number': 12,
+      'title': 'Paint the hall',
+      'field': 'when',
+      'outcome': 'ChangedSince',
+    },
+    {
+      'workItemId': 'w2',
+      'number': null,
+      'title': 'Old shed',
+      'field': 'link',
+      'outcome': 'Undone',
+    },
+  ],
+};
+
 void main() {
   late List<http.Request> requests;
   late ApiRunReportRepository repository;
@@ -49,6 +69,9 @@ void main() {
     requests = [];
     final client = MockClient((request) async {
       requests.add(request);
+      if (request.url.path.endsWith('/undo')) {
+        return http.Response(jsonEncode(_undoJson()), 200);
+      }
       return request.url.path.endsWith('/changes')
           ? http.Response(jsonEncode([_changedItemJson()]), 200)
           : http.Response(
@@ -94,5 +117,25 @@ void main() {
     expect(item.changes.single.change, 'When: none → next week');
     expect(item.changes.single.actorLabel, 'resolver');
     expect(item.changes.single.runId, 'run 1');
+  });
+
+  test('undo posts for the run named by account, key and run id', () async {
+    final run = RunReport.fromJson(_runJson());
+
+    final result = await repository.undo(run);
+
+    expect(requests.single.method, 'POST');
+    expect(requests.single.url.path, '/api/admin/runs/undo');
+    expect(requests.single.url.queryParameters, {
+      'accountId': 'a1',
+      'apiKeyId': 'k1',
+      'runId': 'run 1',
+    });
+    final skipped = result.skipped.single;
+    expect(skipped.itemName, '#12 Paint the hall');
+    expect(skipped.fieldLabel, 'When');
+    expect(skipped.outcome, RunUndoOutcome.changedSince);
+    expect(result.changes.last.itemName, 'Old shed');
+    expect(result.undoneCount, 1);
   });
 }

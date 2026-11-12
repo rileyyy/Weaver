@@ -3,6 +3,7 @@ import 'package:weaver/features/admin/data/run_report_repository.dart';
 import 'package:weaver/features/admin/models/run_changed_item.dart';
 import 'package:weaver/features/admin/models/run_report.dart';
 import 'package:weaver/features/admin/models/run_report_page.dart';
+import 'package:weaver/features/admin/models/run_undo_result.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_history_entry.dart';
 import 'package:weaver/shared/models/user_kind.dart';
 
@@ -56,7 +57,7 @@ WorkItemHistoryEntry runChange(
 
 /// Serves [runs] [pageSize] at a time, newest first as given, as the server
 /// pages by its own default size, and each run's changes from
-/// [changesByRunId].
+/// [changesByRunId]. Undoing any run answers [undoResult].
 class FakeRunReportRepository implements RunReportRepository {
   FakeRunReportRepository(
     this.runs, {
@@ -67,6 +68,7 @@ class FakeRunReportRepository implements RunReportRepository {
   List<RunReport> runs;
   final int pageSize;
   final Map<String, List<RunChangedItem>> changesByRunId;
+  RunUndoResult undoResult = const RunUndoResult([]);
   ApiException? error;
   final List<String> calls = [];
 
@@ -86,5 +88,12 @@ class FakeRunReportRepository implements RunReportRepository {
     calls.add('changes ${run.runId}');
     if (error case final error?) throw error;
     return changesByRunId[run.runId] ?? const [];
+  }
+
+  @override
+  Future<RunUndoResult> undo(RunReport run) async {
+    calls.add('undo ${run.runId}');
+    if (error case final error?) throw error;
+    return undoResult;
   }
 }

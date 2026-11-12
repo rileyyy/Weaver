@@ -148,6 +148,25 @@ class WorkItemHistoryEntry {
       fieldName ??
       (isCustomField ? 'Removed field' : _fieldLabels[field] ?? field);
 
+  /// A short name for any history field, for lists that name what changed
+  /// without the values, e.g. "Start date" or "Link".
+  static String labelFor(String field) =>
+      _fieldLabels[field] ??
+      _entryLabels[field] ??
+      (field.startsWith(customFieldPrefix) ? 'Custom field' : field);
+
+  static const _entryLabels = {
+    'created': 'Created',
+    'deleted': 'Deleted',
+    'restored': 'Restored',
+    'purged': 'Permanently deleted',
+    'comment': 'Comment',
+    'link': 'Link',
+    'urlLink': 'URL link',
+    'attachment': 'Attachment',
+    'recurrence': 'Repeat',
+  };
+
   static const _fieldLabels = {
     'title': 'Title',
     'description': 'Description',
