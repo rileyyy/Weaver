@@ -2,7 +2,6 @@ using Microsoft.Extensions.Logging;
 using Weaver.Runner.Model;
 using Weaver.Runner.Tasks;
 using Weaver.Runner.WeaverApi;
-using Weaver.Runner.WhenResolution;
 
 namespace Weaver.Runner.Mentions;
 

@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Weaver.Runner.WhenResolution;
+namespace Weaver.Runner.Model;
 
 /// <summary>
 /// The yyyy-MM-dd dates the model is shown and answers in. Always in the invariant culture: in a

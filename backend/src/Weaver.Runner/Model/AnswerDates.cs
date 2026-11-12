@@ -1,7 +1,6 @@
 using System.Text.Json;
-using Weaver.Runner.Model;
 
-namespace Weaver.Runner.WhenResolution;
+namespace Weaver.Runner.Model;
 
 /// <summary>
 /// The optional <c>start</c> and <c>end</c> of a model's answer, checked the same way for every

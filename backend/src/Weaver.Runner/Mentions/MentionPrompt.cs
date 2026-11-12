@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Text;
 using Weaver.Runner.Model;
 using Weaver.Runner.WeaverApi;
-using Weaver.Runner.WhenResolution;
 
 namespace Weaver.Runner.Mentions;
 

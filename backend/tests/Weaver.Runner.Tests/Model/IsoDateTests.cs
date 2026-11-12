@@ -1,7 +1,7 @@
 using System.Globalization;
-using Weaver.Runner.WhenResolution;
+using Weaver.Runner.Model;
 
-namespace Weaver.Runner.Tests.WhenResolution;
+namespace Weaver.Runner.Tests.Model;
 
 [TestFixture]
 public class IsoDateTests
