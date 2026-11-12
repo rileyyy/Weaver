@@ -12,11 +12,12 @@ namespace Weaver.Infrastructure.Attachments;
 
 /// <summary>
 /// Thumbnails JPEG, PNG, GIF, WebP and BMP images, recognised by their content rather than the
-/// uploader's content type. SVG isn't among them, so a script-carrying file is never rendered here.
+/// uploader's content type, as lossy WebP (<see cref="AttachmentThumbnail"/>). SVG isn't among
+/// them, so a script-carrying file is never rendered here.
 /// </summary>
 public sealed class ImageSharpThumbnailGenerator : IThumbnailGenerator
 {
-    public const int MaxEdge = 320;
+    private const int MaxEdge = AttachmentThumbnail.MaxEdge;
 
     /// <summary>
     /// About a 50 megapixel photo. A header can claim far more than the file holds, and decoding
@@ -36,12 +37,24 @@ public sealed class ImageSharpThumbnailGenerator : IThumbnailGenerator
         new WebpConfigurationModule(),
         new BmpConfigurationModule());
 
-    // WebP keeps transparency, unlike JPEG, and is far smaller than PNG for photos.
     private static readonly WebpEncoder Encoder = new() { FileFormat = WebpFileFormatType.Lossy, Quality = 80 };
 
     public async Task<bool> TryGenerateAsync(Stream source, Stream destination, CancellationToken ct = default)
     {
-        var seekable = await SeekableAsync(source, ct);
+        if (source.CanSeek)
+        {
+            return await GenerateFromSeekableAsync(source, destination, ct);
+        }
+
+        // Identifying and then decoding reads the start twice.
+        await using var buffer = new MemoryStream();
+        await source.CopyToAsync(buffer, ct);
+        buffer.Position = 0;
+        return await GenerateFromSeekableAsync(buffer, destination, ct);
+    }
+
+    private static async Task<bool> GenerateFromSeekableAsync(Stream seekable, Stream destination, CancellationToken ct)
+    {
         var start = seekable.Position;
 
         ImageInfo info;
@@ -89,18 +102,4 @@ public sealed class ImageSharpThumbnailGenerator : IThumbnailGenerator
         MaxFrames = 1,
         TargetSize = info.Width > MaxEdge || info.Height > MaxEdge ? new Size(MaxEdge, MaxEdge) : null,
     };
-
-    /// <summary>Identifying and then decoding reads the start twice.</summary>
-    private static async Task<Stream> SeekableAsync(Stream source, CancellationToken ct)
-    {
-        if (source.CanSeek)
-        {
-            return source;
-        }
-
-        var buffer = new MemoryStream();
-        await source.CopyToAsync(buffer, ct);
-        buffer.Position = 0;
-        return buffer;
-    }
 }

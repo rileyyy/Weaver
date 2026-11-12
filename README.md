@@ -48,9 +48,10 @@ the API.
   handle; typed links between work items (related, blocks, duplicates),
   across Spaces, and URL links to things outside Weaver.
 - **Attachments.** Files attached to a work item from its detail dialog,
-  to download or delete later. They're kept on their own storage path,
-  not in the database. Agents can list and fetch them over MCP but not
-  upload or delete them.
+  to download or delete later. Images show as thumbnails and open full
+  size on tap, and on a phone you can take a photo and attach it directly.
+  They're kept on their own storage path, not in the database. Agents can
+  list and fetch them over MCP but not upload or delete them.
 - **Markdown and checklists.** Descriptions and comments render Markdown.
   `- [ ]` task lines in a description are checkboxes you can tick, for
   checklists and shopping lists.
@@ -192,7 +193,7 @@ sections.
 | `Jwt__SigningKey` | Yes | — | Signs access tokens. At least 32 bytes (`openssl rand -base64 48`); the API refuses to start without one. |
 | `FirstAdmin__Username` / `FirstAdmin__Password` | On first start | none | The admin created when the backend starts on a database with no accounts; ignored once any account exists. The password needs at least 12 characters. See [The first admin](#the-first-admin). |
 | `Attachments__Path` | No | `/data/attachments` | Directory holding attachment files, created on startup if missing. Mount a volume here and back it up with the database: Postgres holds each attachment's name and size, this directory holds the file. It's separate from the database so it can live on other storage. The image's user (`$APP_UID`, 1654) must be able to write to it. |
-| `Attachments__MaxFileSizeMegabytes` | No | `25` | The largest attachment accepted, in MiB; a bigger upload gets 413. The frontend image's nginx caps `/api/` request bodies at 30 MiB, so raising this past about 29 also needs a larger `client_max_body_size` in front of the API (a replacement `/etc/nginx/conf.d/default.conf` mounted into the frontend container, or a rebuilt image). |
+| `Attachments__MaxFileSizeMegabytes` | No | `25` | The largest attachment accepted, in MiB; a bigger upload gets 413. The frontend image's nginx caps `/api/` request bodies at 30 MiB, so raising this past about 29 also needs a larger `client_max_body_size` in front of the API (a replacement `/etc/nginx/conf.d/default.conf` mounted into the frontend container, or a rebuilt image). The size limit is on the file, not its pixels: an image upload is decoded within the request to make its thumbnail, which can take up to about 200 MB of memory for a 50-megapixel photo (larger images get no thumbnail), so budget for that on a small host. |
 | `Database__MigrateOnStartup` | No | `true` | Applies pending migrations before serving. If a migration fails, the API exits with the reason in its log instead of serving against an old schema. Set `false` to run migrations as a separate step instead: the image's `migrate` command (e.g. `command: ["migrate"]`) applies them and exits. |
 | `ASPNETCORE_ENVIRONMENT` | No | `Production` | Leave it as `Production`. `Development` maps the OpenAPI document and accepts the public development signing key and first-admin password. |
 | `Cors__AllowedOrigins__0`, `__1`, … | No | none | Web origins allowed to call the API cross-origin. The web app calls it same-origin through nginx, so this is only for some other web origin. |
@@ -387,7 +388,9 @@ survive losing that disk. With the default named volume, the files are
 under the path `docker volume inspect <project>_attachments` reports;
 setting `ATTACHMENTS_DIR` to a host directory makes them easier to copy.
 To restore attachments, put the files back in that directory with the
-backend stopped, owned by uid 1654.
+backend stopped, owned by uid 1654. An image's thumbnail is stored beside
+its file in the same directory, as `<id>.thumbnail`, so restoring the
+directory restores both.
 
 ### The agent runner (optional)
 

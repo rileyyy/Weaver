@@ -108,6 +108,22 @@ public class ImageSharpThumbnailGeneratorTests
     }
 
     [Test]
+    public async Task AnImageFromAStreamThatCantSeek_IsStillThumbnailed()
+    {
+        using var source = new Image<Rgba32>(1000, 500);
+        var png = await EncodeAsync(source, (image, s) => image.SaveAsPngAsync(s));
+        using var destination = new MemoryStream();
+
+        var generated = await _generator.TryGenerateAsync(new ForwardOnlyStream(png), destination);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(generated, Is.True);
+            Assert.That(SizeOf(destination.ToArray()), Is.EqualTo(new Size(320, 160)));
+        });
+    }
+
+    [Test]
     public async Task ATiff_GetsNoThumbnail()
     {
         using var source = new Image<Rgba32>(10, 10);
