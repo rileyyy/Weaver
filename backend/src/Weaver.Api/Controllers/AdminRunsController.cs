@@ -12,9 +12,10 @@ namespace Weaver.Api.Controllers;
 [ProducesResponseType(StatusCodes.Status401Unauthorized)]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
-public class AdminRunsController(IRunReportService runs) : ControllerBase
+public class AdminRunsController(IRunReportService runs, IRunUndoService undo) : ControllerBase
 {
     private readonly IRunReportService _runs = runs;
+    private readonly IRunUndoService _undo = undo;
 
     /// <summary>Runs newest first, by their last change.</summary>
     [HttpGet]
@@ -39,5 +40,21 @@ public class AdminRunsController(IRunReportService runs) : ControllerBase
     {
         var changes = await _runs.ListChangesAsync(new RunKey(accountId, apiKeyId, runId));
         return Ok(changes.Select(ChangedWorkItemDto.FromChange));
+    }
+
+    /// <summary>
+    /// Undoes what one run did (ticket 54): its additions are removed and the fields it changed
+    /// get their old values back, except where someone else has changed them since. Comments are
+    /// kept. The undo is recorded in history as the caller's, and repeating it changes nothing.
+    /// </summary>
+    [HttpPost("undo")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<ActionResult<RunUndoResultDto>> Undo(
+        [FromQuery, BindRequired] Guid accountId,
+        [FromQuery, BindRequired] Guid apiKeyId,
+        [FromQuery, BindRequired] string runId)
+    {
+        var result = await _undo.UndoAsync(new RunKey(accountId, apiKeyId, runId));
+        return Ok(RunUndoResultDto.FromResult(result));
     }
 }

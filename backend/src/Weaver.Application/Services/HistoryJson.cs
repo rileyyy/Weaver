@@ -15,4 +15,7 @@ internal static class HistoryJson
     };
 
     public static string? Serialize(object? value) => value is null ? null : JsonSerializer.Serialize(value, Options);
+
+    /// <summary>Reads back a value <see cref="Serialize"/> stored; a missing value is the type's default.</summary>
+    public static T? Deserialize<T>(string? json) => json is null ? default : JsonSerializer.Deserialize<T>(json, Options);
 }

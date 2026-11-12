@@ -148,7 +148,7 @@ internal sealed class HistoryValueNames
     /// A plain id, or a link's <c>{ "workItemId", "type" }</c>, whose id is the other item.
     /// Link entries from before links had types hold the plain id.
     /// </summary>
-    private static Guid? IdIn(string? valueJson)
+    internal static Guid? IdIn(string? valueJson)
     {
         if (valueJson is null)
         {
