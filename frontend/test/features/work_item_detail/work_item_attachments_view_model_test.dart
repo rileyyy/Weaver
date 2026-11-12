@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/work_item_detail/data/photo_capture_exception.dart';
 import 'package:weaver/features/work_item_detail/models/attachment_upload.dart';
-import 'package:weaver/features/work_item_detail/models/photo_downscale.dart';
 import 'package:weaver/features/work_item_detail/work_item_attachments_view_model.dart';
 
 import 'fakes/fake_attachment_camera.dart';
@@ -96,6 +95,21 @@ void main() {
       expect(viewModel.error, isNull);
     });
 
+    test('clears the last error when opened, even if the user then '
+        'cancels', () async {
+      final repository = FakeAttachmentRepository();
+      final files = FakeAttachmentFiles(picked: _picked);
+      final viewModel = await _loaded(repository, files: files);
+      repository.failure = const ApiException('boom', statusCode: 500);
+      await viewModel.upload();
+      expect(viewModel.error, isNotNull);
+
+      files.picked = null;
+      await viewModel.upload();
+
+      expect(viewModel.error, isNull);
+    });
+
     test('uploads nothing when the user cancels the pick', () async {
       final repository = FakeAttachmentRepository();
       final viewModel = await _loaded(repository);
@@ -170,7 +184,7 @@ void main() {
       expect(_viewModel(FakeAttachmentRepository()).canTakePhoto, isFalse);
     });
 
-    test('uploads the photo, downscaled for upload, and lists it', () async {
+    test('uploads the photo and lists it', () async {
       final repository = FakeAttachmentRepository();
       final camera = FakeAttachmentCamera(isAvailable: true, photo: _photo);
       final viewModel = await _loaded(repository, camera: camera);
@@ -178,17 +192,10 @@ void main() {
       final uploaded = await viewModel.takePhoto();
 
       expect(uploaded, isTrue);
-      expect(camera.requests, [PhotoDownscale.forUpload]);
+      expect(camera.timesOpened, 1);
       expect(repository.uploads, [_photo]);
       expect(viewModel.attachments.map((a) => a.fileName), [_photo.fileName]);
       expect(viewModel.isUploading, isFalse);
-    });
-
-    test('downscales to at most 2560 px at JPEG quality 85, which keeps a '
-        "camera photo far below the server's 25 MB limit", () {
-      expect(PhotoDownscale.forUpload.maxWidth, 2560);
-      expect(PhotoDownscale.forUpload.maxHeight, 2560);
-      expect(PhotoDownscale.forUpload.imageQuality, 85);
     });
 
     test('uploads nothing when the user cancels the camera', () async {
@@ -206,13 +213,13 @@ void main() {
       expect(viewModel.isUploading, isFalse);
     });
 
-    test('says so when the camera cannot be used', () async {
+    Future<String?> errorWhenCameraFails(String code) async {
       final repository = FakeAttachmentRepository();
       final viewModel = await _loaded(
         repository,
         camera: FakeAttachmentCamera(
           isAvailable: true,
-          failure: const PhotoCaptureException('camera_access_denied'),
+          failure: PhotoCaptureException(code),
         ),
       );
 
@@ -220,10 +227,48 @@ void main() {
 
       expect(uploaded, isFalse);
       expect(repository.uploads, isEmpty);
+      return viewModel.error;
+    }
+
+    test('says how to allow the camera when access is denied', () async {
       expect(
-        viewModel.error,
-        'Could not take a photo. Check that Weaver may use the camera.',
+        await errorWhenCameraFails(PhotoCaptureException.accessDenied),
+        'Weaver may not use the camera. Allow camera access in the '
+        "device's settings to take a photo.",
       );
+    });
+
+    test('says so when the device has no camera', () async {
+      expect(
+        await errorWhenCameraFails(PhotoCaptureException.noCamera),
+        'This device has no camera to take a photo with.',
+      );
+    });
+
+    test('says to try again when the camera fails otherwise', () async {
+      expect(
+        await errorWhenCameraFails('already_active'),
+        'Could not take a photo. Try again.',
+      );
+    });
+
+    test('clears the last error when opened, even if the user then '
+        'cancels', () async {
+      final camera = FakeAttachmentCamera(
+        isAvailable: true,
+        failure: const PhotoCaptureException(PhotoCaptureException.noCamera),
+      );
+      final viewModel = await _loaded(
+        FakeAttachmentRepository(),
+        camera: camera,
+      );
+      await viewModel.takePhoto();
+      expect(viewModel.error, isNotNull);
+
+      camera.failure = null;
+      await viewModel.takePhoto();
+
+      expect(viewModel.error, isNull);
     });
 
     test("shows the server's message for a photo over the limit", () async {

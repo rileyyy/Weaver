@@ -12,6 +12,7 @@ import 'package:weaver/features/work_item_detail/models/work_item_link_relation.
 import 'package:weaver/features/work_item_detail/models/work_item_priority.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_url_link.dart';
 import 'package:weaver/features/work_item_detail/repeat_settings_view_model.dart';
+import 'package:weaver/features/work_item_detail/widgets/attachment_preview.dart';
 import 'package:weaver/features/work_item_detail/work_item_attachments_view_model.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view.dart';
 import 'package:weaver/features/work_item_detail/work_item_detail_view_model.dart';
@@ -953,7 +954,13 @@ void main() {
         ),
       );
 
-      expect(find.byTooltip('View full size'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(AttachmentPreview),
+          matching: find.byType(Image),
+        ),
+        findsOneWidget,
+      );
       expect(find.byIcon(Icons.picture_as_pdf_outlined), findsOneWidget);
 
       final attach = find.widgetWithText(TextButton, 'Attach file');
@@ -962,9 +969,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(attachments.thumbnailRequests, [photo.id]);
 
-      final thumbnail = find.byTooltip('View full size');
-      await tester.ensureVisible(thumbnail);
-      await tester.tap(thumbnail);
+      final photoRow = find.text('whiteboard.jpg');
+      await tester.ensureVisible(photoRow);
+      await tester.tap(photoRow);
       await tester.pumpAndSettle();
       expect(find.byType(InteractiveViewer), findsOneWidget);
     });
@@ -997,7 +1004,7 @@ void main() {
       await tester.tap(takePhoto);
       await tester.pumpAndSettle();
 
-      expect(camera.requests, hasLength(1));
+      expect(camera.timesOpened, 1);
       expect(attachments.uploads.map((u) => u.fileName), [
         'Photo 2026-11-12 14.03.22.jpg',
       ]);

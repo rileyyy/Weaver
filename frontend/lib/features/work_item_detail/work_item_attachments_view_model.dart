@@ -8,7 +8,6 @@ import 'package:weaver/features/work_item_detail/data/attachment_files.dart';
 import 'package:weaver/features/work_item_detail/data/photo_capture_exception.dart';
 import 'package:weaver/features/work_item_detail/data/work_item_attachment_repository.dart';
 import 'package:weaver/features/work_item_detail/models/attachment_upload.dart';
-import 'package:weaver/features/work_item_detail/models/photo_downscale.dart';
 import 'package:weaver/features/work_item_detail/models/work_item_attachment.dart';
 
 /// The detail dialog's Attachments section. Kept apart from
@@ -39,7 +38,6 @@ class WorkItemAttachmentsViewModel extends ViewModel {
   String? get loadError => _loadError;
   bool get isUploading => _isUploading;
 
-  /// Whether "Take photo" is offered: only on phones.
   bool get canTakePhoto => _camera.isAvailable;
 
   /// Why the last upload, download or delete failed; cleared by the next.
@@ -65,25 +63,39 @@ class WorkItemAttachmentsViewModel extends ViewModel {
   /// Asks the user for a file and attaches it. False if they cancel or it
   /// fails, which [error] then explains.
   Future<bool> upload() async {
+    _clearError();
     final file = await _files.pick();
     if (file == null) return false;
     return _attach(file);
   }
 
-  /// Opens the camera and attaches the photo taken, downscaled so it fits
-  /// well within the server's size limit. False if the user cancels or it
-  /// fails, which [error] then explains.
+  /// Opens the camera and attaches the photo taken. False if the user
+  /// cancels or it fails, which [error] then explains.
   Future<bool> takePhoto() async {
+    _clearError();
     final AttachmentUpload? photo;
     try {
-      photo = await _camera.takePhoto(PhotoDownscale.forUpload);
-    } on PhotoCaptureException {
-      _error = 'Could not take a photo. Check that Weaver may use the camera.';
+      photo = await _camera.takePhoto();
+    } on PhotoCaptureException catch (e) {
+      _error = switch (e.code) {
+        PhotoCaptureException.accessDenied =>
+          'Weaver may not use the camera. Allow camera access in the '
+              "device's settings to take a photo.",
+        PhotoCaptureException.noCamera =>
+          'This device has no camera to take a photo with.',
+        _ => 'Could not take a photo. Try again.',
+      };
       notifyIfActive();
       return false;
     }
     if (photo == null) return false;
     return _attach(photo);
+  }
+
+  void _clearError() {
+    if (_error == null) return;
+    _error = null;
+    notifyIfActive();
   }
 
   /// [attachment]'s preview, for one whose [WorkItemAttachment.hasThumbnail]

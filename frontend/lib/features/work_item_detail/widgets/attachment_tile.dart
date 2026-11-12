@@ -6,8 +6,9 @@ import 'package:weaver/features/work_item_detail/models/work_item_attachment.dar
 import 'package:weaver/features/work_item_detail/widgets/attachment_preview.dart';
 import 'package:weaver/features/work_item_detail/widgets/confirm_dialogs.dart';
 
-/// One attachment in the list: tap it to download it, tap its thumbnail to
-/// view it full size, or delete it after confirming.
+/// One attachment in the list: tap an image to view it full size or any
+/// other file to download it, download either with its button, or delete it
+/// after confirming.
 class AttachmentTile extends StatelessWidget {
   const AttachmentTile({
     super.key,
@@ -34,15 +35,18 @@ class AttachmentTile extends StatelessWidget {
   Widget build(BuildContext context) => ListTile(
     contentPadding: EdgeInsets.zero,
     dense: true,
-    leading: _leading(),
+    leading: AttachmentPreview(
+      contentType: attachment.contentType,
+      thumbnail: thumbnail,
+    ),
     title: Text(attachment.fileName, overflow: TextOverflow.ellipsis),
     subtitle: Text(attachment.displaySize),
-    onTap: onDownload,
+    onTap: thumbnail == null ? onDownload : onView,
     trailing: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Tapping the row downloads too, but nothing on the row says so
-        // now that its leading slot shows a preview.
+        // An image's row opens the viewer, so this is its only way to
+        // download.
         IconButton(
           icon: const Icon(Icons.download, size: 18),
           tooltip: 'Download attachment',
@@ -56,22 +60,6 @@ class AttachmentTile extends StatelessWidget {
       ],
     ),
   );
-
-  Widget _leading() {
-    final preview = AttachmentPreview(
-      contentType: attachment.contentType,
-      thumbnail: thumbnail,
-    );
-    if (thumbnail == null) return preview;
-    return Tooltip(
-      message: 'View full size',
-      child: InkWell(
-        borderRadius: BorderRadius.circular(4),
-        onTap: onView,
-        child: preview,
-      ),
-    );
-  }
 
   Future<void> _confirmDelete(BuildContext context) async {
     if (!await confirmDeleteAttachment(context, attachment.fileName)) return;

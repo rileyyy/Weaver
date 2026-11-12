@@ -171,8 +171,21 @@ void main() {
     });
   });
 
+  testWidgets("an image's download button downloads it", (tester) async {
+    final downloaded = <WorkItemAttachment>[];
+    final photo = _photo();
+    await _pump(tester, attachments: [photo], onDownload: downloaded.add);
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Download attachment'));
+    await tester.pump();
+
+    expect(downloaded, [photo]);
+    expect(find.byType(InteractiveViewer), findsNothing);
+  });
+
   group('full-size viewer', () {
-    testWidgets('tapping a thumbnail opens the image full size, without '
+    testWidgets("tapping an image's row opens it full size, without "
         'downloading it', (tester) async {
       final downloaded = <WorkItemAttachment>[];
       final opened = <String>[];
@@ -189,7 +202,7 @@ void main() {
       );
       await tester.pump();
 
-      await tester.tap(find.byTooltip('View full size'));
+      await tester.tap(find.text('whiteboard.jpg'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
@@ -219,7 +232,7 @@ void main() {
       );
       await tester.pump();
 
-      await tester.tap(find.byTooltip('View full size'));
+      await tester.tap(find.text('whiteboard.jpg'));
       await tester.pumpAndSettle();
 
       expect(find.text('Could not load whiteboard.jpg.'), findsOneWidget);
@@ -229,7 +242,7 @@ void main() {
     testWidgets('closes back to the list', (tester) async {
       await _pump(tester, attachments: [_photo()]);
       await tester.pump();
-      await tester.tap(find.byTooltip('View full size'));
+      await tester.tap(find.text('whiteboard.jpg'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byTooltip('Close'));

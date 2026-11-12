@@ -1,11 +1,10 @@
 import 'package:weaver/features/work_item_detail/data/attachment_camera.dart';
 import 'package:weaver/features/work_item_detail/data/photo_capture_exception.dart';
 import 'package:weaver/features/work_item_detail/models/attachment_upload.dart';
-import 'package:weaver/features/work_item_detail/models/photo_downscale.dart';
 
 /// Stands in for the device camera: [photo] is what the user takes (null
-/// cancels), [failure] is thrown instead when set, and every request's
-/// downscale options are recorded.
+/// cancels), [failure] is thrown instead when set, and each opening of the
+/// camera is counted.
 class FakeAttachmentCamera implements AttachmentCamera {
   FakeAttachmentCamera({this.isAvailable = false, this.photo, this.failure});
 
@@ -14,11 +13,11 @@ class FakeAttachmentCamera implements AttachmentCamera {
 
   AttachmentUpload? photo;
   PhotoCaptureException? failure;
-  final List<PhotoDownscale> requests = [];
+  int timesOpened = 0;
 
   @override
-  Future<AttachmentUpload?> takePhoto(PhotoDownscale downscale) async {
-    requests.add(downscale);
+  Future<AttachmentUpload?> takePhoto() async {
+    timesOpened++;
     if (failure case final error?) throw error;
     return photo;
   }
