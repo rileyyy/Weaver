@@ -2,6 +2,11 @@
     <!-- The debug and profile manifests already declare this, which is why
          those builds could reach the server while release builds couldn't. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Declared so image_picker asks for the camera before opening it for
+         "Take photo"; it doesn't stop the app installing on a device without
+         one, which the feature below allows. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <application
         android:label="Weaver"
         android:name="${applicationName}"
@@ -43,6 +48,12 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- image_picker looks up the camera app to grant it write access to
+             the file the photo is saved into; on Android 11+ that lookup
+             finds nothing unless the app declares it queries for it. -->
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE"/>
         </intent>
     </queries>
 </manifest>

@@ -10,7 +10,33 @@ WorkItemAttachment _sized(int sizeBytes) => WorkItemAttachment(
   createdAt: DateTime(2026, 11, 1),
 );
 
+Map<String, dynamic> _json({bool? hasThumbnail}) => {
+  'id': 'att-1',
+  'workItemId': 'item-1',
+  'fileName': 'photo.jpg',
+  'contentType': 'image/jpeg',
+  'sizeBytes': 2048,
+  'createdAtUtc': '2026-11-01T09:30:00Z',
+  'hasThumbnail': ?hasThumbnail,
+};
+
 void main() {
+  test('fromJson reads whether the server has a thumbnail', () {
+    expect(
+      WorkItemAttachment.fromJson(_json(hasThumbnail: true)).hasThumbnail,
+      isTrue,
+    );
+    expect(
+      WorkItemAttachment.fromJson(_json(hasThumbnail: false)).hasThumbnail,
+      isFalse,
+    );
+  });
+
+  test('fromJson treats a missing hasThumbnail as no thumbnail, as servers '
+      'from before thumbnails send', () {
+    expect(WorkItemAttachment.fromJson(_json()).hasThumbnail, isFalse);
+  });
+
   test('displaySize shows bytes, KB, MB and GB in steps of 1024', () {
     expect(_sized(0).displaySize, '0 B');
     expect(_sized(1023).displaySize, '1023 B');

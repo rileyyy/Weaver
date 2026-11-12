@@ -47,6 +47,12 @@ class ApiWorkItemAttachmentRepository implements WorkItemAttachmentRepository {
   );
 
   @override
+  Future<Uint8List> downloadThumbnail(String attachmentId) => _api.getBytes(
+    '/work-item-attachments/$attachmentId/thumbnail',
+    failureMessage: 'Failed to load the thumbnail',
+  );
+
+  @override
   Future<void> delete(String attachmentId) => _api.delete(
     '/work-item-attachments/$attachmentId',
     failureMessage: 'Failed to delete the attachment',

@@ -10,6 +10,7 @@ WorkItemAttachment attachment({
   String fileName = 'report.pdf',
   String contentType = 'application/pdf',
   int sizeBytes = 2048,
+  bool hasThumbnail = false,
 }) => WorkItemAttachment(
   id: id,
   workItemId: 'item-1',
@@ -17,6 +18,7 @@ WorkItemAttachment attachment({
   contentType: contentType,
   sizeBytes: sizeBytes,
   createdAt: DateTime(2026, 11, 1),
+  hasThumbnail: hasThumbnail,
 );
 
 /// Keeps attachments and their content in memory, like the server would.
@@ -26,6 +28,8 @@ class FakeAttachmentRepository implements WorkItemAttachmentRepository {
 
   final List<WorkItemAttachment> attachments;
   final Map<String, Uint8List> contents = {};
+  final Map<String, Uint8List> thumbnails = {};
+  final List<String> thumbnailRequests = [];
   final List<AttachmentUpload> uploads = [];
   final List<String> deleted = [];
 
@@ -66,6 +70,17 @@ class FakeAttachmentRepository implements WorkItemAttachmentRepository {
   Future<Uint8List> downloadContent(String attachmentId) async {
     _failIfSet();
     return contents[attachmentId] ?? Uint8List(0);
+  }
+
+  @override
+  Future<Uint8List> downloadThumbnail(String attachmentId) async {
+    thumbnailRequests.add(attachmentId);
+    _failIfSet();
+    final thumbnail = thumbnails[attachmentId];
+    if (thumbnail == null) {
+      throw const ApiException('No thumbnail', statusCode: 404);
+    }
+    return thumbnail;
   }
 
   @override

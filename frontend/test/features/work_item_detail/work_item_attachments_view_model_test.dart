@@ -2,9 +2,12 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/core/network/api_exception.dart';
+import 'package:weaver/features/work_item_detail/data/photo_capture_exception.dart';
 import 'package:weaver/features/work_item_detail/models/attachment_upload.dart';
+import 'package:weaver/features/work_item_detail/models/photo_downscale.dart';
 import 'package:weaver/features/work_item_detail/work_item_attachments_view_model.dart';
 
+import 'fakes/fake_attachment_camera.dart';
 import 'fakes/fake_attachment_files.dart';
 import 'fakes/fake_attachment_repository.dart';
 
@@ -14,14 +17,28 @@ const _picked = AttachmentUpload(
   contentType: 'application/pdf',
 );
 
+const _photo = AttachmentUpload(
+  fileName: 'Photo 2026-11-12 14.03.22.jpg',
+  bytes: [0xff, 0xd8, 0xff],
+  contentType: 'image/jpeg',
+);
+
+WorkItemAttachmentsViewModel _viewModel(
+  FakeAttachmentRepository repository, {
+  FakeAttachmentFiles? files,
+  FakeAttachmentCamera? camera,
+}) => WorkItemAttachmentsViewModel(
+  repository,
+  files ?? FakeAttachmentFiles(),
+  camera ?? FakeAttachmentCamera(),
+);
+
 Future<WorkItemAttachmentsViewModel> _loaded(
   FakeAttachmentRepository repository, {
   FakeAttachmentFiles? files,
+  FakeAttachmentCamera? camera,
 }) async {
-  final viewModel = WorkItemAttachmentsViewModel(
-    repository,
-    files ?? FakeAttachmentFiles(),
-  );
+  final viewModel = _viewModel(repository, files: files, camera: camera);
   await viewModel.load('item-1');
   return viewModel;
 }
@@ -29,12 +46,11 @@ Future<WorkItemAttachmentsViewModel> _loaded(
 void main() {
   group('load', () {
     test("lists the item's attachments", () async {
-      final viewModel = WorkItemAttachmentsViewModel(
+      final viewModel = _viewModel(
         FakeAttachmentRepository([
           attachment(),
           attachment(id: 'att-2', fileName: 'notes.txt'),
         ]),
-        FakeAttachmentFiles(),
       );
 
       await viewModel.load('item-1');
@@ -50,10 +66,7 @@ void main() {
     test('says so when the list cannot be loaded', () async {
       final repository = FakeAttachmentRepository([attachment()])
         ..failure = const ApiException('down', statusCode: 500);
-      final viewModel = WorkItemAttachmentsViewModel(
-        repository,
-        FakeAttachmentFiles(),
-      );
+      final viewModel = _viewModel(repository);
 
       await viewModel.load('item-1');
 
@@ -143,6 +156,149 @@ void main() {
 
       expect(viewModel.error, 'Could not upload quote.pdf. Try again.');
     });
+  });
+
+  group('takePhoto', () {
+    test('is offered only where the device has a camera to use', () {
+      expect(
+        _viewModel(
+          FakeAttachmentRepository(),
+          camera: FakeAttachmentCamera(isAvailable: true),
+        ).canTakePhoto,
+        isTrue,
+      );
+      expect(_viewModel(FakeAttachmentRepository()).canTakePhoto, isFalse);
+    });
+
+    test('uploads the photo, downscaled for upload, and lists it', () async {
+      final repository = FakeAttachmentRepository();
+      final camera = FakeAttachmentCamera(isAvailable: true, photo: _photo);
+      final viewModel = await _loaded(repository, camera: camera);
+
+      final uploaded = await viewModel.takePhoto();
+
+      expect(uploaded, isTrue);
+      expect(camera.requests, [PhotoDownscale.forUpload]);
+      expect(repository.uploads, [_photo]);
+      expect(viewModel.attachments.map((a) => a.fileName), [_photo.fileName]);
+      expect(viewModel.isUploading, isFalse);
+    });
+
+    test('downscales to at most 2560 px at JPEG quality 85, which keeps a '
+        "camera photo far below the server's 25 MB limit", () {
+      expect(PhotoDownscale.forUpload.maxWidth, 2560);
+      expect(PhotoDownscale.forUpload.maxHeight, 2560);
+      expect(PhotoDownscale.forUpload.imageQuality, 85);
+    });
+
+    test('uploads nothing when the user cancels the camera', () async {
+      final repository = FakeAttachmentRepository();
+      final viewModel = await _loaded(
+        repository,
+        camera: FakeAttachmentCamera(isAvailable: true),
+      );
+
+      final uploaded = await viewModel.takePhoto();
+
+      expect(uploaded, isFalse);
+      expect(repository.uploads, isEmpty);
+      expect(viewModel.error, isNull);
+      expect(viewModel.isUploading, isFalse);
+    });
+
+    test('says so when the camera cannot be used', () async {
+      final repository = FakeAttachmentRepository();
+      final viewModel = await _loaded(
+        repository,
+        camera: FakeAttachmentCamera(
+          isAvailable: true,
+          failure: const PhotoCaptureException('camera_access_denied'),
+        ),
+      );
+
+      final uploaded = await viewModel.takePhoto();
+
+      expect(uploaded, isFalse);
+      expect(repository.uploads, isEmpty);
+      expect(
+        viewModel.error,
+        'Could not take a photo. Check that Weaver may use the camera.',
+      );
+    });
+
+    test("shows the server's message for a photo over the limit", () async {
+      final repository = FakeAttachmentRepository();
+      final viewModel = await _loaded(
+        repository,
+        camera: FakeAttachmentCamera(isAvailable: true, photo: _photo),
+      );
+      repository.failure = const ApiException(
+        'Attachments can be at most 25 MB. (413).',
+        statusCode: 413,
+        detail: 'Attachments can be at most 25 MB.',
+      );
+
+      final uploaded = await viewModel.takePhoto();
+
+      expect(uploaded, isFalse);
+      expect(viewModel.error, 'Attachments can be at most 25 MB.');
+    });
+  });
+
+  group('thumbnail', () {
+    test('fetches the thumbnail once and reuses it, so rebuilding the list '
+        'does not fetch it again', () async {
+      final photo = attachment(hasThumbnail: true);
+      final bytes = Uint8List.fromList([1, 2, 3]);
+      final repository = FakeAttachmentRepository([photo])
+        ..thumbnails[photo.id] = bytes;
+      final viewModel = await _loaded(repository);
+
+      expect(await viewModel.thumbnail(photo), bytes);
+      expect(await viewModel.thumbnail(photo), bytes);
+      expect(viewModel.thumbnail(photo), same(viewModel.thumbnail(photo)));
+      expect(repository.thumbnailRequests, [photo.id]);
+    });
+
+    test('keeps a failed fetch too, rather than retrying it on every '
+        'rebuild', () async {
+      final photo = attachment(hasThumbnail: true);
+      final repository = FakeAttachmentRepository([photo]);
+      final viewModel = await _loaded(repository);
+
+      await expectLater(
+        viewModel.thumbnail(photo),
+        throwsA(isA<ApiException>()),
+      );
+      await expectLater(
+        viewModel.thumbnail(photo),
+        throwsA(isA<ApiException>()),
+      );
+
+      expect(repository.thumbnailRequests, [photo.id]);
+    });
+
+    test("fetches each attachment's own thumbnail", () async {
+      final first = attachment(hasThumbnail: true);
+      final second = attachment(id: 'att-2', hasThumbnail: true);
+      final repository = FakeAttachmentRepository([first, second])
+        ..thumbnails[first.id] = Uint8List.fromList([1])
+        ..thumbnails[second.id] = Uint8List.fromList([2]);
+      final viewModel = await _loaded(repository);
+
+      expect(await viewModel.thumbnail(first), [1]);
+      expect(await viewModel.thumbnail(second), [2]);
+    });
+  });
+
+  test('imageContent fetches the full-size original', () async {
+    final photo = attachment(hasThumbnail: true);
+    final original = Uint8List.fromList([9, 9, 9]);
+    final repository = FakeAttachmentRepository([photo])
+      ..contents[photo.id] = original;
+    final viewModel = await _loaded(repository);
+
+    expect(await viewModel.imageContent(photo), original);
   });
 
   group('download', () {

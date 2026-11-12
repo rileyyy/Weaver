@@ -149,6 +149,36 @@ void main() {
     );
   });
 
+  test('downloadThumbnail returns the thumbnail bytes, unchanged', () async {
+    final thumbnail = [0x52, 0x49, 0x46, 0x46, 0xff, 0x00, 0xfe];
+    http.Request? sent;
+    final client = MockClient((request) async {
+      sent = request;
+      return http.Response.bytes(
+        thumbnail,
+        200,
+        headers: {'content-type': 'image/webp'},
+      );
+    });
+
+    final bytes = await _repository(client).downloadThumbnail('att-1');
+
+    expect(sent!.method, 'GET');
+    expect(sent!.url.path, '/api/work-item-attachments/att-1/thumbnail');
+    expect(bytes, thumbnail);
+  });
+
+  test('downloadThumbnail fails with the status when there is none', () {
+    final client = MockClient((_) async => http.Response('', 404));
+
+    expect(
+      _repository(client).downloadThumbnail('att-1'),
+      throwsA(
+        isA<ApiException>().having((e) => e.statusCode, 'statusCode', 404),
+      ),
+    );
+  });
+
   test('delete deletes the work-item-attachments endpoint', () async {
     http.Request? sent;
     final client = MockClient((request) async {

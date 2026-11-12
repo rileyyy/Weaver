@@ -29,8 +29,10 @@ import 'package:weaver/shared/widgets/user_name_label.dart';
 
 import '../../shared/fakes/work_items.dart';
 import '../../shared/recurrence/fake_recurrence_repository.dart';
+import 'fakes/fake_attachment_camera.dart';
 import 'fakes/fake_attachment_files.dart';
 import 'fakes/fake_attachment_repository.dart';
+import 'fakes/tiny_png.dart';
 
 class _NoUser implements CurrentUser {
   @override
@@ -298,6 +300,7 @@ Future<void> _openDetails(
   _FakeRepository? repository,
   FakeAttachmentRepository? attachments,
   FakeAttachmentFiles? files,
+  FakeAttachmentCamera? camera,
   VoidCallback? onChanged,
 }) async {
   tester.view.physicalSize = const Size(1200, 1600);
@@ -326,6 +329,7 @@ Future<void> _openDetails(
                 attachmentsViewModel: WorkItemAttachmentsViewModel(
                   attachments ?? FakeAttachmentRepository(),
                   files ?? FakeAttachmentFiles(),
+                  camera ?? FakeAttachmentCamera(),
                 ),
               ),
             ),
@@ -924,6 +928,80 @@ void main() {
 
       expect(attachments.deleted, ['att-1']);
       expect(find.text('report.pdf'), findsNothing);
+    });
+
+    testWidgets('shows a thumbnail for an image, fetched once however often '
+        'the list rebuilds, and opens it full size on tap', (tester) async {
+      final photo = attachment(
+        fileName: 'whiteboard.jpg',
+        contentType: 'image/jpeg',
+        hasThumbnail: true,
+      );
+      final attachments =
+          FakeAttachmentRepository([photo, attachment(id: 'att-2')])
+            ..thumbnails[photo.id] = tinyPng
+            ..contents[photo.id] = tinyPng;
+      await _openDetails(
+        tester,
+        attachments: attachments,
+        files: FakeAttachmentFiles(
+          picked: const AttachmentUpload(
+            fileName: 'quote.pdf',
+            bytes: [1, 2, 3],
+            contentType: 'application/pdf',
+          ),
+        ),
+      );
+
+      expect(find.byTooltip('View full size'), findsOneWidget);
+      expect(find.byIcon(Icons.picture_as_pdf_outlined), findsOneWidget);
+
+      final attach = find.widgetWithText(TextButton, 'Attach file');
+      await tester.ensureVisible(attach);
+      await tester.tap(attach);
+      await tester.pumpAndSettle();
+      expect(attachments.thumbnailRequests, [photo.id]);
+
+      final thumbnail = find.byTooltip('View full size');
+      await tester.ensureVisible(thumbnail);
+      await tester.tap(thumbnail);
+      await tester.pumpAndSettle();
+      expect(find.byType(InteractiveViewer), findsOneWidget);
+    });
+
+    testWidgets('offers no "Take photo" where there is no camera', (
+      tester,
+    ) async {
+      await _openDetails(tester);
+
+      expect(find.widgetWithText(TextButton, 'Attach file'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'Take photo'), findsNothing);
+    });
+
+    testWidgets('on a phone, taking a photo uploads it and lists it', (
+      tester,
+    ) async {
+      final attachments = FakeAttachmentRepository();
+      final camera = FakeAttachmentCamera(
+        isAvailable: true,
+        photo: const AttachmentUpload(
+          fileName: 'Photo 2026-11-12 14.03.22.jpg',
+          bytes: [0xff, 0xd8, 0xff],
+          contentType: 'image/jpeg',
+        ),
+      );
+      await _openDetails(tester, attachments: attachments, camera: camera);
+
+      final takePhoto = find.widgetWithText(TextButton, 'Take photo');
+      await tester.ensureVisible(takePhoto);
+      await tester.tap(takePhoto);
+      await tester.pumpAndSettle();
+
+      expect(camera.requests, hasLength(1));
+      expect(attachments.uploads.map((u) => u.fileName), [
+        'Photo 2026-11-12 14.03.22.jpg',
+      ]);
+      expect(find.text('Photo 2026-11-12 14.03.22.jpg'), findsOneWidget);
     });
   });
 }

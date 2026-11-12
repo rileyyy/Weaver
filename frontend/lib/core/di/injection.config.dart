@@ -94,10 +94,14 @@ import 'package:weaver/features/work_item_detail/data/api_work_item_detail_repos
     as _i335;
 import 'package:weaver/features/work_item_detail/data/api_work_item_history_repository.dart'
     as _i511;
+import 'package:weaver/features/work_item_detail/data/attachment_camera.dart'
+    as _i52;
 import 'package:weaver/features/work_item_detail/data/attachment_files.dart'
     as _i418;
 import 'package:weaver/features/work_item_detail/data/file_picker_attachment_files.dart'
     as _i868;
+import 'package:weaver/features/work_item_detail/data/image_picker_attachment_camera.dart'
+    as _i714;
 import 'package:weaver/features/work_item_detail/data/space_move_repository.dart'
     as _i222;
 import 'package:weaver/features/work_item_detail/data/work_item_attachment_repository.dart'
@@ -160,6 +164,9 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i418.AttachmentFiles>(
       () => _i868.FilePickerAttachmentFiles(),
+    );
+    gh.lazySingleton<_i52.AttachmentCamera>(
+      () => _i714.ImagePickerAttachmentCamera(),
     );
     gh.lazySingleton<_i577.ServerSettings>(
       () => _i577.ServerSettings(gh<_i936.ServerOriginStore>()),
@@ -266,12 +273,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i773.TrashViewModel>(
       () => _i773.TrashViewModel(gh<_i1009.TrashRepository>()),
     );
-    gh.factory<_i798.WorkItemAttachmentsViewModel>(
-      () => _i798.WorkItemAttachmentsViewModel(
-        gh<_i454.WorkItemAttachmentRepository>(),
-        gh<_i418.AttachmentFiles>(),
-      ),
-    );
     gh.lazySingleton<_i600.SpaceRepository>(
       () =>
           _i796.ApiSpaceRepository(gh<_i519.Client>(), gh<_i202.ApiEndpoint>()),
@@ -310,6 +311,13 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i519.Client>(),
         gh<_i202.ApiEndpoint>(),
         gh<_i562.UserDirectoryRepository>(),
+      ),
+    );
+    gh.factory<_i798.WorkItemAttachmentsViewModel>(
+      () => _i798.WorkItemAttachmentsViewModel(
+        gh<_i454.WorkItemAttachmentRepository>(),
+        gh<_i418.AttachmentFiles>(),
+        gh<_i52.AttachmentCamera>(),
       ),
     );
     gh.factory<_i87.RepeatingItemsViewModel>(

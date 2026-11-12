@@ -14,6 +14,10 @@ abstract class WorkItemAttachmentRepository {
   /// The file's content, exactly as uploaded.
   Future<Uint8List> downloadContent(String attachmentId);
 
+  /// A small WebP preview of the file, for an attachment whose
+  /// [WorkItemAttachment.hasThumbnail] is set.
+  Future<Uint8List> downloadThumbnail(String attachmentId);
+
   /// Deletes the attachment and its file.
   Future<void> delete(String attachmentId);
 }
