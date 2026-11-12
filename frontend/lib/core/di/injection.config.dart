@@ -58,6 +58,7 @@ import 'package:weaver/features/admin/run_reports_view_model.dart' as _i185;
 import 'package:weaver/features/admin/server_settings_admin_view_model.dart'
     as _i338;
 import 'package:weaver/features/admin/space_admin_view_model.dart' as _i742;
+import 'package:weaver/features/admin/space_history_view_model.dart' as _i903;
 import 'package:weaver/features/admin/status_admin_view_model.dart' as _i609;
 import 'package:weaver/features/admin/user_admin_view_model.dart' as _i486;
 import 'package:weaver/features/auth/auth_view_model.dart' as _i6;
@@ -316,6 +317,12 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i60.RepeatSettingsViewModel>(
       () => _i60.RepeatSettingsViewModel(gh<_i65.RecurrenceRepository>()),
+    );
+    gh.factoryParam<_i903.SpaceHistoryViewModel, String, dynamic>(
+      (spaceId, _) => _i903.SpaceHistoryViewModel(
+        gh<_i447.SpaceAdminRepository>(),
+        spaceId,
+      ),
     );
     gh.factory<_i314.BoardViewModel>(
       () => _i314.BoardViewModel(

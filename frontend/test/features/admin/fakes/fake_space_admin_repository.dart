@@ -1,11 +1,17 @@
 import 'package:weaver/core/network/api_exception.dart';
 import 'package:weaver/features/admin/data/space_admin_repository.dart';
+import 'package:weaver/features/admin/models/space_history_entry.dart';
 import 'package:weaver/shared/models/space.dart';
 
 class FakeSpaceAdminRepository implements SpaceAdminRepository {
-  FakeSpaceAdminRepository(List<Space> spaces) : spaces = [...spaces];
+  FakeSpaceAdminRepository(
+    List<Space> spaces, {
+    Map<String, List<SpaceHistoryEntry>> history = const {},
+  }) : spaces = [...spaces],
+       _history = history;
 
   final List<Space> spaces;
+  final Map<String, List<SpaceHistoryEntry>> _history;
   ApiException? error;
   final List<String> calls = [];
 
@@ -51,6 +57,13 @@ class FakeSpaceAdminRepository implements SpaceAdminRepository {
     );
     spaces[index] = changed;
     return changed;
+  }
+
+  @override
+  Future<List<SpaceHistoryEntry>> history(String id) async {
+    calls.add('history $id');
+    _throwIfFailing();
+    return [...?_history[id]];
   }
 
   void _throwIfFailing() {
