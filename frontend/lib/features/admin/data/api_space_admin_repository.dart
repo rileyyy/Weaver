@@ -3,6 +3,7 @@ import 'package:injectable/injectable.dart';
 import 'package:weaver/core/network/api_endpoint.dart';
 import 'package:weaver/core/network/json_api_client.dart';
 import 'package:weaver/features/admin/data/space_admin_repository.dart';
+import 'package:weaver/features/admin/models/space_history_entry.dart';
 import 'package:weaver/shared/models/space.dart';
 
 @LazySingleton(as: SpaceAdminRepository)
@@ -44,5 +45,12 @@ class ApiSpaceAdminRepository implements SpaceAdminRepository {
     {'days': days},
     _space,
     failureMessage: 'Failed to change the done-hiding period',
+  );
+
+  @override
+  Future<List<SpaceHistoryEntry>> history(String id) => _api.get(
+    '/spaces/$id/history',
+    (json) => JsonApiClient.listOf(json, SpaceHistoryEntry.fromJson),
+    failureMessage: "Failed to load the Space's history",
   );
 }

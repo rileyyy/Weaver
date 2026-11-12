@@ -358,6 +358,42 @@ void main() {
     });
   });
 
+  group('ApiSpaceAdminRepository', () {
+    test("history reads one Space's entries", () async {
+      final requests = <http.Request>[];
+      final client = MockClient((request) async {
+        requests.add(request);
+        return http.Response(
+          jsonEncode([
+            {
+              'id': 2,
+              'spaceId': 'home',
+              'changedAtUtc': '2026-11-12T09:00:00Z',
+              'accountId': 'u1',
+              'accountName': 'admin',
+              'accountKind': 'Human',
+              'apiKeyId': null,
+              'apiKeyLabel': null,
+              'actorLabel': null,
+              'field': 'doneHidingDays',
+              'oldValue': 14,
+              'newValue': 30,
+            },
+          ]),
+          200,
+        );
+      });
+
+      final history = await ApiSpaceAdminRepository(
+        client,
+        _endpoint,
+      ).history('home');
+
+      expect(requests.single.url.path, '/api/spaces/home/history');
+      expect(history.single.change, 'Done-hiding period: 14 days → 30 days');
+    });
+  });
+
   group('ApiAgentAdminRepository', () {
     late List<http.Request> requests;
     late _CountingDirectory directory;

@@ -1,3 +1,4 @@
+import 'package:weaver/features/admin/models/space_history_entry.dart';
 import 'package:weaver/shared/models/space.dart';
 
 /// Creating, renaming and configuring Spaces. Anyone signed in can list them; each
@@ -13,4 +14,8 @@ abstract class SpaceAdminRepository {
   /// Sets how many days a Done item stays on the board after its
   /// completion date. Refused (400) outside 1 to 3650 days.
   Future<Space> setDoneHidingPeriod(String id, int days);
+
+  /// Every change to the Space, newest first. Unpaged: a Space changes only
+  /// a handful of times.
+  Future<List<SpaceHistoryEntry>> history(String id);
 }

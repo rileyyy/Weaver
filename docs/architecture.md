@@ -461,9 +461,13 @@ A number or currency field can roll up (ticket 15,
   says where it started even after a move between Spaces (ticket 16).
   Like the other id fields, readers get the Space's name.
 - **A Space's own history is separate.** Creating and renaming a Space
-  append a `SpaceHistoryEntry` (`created`, `name`), with the same who and
-  when, since `WorkItemHistory` is keyed by a work item. Nothing reads it
-  yet (ticket 47). Its account and key FKs are `Restrict` like work item history's, so
+  and changing its done-hiding period append a `SpaceHistoryEntry`
+  (`created`, `name`, `doneHidingDays`), with the same who and when, since
+  `WorkItemHistory` is keyed by a work item. `GET /api/spaces/{id}/history`
+  and the MCP tool `list_space_history` read it, unpaged since a Space
+  changes only a handful of times. It stays out of "changes since T"
+  (ticket 47): that feed is for work items, and admin configuration
+  there would be noise for agents. Its account and key FKs are `Restrict` like work item history's, so
   an admin who created a Space can't be hard-deleted either.
 - **Rank isn't recorded.** It's a card's position in its board cell, which
   every drag rewrites; a reorder alone records nothing.

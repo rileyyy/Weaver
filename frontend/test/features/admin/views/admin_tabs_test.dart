@@ -8,6 +8,7 @@ import 'package:weaver/features/admin/lookup_admin_view_model.dart';
 import 'package:weaver/features/admin/models/lookup_kind.dart';
 import 'package:weaver/features/admin/models/lookup_value.dart';
 import 'package:weaver/features/admin/space_admin_view_model.dart';
+import 'package:weaver/features/admin/space_history_view_model.dart';
 import 'package:weaver/features/admin/status_admin_view_model.dart';
 import 'package:weaver/features/admin/user_admin_view_model.dart';
 import 'package:weaver/features/admin/views/agents_tab.dart';
@@ -87,6 +88,21 @@ void main() {
 
       expect(repository.calls.last, 'rename home House');
       expect(find.text('House'), findsOneWidget);
+    });
+
+    testWidgets("the history button opens the Space's history", (tester) async {
+      await getIt.reset();
+      addTearDown(getIt.reset);
+      getIt.registerFactoryParam<SpaceHistoryViewModel, String, void>(
+        (spaceId, _) => SpaceHistoryViewModel(repository, spaceId),
+      );
+      await tester.pumpWidget(_host(SpacesTab(viewModel: viewModel)));
+
+      await tester.tap(find.byTooltip('History of Home'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('History of Home'), findsOneWidget);
+      expect(repository.calls.last, 'history home');
     });
 
     testWidgets("shows each Space's done-hiding period", (tester) async {

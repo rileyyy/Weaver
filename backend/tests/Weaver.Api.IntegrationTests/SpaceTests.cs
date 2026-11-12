@@ -191,6 +191,40 @@ public class SpaceTests
     }
 
     [Test]
+    public async Task ASpacesHistory_ListsItsChangesNewestFirst_OverRestAndMcp()
+    {
+        var (admin, auth) = await ApiClient.SignedInAdminAsync();
+        var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadOnly);
+        var name = $"History {Guid.NewGuid():N}"[..30];
+        var space = await (await admin.PostJsonAsync("/api/spaces", new SpaceNameRequest(name))).ReadAsync<SpaceDto>();
+        await admin.PutJsonAsync($"/api/spaces/{space.Id}", new SpaceNameRequest(name + " 2"));
+        await admin.PutJsonAsync($"/api/spaces/{space.Id}/done-hiding-period", new SetDoneHidingPeriodRequest(30));
+
+        var history = await (await agent.GetAsync($"/api/spaces/{space.Id}/history"))
+            .ReadAsync<List<SpaceHistoryEntryDto>>();
+        var unknown = await agent.GetAsync($"/api/spaces/{Guid.NewGuid()}/history");
+        await using var mcp = await ConnectAsync(agent);
+        var overMcp = JsonSerializer.Deserialize<List<SpaceHistoryEntryDto>>(
+            TextOf(await mcp.CallToolAsync("list_space_history", new Dictionary<string, object?> { ["spaceId"] = space.Id })),
+            ApiClient.Json)!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(history.Select(e => e.Field), Is.EqualTo(new[]
+            {
+                SpaceHistoryField.DoneHidingDays,
+                SpaceHistoryField.Name,
+                SpaceHistoryField.Created,
+            }));
+            Assert.That(history.Select(e => e.AccountName), Has.All.EqualTo(auth.User.Username));
+            Assert.That(history[1].NewValue?.GetString(), Is.EqualTo(name + " 2"));
+            Assert.That(history[2].OldValue, Is.Null);
+            Assert.That(unknown.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+            Assert.That(overMcp.Select(e => e.Id), Is.EqualTo(history.Select(e => e.Id)));
+        });
+    }
+
+    [Test]
     public async Task Mcp_ListsSpaces_ButOffersNoToolToChangeThem()
     {
         var (agent, _) = await ApiClient.SignedInAgentAsync(ApiKeyScope.ReadWrite);

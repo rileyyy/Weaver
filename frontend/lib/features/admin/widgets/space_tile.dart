@@ -6,13 +6,15 @@ import 'package:weaver/shared/formatting/day_count.dart';
 import 'package:weaver/shared/models/space.dart';
 
 /// The Spaces tab's row for one Space: its name and how long its Done items
-/// stay on the board, each with its own edit button.
+/// stay on the board, each with its own edit button, and a button for its
+/// history.
 class SpaceTile extends StatelessWidget {
   const SpaceTile({
     super.key,
     required this.space,
     required this.onRename,
     required this.onSetDoneHidingPeriod,
+    required this.onShowHistory,
   });
 
   final Space space;
@@ -21,6 +23,7 @@ class SpaceTile extends StatelessWidget {
   /// not.
   final Future<String?> Function(String name) onRename;
   final Future<String?> Function(String days) onSetDoneHidingPeriod;
+  final VoidCallback onShowHistory;
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +37,11 @@ class SpaceTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          IconButton(
+            tooltip: 'History of ${space.name}',
+            icon: const Icon(Icons.history),
+            onPressed: onShowHistory,
+          ),
           IconButton(
             tooltip: 'Change done-hiding period for ${space.name}',
             icon: const Icon(Icons.visibility_off_outlined),

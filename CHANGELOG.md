@@ -33,6 +33,18 @@ What shipped, newest first. Design reasoning lives in
 Milestones 9–11 were built in dependency order (10, then 9, then 11),
 because Milestone 9's "assigned to" field needs Milestone 10's users.
 
+## 2026-11-12 — A Space's history
+
+`feature/read-space-history` (ticket 47 of
+[the Spaces and agents spec](.scratch/spaces-and-agents/spec.md)).
+
+- **Each Space's history is readable**: when it was created, renamed or
+  had its done-hiding period changed, and by whom. Admins open it from
+  the History button on the Admin page's Spaces tab.
+- **Over the API and MCP**: `GET /api/spaces/{id}/history` and the
+  read-only `list_space_history` tool, newest first.
+- It stays apart from "changes since T", which remains about work items.
+
 ## 2026-11-11 — The Agenda layout
 
 `feature/agenda-layout` (ticket 24 of
