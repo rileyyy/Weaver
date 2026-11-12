@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Weaver.Application.Attachments;
 using Weaver.Application.Services;
@@ -18,6 +19,7 @@ public class WorkItemAttachmentServiceTests
     private FixedTimeProvider _clock = null!;
     private WeaverDbContext _db = null!;
     private InMemoryAttachmentStore _store = null!;
+    private FakeThumbnailGenerator _thumbnails = null!;
     private FakeCallerContext _caller = null!;
     private WorkItemAttachmentService _attachments = null!;
     private WorkItemService _workItems = null!;
@@ -29,6 +31,7 @@ public class WorkItemAttachmentServiceTests
         _clock = new FixedTimeProvider(new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero));
         _db = TestDatabase.Create(_clock);
         _store = new InMemoryAttachmentStore();
+        _thumbnails = new FakeThumbnailGenerator();
         _caller = FakeCallerContext.Anyone();
         _attachments = ServiceOver(_db);
         _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), new FixedServerCalendar(), _caller);
@@ -162,6 +165,166 @@ public class WorkItemAttachmentServiceTests
     }
 
     [Test]
+    public async Task AddAsync_OfAnImage_StoresItsThumbnailUnderTheSameId_FromTheStoredFile()
+    {
+        var item = await CreateAsync("Kitchen");
+        _thumbnails.Produces = [7, 7, 7];
+
+        var added = await _attachments.AddAsync(item.Id, "photo.jpg", "image/jpeg", Content("JPEG bytes"));
+
+        var row = await _db.WorkItemAttachments.SingleAsync(a => a.Id == added.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That(added.HasThumbnail, Is.True);
+            Assert.That(row.HasThumbnail, Is.True);
+            Assert.That(_store.Thumbnails[added.Id], Is.EqualTo(new byte[] { 7, 7, 7 }));
+            Assert.That(Encoding.UTF8.GetString(_thumbnails.LastSource!), Is.EqualTo("JPEG bytes"));
+        });
+    }
+
+    [Test]
+    public async Task AddAsync_OfAFileTheGeneratorDeclines_HasNoThumbnail()
+    {
+        var item = await CreateAsync("Kitchen");
+
+        var added = await _attachments.AddAsync(item.Id, "a.txt", "text/plain", Content("a"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(added.HasThumbnail, Is.False);
+            Assert.That(_store.Files, Contains.Key(added.Id));
+            Assert.That(_store.Thumbnails, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task AddAsync_WhenMakingTheThumbnailThrows_StillAddsTheAttachmentWithoutOne()
+    {
+        var item = await CreateAsync("Kitchen");
+        _thumbnails.Throws = new InvalidDataException("Corrupt image.");
+
+        var added = await _attachments.AddAsync(item.Id, "broken.png", "image/png", Content("not really a png"));
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That(added.HasThumbnail, Is.False);
+            Assert.That(await _attachments.ListForWorkItemAsync(item.Id), Has.Count.EqualTo(1));
+            Assert.That(_store.Files, Contains.Key(added.Id));
+            Assert.That(_store.Thumbnails, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task AddAsync_WhenTheThumbnailCantBeWritten_StillAddsTheAttachmentWithoutOne()
+    {
+        var item = await CreateAsync("Kitchen");
+        _thumbnails.Produces = [7];
+        _store.FailThumbnailWrites = true;
+
+        var added = await _attachments.AddAsync(item.Id, "photo.jpg", "image/jpeg", Content("JPEG bytes"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(added.HasThumbnail, Is.False);
+            Assert.That(_store.Files, Contains.Key(added.Id));
+        });
+    }
+
+    [Test]
+    public async Task AddAsync_WhenTheRowCantBeSaved_RemovesTheFileAndItsThumbnail()
+    {
+        var saves = new SwitchableSaveFailure();
+        using var db = TestDatabase.Create(_clock, saves);
+        var space = TestSpaces.Add(db);
+        var item = await new WorkItemService(db, new IterativeWorkItemHierarchy(db), new FixedServerCalendar(), _caller)
+            .CreateAsync("Kitchen", null, null, space.ToDo, spaceId: space.Id);
+        _thumbnails.Produces = [7];
+        saves.Fail = true;
+
+        Assert.ThrowsAsync<InvalidOperationException>(() =>
+            ServiceOver(db).AddAsync(item.Id, "photo.jpg", "image/jpeg", Content("JPEG bytes")));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_store.Files, Is.Empty);
+            Assert.That(_store.Thumbnails, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task AddAsync_WhenCancelledWhileMakingTheThumbnail_KeepsNothing()
+    {
+        var item = await CreateAsync("Kitchen");
+        _thumbnails.Throws = new OperationCanceledException();
+
+        Assert.CatchAsync<OperationCanceledException>(() =>
+            _attachments.AddAsync(item.Id, "photo.jpg", "image/jpeg", Content("JPEG bytes")));
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That(_store.Files, Is.Empty);
+            Assert.That(await _db.WorkItemAttachments.CountAsync(), Is.Zero);
+        });
+    }
+
+    [Test]
+    public async Task ListForWorkItemAsync_SaysWhichAttachmentsHaveAThumbnail()
+    {
+        var item = await CreateAsync("Kitchen");
+        await _attachments.AddAsync(item.Id, "a.txt", "text/plain", Content("a"));
+        _thumbnails.Produces = [7];
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        await _attachments.AddAsync(item.Id, "photo.jpg", "image/jpeg", Content("JPEG bytes"));
+
+        var listed = await _attachments.ListForWorkItemAsync(item.Id);
+
+        Assert.That(listed.Select(a => a.HasThumbnail), Is.EqualTo(new[] { false, true }));
+    }
+
+    [Test]
+    public async Task OpenThumbnailAsync_ReturnsTheThumbnailsBytes()
+    {
+        var item = await CreateAsync("Kitchen");
+        _thumbnails.Produces = [7, 8, 9];
+        var added = await _attachments.AddAsync(item.Id, "photo.jpg", "image/jpeg", Content("JPEG bytes"));
+
+        await using var thumbnail = await _attachments.OpenThumbnailAsync(added.Id);
+        using var read = new MemoryStream();
+        await thumbnail.CopyToAsync(read);
+
+        Assert.That(read.ToArray(), Is.EqualTo(new byte[] { 7, 8, 9 }));
+    }
+
+    [Test]
+    public async Task OpenThumbnailAsync_ForAnAttachmentWithoutOne_ThrowsANotFoundDomainException()
+    {
+        var item = await CreateAsync("Kitchen");
+        var added = await _attachments.AddAsync(item.Id, "a.txt", "text/plain", Content("a"));
+
+        var thrown = Assert.ThrowsAsync<AttachmentThumbnailNotFoundException>(() => _attachments.OpenThumbnailAsync(added.Id));
+
+        Assert.That(thrown!.Kind, Is.EqualTo(DomainErrorKind.NotFound));
+    }
+
+    [Test]
+    public void OpenThumbnailAsync_WhenNotFound_ThrowsEntityNotFoundException()
+    {
+        Assert.ThrowsAsync<EntityNotFoundException>(() => _attachments.OpenThumbnailAsync(Guid.NewGuid()));
+    }
+
+    [Test]
+    public async Task DeleteAsync_RemovesTheThumbnailToo()
+    {
+        var item = await CreateAsync("Kitchen");
+        _thumbnails.Produces = [7];
+        var added = await _attachments.AddAsync(item.Id, "photo.jpg", "image/jpeg", Content("JPEG bytes"));
+
+        await _attachments.DeleteAsync(added.Id);
+
+        Assert.That(_store.Thumbnails, Is.Empty);
+    }
+
+    [Test]
     public async Task ListForWorkItemAsync_ReturnsOnlyThatItemsAttachments_OldestFirst()
     {
         var item = await CreateAsync("Kitchen");
@@ -243,8 +406,13 @@ public class WorkItemAttachmentServiceTests
         Assert.That(await _attachments.ListForWorkItemAsync(item.Id), Has.Count.EqualTo(1));
     }
 
-    private WorkItemAttachmentService ServiceOver(WeaverDbContext db) =>
-        new(db, _caller, _store, Options.Create(new AttachmentOptions { MaxFileSizeMegabytes = MaxMegabytes }));
+    private WorkItemAttachmentService ServiceOver(WeaverDbContext db) => new(
+        db,
+        _caller,
+        _store,
+        _thumbnails,
+        Options.Create(new AttachmentOptions { MaxFileSizeMegabytes = MaxMegabytes }),
+        NullLogger<WorkItemAttachmentService>.Instance);
 
     private WorkItemTrashService TrashService() =>
         new(_db, new IterativeWorkItemHierarchy(_db), _caller, _clock);

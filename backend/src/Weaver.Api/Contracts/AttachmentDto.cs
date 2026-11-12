@@ -8,7 +8,8 @@ public record AttachmentDto(
     string FileName,
     string ContentType,
     long SizeBytes,
-    DateTimeOffset CreatedAtUtc)
+    DateTimeOffset CreatedAtUtc,
+    bool HasThumbnail)
 {
     public static AttachmentDto FromView(WorkItemAttachmentView attachment) => new(
         attachment.Id,
@@ -16,5 +17,6 @@ public record AttachmentDto(
         attachment.FileName,
         attachment.ContentType,
         attachment.SizeBytes,
-        attachment.CreatedAtUtc);
+        attachment.CreatedAtUtc,
+        attachment.HasThumbnail);
 }

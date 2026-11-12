@@ -45,7 +45,7 @@ public class WorkItemAttachmentsControllerTests
         var result = await _controller.ListForWorkItem(workItemId);
 
         var body = ((result.Result as OkObjectResult)!.Value as IEnumerable<AttachmentDto>)!.Single();
-        Assert.That(body, Is.EqualTo(new AttachmentDto(view.Id, workItemId, "report.pdf", "application/pdf", 3, Created)));
+        Assert.That(body, Is.EqualTo(new AttachmentDto(view.Id, workItemId, "report.pdf", "application/pdf", 3, Created, true)));
     }
 
     [Test]
@@ -148,6 +148,37 @@ public class WorkItemAttachmentsControllerTests
     }
 
     [Test]
+    public async Task Thumbnail_IsSentInlineAsWebp_UnsniffedAndCachedForever()
+    {
+        var id = Guid.NewGuid();
+        var content = new MemoryStream([1, 2, 3]);
+        _attachments.Setup(a => a.OpenThumbnailAsync(id, It.IsAny<CancellationToken>())).ReturnsAsync(content);
+
+        var result = await _controller.Thumbnail(id) as FileStreamResult;
+
+        var headers = _controller.Response.Headers;
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result!.FileStream, Is.SameAs(content));
+            Assert.That(result.ContentType, Is.EqualTo("image/webp"));
+            Assert.That(result.FileDownloadName, Is.Empty);
+            Assert.That(headers.XContentTypeOptions.ToString(), Is.EqualTo("nosniff"));
+            Assert.That(headers.CacheControl.ToString(), Is.EqualTo("private, max-age=31536000, immutable"));
+        });
+    }
+
+    [Test]
+    public void Thumbnail_WhenThereIsNone_LetsTheNotFoundThrough()
+    {
+        var id = Guid.NewGuid();
+        _attachments.Setup(a => a.OpenThumbnailAsync(id, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new AttachmentThumbnailNotFoundException(id));
+
+        Assert.ThrowsAsync<AttachmentThumbnailNotFoundException>(() => _controller.Thumbnail(id));
+    }
+
+    [Test]
     public async Task Delete_DelegatesToServiceAndReturnsNoContent()
     {
         var id = Guid.NewGuid();
@@ -160,7 +191,7 @@ public class WorkItemAttachmentsControllerTests
     }
 
     private static WorkItemAttachmentView ViewOn(Guid workItemId) =>
-        new(Guid.NewGuid(), workItemId, "report.pdf", "application/pdf", 3, Created);
+        new(Guid.NewGuid(), workItemId, "report.pdf", "application/pdf", 3, Created, HasThumbnail: true);
 
     private static string Part(string name, string? fileName, string? contentType, string body) =>
         $"Content-Disposition: form-data; name=\"{name}\"" +

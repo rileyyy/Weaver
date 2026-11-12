@@ -3,19 +3,40 @@ using Weaver.Application.Attachments;
 
 namespace Weaver.Infrastructure.Attachments;
 
-/// <summary>Keeps each attachment as one file, named by its id, directly under the configured path.</summary>
+/// <summary>
+/// Keeps each attachment as one file, named by its id, directly under the configured path, and
+/// its thumbnail (if any) beside it as <c>{id}.thumbnail</c>.
+/// </summary>
 public sealed class FileSystemAttachmentStore(IOptions<AttachmentOptions> options) : IAttachmentStore
 {
     private const int BufferSize = 81920;
+    private const string ThumbnailSuffix = ".thumbnail";
 
     private readonly string _root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(options.Value.Path));
 
     public void EnsureRootExists() => Directory.CreateDirectory(_root);
 
-    public async Task WriteAsync(Guid id, Stream content, CancellationToken ct = default)
-    {
-        var path = PathFor(id);
+    public Task WriteAsync(Guid id, Stream content, CancellationToken ct = default) =>
+        WriteFileAsync(PathFor(id), content, ct);
 
+    public Task<Stream> OpenReadAsync(Guid id, CancellationToken ct = default) =>
+        Task.FromResult(OpenFile(PathFor(id)));
+
+    public Task WriteThumbnailAsync(Guid id, Stream content, CancellationToken ct = default) =>
+        WriteFileAsync(ThumbnailPathFor(id), content, ct);
+
+    public Task<Stream> OpenThumbnailAsync(Guid id, CancellationToken ct = default) =>
+        Task.FromResult(OpenFile(ThumbnailPathFor(id)));
+
+    public Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        File.Delete(PathFor(id));
+        File.Delete(ThumbnailPathFor(id));
+        return Task.CompletedTask;
+    }
+
+    private static async Task WriteFileAsync(string path, Stream content, CancellationToken ct)
+    {
         // Written aside and moved into place, so a reader (or a crash) never sees half a file
         // under the attachment's own name.
         var partial = path + ".partial";
@@ -36,20 +57,15 @@ public sealed class FileSystemAttachmentStore(IOptions<AttachmentOptions> option
         }
     }
 
-    public Task<Stream> OpenReadAsync(Guid id, CancellationToken ct = default) =>
-        Task.FromResult<Stream>(new FileStream(
-            PathFor(id),
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.Read,
-            BufferSize,
-            FileOptions.Asynchronous | FileOptions.SequentialScan));
+    private static Stream OpenFile(string path) => new FileStream(
+        path,
+        FileMode.Open,
+        FileAccess.Read,
+        FileShare.Read,
+        BufferSize,
+        FileOptions.Asynchronous | FileOptions.SequentialScan);
 
-    public Task DeleteAsync(Guid id, CancellationToken ct = default)
-    {
-        File.Delete(PathFor(id));
-        return Task.CompletedTask;
-    }
+    private string ThumbnailPathFor(Guid id) => PathFor(id) + ThumbnailSuffix;
 
     /// <summary>
     /// A Guid can't hold a separator, so this can't leave the root; the check makes that a rule

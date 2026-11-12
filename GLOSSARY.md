@@ -116,7 +116,9 @@ a product page), with an optional label.
 apart from the database, so it can live on other storage and must be
 backed up separately. An item's attachments are kept while it is in the
 Trash and removed when it is purged. Agents can list and fetch them but
-not upload or delete them.
+not upload or delete them. An image the server can read (JPEG, PNG, GIF,
+WebP or BMP) also gets a **thumbnail**, a small preview stored beside the
+file and removed with it; any other file has none and shows an icon.
 _Avoid:_ "upload" or "document" as a name for the attachment itself. "File"
 is fine for the bytes it holds ("Attach file").
 

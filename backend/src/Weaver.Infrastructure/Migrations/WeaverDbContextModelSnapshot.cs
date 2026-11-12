@@ -592,6 +592,9 @@ namespace Weaver.Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
+                    b.Property<bool>("HasThumbnail")
+                        .HasColumnType("boolean");
+
                     b.Property<long>("SizeBytes")
                         .HasColumnType("bigint");
 

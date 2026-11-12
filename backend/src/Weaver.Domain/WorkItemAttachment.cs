@@ -32,6 +32,12 @@ public class WorkItemAttachment : IHasCreatedAt
 
     public long SizeBytes { get; private set; }
 
+    /// <summary>
+    /// Whether a thumbnail is stored beside the file. Only images the server could decode get one,
+    /// and attachments added before thumbnails existed never do.
+    /// </summary>
+    public bool HasThumbnail { get; private set; }
+
     public DateTimeOffset CreatedAtUtc { get; private set; }
 
     /// <summary>Null once the uploader's account is gone.</summary>
@@ -52,7 +58,8 @@ public class WorkItemAttachment : IHasCreatedAt
         string? fileName,
         string? contentType,
         long sizeBytes,
-        Guid? uploadedByUserId)
+        Guid? uploadedByUserId,
+        bool hasThumbnail = false)
     {
         if (sizeBytes <= 0)
         {
@@ -67,6 +74,7 @@ public class WorkItemAttachment : IHasCreatedAt
             ContentType = AttachmentContentType.Sanitize(contentType, ContentTypeMaxLength) ?? FallbackContentType,
             SizeBytes = sizeBytes,
             UploadedByUserId = uploadedByUserId,
+            HasThumbnail = hasThumbnail,
         };
     }
 }

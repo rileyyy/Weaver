@@ -23,7 +23,16 @@ public class WorkItemAttachmentTests
             Assert.That(attachment.ContentType, Is.EqualTo("application/pdf"));
             Assert.That(attachment.SizeBytes, Is.EqualTo(1234));
             Assert.That(attachment.UploadedByUserId, Is.EqualTo(_uploader));
+            Assert.That(attachment.HasThumbnail, Is.False);
         });
+    }
+
+    [Test]
+    public void Create_RecordsThatAThumbnailWasStored()
+    {
+        var attachment = WorkItemAttachment.Create(Guid.NewGuid(), _item, "photo.jpg", "image/jpeg", 1, null, hasThumbnail: true);
+
+        Assert.That(attachment.HasThumbnail, Is.True);
     }
 
     [TestCase("../../etc/passwd", "passwd")]

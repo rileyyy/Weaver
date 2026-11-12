@@ -13,6 +13,8 @@ namespace Weaver.Api.Controllers;
 public class WorkItemAttachmentsController(IWorkItemAttachmentService attachments, MultipartFileReader uploads)
     : ControllerBase
 {
+    private const string ThumbnailContentType = "image/webp";
+
     private readonly IWorkItemAttachmentService _attachments = attachments;
     private readonly MultipartFileReader _uploads = uploads;
 
@@ -53,6 +55,21 @@ public class WorkItemAttachmentsController(IWorkItemAttachmentService attachment
         var (attachment, content) = await _attachments.OpenContentAsync(id, HttpContext.RequestAborted);
         Response.Headers.XContentTypeOptions = "nosniff";
         return File(content, attachment.ContentType, attachment.FileName);
+    }
+
+    /// <summary>
+    /// A WebP of at most 320 pixels a side, for attachments whose <c>hasThumbnail</c> is true.
+    /// Unlike the file itself it's sent inline: the server encoded it, so it can't be a page or a
+    /// script. A thumbnail never changes, so it can be cached for good.
+    /// </summary>
+    [HttpGet("api/work-item-attachments/{id:guid}/thumbnail")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> Thumbnail(Guid id)
+    {
+        var thumbnail = await _attachments.OpenThumbnailAsync(id, HttpContext.RequestAborted);
+        Response.Headers.XContentTypeOptions = "nosniff";
+        Response.Headers.CacheControl = "private, max-age=31536000, immutable";
+        return File(thumbnail, ThumbnailContentType);
     }
 
     [HttpDelete("api/work-item-attachments/{id:guid}")]

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Weaver.Application.Attachments;
 using Weaver.Application.Services;
@@ -24,7 +25,8 @@ public class AttachmentFileCleanupTests
         _db = TestDatabase.Create(_clock);
         _store = new InMemoryAttachmentStore();
         _caller = FakeCallerContext.Anyone();
-        _attachments = new WorkItemAttachmentService(_db, _caller, _store, Options.Create(new AttachmentOptions()));
+        _attachments = new WorkItemAttachmentService(
+            _db, _caller, _store, new FakeThumbnailGenerator(), Options.Create(new AttachmentOptions()), NullLogger<WorkItemAttachmentService>.Instance);
         _workItems = new WorkItemService(_db, new IterativeWorkItemHierarchy(_db), new FixedServerCalendar(), _caller);
         _space = TestSpaces.Add(_db);
     }

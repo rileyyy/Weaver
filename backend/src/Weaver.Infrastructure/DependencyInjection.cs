@@ -21,6 +21,7 @@ public static class DependencyInjection
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
         services.AddSingleton<FileSystemAttachmentStore>();
         services.AddSingleton<IAttachmentStore>(provider => provider.GetRequiredService<FileSystemAttachmentStore>());
+        services.AddSingleton<IThumbnailGenerator, ImageSharpThumbnailGenerator>();
         return services;
     }
 }

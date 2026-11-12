@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Weaver.Application.Attachments;
 using Weaver.Application.Auth;
@@ -199,7 +200,8 @@ public class WorkItemPurgeServiceTests
         await new CommentService(_db, _clock, _caller).CreateAsync(tiles.Id, "Grey grout");
         await new CommentService(_db, _clock, _caller).CreateAsync(shed.Id, "Kept");
         await new WorkItemUrlLinkService(_db, _caller).CreateAsync(kitchen.Id, "https://example.com/tiles", null);
-        var attachments = new WorkItemAttachmentService(_db, _caller, store, Options.Create(new AttachmentOptions()));
+        var attachments = new WorkItemAttachmentService(
+            _db, _caller, store, new FakeThumbnailGenerator(), Options.Create(new AttachmentOptions()), NullLogger<WorkItemAttachmentService>.Instance);
         await attachments.AddAsync(tiles.Id, "plan.txt", "text/plain", new MemoryStream([1]));
         _db.WorkItemRecurrences.Add(WorkItemRecurrence.Create(
             kitchen.Id, RecurrenceSchedule.Create(RecurrenceFrequency.Weekly, [DayOfWeek.Monday], new DateOnly(2026, 11, 9), null)));
