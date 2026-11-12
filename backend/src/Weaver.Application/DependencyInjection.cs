@@ -40,6 +40,7 @@ public static class DependencyInjection
             .AddScoped<IRunUndoService, RunUndoService>()
             .AddScoped<IWorkItemQueryService, WorkItemQueryService>()
             .AddScoped<ISpaceService, SpaceService>()
+            .AddScoped<ISpaceHistoryService, SpaceHistoryService>()
             .AddScoped<IViewService, ViewService>()
             .AddScoped<IStatusService, StatusService>()
             .AddScoped<IWorkItemTypeService, WorkItemTypeService>()

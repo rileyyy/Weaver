@@ -137,6 +137,8 @@ and admins review each run's changes together.
 - `whoami`: your account, and your API key's label and scope.
 - `get_server_settings`: the server time zone and Trash retention.
 - `list_spaces`: every Space, with its done-hiding period.
+- `list_space_history`: a Space's creation, renames and done-hiding period
+  changes, with who made them. Work item changes aren't in it.
 - `list_statuses`: a Space's statuses, in board order, with categories.
 - `list_work_item_priorities`: a Space's priorities, least to most urgent.
 - `list_work_item_types`: a Space's Types, with their custom fields and

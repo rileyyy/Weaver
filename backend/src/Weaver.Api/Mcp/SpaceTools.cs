@@ -10,9 +10,10 @@ namespace Weaver.Api.Mcp;
 /// so there is no tool to create, rename or configure one.
 /// </summary>
 [McpServerToolType]
-public class SpaceTools(ISpaceService spaces)
+public class SpaceTools(ISpaceService spaces, ISpaceHistoryService history)
 {
     private readonly ISpaceService _spaces = spaces;
+    private readonly ISpaceHistoryService _history = history;
 
     [McpServerTool(Name = "list_spaces", ReadOnly = true)]
     [Description("Lists every Space (e.g. Home, Village, Software), by name. Every work item belongs to " +
@@ -24,4 +25,15 @@ public class SpaceTools(ISpaceService spaces)
         var spaces = await _spaces.GetAllAsync(ct);
         return spaces.Select(SpaceDto.FromEntity).ToList();
     }
+
+    [McpServerTool(Name = "list_space_history", ReadOnly = true)]
+    [Description("Lists every change to a Space, newest first: its creation (field created, new value the " +
+        "name), renames (field name) and done-hiding period changes (field doneHidingDays), each with who " +
+        "made it and when. Changes to the Space's work items aren't here: read those with " +
+        "get_work_item_context or list_changes_since.")]
+    public Task<IReadOnlyList<SpaceHistoryEntryDto>> ListSpaceHistory(
+        [Description("The Space's id, from list_spaces.")] Guid spaceId,
+        CancellationToken ct) =>
+        McpExceptionTranslation.TranslateAsync<IReadOnlyList<SpaceHistoryEntryDto>>(async () =>
+            (await _history.ListForSpaceAsync(spaceId, ct)).Select(SpaceHistoryEntryDto.FromView).ToList());
 }
