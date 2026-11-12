@@ -68,8 +68,7 @@ public class RunReportService(IWeaverDbContext db, IAdminAuthorizer admins, ICal
     {
         await EnsureAdminAsync(ct);
 
-        var entries = AgentRunEntries().Where(e =>
-            e.RunId == run.RunId && e.AccountId == run.AccountId && e.ApiKeyId == run.ApiKeyId);
+        var entries = AgentRunEntries().OfRun(run);
         var itemIds = await entries
             .GroupBy(e => e.WorkItemId)
             .Select(g => new { WorkItemId = g.Key, FirstEntryId = g.Min(e => e.Id) })

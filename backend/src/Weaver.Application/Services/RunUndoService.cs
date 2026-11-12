@@ -29,7 +29,7 @@ public class RunUndoService(
 
         var runEntries = await _db.WorkItemHistory
             .AsNoTracking()
-            .Where(e => e.RunId == run.RunId && e.AccountId == run.AccountId && e.ApiKeyId == run.ApiKeyId)
+            .OfRun(run)
             .OrderBy(e => e.Id)
             .ToListAsync(ct);
         if (runEntries.Count == 0)
@@ -68,7 +68,7 @@ public class RunUndoService(
         var entries = await _db.WorkItemHistory
             .AsNoTracking()
             .Where(e => itemIds.Contains(e.WorkItemId) && e.Id > firstId)
-            .Where(e => e.RunId != run.RunId || e.AccountId != run.AccountId || e.ApiKeyId != run.ApiKeyId)
+            .NotOfRun(run)
             .ToListAsync(ct);
         return new LaterChanges(entries);
     }

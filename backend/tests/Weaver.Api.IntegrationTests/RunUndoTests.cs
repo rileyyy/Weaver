@@ -32,6 +32,7 @@ public class RunUndoTests
             .EnsureSuccessStatusCode();
         var page = await (await admin.GetAsync("/api/admin/runs?limit=200")).ReadAsync<RunReportPageDto>();
         var run = page.Runs.Single(r => r.RunId == runId);
+        Assert.That(run.AccountId, Is.EqualTo(agent.Id));
 
         var response = await admin.PostAsync(UndoPath(run.AccountId, run.ApiKeyId, runId), null);
 
@@ -40,7 +41,6 @@ public class RunUndoTests
         var links = await (await admin.GetAsync($"/api/work-items/{paint.Id}/links")).ReadAsync<List<WorkItemLinkDto>>();
         Assert.Multiple(() =>
         {
-            Assert.That(run.AccountId, Is.EqualTo(agent.Id));
             Assert.That(item.StartDate, Is.Null);
             Assert.That(item.EndDate, Is.Null);
             Assert.That(item.When, Is.EqualTo("after the drywall dries"));
