@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:weaver/features/admin/models/run_report.dart';
 import 'package:weaver/features/admin/run_reports_view_model.dart';
 import 'package:weaver/features/admin/widgets/admin_list_frame.dart';
 import 'package:weaver/features/admin/widgets/run_tile.dart';
+import 'package:weaver/shared/widgets/confirm_action.dart';
 
 /// What each agent run changed, newest first: one collapsed row per run,
-/// expanding to its changes (ADR-0010).
+/// expanding to its changes (ADR-0010), from where it can be undone.
 class RunsTab extends StatelessWidget {
   const RunsTab({super.key, required this.viewModel});
 
@@ -43,11 +45,28 @@ class RunsTab extends StatelessWidget {
                     run: run,
                     changes: viewModel.changesFor(run),
                     onExpand: () => unawaited(viewModel.loadChanges(run)),
+                    undo: viewModel.undoFor(run),
+                    onUndo: () => unawaited(_confirmUndo(context, run)),
                   );
                 },
               ),
       ),
     );
+  }
+
+  Future<void> _confirmUndo(BuildContext context, RunReport run) async {
+    final confirmed = await confirmAction(
+      context,
+      title: 'Undo this run?',
+      message:
+          'Removes the links and URL links ${run.accountName} added in this '
+          'run, moves the items it created to the Trash, restores items it '
+          'deleted, and puts back the fields it changed. Anything someone '
+          'has changed since is left as it is, and comments on items that '
+          'stay are kept. The undo is recorded in each item’s history.',
+      confirmLabel: 'Undo run',
+    );
+    if (confirmed) await viewModel.undo(run);
   }
 
   Widget _loadMore() => Padding(

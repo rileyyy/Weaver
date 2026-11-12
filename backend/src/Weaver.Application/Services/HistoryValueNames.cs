@@ -66,7 +66,7 @@ internal sealed class HistoryValueNames
 
         var idsByKind = entries
             .Where(e => kindByField.ContainsKey(e.Field))
-            .SelectMany(e => new[] { e.OldValue, e.NewValue }.Select(v => (Kind: kindByField[e.Field], Id: IdIn(v))))
+            .SelectMany(e => new[] { e.OldValue, e.NewValue }.Select(v => (Kind: kindByField[e.Field], Id: HistoryJson.IdIn(v))))
             .Where(x => x.Id is not null)
             .GroupBy(x => x.Kind, x => x.Id!.Value)
             .ToDictionary(g => g.Key, g => g.Distinct().ToList());
@@ -100,7 +100,7 @@ internal sealed class HistoryValueNames
             return NameInObject(valueJson, "fileName");
         }
 
-        return KindByField.TryGetValue(field, out var kind) && IdIn(valueJson) is { } id
+        return KindByField.TryGetValue(field, out var kind) && HistoryJson.IdIn(valueJson) is { } id
             ? _names.GetValueOrDefault((kind, id))
             : null;
     }
@@ -122,9 +122,9 @@ internal sealed class HistoryValueNames
         switch (field.Kind)
         {
             case CustomFieldKind.User:
-                return IdIn(valueJson) is { } userId ? _names.GetValueOrDefault((Kind.User, userId)) : null;
+                return HistoryJson.IdIn(valueJson) is { } userId ? _names.GetValueOrDefault((Kind.User, userId)) : null;
             case CustomFieldKind.SingleSelect:
-                return OptionName(field, IdIn(valueJson));
+                return OptionName(field, HistoryJson.IdIn(valueJson));
             case CustomFieldKind.MultiSelect:
                 var names = OptionIdsIn(valueJson).Select(id => OptionName(field, id)).OfType<string>().ToList();
                 return names.Count == 0 ? null : string.Join(", ", names);
@@ -143,26 +143,6 @@ internal sealed class HistoryValueNames
 
     private static string? OptionName(CustomFieldDefinition field, Guid? optionId) =>
         field.Options.FirstOrDefault(o => o.Id == optionId)?.Name;
-
-    /// <summary>
-    /// A plain id, or a link's <c>{ "workItemId", "type" }</c>, whose id is the other item.
-    /// Link entries from before links had types hold the plain id.
-    /// </summary>
-    private static Guid? IdIn(string? valueJson)
-    {
-        if (valueJson is null)
-        {
-            return null;
-        }
-
-        var value = JsonSerializer.Deserialize<JsonElement>(valueJson);
-        if (value.ValueKind == JsonValueKind.Object && value.TryGetProperty("workItemId", out var workItemId))
-        {
-            value = workItemId;
-        }
-
-        return value.ValueKind == JsonValueKind.String && value.TryGetGuid(out var id) ? id : null;
-    }
 
     /// <summary>The first of <paramref name="properties"/> that holds text, in an object value.</summary>
     private static string? NameInObject(string? valueJson, params string[] properties)

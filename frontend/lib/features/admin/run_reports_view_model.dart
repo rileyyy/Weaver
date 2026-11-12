@@ -5,10 +5,11 @@ import 'package:weaver/features/admin/data/run_report_repository.dart';
 import 'package:weaver/features/admin/models/run_key.dart';
 import 'package:weaver/features/admin/models/run_report.dart';
 import 'package:weaver/features/admin/state/run_changes.dart';
+import 'package:weaver/features/admin/state/run_undo.dart';
 
 /// The Admin page's Runs tab: agent runs newest first, a page at a time, and
-/// each run's changes, loaded the first time it's expanded. The server sizes
-/// the pages and says where the next one starts.
+/// each run's changes, loaded the first time it's expanded, and undoing a
+/// run. The server sizes the pages and says where the next one starts.
 @injectable
 class RunReportsViewModel extends ViewModel {
   RunReportsViewModel(this._repository);
@@ -24,6 +25,7 @@ class RunReportsViewModel extends ViewModel {
   String? _loadMoreError;
   int _loadGeneration = 0;
   final Map<RunKey, RunChanges> _changes = {};
+  final Map<RunKey, RunUndo> _undos = {};
 
   List<RunReport> get runs => _runs;
 
@@ -37,6 +39,9 @@ class RunReportsViewModel extends ViewModel {
   /// Null until [run] is first expanded.
   RunChanges? changesFor(RunReport run) => _changes[run.key];
 
+  /// Null until [run] is first undone.
+  RunUndo? undoFor(RunReport run) => _undos[run.key];
+
   Future<void> load() async {
     final generation = ++_loadGeneration;
     _isLoading = true;
@@ -48,6 +53,7 @@ class RunReportsViewModel extends ViewModel {
       _runs = page.runs;
       _nextOffset = page.nextOffset;
       _changes.clear();
+      _undos.clear();
       _hasLoaded = true;
     } on ApiException {
       if (generation != _loadGeneration) return;
@@ -93,6 +99,22 @@ class RunReportsViewModel extends ViewModel {
     } on ApiException {
       _changes[run.key] = const RunChanges.failed(
         'Could not load this run’s changes. Try again.',
+      );
+    }
+    notifyIfActive();
+  }
+
+  /// Does nothing while an undo of [run] is under way. Repeating a finished
+  /// one is safe: the server skips everything the first undo put back.
+  Future<void> undo(RunReport run) async {
+    if (_undos[run.key]?.isInProgress ?? false) return;
+    _undos[run.key] = const RunUndo.inProgress();
+    notifyIfActive();
+    try {
+      _undos[run.key] = RunUndo.done(await _repository.undo(run));
+    } on ApiException {
+      _undos[run.key] = const RunUndo.failed(
+        'Could not undo this run. Nothing was changed; try again.',
       );
     }
     notifyIfActive();

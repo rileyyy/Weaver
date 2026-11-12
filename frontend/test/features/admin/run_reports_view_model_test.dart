@@ -1,5 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weaver/core/network/api_exception.dart';
+import 'package:weaver/features/admin/models/run_undo_change.dart';
+import 'package:weaver/features/admin/models/run_undo_outcome.dart';
+import 'package:weaver/features/admin/models/run_undo_result.dart';
 import 'package:weaver/features/admin/run_reports_view_model.dart';
 
 import 'fakes/fake_run_report_repository.dart';
@@ -88,5 +91,57 @@ void main() {
     await viewModel.load();
 
     expect(viewModel.changesFor(viewModel.runs.first), isNull);
+  });
+
+  test('undo keeps what the server says the undo did', () async {
+    repository.undoResult = const RunUndoResult([
+      RunUndoChange(
+        title: 'Paint the hall',
+        field: 'startDate',
+        outcome: RunUndoOutcome.undone,
+      ),
+    ]);
+    await viewModel.load();
+    final run = viewModel.runs.first;
+    expect(viewModel.undoFor(run), isNull);
+
+    await viewModel.undo(run);
+
+    expect(repository.calls, contains('undo run-0'));
+    expect(viewModel.undoFor(run)?.result?.undoneCount, 1);
+    expect(viewModel.undoFor(run)?.isInProgress, isFalse);
+  });
+
+  test('a failed undo says so, and can be tried again', () async {
+    await viewModel.load();
+    final run = viewModel.runs.first;
+    repository.error = const ApiException('boom', statusCode: 500);
+    await viewModel.undo(run);
+    expect(viewModel.undoFor(run)?.error, isNotNull);
+
+    repository.error = null;
+    await viewModel.undo(run);
+
+    expect(viewModel.undoFor(run)?.result, isNotNull);
+  });
+
+  test('undo is not sent twice while one is under way', () async {
+    await viewModel.load();
+    final run = viewModel.runs.first;
+
+    final first = viewModel.undo(run);
+    await viewModel.undo(run);
+    await first;
+
+    expect(repository.calls.where((c) => c.startsWith('undo')), ['undo run-0']);
+  });
+
+  test('reloading the runs forgets earlier undos', () async {
+    await viewModel.load();
+    await viewModel.undo(viewModel.runs.first);
+
+    await viewModel.load();
+
+    expect(viewModel.undoFor(viewModel.runs.first), isNull);
   });
 }
