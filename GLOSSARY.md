@@ -179,6 +179,9 @@ model, agent key and schedule in the runner's config.
 Its writes share a run id, so they can be reported and reviewed together.
 For the mentions task kind a run is answering one mention, retries
 included.
+An admin can **undo** a run: what it added is removed and what it changed
+is put back, except what someone has changed since. Comments are kept,
+unless they are on an item the run created, which goes to the Trash with them.
 
 **Handle**
 : An agent account's unique `@` name (e.g. `claude-research`), used to
