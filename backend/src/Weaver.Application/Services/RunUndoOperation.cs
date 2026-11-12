@@ -11,8 +11,8 @@ namespace Weaver.Application.Services;
 /// <remarks>
 /// The order matters. Items the run deleted come back first, so their fields and links can be
 /// undone. Links go next, while both ends are still live: a trashed end hides a link. Items the
-/// run created go to the Trash last, newest first, so each sub-item is its own delete and a
-/// parent only takes along what someone else added under it.
+/// run created go to the Trash last, newest first, so each sub-item is its own delete, and only
+/// while nobody else has made the item theirs.
 /// </remarks>
 internal sealed class RunUndoOperation(
     IWeaverDbContext db,
@@ -60,7 +60,10 @@ internal sealed class RunUndoOperation(
         {
             await RemoveLinksAsync(item, ct);
             await RemoveUrlLinksAsync(item, ct);
-            KeepComments(item);
+            if (!item.Created)
+            {
+                KeepComments(item);
+            }
             Record(item.NotUndoable, RunUndoOutcome.NotUndoable);
         }
 
@@ -117,7 +120,7 @@ internal sealed class RunUndoOperation(
 
     private async Task<RunUndoOutcome> RemoveLinkAsync(Guid workItemId, WorkItemHistoryEntry entry, CancellationToken ct)
     {
-        if (HistoryValueNames.IdIn(entry.NewValue) is not { } otherId)
+        if (HistoryJson.IdIn(entry.NewValue) is not { } otherId)
         {
             return RunUndoOutcome.NotUndoable;
         }
@@ -200,7 +203,7 @@ internal sealed class RunUndoOperation(
             {
                 RecordFields(item, [change], RunUndoOutcome.NotUndoable);
             }
-            else if (_later.ToField(item.WorkItemId, change.Field, change.FirstEntryId))
+            else if (ChangedSince(item.WorkItemId, change, changes))
             {
                 RecordFields(item, [change], RunUndoOutcome.ChangedSince);
             }
@@ -210,11 +213,27 @@ internal sealed class RunUndoOperation(
             }
         }
 
-        var datesOutcome = await RevertDatesAsync(item.WorkItemId, revertible.Where(c => DateFields.Contains(c.Field)).ToList(), ct);
-        RecordFields(item, revertible.Where(c => DateFields.Contains(c.Field)).ToList(), datesOutcome);
+        var dates = revertible.Where(c => DateFields.Contains(c.Field)).ToList();
+        var others = revertible.Except(dates).ToList();
+        RecordFields(item, dates, await RevertDatesAsync(item.WorkItemId, dates, ct));
+        await RevertOthersAsync(item.WorkItemId, others, ct);
+        RecordFields(item, others, RunUndoOutcome.Undone);
+    }
 
-        await RevertOthersAsync(item.WorkItemId, revertible.Where(c => !DateFields.Contains(c.Field)).ToList(), ct);
-        RecordFields(item, revertible.Where(c => !DateFields.Contains(c.Field)).ToList(), RunUndoOutcome.Undone);
+    /// <summary>
+    /// An item's start and end are one schedule: if someone moved either date the run set, both
+    /// are left alone, rather than undating one end of what they chose.
+    /// </summary>
+    private bool ChangedSince(Guid workItemId, RunFieldChange change, IEnumerable<RunFieldChange> changes)
+    {
+        if (!DateFields.Contains(change.Field))
+        {
+            return _later.ToField(workItemId, change.Field, change.FirstEntryId);
+        }
+
+        return changes
+            .Where(c => DateFields.Contains(c.Field))
+            .Any(c => _later.ToField(workItemId, c.Field, c.FirstEntryId));
     }
 
     private static bool IsRevertible(string field) =>
@@ -277,18 +296,43 @@ internal sealed class RunUndoOperation(
             ? new Optional<T?>(HistoryJson.Deserialize<T>(change.OldValueJson))
             : Optional<T?>.Unset;
 
-    /// <summary>Every entry on an item the run created goes with it, except its comments, which are kept.</summary>
+    /// <summary>
+    /// The run's entries on an item it created share the item's outcome: they go to the Trash with
+    /// it, or stay when it does, its comments included.
+    /// </summary>
     private async Task TrashCreatedAsync(RunItemEntries item, CancellationToken ct)
     {
-        var outcome = RunUndoOutcome.ItemGone;
-        if (await IsLiveAsync(item.WorkItemId, ct))
+        var outcome = await TrashCreatedItemAsync(item, ct);
+        var handled = _outcomes.Select(o => o.EntryId).ToHashSet();
+        foreach (var entry in item.Entries.Where(e => !handled.Contains(e.Id)))
         {
-            await _trash.MoveToTrashAsync(item.WorkItemId, cascade: true, ct: ct);
-            outcome = RunUndoOutcome.Undone;
+            var kept = entry.Field == WorkItemHistoryField.Comment && outcome == RunUndoOutcome.ChangedSince;
+            Record(entry, kept ? RunUndoOutcome.Kept : outcome);
+        }
+    }
+
+    /// <summary>
+    /// An item someone else has since touched, or that still has sub-items (someone else's, or the
+    /// run's that were kept), is theirs now and stays. Sub-items go first, newest first, so a
+    /// parent only goes once nothing is left under it.
+    /// </summary>
+    private async Task<RunUndoOutcome> TrashCreatedItemAsync(RunItemEntries item, CancellationToken ct)
+    {
+        var createdId = item.Entries.First(e => e.Field == WorkItemHistoryField.Created).Id;
+        if (!await IsLiveAsync(item.WorkItemId, ct))
+        {
+            var deletedByTheRun = item.Deleted && !_later.ToTrash(item.WorkItemId, createdId);
+            return deletedByTheRun ? RunUndoOutcome.Undone : RunUndoOutcome.ItemGone;
         }
 
-        var handled = _outcomes.Select(o => o.EntryId).ToHashSet();
-        Record(item.Entries.Where(e => !handled.Contains(e.Id)), outcome);
+        if (_later.ToItem(item.WorkItemId, createdId)
+            || await _db.WorkItems.AnyAsync(w => w.ParentId == item.WorkItemId, ct))
+        {
+            return RunUndoOutcome.ChangedSince;
+        }
+
+        await _trash.MoveToTrashAsync(item.WorkItemId, ct: ct);
+        return RunUndoOutcome.Undone;
     }
 
     private Task<bool> IsLiveAsync(Guid workItemId, CancellationToken ct) =>

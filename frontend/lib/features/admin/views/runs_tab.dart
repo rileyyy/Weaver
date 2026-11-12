@@ -59,10 +59,11 @@ class RunsTab extends StatelessWidget {
       context,
       title: 'Undo this run?',
       message:
-          'Removes the links, URL links and sub-items ${run.accountName} '
-          'added in this run, and puts back the fields it changed. Anything '
-          'someone has changed since is left as it is, and comments are '
-          'kept. The undo is recorded in each item’s history.',
+          'Removes the links and URL links ${run.accountName} added in this '
+          'run, moves the items it created to the Trash, restores items it '
+          'deleted, and puts back the fields it changed. Anything someone '
+          'has changed since is left as it is, and comments on items that '
+          'stay are kept. The undo is recorded in each item’s history.',
       confirmLabel: 'Undo run',
     );
     if (confirmed) await viewModel.undo(run);

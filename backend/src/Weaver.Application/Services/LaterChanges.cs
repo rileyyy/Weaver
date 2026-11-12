@@ -17,12 +17,15 @@ internal sealed class LaterChanges(IReadOnlyList<WorkItemHistoryEntry> entries)
     public bool ToLink(Guid workItemId, Guid otherWorkItemId, long afterEntryId) =>
         After(workItemId, afterEntryId).Any(e =>
             e.Field == WorkItemHistoryField.Link
-            && (HistoryValueNames.IdIn(e.OldValue) == otherWorkItemId || HistoryValueNames.IdIn(e.NewValue) == otherWorkItemId));
+            && (HistoryJson.IdIn(e.OldValue) == otherWorkItemId || HistoryJson.IdIn(e.NewValue) == otherWorkItemId));
 
     /// <summary>A later entry for the same URL link: removed, or added again.</summary>
     public bool ToUrlLink(Guid workItemId, string valueJson, long afterEntryId) =>
         After(workItemId, afterEntryId).Any(e =>
             e.Field == WorkItemHistoryField.UrlLink && (e.OldValue == valueJson || e.NewValue == valueJson));
+
+    /// <summary>Any later entry at all: the item is no longer only the run's.</summary>
+    public bool ToItem(Guid workItemId, long afterEntryId) => After(workItemId, afterEntryId).Any();
 
     /// <summary>A later delete, restore or purge.</summary>
     public bool ToTrash(Guid workItemId, long afterEntryId) =>

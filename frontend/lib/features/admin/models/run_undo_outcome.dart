@@ -22,8 +22,8 @@ enum RunUndoOutcome {
   /// Why a change wasn't put back; null when it was, or was meant to stay.
   String? get skipReason => switch (this) {
     undone || kept => null,
-    changedSince => 'changed by someone since',
-    itemGone => 'the item is in the Trash',
+    changedSince => 'changed since the run',
+    itemGone => 'the item has been deleted',
     invalidDates => 'would start after its end date',
     notUndoable => 'can’t be undone automatically',
   };

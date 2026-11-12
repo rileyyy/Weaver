@@ -158,9 +158,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.text(
-        '#12 Paint the hall, When: not undone, changed by someone since',
-      ),
+      find.text('#12 Paint the hall, When: not undone, changed since the run'),
       findsOneWidget,
     );
   });

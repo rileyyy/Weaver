@@ -150,6 +150,25 @@ public class RunUndoServiceTests
     }
 
     [Test]
+    public async Task DatesAreOneSchedule_SoMovingEitherKeepsBoth()
+    {
+        var hall = await CreateAsync("Paint the hall");
+        AsAgent();
+        await _workItems.RescheduleAsync(hall.Id, Monday, Friday);
+        AsAdminNow();
+        await _workItems.RescheduleAsync(hall.Id, Optional<DateOnly?>.Unset, Friday.AddDays(7));
+
+        var result = await AsAdmin(() => _undo.UndoAsync(Run));
+
+        var item = await ReadAsync(hall.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That((item.StartDate, item.EndDate), Is.EqualTo(((DateOnly?)Monday, (DateOnly?)Friday.AddDays(7))));
+            Assert.That(result.Changes.Select(c => c.Outcome), Is.All.EqualTo(RunUndoOutcome.ChangedSince));
+        });
+    }
+
+    [Test]
     public async Task ADateThatWouldStartAfterAnEndSomeoneMoved_IsSkippedAsInvalid()
     {
         var hall = await CreateAsync("Paint the hall");
@@ -245,7 +264,25 @@ public class RunUndoServiceTests
     }
 
     [Test]
-    public async Task SubItemsTheRunCreated_GoToTheTrash_WithWhatSomeoneAddedUnderThem()
+    public async Task SubItemsTheRunCreated_GoToTheTrash_WithTheirComments()
+    {
+        var hall = await CreateAsync("Paint the hall");
+        AsAgent();
+        var prep = await _workItems.CreateAsync("Prep the walls", null, hall.Id, _home.ToDo);
+        var sand = await _workItems.CreateAsync("Sand", null, prep.Id, _home.ToDo);
+        await _comments.CreateAsync(prep.Id, "Added the prep steps.");
+
+        var result = await AsAdmin(() => _undo.UndoAsync(Run));
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That(await TrashedIdsAsync(), Is.EquivalentTo(new[] { prep.Id, sand.Id }));
+            Assert.That(result.Changes.Select(c => c.Outcome), Is.All.EqualTo(RunUndoOutcome.Undone));
+        });
+    }
+
+    [Test]
+    public async Task ASubItemTheRunCreated_ThatSomeoneAddedUnder_Stays_AndTheRunsOwnUnderItGo()
     {
         var hall = await CreateAsync("Paint the hall");
         AsAgent();
@@ -253,18 +290,53 @@ public class RunUndoServiceTests
         var sand = await _workItems.CreateAsync("Sand", null, prep.Id, _home.ToDo);
         await _comments.CreateAsync(prep.Id, "Added the prep steps.");
         AsAdminNow();
-        var fill = await _workItems.CreateAsync("Fill the cracks", null, prep.Id, _home.ToDo);
+        await _workItems.CreateAsync("Fill the cracks", null, prep.Id, _home.ToDo);
 
         var result = await AsAdmin(() => _undo.UndoAsync(Run));
 
-        var trashed = await _db.WorkItems.IgnoreQueryFilters().Where(w => w.TrashedAtUtc != null).Select(w => w.Id).ToListAsync();
-        Assert.Multiple(() =>
+        var prepOutcomes = result.Changes.Where(c => c.WorkItemId == prep.Id).ToList();
+        Assert.Multiple(async () =>
         {
-            Assert.That(trashed, Is.EquivalentTo(new[] { prep.Id, sand.Id, fill.Id }));
+            Assert.That(await TrashedIdsAsync(), Is.EqualTo(new[] { sand.Id }));
             Assert.That(
-                result.Changes.Where(c => c.Field != WorkItemHistoryField.Comment).Select(c => c.Outcome),
-                Is.All.EqualTo(RunUndoOutcome.Undone));
+                prepOutcomes.Where(c => c.Field != WorkItemHistoryField.Comment).Select(c => c.Outcome),
+                Is.All.EqualTo(RunUndoOutcome.ChangedSince));
             Assert.That(OutcomeOf(result, WorkItemHistoryField.Comment), Is.EqualTo(RunUndoOutcome.Kept));
+        });
+    }
+
+    [Test]
+    public async Task ASubItemTheRunCreated_ThatSomeoneEdited_Stays()
+    {
+        var hall = await CreateAsync("Paint the hall");
+        AsAgent();
+        var prep = await _workItems.CreateAsync("Prep the walls", null, hall.Id, _home.ToDo);
+        AsAdminNow();
+        await _workItems.RescheduleAsync(prep.Id, Monday, Friday);
+
+        var result = await AsAdmin(() => _undo.UndoAsync(Run));
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That(await TrashedIdsAsync(), Is.Empty);
+            Assert.That(result.Changes.Select(c => c.Outcome), Is.All.EqualTo(RunUndoOutcome.ChangedSince));
+        });
+    }
+
+    [Test]
+    public async Task AnItemTheRunCreatedAndDeleted_IsReportedUndone()
+    {
+        var hall = await CreateAsync("Paint the hall");
+        AsAgent();
+        var prep = await _workItems.CreateAsync("Prep the walls", null, hall.Id, _home.ToDo);
+        await _trash.MoveToTrashAsync(prep.Id);
+
+        var result = await AsAdmin(() => _undo.UndoAsync(Run));
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That(await TrashedIdsAsync(), Is.EqualTo(new[] { prep.Id }));
+            Assert.That(result.Changes.Select(c => c.Outcome), Is.All.EqualTo(RunUndoOutcome.Undone));
         });
     }
 
@@ -339,8 +411,12 @@ public class RunUndoServiceTests
     public async Task UndoingTwice_ChangesNothingTheSecondTime()
     {
         var hall = await CreateAsync("Paint the hall");
+        var drywall = await CreateAsync("Drywall");
         AsAgent();
         await _workItems.RescheduleAsync(hall.Id, Monday, Friday);
+        await _links.CreateAsync(hall.Id, drywall.Id, WorkItemLinkRelation.BlockedBy);
+        await _urlLinks.CreateAsync(hall.Id, "https://example.com/quote", "Quote");
+        await _workItems.CreateAsync("Prep the walls", null, hall.Id, _home.ToDo);
         await AsAdmin(() => _undo.UndoAsync(Run));
         var entries = await _db.WorkItemHistory.CountAsync();
 
@@ -349,7 +425,7 @@ public class RunUndoServiceTests
         Assert.Multiple(async () =>
         {
             Assert.That(await _db.WorkItemHistory.CountAsync(), Is.EqualTo(entries));
-            Assert.That(second.Changes.Select(c => c.Outcome), Is.All.EqualTo(RunUndoOutcome.ChangedSince));
+            Assert.That(second.Changes.Select(c => c.Outcome), Has.None.EqualTo(RunUndoOutcome.Undone));
         });
     }
 
@@ -406,6 +482,9 @@ public class RunUndoServiceTests
         AsAdminNow();
         return await action();
     }
+
+    private Task<List<Guid>> TrashedIdsAsync() =>
+        _db.WorkItems.IgnoreQueryFilters().Where(w => w.TrashedAtUtc != null).Select(w => w.Id).ToListAsync();
 
     private Task<WorkItem> ReadAsync(Guid id) => _db.WorkItems.AsNoTracking().SingleAsync(w => w.Id == id);
 
