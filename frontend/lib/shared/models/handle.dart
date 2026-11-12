@@ -6,8 +6,13 @@ library;
 /// The server's limit (`Handle.MaxLength`).
 const maxHandleLength = 50;
 
-/// One handle without its `@`; mention parsing builds on it.
+/// One handle without its `@`, the same rule as the server's `Handle.Pattern`.
 const handlePattern = '[a-z0-9]+(?:-[a-z0-9]+)*';
+
+/// A handle as far as it's been typed: nothing yet, or a handle that may end
+/// in the hyphen before its next word (`clau`, `claude-`). Built from
+/// [handlePattern] so mention completion can't drift from the rule.
+const partialHandlePattern = '(?:$handlePattern-?)?';
 
 final _wholeHandle = RegExp('^$handlePattern\$');
 

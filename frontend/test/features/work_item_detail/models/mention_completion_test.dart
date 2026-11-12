@@ -28,11 +28,25 @@ void main() {
       expect(atEnd('Hi @Claude-R')?.suggest(handles), ['claude-research']);
     });
 
+    test('a handle typed up to a hyphen still suggests', () {
+      expect(atEnd('@claude-')?.suggest(handles), [
+        'claude-code',
+        'claude-research',
+      ]);
+    });
+
     test('nothing is suggested once a space ends the mention', () {
       expect(atEnd('@claude-research '), isNull);
     });
 
-    for (final text in ['riley@cla', 'no mention', 'e.g.@cla', '@@cla']) {
+    for (final text in [
+      'riley@cla',
+      'no mention',
+      'e.g.@cla',
+      '@@cla',
+      '@-cla',
+      '@claude--',
+    ]) {
       test('"$text" isn\'t a mention being typed', () {
         expect(atEnd(text), isNull);
       });

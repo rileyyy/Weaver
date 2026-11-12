@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:weaver/shared/models/handle.dart';
 
 /// An `@` mention being typed in a comment, up to the cursor, and the
 /// handles it could be completed to. Mirrors the server's mention rule: an
@@ -8,7 +9,7 @@ class MentionCompletion {
   const MentionCompletion({required this.start, required this.query});
 
   static final _typing = RegExp(
-    r'(?:^|[^\w.@])@([a-z0-9-]*)$',
+    '(?:^|[^\\w.@])@($partialHandlePattern)\$',
     caseSensitive: false,
   );
 

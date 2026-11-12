@@ -28,4 +28,39 @@ void main() {
       expect(handleProblem('a' * (maxHandleLength + 1)), isNotNull);
     });
   });
+
+  group('partialHandlePattern', () {
+    final partial = RegExp('^$partialHandlePattern\$');
+
+    for (final typed in [
+      '',
+      'c',
+      'clau',
+      'claude-',
+      'claude-r',
+      'claude-research',
+      'llama3-',
+    ]) {
+      test('accepts "$typed"', () => expect(partial.hasMatch(typed), isTrue));
+    }
+
+    for (final typed in [
+      '-',
+      '--',
+      '-x',
+      'claude--',
+      'claude--r',
+      'Claude',
+      'claude_r',
+      'claude r',
+    ]) {
+      test('rejects "$typed"', () => expect(partial.hasMatch(typed), isFalse));
+    }
+
+    test('every whole handle is also a partial one', () {
+      for (final handle in ['claude-research', 'a', 'runner-llama3-1-8b']) {
+        expect(partial.hasMatch(handle), isTrue, reason: handle);
+      }
+    });
+  });
 }
