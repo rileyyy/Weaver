@@ -158,7 +158,8 @@ public class WorkItemContextToolsTests
     [Test]
     public async Task Attachments_AreMetadataOnly()
     {
-        var attachment = new WorkItemAttachmentView(Guid.NewGuid(), _item.Id, "quote.pdf", "application/pdf", 1234, DateTimeOffset.UnixEpoch);
+        var attachment = new WorkItemAttachmentView(
+            Guid.NewGuid(), _item.Id, "quote.pdf", "application/pdf", 1234, DateTimeOffset.UnixEpoch, HasThumbnail: false);
         _attachments.Setup(a => a.ListForWorkItemAsync(_item.Id, It.IsAny<CancellationToken>())).ReturnsAsync([attachment]);
 
         var context = await _tools.GetWorkItemContext(_item.Id, include: ["attachments"]);

@@ -6,6 +6,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Webp;
+using SixLabors.ImageSharp.PixelFormats;
 using Weaver.Api.Contracts;
 using Weaver.Domain;
 using Weaver.Infrastructure;
@@ -44,7 +47,7 @@ public class AttachmentTests
             Assert.That(uploaded.StatusCode, Is.EqualTo(HttpStatusCode.Created));
             Assert.That(uploaded.Headers.Location?.ToString(), Does.EndWith($"/api/work-items/{item.Id}/attachments"));
             Assert.That(attachment, Is.EqualTo(new AttachmentDto(
-                attachment.Id, item.Id, "report.pdf", "application/pdf", bytes.Length, attachment.CreatedAtUtc)));
+                attachment.Id, item.Id, "report.pdf", "application/pdf", bytes.Length, attachment.CreatedAtUtc, false)));
             Assert.That(listed, Is.EqualTo(new[] { attachment }));
             Assert.That(download.StatusCode, Is.EqualTo(HttpStatusCode.OK));
             Assert.That(await download.Content.ReadAsByteArrayAsync(), Is.EqualTo(bytes));
@@ -64,7 +67,76 @@ public class AttachmentTests
         var json = await (await UploadAsync(item.Id, "a.txt", "text/plain", "hi"u8.ToArray())).Content.ReadAsStringAsync();
 
         var properties = JsonSerializer.Deserialize<JsonElement>(json).EnumerateObject().Select(p => p.Name);
-        Assert.That(properties, Is.EquivalentTo(new[] { "id", "workItemId", "fileName", "contentType", "sizeBytes", "createdAtUtc" }));
+        Assert.That(properties, Is.EquivalentTo(new[]
+        {
+            "id", "workItemId", "fileName", "contentType", "sizeBytes", "createdAtUtc", "hasThumbnail",
+        }));
+    }
+
+    [Test]
+    public async Task AnUploadedImage_HasAThumbnail_ServedAsAnInlineWebpThatFitsTheMaximumEdge()
+    {
+        var item = await _client.CreateWorkItemAsync("Kitchen");
+
+        // Sent as octet-stream: the image is recognised by its content, not the declared type.
+        var attachment = await (await UploadAsync(item.Id, "photo.png", "application/octet-stream", Png(640, 480)))
+            .ReadAsync<AttachmentDto>();
+        var listed = await (await _client.GetAsync($"/api/work-items/{item.Id}/attachments")).ReadAsync<List<AttachmentDto>>();
+        var thumbnail = await _client.GetAsync($"/api/work-item-attachments/{attachment.Id}/thumbnail");
+        var bytes = await thumbnail.Content.ReadAsByteArrayAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(attachment.HasThumbnail, Is.True);
+            Assert.That(listed.Single().HasThumbnail, Is.True);
+            Assert.That(thumbnail.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(thumbnail.Content.Headers.ContentType?.MediaType, Is.EqualTo("image/webp"));
+            Assert.That(thumbnail.Content.Headers.ContentDisposition, Is.Null);
+            Assert.That(thumbnail.Headers.GetValues("X-Content-Type-Options"), Is.EqualTo(new[] { "nosniff" }));
+            // Directive by directive: the parsed header's ToString() reorders them.
+            Assert.That(thumbnail.Headers.CacheControl?.Private, Is.True);
+            Assert.That(thumbnail.Headers.CacheControl?.MaxAge, Is.EqualTo(TimeSpan.FromDays(365)));
+            Assert.That(thumbnail.Headers.CacheControl?.Extensions.Select(e => e.Name), Does.Contain("immutable"));
+            Assert.That(Image.DetectFormat(bytes), Is.EqualTo(WebpFormat.Instance));
+            Assert.That(Image.Identify(bytes).Size, Is.EqualTo(new Size(320, 240)));
+        });
+    }
+
+    [Test]
+    public async Task AFileThatIsntAnImage_HasNoThumbnail_AndAskingForOneIs404ProblemJson()
+    {
+        var item = await _client.CreateWorkItemAsync("Kitchen");
+
+        // Declared as an image, but the content decides.
+        var attachment = await (await UploadAsync(item.Id, "fake.png", "image/png", "not an image"u8.ToArray()))
+            .ReadAsync<AttachmentDto>();
+        var thumbnail = await _client.GetAsync($"/api/work-item-attachments/{attachment.Id}/thumbnail");
+        var unknown = await _client.GetAsync($"/api/work-item-attachments/{Guid.NewGuid()}/thumbnail");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(attachment.HasThumbnail, Is.False);
+            Assert.That(thumbnail.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+            Assert.That(thumbnail.Content.Headers.ContentType?.MediaType, Is.EqualTo("application/problem+json"));
+            Assert.That(unknown.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+            Assert.That(Directory.GetFiles(AttachmentsPath, attachment.Id + "*"), Has.Length.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Deleting_AnImage_RemovesItsThumbnailToo()
+    {
+        var item = await _client.CreateWorkItemAsync("Kitchen");
+        var attachment = await (await UploadAsync(item.Id, "photo.png", "image/png", Png(40, 30))).ReadAsync<AttachmentDto>();
+        var filesWhileAttached = Directory.GetFiles(AttachmentsPath, attachment.Id + "*").Length;
+
+        (await _client.DeleteAsync($"/api/work-item-attachments/{attachment.Id}")).EnsureSuccessStatusCode();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(filesWhileAttached, Is.EqualTo(2));
+            Assert.That(Directory.GetFiles(AttachmentsPath, attachment.Id + "*"), Is.Empty);
+        });
     }
 
     [Test]
@@ -189,7 +261,7 @@ public class AttachmentTests
         var item = await _client.CreateWorkItemAsync("Kitchen");
         var child = await _client.CreateWorkItemAsync("Tiles", item.Id);
         var attachment = await (await UploadAsync(item.Id, "a.txt", "text/plain", "x"u8.ToArray())).ReadAsync<AttachmentDto>();
-        var childAttachment = await (await UploadAsync(child.Id, "b.txt", "text/plain", "y"u8.ToArray())).ReadAsync<AttachmentDto>();
+        var childAttachment = await (await UploadAsync(child.Id, "b.png", "image/png", Png(40, 30))).ReadAsync<AttachmentDto>();
         (await _client.DeleteAsync($"/api/work-items/{item.Id}?cascade=true")).EnsureSuccessStatusCode();
 
         var purge = await _client.DeleteAsync($"/api/trash/{item.Id}");
@@ -203,7 +275,7 @@ public class AttachmentTests
         {
             Assert.That(purge.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
             Assert.That(File.Exists(Path.Combine(AttachmentsPath, attachment.Id.ToString())), Is.False);
-            Assert.That(File.Exists(Path.Combine(AttachmentsPath, childAttachment.Id.ToString())), Is.False);
+            Assert.That(Directory.GetFiles(AttachmentsPath, childAttachment.Id + "*"), Is.Empty, "The image or its thumbnail was left.");
             Assert.That(rowsLeft, Is.Zero);
         });
     }
@@ -242,6 +314,14 @@ public class AttachmentTests
             Assert.That(gotImage.IsError, Is.Not.True, () => TextOf(gotImage));
             Assert.That((ResourceOf(gotImage) as BlobResourceContents)?.DecodedData.ToArray(), Is.EqualTo(new byte[] { 0x89, 0x50, 0x4E, 0x47 }));
         });
+    }
+
+    private static byte[] Png(int width, int height)
+    {
+        using var image = new Image<Rgba32>(width, height, new Rgba32(30, 120, 200, 255));
+        using var stream = new MemoryStream();
+        image.SaveAsPng(stream);
+        return stream.ToArray();
     }
 
     private Task<HttpResponseMessage> UploadAsync(Guid workItemId, string fileName, string contentType, byte[] bytes) =>

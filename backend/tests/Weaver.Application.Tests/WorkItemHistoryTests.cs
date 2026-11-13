@@ -620,8 +620,13 @@ public class WorkItemHistoryTests
     private UserAdministrationService UserAdministration() =>
         new(_db, new AdminAuthorizer(_db), new CountingPasswordHasher(), _clock, _caller);
 
-    private WorkItemAttachmentService AttachmentService() =>
-        new(_db, _caller, new InMemoryAttachmentStore(), Options.Create(new AttachmentOptions()));
+    private WorkItemAttachmentService AttachmentService() => new(
+        _db,
+        _caller,
+        new InMemoryAttachmentStore(),
+        new FakeThumbnailGenerator(),
+        Options.Create(new AttachmentOptions()),
+        NullLogger<WorkItemAttachmentService>.Instance);
 
     private WorkItemRecurrenceService RecurrenceService() => new(
         _db,

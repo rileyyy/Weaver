@@ -143,7 +143,7 @@ public class WorkItemAttachmentToolsTests
             .ReturnsAsync(new AttachmentContent(view, new MemoryStream(bytes)));
 
     private static WorkItemAttachmentView View(string fileName, string contentType, long size) =>
-        new(Guid.NewGuid(), Guid.NewGuid(), fileName, contentType, size, DateTimeOffset.UnixEpoch);
+        new(Guid.NewGuid(), Guid.NewGuid(), fileName, contentType, size, DateTimeOffset.UnixEpoch, HasThumbnail: false);
 
     private static JsonElement MetadataOf(CallToolResult result) =>
         JsonSerializer.Deserialize<JsonElement>(((TextContentBlock)result.Content[0]).Text);

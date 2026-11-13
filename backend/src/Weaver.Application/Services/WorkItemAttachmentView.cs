@@ -6,4 +6,5 @@ public record WorkItemAttachmentView(
     string FileName,
     string ContentType,
     long SizeBytes,
-    DateTimeOffset CreatedAtUtc);
+    DateTimeOffset CreatedAtUtc,
+    bool HasThumbnail);

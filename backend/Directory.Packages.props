@@ -27,7 +27,32 @@
     <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="$(IdentityModelVersion)" />
     <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+    <!--
+      Pure managed, so it runs on the Alpine runtime image without native libraries.
+      Six Labors Split License: Apache 2.0 terms apply to open-source use like this repo's.
+      Held at 3.1: 3.2 and 4.x fail Release builds (CI and the Docker image) without a
+      Six Labors license key. See the advisories below before upgrading.
+    -->
+    <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="$(IdentityModelVersion)" />
+  </ItemGroup>
+
+  <!--
+    ImageSharp 3.1.12's advisories, each fixed only in 3.2.0 / 4.1.2, and none reachable from
+    how Weaver uses it (ImageSharpThumbnailGenerator). Remove these when upgrading, and revisit
+    them if that class decodes another format or uses another processor.
+  -->
+  <ItemGroup Label="Audited ImageSharp advisories">
+    <!-- TIFF decoder: tiled fax heap overflow, and a BigTIFF loop. TIFF isn't decoded. -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-v76p-62qx-wwq2" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-wmxv-xphr-5c9g" />
+    <!-- TIFF CCITT T4 and T6 encoders. Only WebP is encoded. -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-j9gm-c75j-xc9q" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-jjfr-hcj7-qf5w" />
+    <!-- HistogramEqualization processor. Only AutoOrient and Resize are used. -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-j3p4-wp97-rph4" />
+    <!-- ICC CLUT parsing. Profiles are parsed lazily, and the ICC profile is dropped unread. -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-gwg2-r3hj-4w44" />
   </ItemGroup>
 
   <ItemGroup Label="Testing">

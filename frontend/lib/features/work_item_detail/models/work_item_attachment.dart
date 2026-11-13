@@ -10,6 +10,7 @@ class WorkItemAttachment {
     required this.contentType,
     required this.sizeBytes,
     required this.createdAt,
+    this.hasThumbnail = false,
   });
 
   factory WorkItemAttachment.fromJson(Map<String, dynamic> json) =>
@@ -20,6 +21,7 @@ class WorkItemAttachment {
         contentType: json['contentType'] as String,
         sizeBytes: json['sizeBytes'] as int,
         createdAt: parseApiTimestamp(json['createdAtUtc'] as String),
+        hasThumbnail: json['hasThumbnail'] as bool? ?? false,
       );
 
   final String id;
@@ -28,6 +30,10 @@ class WorkItemAttachment {
   final String contentType;
   final int sizeBytes;
   final DateTime createdAt;
+
+  /// Whether the server made a small preview of this file, which it does
+  /// only for the images it can decode.
+  final bool hasThumbnail;
 
   static const List<String> _sizeUnits = ['B', 'KB', 'MB', 'GB'];
 

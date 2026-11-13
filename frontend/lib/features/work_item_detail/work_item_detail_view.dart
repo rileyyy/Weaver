@@ -536,10 +536,14 @@ class _WorkItemDetailViewState extends State<WorkItemDetailView>
           loadError: _attachments.loadError,
           isUploading: _attachments.isUploading,
           error: _attachments.error,
+          canTakePhoto: _attachments.canTakePhoto,
           onUpload: () => unawaited(_attachments.upload()),
+          onTakePhoto: () => unawaited(_attachments.takePhoto()),
           onDownload: (attachment) =>
               unawaited(_attachments.download(attachment)),
           onDelete: (attachment) => unawaited(_attachments.delete(attachment)),
+          thumbnailOf: _attachments.thumbnail,
+          imageOf: _attachments.imageContent,
         ),
       ],
     );

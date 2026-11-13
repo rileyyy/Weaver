@@ -24,6 +24,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Weaver uses the camera so you can take a photo and attach it to a work item.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Weaver reads your photos only when you choose one to attach to a work item.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
